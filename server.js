@@ -269,7 +269,6 @@ wss.on('connection', (ws) => {
 });
 setInterval(() => tenants.forEach((t) => t.simulate && t.tick()), 6000);
 
-bootstrap().catch((e) => { console.error('
-  STARTUP FAILED: ' + e.message); process.exit(1); }).then(() => server.listen(PORT, () => {
+bootstrap().then(() => server.listen(PORT, () => {
   console.log(`\n  Digital Menu Platform on port ${PORT}\n   Landing     http://localhost:${PORT}\n   Super admin http://localhost:${PORT}/super\n   Demo place  http://localhost:${PORT}/r/demo/admin  (demo@demo.com / demo123, captain PIN 1234)\n   LAN         http://${lanIP()}:${PORT}\n`);
-}));
+})).catch((e) => { console.error('\n  STARTUP FAILED: ' + e.message); process.exit(1); });
