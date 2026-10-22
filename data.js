@@ -4,14 +4,9 @@ const pick = (a) => a[rnd(0, a.length - 1)];
 
 const settings = {
   name: 'Elmenu Café', name_ar: 'كافيه المنيو',
-  theme: 'dark', mode: 'dark', lang: 'en',
+  theme: 'bloom', lang: 'en', tagline: 'Brew Happy, Live Bold', tagline_ar: 'اشرب بسعادة، عش بجرأة', tagline_sub: 'Good food. Great people. Better every day.', tagline_sub_ar: 'طعام لذيذ. أجواء رائعة. وأفضل كل يوم.',
   tax: 14, service: 12, currency: 'EGP',
-  palette: { accent: '#e8a64a', accent2: '#ff5d8f', bg: '#14110f', card: '#1f1b18', text: '#f4ede4' },
-  presets: {
-    dark: { accent: '#e8a64a', accent2: '#ff5d8f', bg: '#14110f', card: '#1f1b18', text: '#f4ede4' },
-    pink: { accent: '#ff5d9e', accent2: '#b34bff', bg: '#fff0f6', card: '#ffffff', text: '#3a1428' },
-    white: { accent: '#111111', accent2: '#6b7280', bg: '#fafafa', card: '#ffffff', text: '#111111' },
-  },
+  palette: { accent: '#1f4a35', accent2: '#b98a3e', bg: '#f2ebe0', card: '#fbf8f2', text: '#2a2b25' },
 };
 
 const categories = [

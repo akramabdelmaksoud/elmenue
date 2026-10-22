@@ -156,6 +156,7 @@ function handle(c, m) {
     const s = t && db.sessions[t.id];
     if (!s) return;
     switch (m.t) {
+      case 'profile': { const g = s.guests.find((x) => x.id === c.guestId); if (g) { g.name = String(m.name || g.name).slice(0, 20); g.avatar = String(m.avatar || g.avatar).slice(0, 8); } break; }
       case 'cart_add': {
         const it = db.items.find((x) => x.id === m.itemId); if (!it) break;
         const ex = s.cart.find((l) => l.itemId === it.id && l.guestId === c.guestId && !l.note);

@@ -26,6 +26,15 @@ const DICT = {
   },
 };
 
+Object.assign(DICT.en, {
+  home: 'Home', order: 'Order', tableTab: 'Table', profile: 'Profile', dayItem: 'Dish of the day', viewDetails: 'Add to table', quickAct: 'Quick actions', popular: 'Popular picks', atTable: 'At your table', featured: 'Featured', orderNow: 'Order now', seeAll: 'See all', search: 'Search the menu…',
+  menuTitle: 'Our menu', menuSub: 'Fresh, made to order. Share the table, split the bill.', hello: 'Hello', changeName: 'Change name', leave: 'Edit profile', theme: 'Appearance', language: 'Language', light: 'Light', dark: 'Dark', save: 'Save', tableFor: 'Table', callQ: 'Call waiter', billQ: 'Request check', statusReceived: 'Received', statusKitchen: 'Preparing', statusServed: 'Served', nothingFound: 'Nothing found', tagline: 'Brew Happy, Live Bold', taglineSub: 'Good food. Great people. Better every day.', guests: 'guests', yourOrder: 'Your picks', cartEmpty: 'Your cart is empty - pick something tasty!', tapToAdd: 'Tap + to add to the table', sendFor: 'Send my picks',
+});
+Object.assign(DICT.ar, {
+  home: 'الرئيسية', order: 'اطلب', tableTab: 'الطاولة', profile: 'حسابي', dayItem: 'طبق اليوم', viewDetails: 'أضف للطاولة', quickAct: 'إجراءات سريعة', popular: 'الأكثر طلبًا', atTable: 'على طاولتك', featured: 'مميز', orderNow: 'اطلب الآن', seeAll: 'عرض الكل', search: 'ابحث في القائمة…',
+  menuTitle: 'قائمتنا', menuSub: 'طازج ويُحضَّر عند الطلب. شاركوا الطاولة وقسّموا الحساب.', hello: 'مرحبًا', changeName: 'تغيير الاسم', leave: 'عدّل حسابك', theme: 'المظهر', language: 'اللغة', light: 'فاتح', dark: 'داكن', save: 'حفظ', tableFor: 'طاولة', callQ: 'نداء الكابتن', billQ: 'اطلب الحساب', statusReceived: 'تم الاستلام', statusKitchen: 'قيد التحضير', statusServed: 'تم التقديم', nothingFound: 'لا توجد نتائج', tagline: 'اشرب بسعادة، عش بجرأة', taglineSub: 'طعام لذيذ. أجواء رائعة. وأفضل كل يوم.', guests: 'ضيوف', yourOrder: 'اختياراتك', cartEmpty: 'سلتك فارغة - اختر شيئًا لذيذًا!', tapToAdd: 'اضغط + للإضافة إلى الطاولة', sendFor: 'أرسل اختياراتي',
+});
+
 const App = {
   slug: (location.pathname.match(/^\/r\/([^/]+)/) || [])[1] || null, authRole: null,
   config: null, ws: null, lang: null, mode: null, handlers: {},
@@ -36,29 +45,49 @@ const App = {
   ago(ts) { const m = Math.max(0, Math.round((Date.now() - ts) / 60000)); return m < 1 ? 'now' : m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; },
   ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch { return null; } },
 
+  PRESETS: {
+    bloom: { light: { bg: '#f2ebe0', card: '#fbf8f2', text: '#2a2b25', accent: '#1f4a35', accent2: '#b98a3e' }, dark: { bg: '#0f1813', card: '#17251d', text: '#f0e9db', accent: '#4f9a6e', accent2: '#e0bb73' } },
+    espresso: { light: { bg: '#f4ece4', card: '#fffaf5', text: '#2b1d14', accent: '#6b3f23', accent2: '#d08a3c' }, dark: { bg: '#14110f', card: '#1f1b18', text: '#f4ede4', accent: '#e8a64a', accent2: '#ff7b54' } },
+    pink: { light: { bg: '#fff0f6', card: '#ffffff', text: '#3a1428', accent: '#e0357f', accent2: '#8e4bff' }, dark: { bg: '#1a0f16', card: '#26151f', text: '#fbe9f1', accent: '#ff5d9e', accent2: '#b98aff' } },
+    white: { light: { bg: '#fafafa', card: '#ffffff', text: '#111111', accent: '#111111', accent2: '#6b7280' }, dark: { bg: '#0c0c0d', card: '#161618', text: '#f5f5f5', accent: '#f5f5f5', accent2: '#9ca3af' } },
+  },
+  isDark() { return document.documentElement.dataset.dark === '1'; },
   applyTheme() {
-    const s = (App.config && App.config.settings) || { theme: 'dark', lang: 'en', presets: { dark: { accent: '#e8a64a', accent2: '#ff5d8f', bg: '#14110f', card: '#1f1b18', text: '#f4ede4' } } };
+    const s = (App.config && App.config.settings) || { theme: 'bloom', lang: 'en' };
     App.lang = App.ls('lang') || s.lang || 'en';
-    const mode = App.ls('mode') || 'auto';
-    const base = s.theme === 'custom' ? s.palette : (s.presets[s.theme] || s.presets.dark);
-    let p = { ...base };
-    if (mode === 'dark') p = { ...p, bg: '#14110f', card: '#1f1b18', text: '#f4ede4' };
-    if (mode === 'light') p = { ...p, bg: '#f7f3ee', card: '#ffffff', text: '#1c1612' };
+    let mode = App.ls('mode');
+    if (mode !== 'light' && mode !== 'dark') mode = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    const name = s.theme === 'dark' ? 'espresso' : s.theme;
     const lum = (h) => { const n = parseInt(h.slice(1), 16); return ((n >> 16) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114) / 255; };
-    const dark = lum(p.bg) < 0.5;
-    const r = document.documentElement;
-    const set = (k, v) => r.style.setProperty(k, v);
+    let p;
+    if (name === 'custom' && s.palette) {
+      const b = App.PRESETS.bloom[mode], c = s.palette;
+      p = (mode === 'dark') === (lum(c.bg) < 0.5) ? { ...c } : { ...b, accent: c.accent, accent2: c.accent2 };
+    } else p = { ...(App.PRESETS[name] || App.PRESETS.bloom)[mode] };
+    const dark = mode === 'dark';
+    const r = document.documentElement, set = (k, v) => r.style.setProperty(k, v);
     set('--accent', p.accent); set('--accent2', p.accent2); set('--bg', p.bg); set('--card', p.card); set('--text', p.text);
-    set('--muted', dark ? 'rgba(255,255,255,.55)' : 'rgba(0,0,0,.5)');
-    set('--line', dark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)');
-    set('--card2', dark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.04)');
+    set('--muted', dark ? 'rgba(255,255,255,.58)' : 'rgba(0,0,0,.52)');
+    set('--line', dark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.09)');
+    set('--card2', dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.045)');
     set('--on-accent', lum(p.accent) > 0.6 ? '#111' : '#fff');
+    set('--shadow', dark ? '0 14px 40px -14px rgba(0,0,0,.7)' : '0 14px 40px -16px rgba(60,45,20,.35)');
     r.dataset.dark = dark ? '1' : '0';
     r.lang = App.lang; r.dir = App.lang === 'ar' ? 'rtl' : 'ltr';
     document.querySelectorAll('[data-i]').forEach((el) => (el.textContent = App.tr(el.dataset.i)));
   },
-  toggleMode() { App.ls('mode', document.documentElement.dataset.dark === '1' ? 'light' : 'dark'); App.applyTheme(); App.handlers.render && App.handlers.render(); },
-  toggleLang() { App.ls('lang', App.lang === 'ar' ? 'en' : 'ar'); App.applyTheme(); App.handlers.render && App.handlers.render(); },
+  // Theme / language switches use a circular reveal (View Transitions API) when available
+  transition(apply, ev) {
+    ev = ev || window.event;
+    const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!document.startViewTransition || reduced) return apply();
+    const x = ev && ev.clientX != null ? ev.clientX : innerWidth / 2, y = ev && ev.clientY != null ? ev.clientY : 0;
+    const rad = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    const t = document.startViewTransition(apply);
+    t.ready.then(() => document.documentElement.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${rad}px at ${x}px ${y}px)`] }, { duration: 700, easing: 'cubic-bezier(.2,.8,.2,1)', pseudoElement: '::view-transition-new(root)' })).catch(() => {});
+  },
+  toggleMode(ev) { App.transition(() => { App.ls('mode', App.isDark() ? 'light' : 'dark'); App.applyTheme(); App.handlers.render && App.handlers.render(); }, ev); },
+  toggleLang(ev) { App.transition(() => { App.ls('lang', App.lang === 'ar' ? 'en' : 'ar'); App.applyTheme(); App.handlers.render && App.handlers.render(); }, ev); },
 
   tok(role) { return App.ls(`tok:${App.slug || '_'}:${role || App.authRole}`); },
   logout() { App.ls(`tok:${App.slug || '_'}:${App.authRole}`, ''); location.reload(); },

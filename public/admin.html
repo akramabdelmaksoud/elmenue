@@ -57,11 +57,11 @@ function menu() {
    <hr style="border-color:var(--line);margin:16px 0"><h3>Bulk upload</h3><p class="muted" style="font-size:13px">Excel/CSV columns: category, category_ar, name, name_ar, price, cost, emoji, description</p>
    <input type="file" id="imp" accept=".xlsx,.xls,.csv"><div class="row" style="margin-top:8px"><button class="primary" onclick="importFile()">Upload</button><a href="/api/r/${App.slug}/menu/template.xlsx" style="color:var(--accent)">⬇ Template</a></div></div>
   <div class="card" style="overflow:auto"><div class="spread"><h3>Items in “${App.esc(C.find(c => c.id === actCat)?.name || '')}”</h3><button class="primary" onclick="api('POST','/api/items',{cat:'${actCat}'})">+ Item</button></div>
-  <table><tr><th></th><th>Name</th><th>الاسم</th><th>Price</th><th>Cost</th><th>Emoji</th><th>Description</th><th></th></tr>
+  <table><tr><th></th><th>Name</th><th>الاسم</th><th>Price</th><th>Cost</th><th>Emoji</th><th title="First starred = Dish of the day, second = featured card">★</th><th>Description</th><th></th></tr>
   ${its.map(i => `<tr><td><div class="thumb" style="${i.img ? `background-image:url(${i.img})` : ''}" title="Upload image" onclick="pick('${i.id}')">${i.img ? '' : i.emoji}</div></td>
    <td><input value="${App.esc(i.name)}" onchange="upd('items','${i.id}',{name:this.value})"></td><td><input dir="rtl" value="${App.esc(i.name_ar)}" onchange="upd('items','${i.id}',{name_ar:this.value})"></td>
    <td><input type="number" style="width:80px" value="${i.price}" onchange="upd('items','${i.id}',{price:this.value})"></td><td><input type="number" style="width:70px" value="${i.cost}" onchange="upd('items','${i.id}',{cost:this.value})"></td>
-   <td><input style="width:56px" value="${App.esc(i.emoji)}" onchange="upd('items','${i.id}',{emoji:this.value})"></td><td><input value="${App.esc(i.desc)}" onchange="upd('items','${i.id}',{desc:this.value})"></td>
+   <td><input style="width:56px" value="${App.esc(i.emoji)}" onchange="upd('items','${i.id}',{emoji:this.value})"></td><td><input type="checkbox" style="width:auto" ${i.featured ? 'checked' : ''} onchange="upd('items','${i.id}',{featured:this.checked})"></td><td><input value="${App.esc(i.desc)}" onchange="upd('items','${i.id}',{desc:this.value})"></td>
    <td><select style="width:90px" onchange="upd('items','${i.id}',{cat:this.value})">${C.map(c => `<option value="${c.id}" ${c.id === i.cat ? 'selected' : ''}>${c.emoji}</option>`).join('')}</select> <button class="ghost" onclick="api('DELETE','/api/items/${i.id}')">🗑</button></td></tr>`).join('')}</table></div></div>
   <input type="file" id="imgin" accept="image/*" hidden>`;
   Sortable.create($('#cats'), { handle: '.h', animation: 180, onEnd: () => api('PUT', '/api/categories/order', { ids: [...document.querySelectorAll('#cats .cat')].map(e => e.dataset.id) }) });
@@ -81,12 +81,14 @@ function theme() {
   const sw = (k, label) => `<label style="text-align:center;font-size:12px" class="muted"><input class="sw" type="color" value="${p[k]}" onchange="setPal('${k}',this.value)"><br>${label}</label>`;
   $('#main').innerHTML = `<h1>🎨 Theme & settings</h1><div class="row2">
   <div class="card"><h3>Theme (applies live to every screen)</h3><div class="row wrap">
-   ${[['dark', '🌙 Dark café'], ['pink', '🌸 Modern pink'], ['white', '⬜ Minimalist white'], ['custom', '🎨 Custom']].map(([k, l]) => `<button class="${s.theme === k ? 'sel' : ''}" onclick="api('POST','/api/settings',{theme:'${k}'})">${l}</button>`).join('')}</div>
+   ${[['bloom', '🌿 Bean & Bloom'], ['espresso', '☕ Espresso'], ['pink', '🌸 Modern pink'], ['white', '⬜ Minimal white'], ['custom', '🎨 Custom']].map(([k, l]) => `<button class="${s.theme === k ? 'sel' : ''}" onclick="api('POST','/api/settings',{theme:'${k}'})">${l}</button>`).join('')}</div>
    <p class="muted">Custom palette</p><div class="row wrap">${sw('accent', 'Accent')}${sw('accent2', 'Accent 2')}${sw('bg', 'Background')}${sw('card', 'Cards')}${sw('text', 'Text')}</div>
    <p class="muted">Default language</p><div class="row"><button class="${s.lang === 'en' ? 'sel' : ''}" onclick="api('POST','/api/settings',{lang:'en'});App.ls('lang','en')">English (LTR)</button><button class="${s.lang === 'ar' ? 'sel' : ''}" onclick="api('POST','/api/settings',{lang:'ar'});App.ls('lang','ar')">العربية (RTL)</button></div>
    <p class="muted" style="font-size:12px">Guests and staff can also toggle light/dark and language on their own device.</p></div>
   <div class="card"><h3>Business</h3>
    <label class="muted">Name (EN)</label><input value="${App.esc(s.name)}" onchange="api('POST','/api/settings',{name:this.value})">
+   <label class="muted">Home tagline (EN)</label><input value="${App.esc(s.tagline || '')}" placeholder="Brew Happy, Live Bold" onchange="api('POST','/api/settings',{tagline:this.value})">
+   <label class="muted">شعار الصفحة الرئيسية (AR)</label><input dir="rtl" value="${App.esc(s.tagline_ar || '')}" onchange="api('POST','/api/settings',{tagline_ar:this.value})">
    <label class="muted">الاسم (AR)</label><input dir="rtl" value="${App.esc(s.name_ar)}" onchange="api('POST','/api/settings',{name_ar:this.value})">
    <div class="grid" style="margin-top:8px"><div><label class="muted">Tax %</label><input type="number" value="${s.tax}" onchange="api('POST','/api/settings',{tax:+this.value})"></div><div><label class="muted">Service %</label><input type="number" value="${s.service}" onchange="api('POST','/api/settings',{service:+this.value})"></div><div><label class="muted">Currency</label><input value="${App.esc(s.currency)}" onchange="api('POST','/api/settings',{currency:this.value})"></div></div></div></div>`;
   accountCard();
