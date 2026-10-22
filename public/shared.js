@@ -114,20 +114,47 @@ const App = {
   connect(joinMsg, handlers) {
     App.handlers = handlers;
     joinMsg = { ...joinMsg, slug: App.slug }; if (joinMsg.role !== 'customer') joinMsg.token = App.tok(joinMsg.role);
+    const onMsg = (m) => {
+      if (m.t === 'state') { App.state = m; App.config = m.config; App.applyTheme(); handlers.render && handlers.render(m); }
+      else if (m.t === 'error' && m.msg === 'auth') { App.ls(`tok:${App.slug}:${App.authRole}`, ''); location.reload(); }
+      else if (handlers[m.t]) handlers[m.t](m);
+    };
+    // Prefer websockets; if the host cannot do them (e.g. Vercel) fall back to polling automatically.
+    let everOpened = false, fellBack = false;
+    const fallback = () => { if (fellBack) return; fellBack = true; App.startPolling(joinMsg, handlers, onMsg); };
     const open = () => {
-      const ws = (App.ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'));
-      ws.onopen = () => { ws.send(JSON.stringify(joinMsg)); document.body.classList.remove('offline'); };
-      ws.onclose = () => { document.body.classList.add('offline'); setTimeout(open, 1500); };
-      ws.onmessage = (e) => {
-        const m = JSON.parse(e.data);
-        if (m.t === 'state') { App.state = m; App.config = m.config; App.applyTheme(); handlers.render && handlers.render(m); }
-        else if (m.t === 'error' && m.msg === 'auth') { App.ls(`tok:${App.slug}:${App.authRole}`, ''); location.reload(); }
-        else if (handlers[m.t]) handlers[m.t](m);
-      };
+      if (fellBack) return;
+      let ws, guard;
+      try { ws = App.ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'); } catch { return fallback(); }
+      guard = setTimeout(() => { if (!everOpened) { try { ws.close(); } catch {} fallback(); } }, 4000);
+      ws.onopen = () => { everOpened = true; clearTimeout(guard); ws.send(JSON.stringify(joinMsg)); document.body.classList.remove('offline'); };
+      ws.onclose = () => { clearTimeout(guard); if (!everOpened) return fallback(); document.body.classList.add('offline'); setTimeout(open, 1500); };
+      ws.onmessage = (e) => onMsg(JSON.parse(e.data));
     };
     open();
   },
-  send(o) { App.ws && App.ws.readyState === 1 && App.ws.send(JSON.stringify(o)); },
+  send(o) { if (App.poll) return App.poll.call(o); App.ws && App.ws.readyState === 1 && App.ws.send(JSON.stringify(o)); },
+  startPolling(joinMsg, handlers, onMsg) {
+    const P = (App.poll = { since: -1, chain: Promise.resolve(), timer: null });
+    document.body.classList.remove('offline');
+    const every = joinMsg.role === 'captain' ? 2000 : joinMsg.role === 'admin' ? 5000 : 2500;
+    P.call = (msg) => (P.chain = P.chain.then(async () => {   // serialised so actions keep their order
+      try {
+        const r = await fetch(`/api/r/${App.slug}/rpc`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ join: joinMsg, msg, since: P.since }) });
+        if (r.status === 401) return onMsg({ t: 'error', msg: 'auth' });
+        const j = await r.json();
+        if (!r.ok) { if (r.status === 404 || r.status === 403) onMsg({ t: 'error', msg: j.error }); else document.body.classList.add('offline'); return; }
+        document.body.classList.remove('offline');
+        if (j.guestId && joinMsg.guestId !== j.guestId) { joinMsg.guestId = j.guestId; onMsg({ t: 'you', guestId: j.guestId }); }
+        if (P.since >= 0) j.alerts.forEach((a) => onMsg({ t: 'alert', ...a }));
+        P.since = j.alertSeq;
+        onMsg(j.state);
+      } catch { document.body.classList.add('offline'); }
+    }));
+    const tick = () => { clearTimeout(P.timer); if (!document.hidden) P.call(null); P.timer = setTimeout(tick, every); };
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+    tick();
+  },
   toast(msg) {
     let t = document.getElementById('toast');
     if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
@@ -135,14 +162,17 @@ const App = {
   },
 };
 
-// Route relative /api/... calls to this restaurant and attach the auth token
+// Route relative /api/... calls to this restaurant, attach the auth token, and retry write conflicts (409)
 (() => {
   const f = window.fetch.bind(window);
-  window.fetch = (u, o = {}) => {
-    if (typeof u === 'string' && u.startsWith('/api/')) {
+  window.fetch = async (u, o = {}) => {
+    const api = typeof u === 'string' && u.startsWith('/api/');
+    if (api) {
       if (App.slug && !/^\/api\/(r|super|public)\//.test(u)) u = '/api/r/' + App.slug + u.slice(4);
       const tk = App.tok(); if (tk) o = { ...o, headers: { ...(o.headers || {}), Authorization: 'Bearer ' + tk } };
     }
-    return f(u, o);
+    let r = await f(u, o);
+    for (let i = 0; api && i < 3 && r.status === 409 && (o.method || 'GET') !== 'GET'; i++) { await new Promise((x) => setTimeout(x, 150 + Math.random() * 300)); r = await f(u, o); }
+    return r;
   };
 })();

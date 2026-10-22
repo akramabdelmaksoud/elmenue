@@ -9,7 +9,7 @@ function freshData(demo) {
 function createTenant(rec, persist) {
   const db = rec.data;
   let simulate = false;
-  let uid = Date.now() + Math.floor(Math.random() * 1000);
+  let uid = Date.now() * 1000 + Math.floor(Math.random() * 1000000);
   const id = (p) => p + (uid++).toString(36);
   const save = () => persist(rec);
   const touch = () => (rec.lastActive = Date.now());
@@ -127,7 +127,12 @@ function broadcast() {
   clients.forEach((c) => c.ws.readyState === 1 && c.ws.send(JSON.stringify(snapshotFor(c))));
 }
 function alertCaptains(kind, tableNumber, text) {
-  const m = JSON.stringify({ t: 'alert', kind, tableNumber, text, at: Date.now() });
+  // kept on the record so polling clients (serverless mode) can pick them up; also pushed over websockets
+  const now = Date.now();
+  rec.alerts = (rec.alerts || []).filter((a) => now - a.at < 120000).slice(-30);
+  rec.alertSeq = (rec.alertSeq || 0) + 1;
+  rec.alerts.push({ id: rec.alertSeq, kind, tableNumber, text, at: now });
+  const m = JSON.stringify({ t: 'alert', kind, tableNumber, text, at: now });
   clients.forEach((c) => c.role === 'captain' && c.ws.readyState === 1 && c.ws.send(m));
 }
 

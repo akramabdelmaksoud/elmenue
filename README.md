@@ -17,6 +17,16 @@ Docker: `docker build -t qrmenu . && docker run -p 3000:3000 -v qrdata:/app/data
 ### B) Many restaurants on one server (SaaS)
 Leave `SINGLE_RESTAURANT` unset. `/super` is the platform owner console; each restaurant lives at `/r/<slug>/…`.
 
+### C) Vercel (serverless, no websockets)
+Phones poll every ~2.5s instead of using websockets; all state lives in Supabase. The frontend picks polling automatically
+when websockets are unavailable. In Vercel set: `SINGLE_RESTAURANT=1`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SECRET` (long random),
+`OWNER_EMAIL`, `OWNER_PASSWORD`, `RESTAURANT_NAME` (optional `SETUP_KEY`, `DEMO_DATA=1`).
+Run this once in Supabase's SQL editor:
+
+    create table if not exists public.tenants (id text primary key, doc jsonb not null, ver bigint not null default 0, updated_at timestamptz default now());
+    alter table public.tenants add column if not exists ver bigint not null default 0;
+    alter table public.tenants enable row level security;
+
 ## Storage
 - Default: JSON files in `DATA_DIR` (default `./data`) — mount it as a persistent disk/volume.
 - Supabase: set `SUPABASE_URL` + `SUPABASE_SECRET_KEY` (run the SQL printed at startup once).

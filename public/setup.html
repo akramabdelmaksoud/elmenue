@@ -8,6 +8,7 @@ form{width:min(440px,100%);animation:pop .4s}h1{margin:0 0 4px;background:linear
 <label class="muted">Owner email (your admin login)</label><input name="email" type="email" required autocomplete="username">
 <label class="muted">Admin password (6+ characters)</label><input name="password" type="password" required minlength="6" autocomplete="new-password">
 <label class="muted">Currency</label><input name="currency" value="EGP" maxlength="6">
+<label class="muted">Setup key (only if your host set one)</label><input name="setupKey" autocomplete="off" placeholder="optional">
 <label class="row" style="margin:14px 0"><input type="checkbox" name="demo" style="width:auto" checked> Start with sample tables and orders (good for a first look)</label>
 <p id="err" style="color:var(--bad);min-height:20px;margin:0 0 8px"></p><button class="primary" style="width:100%;padding:14px">Create my restaurant</button></form>
 <script src="/shared.js"></script>
