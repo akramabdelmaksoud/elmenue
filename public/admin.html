@@ -22,7 +22,7 @@ table { width:100%; border-collapse:collapse; } td, th { padding:6px; text-align
 <body><div class="shell"><aside>
 <h2>⚙️ Admin</h2>
 <button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button>
-<span style="flex:1"></span><button onclick="App.toggleLang()">🌐 EN / عربي</button><button onclick="App.toggleMode()">◐ Light / Dark</button><a href="/" style="padding:10px;color:var(--accent)">← Home</a></aside>
+<span style="flex:1"></span><button onclick="App.toggleLang()">🌐 EN / عربي</button><button onclick="App.toggleMode()">◐ Light / Dark</button><button onclick="App.logout()">⏻ Sign out</button></aside>
 <main id="main"></main></div>
 <script src="/vendor/sortable.js"></script><script src="/vendor/chart.js"></script><script src="/shared.js"></script>
 <script>
@@ -30,7 +30,7 @@ let tab = App.ls('admintab') || 'analytics', cfgKey = '', actCat = null, days = 
 const api = (m, u, b) => fetch(u, { method: m, headers: { 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined }).then(r => r.json());
 const $ = (s) => document.querySelector(s);
 document.querySelectorAll('aside [data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; App.ls('admintab', tab); cfgKey = ''; render(App.state, true); });
-App.connect({ t: 'join', role: 'admin' }, { render(m) { render(m); } });
+App.gate('admin', () => App.connect({ t: 'join', role: 'admin' }, { render(m) { render(m); } }));
 function render(m, force) {
   if (!App.config) return;
   document.querySelectorAll('aside [data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
@@ -55,7 +55,7 @@ function menu() {
    <button class="ghost" onclick="actCat='${c.id}';cfgKey='';render(App.state,true)">▶</button><button class="ghost" onclick="if(confirm('Delete category and its items?'))api('DELETE','/api/categories/${c.id}')">🗑</button></div>`).join('')}</div>
    <button class="primary" onclick="api('POST','/api/categories',{name:'New category'})">+ Category</button>
    <hr style="border-color:var(--line);margin:16px 0"><h3>Bulk upload</h3><p class="muted" style="font-size:13px">Excel/CSV columns: category, category_ar, name, name_ar, price, cost, emoji, description</p>
-   <input type="file" id="imp" accept=".xlsx,.xls,.csv"><div class="row" style="margin-top:8px"><button class="primary" onclick="importFile()">Upload</button><a href="/api/menu/template.xlsx" style="color:var(--accent)">⬇ Template</a></div></div>
+   <input type="file" id="imp" accept=".xlsx,.xls,.csv"><div class="row" style="margin-top:8px"><button class="primary" onclick="importFile()">Upload</button><a href="/api/r/${App.slug}/menu/template.xlsx" style="color:var(--accent)">⬇ Template</a></div></div>
   <div class="card" style="overflow:auto"><div class="spread"><h3>Items in “${App.esc(C.find(c => c.id === actCat)?.name || '')}”</h3><button class="primary" onclick="api('POST','/api/items',{cat:'${actCat}'})">+ Item</button></div>
   <table><tr><th></th><th>Name</th><th>الاسم</th><th>Price</th><th>Cost</th><th>Emoji</th><th>Description</th><th></th></tr>
   ${its.map(i => `<tr><td><div class="thumb" style="${i.img ? `background-image:url(${i.img})` : ''}" title="Upload image" onclick="pick('${i.id}')">${i.img ? '' : i.emoji}</div></td>
@@ -89,7 +89,17 @@ function theme() {
    <label class="muted">Name (EN)</label><input value="${App.esc(s.name)}" onchange="api('POST','/api/settings',{name:this.value})">
    <label class="muted">الاسم (AR)</label><input dir="rtl" value="${App.esc(s.name_ar)}" onchange="api('POST','/api/settings',{name_ar:this.value})">
    <div class="grid" style="margin-top:8px"><div><label class="muted">Tax %</label><input type="number" value="${s.tax}" onchange="api('POST','/api/settings',{tax:+this.value})"></div><div><label class="muted">Service %</label><input type="number" value="${s.service}" onchange="api('POST','/api/settings',{service:+this.value})"></div><div><label class="muted">Currency</label><input value="${App.esc(s.currency)}" onchange="api('POST','/api/settings',{currency:this.value})"></div></div></div></div>`;
+  accountCard();
 }
+async function accountCard() {
+  const a = await api('GET', '/api/account');
+  const el = document.createElement('div'); el.className = 'card'; el.style.marginTop = '14px';
+  el.innerHTML = `<h3>👥 Staff & account</h3><p class="muted">Signed in as ${App.esc(a.email)} · plan: ${App.esc(a.plan)}</p>
+  <label class="muted">Captain PIN (staff sign in at /r/${App.slug}/captain)</label><div class="row"><input id="pin" value="${App.esc(a.pin)}" inputmode="numeric" style="max-width:160px"><button class="primary" onclick="saveAcc({pin:$('#pin').value})">Save PIN</button></div>
+  <label class="muted">New admin password</label><div class="row"><input id="pw" type="password" placeholder="min 6 characters"><button class="primary" onclick="saveAcc({password:$('#pw').value})">Change</button></div>`;
+  $('#main').appendChild(el);
+}
+async function saveAcc(b) { const r = await api('POST', '/api/account', b); App.toast(r.error || 'Saved'); }
 function setPal(k, v) { const p = { ...App.config.settings.palette, [k]: v }; api('POST', '/api/settings', { palette: p, theme: 'custom' }); }
 
 /* ---------------- QR codes ---------------- */
@@ -99,8 +109,8 @@ async function qr() {
   const T = App.config.tables;
   $('#main').innerHTML = `<h1>🔳 Table QR codes</h1><div class="card noprint spread wrap" style="margin-bottom:14px"><div style="flex:1;min-width:260px"><label class="muted">Public base URL (use your LAN IP so phones can reach it, or your deployed domain)</label><input id="qrbase" value="${App.esc(base)}"></div>
   <div class="row"><button class="primary" onclick="App.ls('qrbase',$('#qrbase').value);cfgKey='';render(App.state,true)">Apply</button><button class="primary" onclick="window.print()">🖨 Print / Save as PDF</button><button class="ghost" onclick="api('POST','/api/tables')">+ Table</button></div></div>
-  <div class="grid">${T.map(t => `<div class="card qr"><img src="/api/qr/${t.number}.png?base=${encodeURIComponent(base)}" alt="QR ${t.number}"><h3>${App.tr('table')} ${t.number}</h3><div class="muted" style="font-size:12px">${App.esc(base)}/t/${t.number}</div>
-   <div class="row noprint" style="justify-content:center;margin-top:8px"><a href="/api/qr/${t.number}.png?base=${encodeURIComponent(base)}" download="table-${t.number}-qr.png"><button class="ghost">⬇ PNG</button></a><a href="/t/${t.number}" target="_blank"><button class="ghost">Open</button></a><button class="ghost" onclick="if(confirm('Remove table ${t.number}?'))api('DELETE','/api/tables/${t.id}')">🗑</button></div></div>`).join('')}</div>`;
+  <div class="grid">${T.map(t => `<div class="card qr"><img src="/api/r/${App.slug}/qr/${t.number}.png?base=${encodeURIComponent(base)}" alt="QR ${t.number}"><h3>${App.tr('table')} ${t.number}</h3><div class="muted" style="font-size:12px">${App.esc(base)}/t/${t.number}</div>
+   <div class="row noprint" style="justify-content:center;margin-top:8px"><a href="/api/r/${App.slug}/qr/${t.number}.png?base=${encodeURIComponent(base)}" download="table-${t.number}-qr.png"><button class="ghost">⬇ PNG</button></a><a href="/r/${App.slug}/t/${t.number}" target="_blank"><button class="ghost">Open</button></a><button class="ghost" onclick="if(confirm('Remove table ${t.number}?'))api('DELETE','/api/tables/${t.id}')">🗑</button></div></div>`).join('')}</div>`;
 }
 
 /* ---------------- Analytics ---------------- */

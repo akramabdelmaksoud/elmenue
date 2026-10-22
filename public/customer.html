@@ -26,15 +26,16 @@ nav button.on { color:var(--accent); font-weight:700; } nav .badge { position:ab
 <script src="/shared.js"></script>
 <script>
 const tableNumber = +location.pathname.split('/').pop();
+const SLUG = App.slug;
 const AV = ['😎','🧑‍🎤','🦊','🐼','🎮','👩‍🎨','🧔','🐱','🦁','🐯','🧑‍🚀','🎧','🐧','🦄','🤖','👽','🌸','🍕'];
-let me = { id: App.ls('gid:' + tableNumber), name: App.ls('name'), avatar: App.ls('avatar') };
+let me = { id: App.ls(`gid:${SLUG}:${tableNumber}`), name: App.ls('name'), avatar: App.ls('avatar') };
 let tab = 'menu', cat = null, view = 'mine', S = null;
 let pay = { method: 'cash', split: 'table', tip: 10, custom: {} };
 const root = document.getElementById('app');
 
 function start() {
   App.connect({ t: 'join', role: 'customer', tableNumber, guestId: me.id, name: me.name, avatar: me.avatar }, {
-    you(m) { me.id = m.guestId; App.ls('gid:' + tableNumber, m.guestId); },
+    you(m) { me.id = m.guestId; App.ls(`gid:${SLUG}:${tableNumber}`, m.guestId); },
     render(m) { if (m) S = m; render(); },
     error(m) { root.innerHTML = `<div class="join"><div class="card">${App.esc(m.msg)}</div></div>`; },
   });

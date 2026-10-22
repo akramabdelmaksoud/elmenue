@@ -1,10 +1,11 @@
-# Digital QR Menu
+# QR Menu Platform (multi-restaurant SaaS)
 
-Waiterless QR restaurant/cafe platform: group table ordering, captain floor map, admin analytics.
+- `/super` – platform owner: create restaurants, see stats for all of them
+- `/r/<slug>/admin` – restaurant owner (email + password): menu, theme, QR codes, analytics
+- `/r/<slug>/captain` – staff (PIN): live floor map and orders
+- `/r/<slug>/t/<table>` – guest (scan the table QR)
 
-    npm install
-    npm start        # http://localhost:3000
+Local: `npm install && npm start` (demo restaurant: `/r/demo`, demo@demo.com / demo123, PIN 1234; superadmin password printed on first run).
 
-Pages: `/` home, `/captain`, `/admin`, `/t/<table number>` (guest).
-
-Needs a long-running Node host (WebSockets + in-memory state) — not serverless platforms like Vercel.
+Production (Render / Railway / Fly – needs a long-running Node host for WebSockets, not Vercel):
+set `SUPER_EMAIL`, `SUPER_PASSWORD`, `SECRET`, and `DATABASE_URL` (Postgres) so data survives deploys.

@@ -35,7 +35,7 @@ h3 { margin:6px 0 10px; }
 <button class="ghost" id="snd" onclick="toggleSound()">🔕 Sound off</button>
 <button class="ghost" id="sim" onclick="App.send({t:'sim',on:!App.state.simulate})">🤖 Simulate guests</button>
 <button class="ghost" onclick="App.toggleLang()">EN/ع</button><button class="ghost" onclick="App.toggleMode()">◐</button>
-<a href="/" style="color:var(--accent)">Home</a></div></header>
+<button class="ghost" onclick="App.logout()">Sign out</button></div></header>
 <div class="legend">
 <span><i style="background:#8884"></i>Empty</span><span><i style="background:#1f9d55"></i>Seated / browsing</span><span><i style="background:#e08a1a"></i>Order in progress</span><span><i style="background:#d62828"></i>Urgent request</span><span><i style="background:linear-gradient(135deg,#2563eb,#ffcc33)"></i>Check requested</span></div>
 <div class="layout"><div class="floorwrap"><div class="floor" id="floor"></div></div><div class="side" id="side"></div></div>
@@ -56,7 +56,7 @@ function beep(kind) {
 function toggleSound() { sound = !sound; document.getElementById('snd').textContent = sound ? '🔔 Sound on' : '🔕 Sound off'; if (sound) beep('order'); }
 setInterval(() => (document.getElementById('clock').textContent = new Date().toLocaleTimeString()), 1000);
 
-App.connect({ t: 'join', role: 'captain' }, {
+function start() { App.connect({ t: 'join', role: 'captain' }, {
   render(m) { if (m) S = m; render(); },
   alert(m) {
     beep(m.kind);
@@ -64,7 +64,8 @@ App.connect({ t: 'join', role: 'captain' }, {
     b.textContent = { order: '🍽️ ', urgent: '🚨 ', check: '🧾 ', request: '🔔 ', seat: '🪑 ' }[m.kind] + m.text;
     document.getElementById('banners').appendChild(b); setTimeout(() => b.remove(), 6000);
   },
-});
+}); }
+App.gate('captain', start);
 const guestsOf = (s) => s.guests.map((g) => g.avatar).join('');
 function render() {
   if (!S) return;

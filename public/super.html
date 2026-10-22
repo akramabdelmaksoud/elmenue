@@ -1,0 +1,67 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Super Admin</title><link rel="stylesheet" href="/shared.css">
+<style>
+main{max-width:1250px;margin:auto;padding:22px}.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}.kpi span{color:var(--muted);font-size:13px}.kpi b{display:block;font-size:26px;margin-top:4px}
+table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid var(--line);text-align:start;font-size:14px;white-space:nowrap}.scroll{overflow:auto}
+.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;margin-top:14px}.st{padding:2px 10px;border-radius:99px;font-size:12px;color:#fff}.st.active{background:#2ecc71}.st.suspended{background:#e74c3c}
+.login{min-height:100vh;display:grid;place-items:center;padding:20px}form.f{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#2ecc71;margin-inline-end:5px}.dot.off{background:#888}
+pre{background:var(--card2);padding:12px;border-radius:12px;white-space:pre-wrap}
+</style></head><body><div id="app"></div>
+<script src="/vendor/chart.js"></script><script src="/shared.js"></script>
+<script>
+App.authRole = 'super';
+let O = null, charts = [], newCred = null;
+const $ = (s) => document.querySelector(s);
+const api = async (m, u, b) => {
+  const r = await fetch(u, { method: m, headers: { 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined });
+  if (r.status === 401 && u !== '/api/super/login') { App.ls('tok:_:super', ''); login(); throw new Error('auth'); }
+  const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Error'); return j;
+};
+const money = (n, c) => Math.round(n).toLocaleString() + ' ' + (c || '');
+const ago = (t) => (t ? App.ago(t) + ' ago' : 'never');
+function login(msg) {
+  $('#app').innerHTML = `<div class="login"><form class="card" style="width:min(380px,100%)" id="lf"><h2 style="margin-top:0">👑 Super admin</h2><input name="email" type="email" placeholder="Email" required><br><br><input name="password" type="password" placeholder="Password" required><p style="color:var(--bad);min-height:20px">${msg || ''}</p><button class="primary" style="width:100%">Sign in</button></form></div>`;
+  $('#lf').onsubmit = async (e) => { e.preventDefault(); try { const r = await api('POST', '/api/super/login', Object.fromEntries(new FormData(e.target))); App.ls('tok:_:super', r.token); load(); } catch (er) { login(er.message); } };
+}
+async function load() {
+  if (!App.tok('super')) return login();
+  try { O = await api('GET', '/api/super/overview'); } catch { return; }
+  if (document.activeElement && document.activeElement.closest('#create')) return;   // don't clobber the form
+  draw();
+}
+function draw() {
+  const t = O.totals;
+  const k = (l, v) => `<div class="card kpi"><span>${l}</span><b>${v}</b></div>`;
+  $('#app').innerHTML = `<main><div class="spread"><h1>👑 Platform control</h1><div class="row"><button class="ghost" onclick="App.toggleMode()">◐</button><button class="ghost" onclick="App.ls('tok:_:super','');location.reload()">Sign out</button></div></div>
+  <div class="grid">${k('Restaurants', `${t.active} / ${t.restaurants}`)}${k('Revenue (30d, all)', money(t.revenue))}${k('Table sessions (30d)', t.sessions.toLocaleString())}${k('Live tables now', t.liveTables)}${k('Guests seated now', t.guestsLive)}${k('Connected devices', t.online)}${k('Live open bills', money(t.liveRevenue))}</div>
+  <div class="row2"><div class="card"><h3>Platform revenue per day</h3><canvas id="c1"></canvas></div><div class="card"><h3>Revenue by restaurant (30d)</h3><canvas id="c2"></canvas></div>
+  <div class="card"><h3>Rush hours across platform</h3><canvas id="c3"></canvas></div><div class="card"><h3>Top items platform-wide</h3><canvas id="c4"></canvas></div></div>
+  <div class="card" style="margin-top:14px"><h3>➕ Add a restaurant (sell an admin page)</h3><form class="f" id="create">
+   <div><label class="muted">Restaurant name</label><input name="name" required></div><div><label class="muted">URL slug</label><input name="slug" placeholder="my-cafe" required pattern="[a-z0-9][a-z0-9\\-]{1,29}"></div>
+   <div><label class="muted">Owner email</label><input name="email" type="email" required></div><div><label class="muted">Password (blank = generate)</label><input name="password"></div>
+   <div><label class="muted">Plan</label><select name="plan"><option>standard</option><option>pro</option><option>enterprise</option></select></div>
+   <label class="row"><input type="checkbox" name="demo" style="width:auto"> demo data</label><button class="primary">Create</button></form>
+   ${newCred ? `<pre>✅ Send these to the owner:\nAdmin URL  : ${newCred.url}\nEmail      : ${newCred.email}\nPassword   : ${newCred.password}\nCaptain PIN: ${newCred.pin}   (captain URL: ${newCred.url.replace('/admin', '/captain')})</pre>` : ''}</div>
+  <div class="card scroll" style="margin-top:14px"><h3>Restaurants</h3><table><tr><th>Restaurant</th><th>Status</th><th>Plan</th><th>Revenue 30d</th><th>Sessions</th><th>Avg ticket</th><th>Live now</th><th>Menu / Tables</th><th>Last active</th><th>Actions</th></tr>
+  ${O.tenants.map(x => `<tr><td><b>${App.esc(x.name)}</b><br><small class="muted">/r/${x.slug} · ${App.esc(x.email)}</small></td><td><span class="st ${x.status}">${x.status}</span></td>
+   <td><select onchange="act('${x.slug}',{plan:this.value})">${['standard', 'pro', 'enterprise'].map(p => `<option ${p === x.plan ? 'selected' : ''}>${p}</option>`).join('')}</select></td>
+   <td>${money(x.revenue, x.currency)}</td><td>${x.sessions}</td><td>${money(x.avgTicket, x.currency)}</td><td><span class="dot ${x.online ? '' : 'off'}"></span>${x.liveTables} tables · ${x.guestsLive} guests</td><td>${x.items} / ${x.tables}</td><td>${ago(x.lastActive)}</td>
+   <td><button class="ghost" onclick="openAdmin('${x.slug}')">Open admin</button> <button class="ghost" onclick="act('${x.slug}',{status:'${x.status === 'active' ? 'suspended' : 'active'}'})">${x.status === 'active' ? 'Suspend' : 'Activate'}</button> <button class="ghost" onclick="reset('${x.slug}')">Reset login</button> <button class="ghost" onclick="del('${x.slug}')">🗑</button></td></tr>`).join('')}</table></div></main>`;
+  $('#create').onsubmit = async (e) => { e.preventDefault(); const b = Object.fromEntries(new FormData(e.target)); b.demo = !!b.demo; try { newCred = await api('POST', '/api/super/tenants', b); load(); } catch (er) { alert(er.message); } };
+  charts.forEach(c => c.destroy()); charts = [];
+  const cs = getComputedStyle(document.documentElement), ac = cs.getPropertyValue('--accent').trim(), ac2 = cs.getPropertyValue('--accent2').trim();
+  Chart.defaults.color = cs.getPropertyValue('--text').trim(); Chart.defaults.borderColor = 'rgba(128,128,128,.2)';
+  const mk = (id, c) => charts.push(new Chart($(id), c)); const dk = Object.keys(O.daily).sort();
+  mk('#c1', { type: 'line', data: { labels: dk.map(d => d.slice(5)), datasets: [{ data: dk.map(d => Math.round(O.daily[d])), borderColor: ac, backgroundColor: ac + '33', fill: true, tension: .35 }] }, options: { plugins: { legend: { display: false } } } });
+  mk('#c2', { type: 'bar', data: { labels: O.tenants.map(x => x.name), datasets: [{ data: O.tenants.map(x => Math.round(x.revenue)), backgroundColor: ac, borderRadius: 6 }] }, options: { indexAxis: 'y', plugins: { legend: { display: false } } } });
+  mk('#c3', { type: 'bar', data: { labels: O.hours.map((_, i) => i), datasets: [{ data: O.hours, backgroundColor: ac2, borderRadius: 4 }] }, options: { plugins: { legend: { display: false } } } });
+  mk('#c4', { type: 'bar', data: { labels: O.topItems.map(i => i[0]), datasets: [{ data: O.topItems.map(i => i[1]), backgroundColor: ac, borderRadius: 6 }] }, options: { indexAxis: 'y', plugins: { legend: { display: false } } } });
+}
+async function act(slug, b) { await api('PUT', '/api/super/tenants/' + slug, b); load(); }
+async function reset(slug) { if (!confirm('Generate a new password and captain PIN for ' + slug + '?')) return; const r = await api('POST', `/api/super/tenants/${slug}/reset`); newCred = { url: location.origin + '/r/' + slug + '/admin', ...r }; draw(); window.scrollTo(0, 0); }
+async function del(slug) { if (prompt('Type the slug "' + slug + '" to permanently delete this restaurant and all its data') !== slug) return; await api('DELETE', '/api/super/tenants/' + slug); load(); }
+async function openAdmin(slug) { const r = await api('POST', `/api/super/tenants/${slug}/impersonate`); App.ls(`tok:${slug}:admin`, r.token); window.open('/r/' + slug + '/admin', '_blank'); }
+App.handlers = { render: () => O && draw() };
+load(); setInterval(() => App.tok('super') && load(), 8000);
+</script></body></html>
