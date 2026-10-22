@@ -280,7 +280,7 @@ A('post', '/account', (req, res) => {
   const r = req.tenant.rec, b = req.body || {};
   if (b.pin) { if (!/^\d{4,8}$/.test(b.pin)) return res.status(400).json({ error: 'PIN must be 4â€“8 digits' }); r.pin = b.pin; }
   if (b.password) { if (String(b.password).length < 6) return res.status(400).json({ error: 'Password must be 6+ characters' }); r.owner.hash = auth.hash(b.password); }
-  store.save(r); res.json({ ok: 1, pin: r.pin });
+  req.tenant.broadcast(); res.json({ ok: 1, pin: r.pin });
 });
 A('post', '/settings', (req, res) => { const d = req.tenant.db; const b = req.body || {}; delete b.presets; Object.assign(d.settings, b); bc(req); res.json(d.settings); });
 
