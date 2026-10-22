@@ -1,0 +1,146 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Menu</title><link rel="stylesheet" href="/shared.css">
+<style>
+body { padding-bottom:84px; }
+header { position:sticky; top:0; z-index:20; background:color-mix(in srgb,var(--bg) 88%,transparent); backdrop-filter:blur(14px); padding:12px 16px; border-bottom:1px solid var(--line); }
+header h1 { margin:0; font-size:18px; } .tnum { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:var(--on-accent); padding:4px 12px; border-radius:99px; font-weight:800; }
+main { padding:14px 16px; max-width:720px; margin:auto; }
+.cats { display:flex; gap:8px; overflow-x:auto; padding:4px 0 12px; } .cats button { white-space:nowrap; }
+.item { display:flex; gap:12px; align-items:center; margin-bottom:10px; animation:fadeUp .4s both; }
+.thumb { width:64px; height:64px; border-radius:16px; background:var(--card2); display:grid; place-items:center; font-size:34px; flex:none; background-size:cover; background-position:center; }
+.item .info { flex:1; min-width:0; } .item b { display:block; } .item small { color:var(--muted); }
+.qbtn { width:36px; height:36px; padding:0; border-radius:50%; font-size:20px; }
+nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:var(--card); border-top:1px solid var(--line); z-index:30; padding-bottom:env(safe-area-inset-bottom); }
+nav button { flex:1; background:none; border-radius:0; padding:14px 4px; font-size:13px; position:relative; }
+nav button.on { color:var(--accent); font-weight:700; } nav .badge { position:absolute; top:6px; inset-inline-start:55%; background:var(--accent2); color:#fff; border-radius:99px; font-size:11px; padding:1px 6px; }
+.av { font-size:22px; } .chip { display:inline-flex; gap:4px; align-items:center; background:var(--card2); border-radius:99px; padding:2px 10px 2px 4px; font-size:13px; }
+.avatars { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin:10px 0 16px; } .avatars button { font-size:28px; padding:8px; }
+.join { min-height:100vh; display:grid; place-items:center; padding:20px; } .join .card { width:100%; max-width:420px; animation:pop .4s; }
+.quick { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin:14px 0; }
+.st { font-size:12px; padding:2px 10px; border-radius:99px; } .st.received { background:#5b6; color:#fff } .st.kitchen { background:var(--warn); color:#fff } .st.served { background:#3b82f6; color:#fff } .st.closed { background:#777; color:#fff }
+.line { display:flex; justify-content:space-between; padding:3px 0; } .big { font-size:20px; font-weight:800; }
+.guestbill { border-inline-start:4px solid var(--accent); margin-bottom:10px; }
+</style></head>
+<body><div id="app"></div>
+<script src="/shared.js"></script>
+<script>
+const tableNumber = +location.pathname.split('/').pop();
+const AV = ['😎','🧑‍🎤','🦊','🐼','🎮','👩‍🎨','🧔','🐱','🦁','🐯','🧑‍🚀','🎧','🐧','🦄','🤖','👽','🌸','🍕'];
+let me = { id: App.ls('gid:' + tableNumber), name: App.ls('name'), avatar: App.ls('avatar') };
+let tab = 'menu', cat = null, view = 'mine', S = null;
+let pay = { method: 'cash', split: 'table', tip: 10, custom: {} };
+const root = document.getElementById('app');
+
+function start() {
+  App.connect({ t: 'join', role: 'customer', tableNumber, guestId: me.id, name: me.name, avatar: me.avatar }, {
+    you(m) { me.id = m.guestId; App.ls('gid:' + tableNumber, m.guestId); },
+    render(m) { if (m) S = m; render(); },
+    error(m) { root.innerHTML = `<div class="join"><div class="card">${App.esc(m.msg)}</div></div>`; },
+  });
+}
+function joinScreen() {
+  let av = me.avatar || AV[0];
+  root.innerHTML = `<div class="join"><div class="card"><h2>👋 ${App.tr('welcome')} — ${App.tr('table')} ${tableNumber}</h2>
+  <label class="muted">${App.tr('pickName')}</label><input id="nm" value="${App.esc(me.name || '')}" maxlength="20" placeholder="Ahmed">
+  <p class="muted">${App.tr('pickAvatar')}</p><div class="avatars">${AV.map(a => `<button class="${a === av ? 'sel' : ''}" data-a="${a}">${a}</button>`).join('')}</div>
+  <button class="primary" id="go" style="width:100%">${App.tr('join')}</button>
+  <div class="row" style="justify-content:center;margin-top:12px"><button class="ghost" onclick="App.toggleLang()">EN / عربي</button><button class="ghost" onclick="App.toggleMode()">◐</button></div></div></div>`;
+  root.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { av = b.dataset.a; root.querySelectorAll('[data-a]').forEach(x => x.classList.toggle('sel', x === b)); });
+  document.getElementById('go').onclick = () => {
+    me.name = document.getElementById('nm').value.trim() || 'Guest'; me.avatar = av;
+    App.ls('name', me.name); App.ls('avatar', av); start();
+  };
+  App.applyTheme();
+}
+const guestOf = (s, id) => s.guests.find(g => g.id === id) || { name: '?', avatar: '🙂' };
+function render() {
+  if (!S) return;
+  const cfg = S.config, s = S.session;
+  if (!s) { root.innerHTML = `<div class="join"><div class="card" style="text-align:center"><div style="font-size:48px">👋</div><p>${App.tr('sessionEnded')}</p><button class="primary" onclick="location.reload()">↻</button></div></div>`; return; }
+  if (!cat || !cfg.categories.find(c => c.id === cat)) cat = cfg.categories[0]?.id;
+  const cartN = s.cart.reduce((n, l) => n + l.qty, 0);
+  const body = tab === 'menu' ? menuTab(cfg, s) : tab === 'cart' ? cartTab(s) : billTab(s);
+  const nameOf = App.lang === 'ar' && cfg.settings.name_ar ? cfg.settings.name_ar : cfg.settings.name;
+  const sc = document.scrollingElement.scrollTop;
+  root.innerHTML = `<header class="spread"><h1>${App.esc(nameOf)}</h1><div class="row"><span class="tnum">${App.tr('table')} ${tableNumber}</span><button class="ghost" style="padding:6px 10px" onclick="App.toggleLang()">${App.lang === 'ar' ? 'EN' : 'ع'}</button><button class="ghost" style="padding:6px 10px" onclick="App.toggleMode()">◐</button></div></header>
+  <main>${tab === 'menu' ? guestsBar(s) : ''}${body}</main>
+  <nav><button class="${tab === 'menu' ? 'on' : ''}" onclick="go('menu')">🍽️<br>${App.tr('menu')}</button>
+  <button class="${tab === 'cart' ? 'on' : ''}" onclick="go('cart')">🛒<br>${App.tr('cart')}${cartN ? `<span class="badge">${cartN}</span>` : ''}</button>
+  <button class="${tab === 'bill' ? 'on' : ''}" onclick="go('bill')">🧾<br>${App.tr('bill')}</button></nav>`;
+  document.scrollingElement.scrollTop = sc;
+}
+function go(t) { tab = t; render(); window.scrollTo(0, 0); }
+function guestsBar(s) {
+  return `<div class="row wrap" style="margin-bottom:10px">${s.guests.map(g => `<span class="chip"><span class="av">${g.avatar}</span>${App.esc(g.name)}${g.id === me.id ? ' ✓' : ''}</span>`).join('')}</div>`;
+}
+function menuTab(cfg, s) {
+  const items = cfg.items.filter(i => i.cat === cat);
+  const qtyOf = id => s.cart.filter(l => l.itemId === id && l.guestId === me.id).reduce((n, l) => n + l.qty, 0);
+  return `<div class="cats">${cfg.categories.map(c => `<button class="${c.id === cat ? 'primary' : ''}" onclick="cat='${c.id}';render()">${c.emoji} ${App.esc(App.nm(c))}</button>`).join('')}</div>
+  ${items.map((i, k) => `<div class="card item" style="animation-delay:${k * 40}ms"><div class="thumb" style="${i.img ? `background-image:url(${i.img})` : ''}">${i.img ? '' : i.emoji}</div>
+  <div class="info"><b>${App.esc(App.nm(i))}</b><small>${App.esc(i.desc)}</small><div style="color:var(--accent);font-weight:700">${App.money(i.price)}</div></div>
+  <div class="row">${qtyOf(i.id) ? `<span class="pill">×${qtyOf(i.id)}</span>` : ''}<button class="qbtn primary" onclick="add('${i.id}')">+</button></div></div>`).join('')}
+  <div class="quick">
+   <button onclick="req('waiter')">🙋 ${App.tr('callWaiter')}</button><button onclick="req('water')">💧 ${App.tr('water')}</button>
+   <button onclick="req('urgent')" style="grid-column:span 2">⚡ ${App.tr('urgent')}</button></div>`;
+}
+function add(id) { App.send({ t: 'cart_add', itemId: id }); App.toast(App.tr('addToCart')); }
+function req(type) { App.send({ t: 'request', type }); App.toast(App.tr('requestSent')); }
+function cartTab(s) {
+  const mine = s.cart.filter(l => l.guestId === me.id), others = s.cart.filter(l => l.guestId !== me.id);
+  const total = s.cart.reduce((n, l) => n + l.qty * l.price, 0);
+  const line = (l, edit) => `<div class="card" style="margin-bottom:8px"><div class="spread"><div class="row"><span class="av">${guestOf(s, l.guestId).avatar}</span><div><b>${l.emoji} ${App.esc(App.nm(l))}</b><div class="muted" style="font-size:12px">${App.esc(guestOf(s, l.guestId).name)} · ${App.money(l.price * l.qty)}</div></div></div>
+  ${edit ? `<div class="row"><button class="qbtn" onclick="App.send({t:'cart_qty',id:'${l.id}',d:-1})">−</button><b>${l.qty}</b><button class="qbtn" onclick="App.send({t:'cart_qty',id:'${l.id}',d:1})">+</button></div>` : `<b>×${l.qty}</b>`}</div>
+  ${edit ? `<input style="margin-top:8px" placeholder="${App.tr('note')}" value="${App.esc(l.note)}" onchange="App.send({t:'cart_note',id:'${l.id}',note:this.value})">` : (l.note ? `<small class="muted">📝 ${App.esc(l.note)}</small>` : '')}</div>`;
+  const orders = s.orders.slice().reverse().map(o => `<div class="card" style="margin-bottom:8px"><div class="spread"><b>#${o.id.slice(-4)} · ${App.ago(o.at)}</b><span class="st ${o.status}">${App.tr(o.status)}</span></div>
+   ${o.items.map(i => `<div class="line"><span>${guestOf(s, i.guestId).avatar} ${i.qty}× ${App.esc(App.nm(i))}${i.note ? ` <small class="muted">(${App.esc(i.note)})</small>` : ''}</span><span>${App.money(i.price * i.qty)}${i.guestId === me.id && o.status === 'received' ? ` <button class="ghost" style="padding:2px 8px" onclick="App.send({t:'order_item_remove',id:'${i.id}'})">✕</button>` : ''}</span></div>`).join('')}</div>`).join('');
+  return `<h3>${App.tr('yourCart')}</h3>
+  ${!s.cart.length ? `<p class="muted">${App.tr('empty')}</p>` : ''}
+  ${mine.map(l => line(l, true)).join('')}${others.length ? `<p class="muted">👥 ${App.tr('tableOrder')}</p>${others.map(l => line(l, false)).join('')}` : ''}
+  ${mine.length ? `<div class="spread card" style="margin:12px 0"><span>${App.tr('myItems')}</span><span class="big">${App.money(mine.reduce((n, l) => n + l.qty * l.price, 0))}</span></div><button class="primary" style="width:100%;padding:14px" onclick="App.send({t:'send_order'});App.toast(App.tr('orderSent'))">🚀 ${App.tr('send')}</button>` : ''}
+  ${others.length ? `<button class="ghost" style="width:100%;margin-top:8px" onclick="App.send({t:'send_order',scope:'all'});App.toast(App.tr('orderSent'))">👥 ${App.tr('sendAll')} (${App.money(others.reduce((n, l) => n + l.qty * l.price, 0))})</button>` : ''}
+  ${s.orders.length ? `<h3>${App.tr('orders')}</h3>${orders}` : ''}`;
+}
+function tipOf(base) { return Math.round(base * pay.tip / 100); }
+function billTab(s) {
+  const b = s.bill, G = s.guests;
+  if (!s.orders.length) return `<p class="muted">${App.tr('empty')}</p>`;
+  const my = b.byGuest[me.id] || { sub: 0, service: 0, tax: 0, total: 0, items: [] };
+  const base = pay.split === 'self' ? my : b;
+  let due = base.total + tipOf(base.sub);
+  if (pay.split === 'custom') {
+    const vals = G.map(g => +pay.custom[g.id] || 0); due = vals[G.findIndex(g => g.id === me.id)] || 0;
+  }
+  const sum = pay.split === 'custom' ? G.reduce((n, g) => n + (+pay.custom[g.id] || 0), 0) : 0;
+  const tipBtns = [0, 5, 10, 15, 20].map(p => `<button class="${pay.tip === p ? 'sel' : ''}" onclick="pay.tip=${p};render()">${p}%</button>`).join('');
+  const sessionTotalWithTip = b.total + tipOf(b.sub);
+  return `<h3>${App.tr('sessionTotal')}</h3>
+  ${G.map(g => { const x = b.byGuest[g.id] || { sub: 0, service: 0, tax: 0, total: 0, items: [] }; return `<div class="card guestbill"><div class="spread"><b><span class="av">${g.avatar}</span> ${App.esc(g.name)}${g.id === me.id ? ' (' + App.tr('youLabel') + ')' : ''}</b><b>${App.money(x.total)}</b></div>
+   ${x.items.map(i => `<div class="line muted"><span>${i.qty}× ${App.esc(App.nm(i))}</span><span>${App.money(i.price * i.qty)}</span></div>`).join('')}
+   <div class="line muted" style="border-top:1px dashed var(--line);margin-top:4px"><span>${App.tr('subtotal')} ${App.money(x.sub)} · ${App.tr('service')} ${App.money(x.service)} · ${App.tr('tax')} ${App.money(x.tax)}</span></div></div>`; }).join('')}
+  <div class="card"><div class="line"><span>${App.tr('subtotal')}</span><span>${App.money(b.sub)}</span></div><div class="line"><span>${App.tr('service')} (${S.config.settings.service}%)</span><span>${App.money(b.service)}</span></div><div class="line"><span>${App.tr('tax')} (${S.config.settings.tax}%)</span><span>${App.money(b.tax)}</span></div>
+  <div class="line"><span>${App.tr('tip')} (${pay.tip}%)</span><span>${App.money(tipOf(b.sub))}</span></div><div class="line big"><span>${App.tr('total')}</span><span>${App.money(sessionTotalWithTip)}</span></div></div>
+  <h3>${App.tr('tip')}</h3><div class="row wrap">${tipBtns}</div>
+  <h3>${App.tr('bill')}</h3>
+  <div class="row wrap"><button class="${pay.split === 'self' ? 'sel' : ''}" onclick="pay.split='self';render()">👤 ${App.tr('payMine')}</button><button class="${pay.split === 'table' ? 'sel' : ''}" onclick="pay.split='table';render()">👥 ${App.tr('payTable')}</button><button class="${pay.split === 'custom' ? 'sel' : ''}" onclick="pay.split='custom';render()">✂️ ${App.tr('payCustom')}</button></div>
+  ${pay.split === 'custom' ? `<div class="card" style="margin-top:10px"><p class="muted">${App.tr('assign')}</p>${G.map(g => `<div class="row" style="margin-bottom:6px"><span class="av">${g.avatar}</span><span style="flex:1">${App.esc(g.name)}</span><input type="number" style="width:120px" value="${pay.custom[g.id] ?? ''}" placeholder="${Math.round(sessionTotalWithTip / G.length)}" onchange="pay.custom['${g.id}']=this.value;render()"></div>`).join('')}
+   <div class="muted">${App.money(sum)} / ${App.money(sessionTotalWithTip)}</div><button class="ghost" onclick="splitEq(${sessionTotalWithTip})">= ${App.tr('perPerson')}</button></div>` : ''}
+  <div class="row wrap" style="margin-top:10px"><button class="${pay.method === 'cash' ? 'sel' : ''}" onclick="pay.method='cash';render()">💵 ${App.tr('cash')}</button><button class="${pay.method === 'card' ? 'sel' : ''}" onclick="pay.method='card';render()">💳 ${App.tr('card')}</button></div>
+  <div class="card spread" style="margin:14px 0"><span>${App.tr('total_due')}</span><span class="big" style="color:var(--accent)">${App.money(due)}</span></div>
+  ${s.check ? `<div class="card" style="border-color:var(--gold);animation:glowGold 2s infinite">${checkBanner(s)}<br>✅ ${App.tr('checkSent')}<br><button class="ghost" style="margin-top:8px" onclick="App.send({t:'check_cancel'})">${App.tr('cancel')}</button></div>`
+   : `<button class="primary" style="width:100%;padding:14px" onclick="App.send({t:'check',method:pay.method,split:pay.split,tipPct:pay.tip,custom:pay.custom})">🧾 ${App.tr('reqBill')}</button>`}`;
+}
+function checkBanner(s) {
+  const c = s.check, b = s.bill, payer = guestOf(s, c.by), tip = Math.round(b.sub * (c.tipPct || 0) / 100);
+  if (c.split === 'table') {
+    const amt = App.money(b.total + tip);
+    return c.by === me.id ? `👥 ${App.tr('youPayAll')}: <b>${amt}</b>` : `${payer.avatar} <b>${App.esc(payer.name)}</b> ${App.tr('paysAll')}: <b>${amt}</b><br><span class="muted">${App.tr('nothingToPay')}</span>`;
+  }
+  const mineDue = c.split === 'custom' ? (+(c.custom || {})[me.id] || 0) : ((b.byGuest[me.id] || {}).total || 0) + Math.round(((b.byGuest[me.id] || {}).sub || 0) * (c.tipPct || 0) / 100);
+  return `${App.tr('yourShare')}: <b>${App.money(mineDue)}</b>`;
+}
+function splitEq(total) { const n = S.session.guests.length; S.session.guests.forEach(g => pay.custom[g.id] = Math.round(total / n)); render(); }
+App.handlers = { render };
+fetch('/api/config').then(r => r.json()).then(c => { App.config = c; if (me.name) start(); else joinScreen(); });
+</script></body></html>
