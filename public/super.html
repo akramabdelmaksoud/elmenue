@@ -20,9 +20,10 @@ const api = async (m, u, b) => {
 };
 const money = (n, c) => Math.round(n).toLocaleString() + ' ' + (c || '');
 const ago = (t) => (t ? App.ago(t) + ' ago' : 'never');
-function login(msg) {
-  $('#app').innerHTML = `<div class="login"><form class="card" style="width:min(380px,100%)" id="lf"><h2 style="margin-top:0">👑 Super admin</h2><input name="email" type="email" placeholder="Email" required><br><br><input name="password" type="password" placeholder="Password" required><p style="color:var(--bad);min-height:20px">${msg || ''}</p><button class="primary" style="width:100%">Sign in</button></form></div>`;
-  $('#lf').onsubmit = async (e) => { e.preventDefault(); try { const r = await api('POST', '/api/super/login', Object.fromEntries(new FormData(e.target))); App.ls('tok:_:super', r.token); load(); } catch (er) { login(er.message); } };
+async function login() {
+  await App.loadAuth(); App.applyTheme();
+  await Auth.show({ kind: 'super', brand: { name: 'ELMENU' }, async submit(v) { const r = await api('POST', '/api/super/login', v); App.ls('tok:_:super', r.token); } });
+  load();
 }
 async function load() {
   if (!App.tok('super')) return login();

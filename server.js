@@ -140,6 +140,7 @@ if (SINGLE) {
   app.get('/captain', (req, res) => res.redirect('/r/' + MAIN + '/captain'));
   app.get('/t/:n', (req, res) => res.redirect('/r/' + MAIN + '/t/' + encodeURIComponent(req.params.n)));
   app.get('/index.html', (req, res) => res.redirect('/'));
+  app.get('/api/setup/status', async (req, res) => { try { res.json({ setup: await isSetup(), needsKey: !!process.env.SETUP_KEY }); } catch (e) { res.status(500).json({ error: 'Server error' }); } });
   app.post('/api/setup', async (req, res) => {
     try {
       if (await isSetup()) return res.status(403).json({ error: 'Already set up' });
@@ -148,6 +149,8 @@ if (SINGLE) {
       if (!b.name || !/^\S+@\S+$/.test(b.email || '') || String(b.password || '').length < 6) return res.status(400).json({ error: 'Name, valid email and a 6+ character password are required' });
       const rec = makeRecord({ name: b.name, slug: MAIN, email: b.email, password: b.password, demo: !!b.demo });
       rec.data.settings.name = b.name; if (b.currency) rec.data.settings.currency = String(b.currency).slice(0, 6);
+      if (['bloom', 'espresso', 'pink', 'white'].includes(b.theme)) rec.data.settings.theme = b.theme;
+      if (['en', 'ar'].includes(b.lang)) rec.data.settings.lang = b.lang;
       if (STATELESS) { if (!(await createRecord(rec, !!b.demo))) return res.status(403).json({ error: 'Already set up' }); }
       else { const t = mount(rec); if (b.demo) t.seedLive(); store.save(rec); }
       res.json({ token: auth.sign('admin', MAIN), pin: rec.pin });

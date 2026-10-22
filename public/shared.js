@@ -91,25 +91,34 @@ const App = {
 
   tok(role) { return App.ls(`tok:${App.slug || '_'}:${role || App.authRole}`); },
   logout() { App.ls(`tok:${App.slug || '_'}:${App.authRole}`, ''); location.reload(); },
-  // Login overlay for admin (email+password) or captain (PIN). Calls go() once authenticated.
+  loadAuth() {
+    if (window.Auth) return Promise.resolve();
+    return new Promise((res) => {
+      const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/auth.css'; document.head.appendChild(l);
+      const sc = document.createElement('script'); sc.src = '/auth.js'; sc.onload = res; sc.onerror = res; document.head.appendChild(sc);
+    });
+  },
+  // Luxury sign-in for admin (email + password) or captain (PIN). Calls go() once authenticated.
   async gate(role, go) {
     App.authRole = role;
     const t = App.tok(role);
     if (t) { const r = await fetch(`/api/r/${App.slug}/me?role=${role}`); if (r.ok) return go(); if (r.status === 404 || r.status === 403) { document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif">This restaurant is unavailable.</div>'; return; } }
-    const d = document.createElement('div');
-    d.style.cssText = 'position:fixed;inset:0;background:var(--bg);display:grid;place-items:center;z-index:2000;padding:20px';
-    d.innerHTML = `<form class="card" style="width:min(380px,100%);animation:pop .3s"><h2 style="margin-top:0">${role === 'admin' ? '🔐 Admin sign-in' : '🧑‍✈️ Captain sign-in'}</h2><p class="muted" style="margin-top:-6px">${App.slug}</p>
-      ${role === 'admin' ? '<input name="email" type="email" placeholder="Email" autocomplete="username" required><br><br><input name="password" type="password" placeholder="Password" autocomplete="current-password" required>' : '<input name="pin" inputmode="numeric" placeholder="Captain PIN" autocomplete="off" required style="font-size:24px;text-align:center;letter-spacing:8px">'}
-      <p id="gerr" style="color:var(--bad);min-height:20px;margin:8px 0"></p><button class="primary" style="width:100%">Sign in</button></form>`;
-    document.body.appendChild(d);
-    d.querySelector('form').onsubmit = async (e) => {
-      e.preventDefault();
-      const body = Object.fromEntries(new FormData(e.target)); body.role = role;
-      const r = await fetch(`/api/r/${App.slug}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const j = await r.json();
-      if (!r.ok) return (d.querySelector('#gerr').textContent = j.error || 'Failed');
-      App.ls(`tok:${App.slug}:${role}`, j.token); d.remove(); go();
-    };
+    await App.loadAuth();
+    let cfg = null;
+    try { const r = await fetch(`/api/r/${App.slug}/config`); if (r.ok) { cfg = await r.json(); App.config = cfg; } } catch {}
+    App.applyTheme();
+    await Auth.show({
+      kind: role === 'admin' ? 'admin' : 'pin',
+      brand: cfg && cfg.settings,
+      async submit(values) {
+        const body = { ...values, role };
+        const r = await fetch(`/api/r/${App.slug}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || 'Failed');
+        App.ls(`tok:${App.slug}:${role}`, j.token);
+      },
+    });
+    go();
   },
   connect(joinMsg, handlers) {
     App.handlers = handlers;

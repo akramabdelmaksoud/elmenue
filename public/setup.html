@@ -1,26 +1,111 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Set up your restaurant</title><link rel="stylesheet" href="/shared.css">
-<style>body{min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at 20% 10%,color-mix(in srgb,var(--accent) 25%,transparent),transparent 50%),var(--bg)}
-form{width:min(440px,100%);animation:pop .4s}h1{margin:0 0 4px;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;color:transparent}label{display:block;margin:12px 0 4px;font-size:13px}
-.ok{font-size:18px}</style></head>
-<body><form class="card" id="f"><h1>Welcome 👋</h1><p class="muted">Set up your restaurant in 30 seconds. You can change everything later.</p>
-<label class="muted">Restaurant / café name</label><input name="name" required maxlength="60" placeholder="Café Aroma">
-<label class="muted">Owner email (your admin login)</label><input name="email" type="email" required autocomplete="username">
-<label class="muted">Admin password (6+ characters)</label><input name="password" type="password" required minlength="6" autocomplete="new-password">
-<label class="muted">Currency</label><input name="currency" value="EGP" maxlength="6">
-<label class="muted">Setup key (only if your host set one)</label><input name="setupKey" autocomplete="off" placeholder="optional">
-<label class="row" style="margin:14px 0"><input type="checkbox" name="demo" style="width:auto" checked> Start with sample tables and orders (good for a first look)</label>
-<p id="err" style="color:var(--bad);min-height:20px;margin:0 0 8px"></p><button class="primary" style="width:100%;padding:14px">Create my restaurant</button></form>
-<script src="/shared.js"></script>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Create your restaurant</title>
+<link rel="stylesheet" href="/shared.css"><link rel="stylesheet" href="/auth.css">
+<style>body{background:var(--bg)} .auth-scene{position:fixed}</style></head>
+<body>
+<script src="/shared.js"></script><script src="/auth.js"></script>
 <script>
-document.getElementById('f').onsubmit = async (e) => {
-  e.preventDefault();
-  const b = Object.fromEntries(new FormData(e.target)); b.demo = !!b.demo;
-  const r = await fetch('/api/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
-  const j = await r.json();
-  if (!r.ok) return (document.getElementById('err').textContent = j.error || 'Failed');
-  App.ls('tok:main:admin', j.token);
-  alert('All set!\n\nYour captain PIN is: ' + j.pin + '\n(You can change it in Admin → Theme & settings → Staff.)');
-  location.href = '/admin';
+const W = {
+  en: { kick: 'Create your restaurant', t1: 'Your restaurant', t2: 'Your account', t3: 'Your style', t4: 'Ready to open', name: 'Restaurant or café name', cur: 'Currency', lang: 'Language', email: 'Owner email', pw: 'Admin password', next: 'Continue', back: 'Back', launch: 'Open my restaurant', sample: 'Fill with sample tables & orders', sampleD: 'Great for a first look - clear them anytime.', key: 'Setup key', keyD: 'Your host requires a setup key', themeH: 'Pick a look - it applies instantly', mode: 'Appearance', light: 'Light', dark: 'Dark', s0: 'Too short', s1: 'Weak', s2: 'Fair', s3: 'Good', s4: 'Excellent', needName: 'Please enter a name', needMail: 'Enter a valid email', needPw: 'Use at least 6 characters', done: 'Your restaurant is open', doneSub: 'Save your captain PIN - staff use it to sign in.', pinL: 'Captain PIN', copy: 'Copy', copied: 'Copied', openAdmin: 'Open admin dashboard', openCap: 'Open captain screen', openGuest: 'Preview guest menu (table 1)', bloom: 'Bean & Bloom', espresso: 'Espresso', pink: 'Modern pink', white: 'Minimal white', bloomD: 'Forest green & gold', espressoD: 'Roasted & warm', pinkD: 'Soft & playful', whiteD: 'Clean & timeless', h1a: 'Open your doors', h1b: 'in minutes.', sub: 'A waiterless QR experience for your guests, a live floor for your team, and clear numbers for you.' },
+  ar: { kick: 'أنشئ مطعمك', t1: 'مطعمك', t2: 'حسابك', t3: 'أسلوبك', t4: 'جاهز للافتتاح', name: 'اسم المطعم أو الكافيه', cur: 'العملة', lang: 'اللغة', email: 'بريد المالك', pw: 'كلمة مرور الإدارة', next: 'متابعة', back: 'رجوع', launch: 'افتح مطعمي', sample: 'ابدأ بطاولات وطلبات تجريبية', sampleD: 'مناسبة للتجربة الأولى - يمكنك مسحها لاحقًا.', key: 'مفتاح الإعداد', keyD: 'الاستضافة تتطلب مفتاح إعداد', themeH: 'اختر مظهرًا - يُطبَّق فورًا', mode: 'المظهر', light: 'فاتح', dark: 'داكن', s0: 'قصيرة', s1: 'ضعيفة', s2: 'مقبولة', s3: 'جيدة', s4: 'ممتازة', needName: 'أدخل الاسم', needMail: 'أدخل بريدًا صحيحًا', needPw: 'استخدم 6 أحرف على الأقل', done: 'تم افتتاح مطعمك', doneSub: 'احفظ رمز الكابتن - يستخدمه الطاقم للدخول.', pinL: 'رمز الكابتن', copy: 'نسخ', copied: 'تم النسخ', openAdmin: 'افتح لوحة الإدارة', openCap: 'افتح شاشة الكابتن', openGuest: 'معاينة قائمة الضيف (طاولة 1)', bloom: 'بين آند بلوم', espresso: 'إسبريسو', pink: 'وردي عصري', white: 'أبيض بسيط', bloomD: 'أخضر غابي وذهبي', espressoD: 'دافئ ومحمّص', pinkD: 'ناعم ومرح', whiteD: 'نقي وخالد', h1a: 'افتح أبوابك', h1b: 'في دقائق.', sub: 'تجربة طلب بالـQR بلا نادل لضيوفك، وصالة حيّة لفريقك، وأرقام واضحة لك.' },
 };
+const w = (k) => (W[App.lang] || W.en)[k] || W.en[k];
+const D = { name: '', currency: 'EGP', email: '', password: '', theme: 'bloom', demo: true, key: '' };
+let step = 0, dir = 1, needKey = false, scene, shell;
+const ic = Auth.ic;
+const PV = { bloom: ['#f2ebe0', '#1f4a35', '#b98a3e'], espresso: ['#f4ece4', '#6b3f23', '#d08a3c'], pink: ['#fff0f6', '#e0357f', '#8e4bff'], white: ['#fafafa', '#111111', '#6b7280'] };
+const PVD = { bloom: ['#0f1813', '#4f9a6e', '#e0bb73'], espresso: ['#14110f', '#e8a64a', '#ff7b54'], pink: ['#1a0f16', '#ff5d9e', '#b98aff'], white: ['#0c0c0d', '#f5f5f5', '#9ca3af'] };
+
+function strength(p) { let s = 0; if (p.length >= 6) s++; if (p.length >= 10) s++; if (/[A-Z]/.test(p) && /[a-z]/.test(p)) s++; if (/\d/.test(p) && /[^A-Za-z0-9]/.test(p)) s++; return p.length < 6 ? 0 : Math.max(1, s); }
+function previewTheme() { App.config = { settings: { theme: D.theme, lang: App.lang } }; App.applyTheme(); }
+
+function draw() {
+  const steps = [w('t1'), w('t2'), w('t3'), w('t4')];
+  const head = `<div class="steps">${steps.map((_, i) => `<b class="${i === step ? 'on' : i < step ? 'past' : ''}">${i < step ? ic('check').replace('<svg', '<svg width="15" height="15"') : i + 1}</b>${i < 3 ? `<u class="${i < step ? 'past' : ''}"></u>` : ''}`).join('')}</div>`;
+  let body = '';
+  if (step === 0) body = `<div class="fld rz" style="--i:0">${ic('store')}<input id="f-name" placeholder=" " maxlength="60" value="${App.esc(D.name)}"><label>${w('name')}</label></div>
+    <div class="row2c"><div class="fld rz" style="--i:1">${ic('coin')}<input id="f-cur" placeholder=" " maxlength="6" value="${App.esc(D.currency)}"><label>${w('cur')}</label></div>
+    <div class="seg2 rz" style="--i:2;margin:0 0 16px"><button type="button" data-l="en" class="${App.lang === 'en' ? 'on' : ''}">English</button><button type="button" data-l="ar" class="${App.lang === 'ar' ? 'on' : ''}">العربية</button></div></div>`;
+  if (step === 1) body = `<div class="fld rz" style="--i:0">${ic('mail')}<input id="f-email" type="email" placeholder=" " autocomplete="username" value="${App.esc(D.email)}"><label>${w('email')}</label></div>
+    <div class="fld rz" style="--i:1">${ic('lock')}<input id="f-pw" type="password" placeholder=" " autocomplete="new-password" value="${App.esc(D.password)}"><label>${w('pw')}</label><button type="button" class="eye" tabindex="-1">${ic('eye')}</button></div>
+    <div class="meter rz" style="--i:2"><i id="meter" style="--s:${strength(D.password)}"></i></div><div class="hint" id="mt">${D.password ? w('s' + strength(D.password)) : ''}</div>`;
+  if (step === 2) body = `<p class="kick" style="margin:0 0 12px;text-align:start">${w('themeH')}</p><div class="themes">${['bloom', 'espresso', 'pink', 'white'].map((k, i) => { const dark = App.isDark(), c = (dark ? PVD : PV)[k]; return `<button type="button" class="tcard ${D.theme === k ? 'on' : ''}" data-t="${k}" style="--i:${i}"><div class="pv" style="background:${c[0]}"><i class="h" style="background:${c[1]}"></i><div class="r"><i style="background:${c[1]}"></i><i style="background:${c[2]}"></i></div></div><b>${w(k)}</b><small>${w(k + 'D')}</small><span class="tick">${ic('check')}</span></button>`; }).join('')}</div>
+    <div class="kick" style="text-align:start;margin-bottom:8px">${w('mode')}</div><div class="seg2"><button type="button" data-m="light" class="${!App.isDark() ? 'on' : ''}">☀️ ${w('light')}</button><button type="button" data-m="dark" class="${App.isDark() ? 'on' : ''}">🌙 ${w('dark')}</button></div>`;
+  if (step === 3) body = `<div class="rz" style="--i:0;text-align:center;margin:-6px 0 18px"><div style="font-family:var(--serif);font-size:26px"><span class="foil">${App.esc(D.name)}</span></div><div class="muted" style="color:var(--muted);font-size:13px;margin-top:4px">${App.esc(D.email)} · ${D.currency} · ${w(D.theme)}</div></div>
+    <div class="sw rz ${D.demo ? 'on' : ''}" style="--i:1" id="sw-demo"><i></i><div><b>${w('sample')}</b><br><small style="color:var(--muted)">${w('sampleD')}</small></div></div>
+    ${needKey ? `<div class="fld rz" style="--i:2">${ic('key')}<input id="f-key" placeholder=" " autocomplete="off" value="${App.esc(D.key)}"><label>${w('key')}</label></div>` : ''}`;
+  const last = step === 3;
+  shell.innerHTML = `<div class="auth-hero"><div class="kick">ELMENU</div><h1><span class="foil">${w('h1a')}</span><span>${w('h1b')}</span></h1><p>${w('sub')}</p><div class="minifloor">${Array.from({ length: 10 }, (_, i) => `<i style="--dl:${(-i * 0.9).toFixed(1)}s"></i>`).join('')}</div></div>
+  <div class="auth-card wiz"><div style="--i:0">${Auth.emblem()}</div><div class="kick">${w('kick')}</div><h2><span class="foil">${steps[step]}</span></h2><div style="height:14px"></div>${head}
+  <div class="slide" style="--dir:${dir}" id="slide">${body}<div class="hint" id="err"></div>
+  <div class="btns">${step > 0 ? `<button type="button" class="ghost-btn" id="b-back">${ic('back')}</button>` : ''}<button type="button" class="gold-btn" id="b-next"><span>${last ? w('launch') : w('next')}</span>${ic(last ? 'check' : 'arrow')}</button></div></div></div>`;
+  wire();
+}
+function err(m) { const c = shell.querySelector('.auth-card'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake'); const h = shell.querySelector('#err'); h.textContent = m; h.classList.add('err'); }
+function go(n) { dir = n > step ? 1 : -1; step = n; draw(); }
+function wire() {
+  const $ = (s) => shell.querySelector(s), nx = $('#b-next');
+  nx.onpointerdown = (e) => Auth.ripple(nx, e);
+  if ($('#b-back')) $('#b-back').onclick = () => go(step - 1);
+  setTimeout(() => { const f = shell.querySelector('.slide input'); f && f.focus({ preventScroll: true }); }, 700);
+  shell.querySelectorAll('.slide input').forEach((i) => i.addEventListener('keydown', (e) => { if (e.key === 'Enter') nx.click(); }));
+  if (step === 0) {
+    shell.querySelectorAll('[data-l]').forEach((b) => (b.onclick = () => { D.name = $('#f-name').value; D.currency = $('#f-cur').value; App.ls('lang', b.dataset.l); App.applyTheme(); draw(); }));
+    nx.onclick = () => { D.name = $('#f-name').value.trim(); D.currency = ($('#f-cur').value.trim() || 'EGP').toUpperCase(); if (!D.name) return err(w('needName')); go(1); };
+  }
+  if (step === 1) {
+    const pw = $('#f-pw');
+    pw.oninput = () => { const s = strength(pw.value); $('#meter').style.setProperty('--s', s); $('#mt').textContent = pw.value ? w('s' + s) : ''; };
+    $('.eye').onclick = (e) => { const s = pw.type === 'password'; pw.type = s ? 'text' : 'password'; e.currentTarget.innerHTML = ic(s ? 'eyeoff' : 'eye'); };
+    nx.onclick = () => { D.email = $('#f-email').value.trim(); D.password = pw.value; if (!/^\S+@\S+\.\S+$/.test(D.email)) return err(w('needMail')); if (D.password.length < 6) return err(w('needPw')); go(2); };
+  }
+  if (step === 2) {
+    shell.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => { D.theme = b.dataset.t; previewTheme(); draw(); }));
+    shell.querySelectorAll('[data-m]').forEach((b) => (b.onclick = (e) => { App.transition(() => { App.ls('mode', b.dataset.m); App.applyTheme(); draw(); }, e); }));
+    nx.onclick = () => go(3);
+  }
+  if (step === 3) {
+    $('#sw-demo').onclick = (e) => { D.demo = !D.demo; e.currentTarget.classList.toggle('on', D.demo); };
+    nx.onclick = launch;
+  }
+}
+function confetti() {
+  const set = ['🌿', '☕', '✨', '🫘', '💛', '🍃', '🥂'];
+  for (let i = 0; i < 36; i++) {
+    const p = document.createElement('div'); p.className = 'conf2'; p.textContent = set[i % set.length]; p.style.left = innerWidth / 2 + 'px'; p.style.top = innerHeight * .4 + 'px'; document.body.appendChild(p);
+    const a = Math.random() * Math.PI * 2, d = 140 + Math.random() * 320;
+    p.animate([{ transform: 'translate(-50%,-50%) scale(.3)', opacity: 1 }, { transform: `translate(calc(-50% + ${Math.cos(a) * d}px),calc(-50% + ${Math.sin(a) * d - 90}px)) scale(1.4) rotate(${Math.random() * 600}deg)`, opacity: 1, offset: .55 }, { transform: `translate(calc(-50% + ${Math.cos(a) * d * 1.1}px),calc(-50% + ${Math.sin(a) * d + 220}px)) scale(.6)`, opacity: 0 }], { duration: 1600 + Math.random() * 700, easing: 'cubic-bezier(.2,.7,.3,1)' }).onfinish = () => p.remove();
+  }
+}
+async function finished(pin) {
+  scene = Auth.scene(); shell = scene.querySelector('.auth-shell'); App.handlers = { render: () => finished(pin) };
+  shell.innerHTML = `<div class="auth-hero"><div class="kick">ELMENU</div><h1><span class="foil">${w('done')}</span></h1><p>${w('doneSub')}</p></div>
+  <div class="auth-card wiz"><div>${Auth.emblem()}</div><div class="kick">✦ ✦ ✦</div><h2><span class="foil">${w('done')}</span></h2><div style="height:10px"></div>
+  <div class="pinbox rz" style="--i:0"><small>${w('pinL')}</small><span class="big foil">${pin}</span><button type="button" class="ghost-btn" id="cp" style="padding:9px 18px;font-size:13px">${w('copy')}</button></div>
+  <div class="links"><a class="gold-btn rz" style="--i:1" href="/admin"><span>${w('openAdmin')}</span>${ic('arrow')}</a><a class="ghost-btn rz" style="--i:2;text-align:center" href="/captain">${w('openCap')}</a><a class="ghost-btn rz" style="--i:3;text-align:center" href="/t/1" target="_blank">${w('openGuest')}</a></div></div>`;
+  shell.querySelector('#cp').onclick = () => { navigator.clipboard && navigator.clipboard.writeText(pin); shell.querySelector('#cp').textContent = w('copied'); };
+  setTimeout(confetti, 500);
+}
+async function init() {
+  const st = await (await fetch('/api/setup/status')).json().catch(() => ({}));
+  if (st.setup) return (location.href = '/admin');
+  needKey = !!st.needsKey;
+  App.config = { settings: { theme: D.theme, lang: App.lang } }; App.applyTheme();
+  scene = Auth.scene(); shell = scene.querySelector('.auth-shell');
+  App.handlers = { render: () => { previewTheme(); draw(); } };
+  draw();
+}
+async function launch() {
+  const nx = shell.querySelector('#b-next'); if (nx.classList.contains('load')) return;
+  if (needKey) D.key = shell.querySelector('#f-key').value;
+  nx.classList.add('load');
+  try {
+    const r = await fetch('/api/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: D.name, email: D.email, password: D.password, currency: D.currency, theme: D.theme, lang: App.lang, demo: D.demo, setupKey: D.key }) });
+    const j = await r.json();
+    if (!r.ok) { nx.classList.remove('load'); return err(j.error || 'Failed'); }
+    App.ls('tok:main:admin', j.token);
+    scene.classList.add('leave'); setTimeout(() => { scene.remove(); finished(j.pin); }, 700);
+  } catch (e) { nx.classList.remove('load'); err(e.message); }
+}
+init();
 </script></body></html>
