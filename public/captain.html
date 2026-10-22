@@ -28,6 +28,15 @@ header h1 { margin:0; font-size:20px; }
 .banner { background:var(--text); color:var(--bg); padding:12px 18px; border-radius:14px; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.4); animation:pop .3s; }
 .banner.urgent { background:#d62828; color:#fff; } .banner.check { background:var(--gold); color:#222; }
 h3 { margin:6px 0 10px; }
+@media (max-width:700px) {
+  header { padding:10px 12px; } header h1 { font-size:18px; } header .row button, header button { padding:8px 12px; }
+  .legend { padding:0 12px 8px; gap:8px 12px; } .floorwrap { padding:10px 12px; overflow:visible; }
+  .floor { min-width:0; height:auto; min-height:0; grid-template-columns:repeat(auto-fill,minmax(98px,1fr)); grid-template-rows:none; grid-auto-rows:98px; padding:10px; gap:10px; border-radius:20px; }
+  .floor .table { grid-column:auto !important; grid-row:auto !important; }
+  .table .n { font-size:24px; } .side { border-inline-start:0; border-top:1px solid var(--line); padding:12px; }
+  .modal > .card { width:96vw; max-height:92vh; padding:14px; } #banners { inset-inline:10px; top:60px; } .banner { font-size:14px; }
+}
+@media (min-width:701px) and (max-width:1000px) { body { overflow:auto; height:auto; } .layout { grid-template-columns:1fr; overflow:visible; } .floor { min-width:0; height:min(68vh,640px); } .side { border-inline-start:0; border-top:1px solid var(--line); } }
 </style></head>
 <body>
 <header><h1>🧑‍✈️ Captain · <span id="clock"></span></h1>

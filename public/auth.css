@@ -114,3 +114,10 @@
 .pad, .pin-dots { direction: ltr; }
 [dir=rtl] .auth-hero .kick, [dir=rtl] .auth-card .kick, [dir=rtl] .gold-btn, [dir=rtl] .fld label { letter-spacing: 0; text-transform: none; }
 [dir=rtl] .auth-hero h1 { letter-spacing: 0; }
+
+@media (max-width: 420px) {
+  .auth-shell { padding: 64px 14px 28px; } .auth-card { padding: 26px 18px 22px; border-radius: 28px; } .auth-card h2 { font-size: 27px; }
+  .pad { gap: 10px; max-width: 262px; } .pad button { font-size: 22px; } .row2c { grid-template-columns: 1fr; } .themes { gap: 9px; } .tcard { padding: 9px; } .tcard .pv { height: 64px; }
+  .steps u { width: 22px; } .steps b { width: 30px; height: 30px; }
+}
+@media (max-height: 560px) { .emblem { display: none; } .pad button { font-size: 20px; } .pad { max-width: 230px; gap: 8px; } .auth-shell { align-items: start; padding-top: 56px; } }

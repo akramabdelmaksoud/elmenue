@@ -17,6 +17,7 @@ table { width:100%; border-collapse:collapse; } td, th { padding:6px; text-align
 .qr { text-align:center; break-inside:avoid; } .qr img { width:100%; max-width:220px; border-radius:12px; background:#fff; } .qr h3 { margin:8px 0 2px; font-size:28px; }
 .heat { display:grid; grid-template-columns:40px repeat(24,1fr); gap:2px; font-size:10px; } .heat i { aspect-ratio:1; border-radius:3px; display:grid; place-items:center; font-style:normal; color:#fff; font-size:9px; }
 .sw { width:44px; height:44px; padding:0; border:0; background:none; } .row2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; margin-top:14px; }
+@media (max-width:800px) { main { padding:14px; } aside button { white-space:nowrap; } .row2 { grid-template-columns:1fr !important; } .card { overflow-x:auto; } h1 { font-size:24px; } input[type=checkbox] { width:22px; height:22px; } }
 @media print { aside, .noprint, .shell > main > h1 { display:none!important } .shell { display:block } body { background:#fff; color:#000 } .qr { color:#000 } .card { border:1px solid #ccc; background:#fff } }
 </style></head>
 <body><div class="shell"><aside>
@@ -55,7 +56,7 @@ function menu() {
    <button class="ghost" onclick="actCat='${c.id}';cfgKey='';render(App.state,true)">▶</button><button class="ghost" onclick="if(confirm('Delete category and its items?'))api('DELETE','/api/categories/${c.id}')">🗑</button></div>`).join('')}</div>
    <button class="primary" onclick="api('POST','/api/categories',{name:'New category'})">+ Category</button>
    <hr style="border-color:var(--line);margin:16px 0"><h3>Bulk upload</h3><p class="muted" style="font-size:13px">Excel/CSV columns: category, category_ar, name, name_ar, price, cost, emoji, description</p>
-   <input type="file" id="imp" accept=".xlsx,.xls,.csv"><div class="row" style="margin-top:8px"><button class="primary" onclick="importFile()">Upload</button><a href="/api/r/${App.slug}/menu/template.xlsx" style="color:var(--accent)">⬇ Template</a></div></div>
+   <input type="file" id="imp" accept=".xlsx,.xls,.csv"><div class="row" style="margin-top:8px"><button class="primary" onclick="importFile()">Upload</button><a href="/api/r/${App.slug}/menu/template.xlsx" style="color:var(--accent);display:inline-block;padding:10px 6px">⬇ Template</a></div></div>
   <div class="card" style="overflow:auto"><div class="spread"><h3>Items in “${App.esc(C.find(c => c.id === actCat)?.name || '')}”</h3><button class="primary" onclick="api('POST','/api/items',{cat:'${actCat}'})">+ Item</button></div>
   <table><tr><th></th><th>Name</th><th>الاسم</th><th>Price</th><th>Cost</th><th>Emoji</th><th title="First starred = Dish of the day, second = featured card">★</th><th>Description</th><th></th></tr>
   ${its.map(i => `<tr><td><div class="thumb" style="${i.img ? `background-image:url(${i.img})` : ''}" title="Upload image" onclick="pick('${i.id}')">${i.img ? '' : i.emoji}</div></td>
