@@ -1,3 +1,4 @@
+require('./env');
 const express = require('express');
 const http = require('http');
 const path = require('path');
@@ -362,6 +363,12 @@ app.post(`${R}/rpc`, async (req, res) => {
 });
 
 // ---------- WebSocket ----------
+// Never leak storage status codes; give a readable hint when the Supabase table has not been created yet
+app.use((err, req, res, next) => {
+  console.error(err);
+  const msg = /PGRST205|public\.tenants/.test(String(err.message)) ? 'Database not ready: run the setup SQL in Supabase (see README), then reload.' : 'Server error';
+  res.status(500).json({ error: msg });
+});
 if (require.main === module && !STATELESS) {
   const { WebSocketServer } = require('ws');
   const server = http.createServer(app);

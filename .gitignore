@@ -3,3 +3,6 @@ data/
 .tmp/
 *.log
 .srv.log
+
+.vercel
+.env*
