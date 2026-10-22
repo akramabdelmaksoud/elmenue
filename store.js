@@ -2,7 +2,7 @@
 // One JSON document per tenant.
 const fs = require('fs');
 const path = require('path');
-const DIR = path.join(__dirname, 'data', 'tenants');
+const DIR = path.join(process.env.DATA_DIR || path.join(__dirname, 'data'), 'tenants');
 let pool = null;
 const SB_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SB_KEY = process.env.SUPABASE_SECRET_KEY || '';

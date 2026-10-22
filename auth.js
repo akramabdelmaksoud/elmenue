@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 let SECRET = process.env.SECRET;
 if (!SECRET) {
-  const f = path.join(__dirname, 'data', '.secret');
+  const f = path.join(process.env.DATA_DIR || path.join(__dirname, 'data'), '.secret');
   try { SECRET = fs.readFileSync(f, 'utf8'); } catch { SECRET = crypto.randomBytes(32).toString('hex'); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, SECRET); }
 }
 const b64 = (b) => Buffer.from(b).toString('base64url');

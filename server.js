@@ -13,7 +13,7 @@ const { createTenant, freshData } = require('./tenant');
 
 const PORT = process.env.PORT || 3000;
 const PROD = process.env.NODE_ENV === 'production';
-fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
+fs.mkdirSync(process.env.DATA_DIR || path.join(__dirname, 'data'), { recursive: true });
 
 const tenants = new Map(); // slug -> tenant
 let uid = Date.now();
@@ -23,8 +23,9 @@ const SLUG = /^[a-z0-9][a-z0-9-]{1,29}$/;
 // ---------- Super admin credentials ----------
 let SUPER = { email: process.env.SUPER_EMAIL, hash: process.env.SUPER_PASSWORD ? auth.hash(process.env.SUPER_PASSWORD) : null };
 function setupSuper() {
+  if (process.env.SINGLE_RESTAURANT) return;
   if (SUPER.email && SUPER.hash) return;
-  const f = path.join(__dirname, 'data', 'super.json');
+  const f = path.join(process.env.DATA_DIR || path.join(__dirname, 'data'), 'super.json');
   try { const j = JSON.parse(fs.readFileSync(f, 'utf8')); SUPER = { email: j.email, hash: j.hash }; return; } catch {}
   const pw = auth.randomPassword();
   SUPER = { email: 'super@local.dev', hash: auth.hash(pw) };
@@ -49,7 +50,11 @@ async function bootstrap() {
   await store.init();
   setupSuper();
   (await store.loadAll()).forEach(mount);
-  if (!tenants.has('demo') && !PROD) {
+  if (SINGLE && !tenants.size && process.env.OWNER_EMAIL && process.env.OWNER_PASSWORD) {
+    const rec = makeRecord({ name: process.env.RESTAURANT_NAME || 'My Restaurant', slug: MAIN, email: process.env.OWNER_EMAIL, password: process.env.OWNER_PASSWORD, demo: !!process.env.DEMO_DATA });
+    rec.data.settings.name = rec.name; const t = mount(rec); if (process.env.DEMO_DATA) t.seedLive(); store.save(rec);
+  }
+  if (!SINGLE && !tenants.has('demo') && !PROD) {
     const rec = makeRecord({ name: 'Demo Café', slug: 'demo', email: 'demo@demo.com', password: 'demo123', demo: true });
     rec.pin = '1234'; rec.data.settings.name = 'Demo Café';
     const t = mount(rec); t.seedLive(); store.save(rec);
@@ -75,13 +80,33 @@ function tenantMw(req, res, next) {
 const app = express();
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '2mb' }));
+const SINGLE = !!process.env.SINGLE_RESTAURANT, MAIN = 'main';
+if (SINGLE) {
+  // One install = one restaurant: clean URLs (/admin, /captain, /t/5) that map to the single tenant
+  const sendPub = (f) => (req, res) => res.sendFile(path.join(__dirname, 'public', f));
+  app.get('/', (req, res) => res.redirect(tenants.size ? '/r/' + MAIN : '/setup'));
+  app.get('/setup', (req, res) => (tenants.size ? res.redirect('/admin') : sendPub('setup.html')(req, res)));
+  app.get('/admin', (req, res) => res.redirect('/r/' + MAIN + '/admin'));
+  app.get('/captain', (req, res) => res.redirect('/r/' + MAIN + '/captain'));
+  app.get('/t/:n', (req, res) => res.redirect('/r/' + MAIN + '/t/' + encodeURIComponent(req.params.n)));
+  app.get('/index.html', (req, res) => res.redirect('/'));
+  app.post('/api/setup', (req, res) => {
+    if (tenants.size) return res.status(403).json({ error: 'Already set up' });
+    const b = req.body || {};
+    if (!b.name || !/^\S+@\S+$/.test(b.email || '') || String(b.password || '').length < 6) return res.status(400).json({ error: 'Name, valid email and a 6+ character password are required' });
+    const rec = makeRecord({ name: b.name, slug: MAIN, email: b.email, password: b.password, demo: !!b.demo });
+    rec.data.settings.name = b.name; if (b.currency) rec.data.settings.currency = String(b.currency).slice(0, 6);
+    const t = mount(rec); if (b.demo) t.seedLive(); store.save(rec);
+    res.json({ token: auth.sign('admin', MAIN), pin: rec.pin });
+  });
+}
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/vendor/sortable.js', express.static(require.resolve('sortablejs/Sortable.min.js')));
 app.use('/vendor/chart.js', express.static(path.join(__dirname, 'node_modules/chart.js/dist/chart.umd.js')));
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 const page = (f) => (req, res) => res.sendFile(path.join(__dirname, 'public', f));
 
-app.get('/super', page('super.html'));
+if (!SINGLE) app.get('/super', page('super.html'));
 app.get('/r/:slug', page('tenant.html'));
 app.get('/r/:slug/t/:n', page('customer.html'));
 app.get('/r/:slug/captain', page('captain.html'));
@@ -94,17 +119,18 @@ function lanIP() {
 }
 const origin = (req) => (process.env.PUBLIC_URL || (PROD ? `${req.protocol}://${req.get('host')}` : `http://${lanIP()}:${PORT}`)).replace(/\/$/, '');
 
-app.get('/api/public/demo', (req, res) => res.json(!PROD && tenants.has('demo') ? { slug: 'demo', email: 'demo@demo.com', password: 'demo123', pin: '1234' } : null));
+app.get('/api/public/demo', (req, res) => res.json(!SINGLE && !PROD && tenants.has('demo') ? { slug: 'demo', email: 'demo@demo.com', password: 'demo123', pin: '1234' } : null));
 
 // ----- Super admin API -----
 app.post('/api/super/login', (req, res) => {
+  if (SINGLE) return res.status(404).json({});
   const key = 'super:' + req.ip;
   if (auth.throttled(key)) return res.status(429).json({ error: 'Too many attempts, try later' });
   const { email, password } = req.body || {};
   if (String(email).toLowerCase() === SUPER.email.toLowerCase() && auth.check(password, SUPER.hash)) { auth.ok(key); return res.json({ token: auth.sign('super', '*', 3) }); }
   auth.fail(key); res.status(401).json({ error: 'Invalid credentials' });
 });
-const needSuper = (req, res, next) => { const d = auth.verify(bearer(req)); if (!d || d.r !== 'super') return res.status(401).json({ error: 'auth' }); next(); };
+const needSuper = (req, res, next) => { if (SINGLE) return res.status(404).json({}); const d = auth.verify(bearer(req)); if (!d || d.r !== 'super') return res.status(401).json({ error: 'auth' }); next(); };
 const DAY = 86400000;
 function tenantStats(t, days = 30) {
   const since = Date.now() - days * DAY;

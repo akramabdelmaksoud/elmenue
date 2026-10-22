@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Set up your restaurant</title><link rel="stylesheet" href="/shared.css">
+<style>body{min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at 20% 10%,color-mix(in srgb,var(--accent) 25%,transparent),transparent 50%),var(--bg)}
+form{width:min(440px,100%);animation:pop .4s}h1{margin:0 0 4px;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;color:transparent}label{display:block;margin:12px 0 4px;font-size:13px}
+.ok{font-size:18px}</style></head>
+<body><form class="card" id="f"><h1>Welcome 👋</h1><p class="muted">Set up your restaurant in 30 seconds. You can change everything later.</p>
+<label class="muted">Restaurant / café name</label><input name="name" required maxlength="60" placeholder="Café Aroma">
+<label class="muted">Owner email (your admin login)</label><input name="email" type="email" required autocomplete="username">
+<label class="muted">Admin password (6+ characters)</label><input name="password" type="password" required minlength="6" autocomplete="new-password">
+<label class="muted">Currency</label><input name="currency" value="EGP" maxlength="6">
+<label class="row" style="margin:14px 0"><input type="checkbox" name="demo" style="width:auto" checked> Start with sample tables and orders (good for a first look)</label>
+<p id="err" style="color:var(--bad);min-height:20px;margin:0 0 8px"></p><button class="primary" style="width:100%;padding:14px">Create my restaurant</button></form>
+<script src="/shared.js"></script>
+<script>
+document.getElementById('f').onsubmit = async (e) => {
+  e.preventDefault();
+  const b = Object.fromEntries(new FormData(e.target)); b.demo = !!b.demo;
+  const r = await fetch('/api/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
+  const j = await r.json();
+  if (!r.ok) return (document.getElementById('err').textContent = j.error || 'Failed');
+  App.ls('tok:main:admin', j.token);
+  alert('All set!\n\nYour captain PIN is: ' + j.pin + '\n(You can change it in Admin → Theme & settings → Staff.)');
+  location.href = '/admin';
+};
+</script></body></html>
