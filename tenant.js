@@ -6,13 +6,37 @@ function freshData(demo) {
 }
 
 // A tenant = one restaurant with its own menu, tables, sessions, history, websocket clients.
-function createTenant(rec, persist) {
+function createTenant(rec, persist, onAlert) {
   const db = rec.data;
   let simulate = false;
   let uid = Date.now() * 1000 + Math.floor(Math.random() * 1000000);
   const id = (p) => p + (uid++).toString(36);
   const save = () => persist(rec);
   const touch = () => (rec.lastActive = Date.now());
+  const rkey = () => Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6);
+  // Every table gets a secret key that is printed inside its QR code; returns true if anything was added
+  function ensure() {
+    let ch = false;
+    db.tables.forEach((t) => { if (!t.key) { t.key = rkey(); ch = true; } });
+    if (!rec.stats) { rec.stats = { staff: {} }; ch = true; }
+    return ch;
+  }
+  const keyOk = (t, key) => db.settings.requireKey === false || (!!t.key && key === t.key);
+  // Stale sessions: nobody ordered and nobody active -> free the table; ordered but silent for a long time -> flag as idle
+  function sweep() {
+    const now = Date.now(), mins = Math.max(5, +db.settings.idleMinutes || 30); let ch = false;
+    Object.values(db.sessions).forEach((s) => {
+      const last = s.lastAt || s.startedAt;
+      if (!s.orders.length && !s.cart.length && now - last > mins * 60000) { delete db.sessions[s.tableId]; ch = true; }
+      else if (s.orders.length && !s.check && !s.idle && now - last > Math.max(mins * 3, 90) * 60000) { s.idle = true; ch = true; }
+    });
+    return ch;
+  }
+  function bump(c, key, add = 1) {
+    if (!c.staffId) return;
+    const st = ((rec.stats ||= { staff: {} }).staff[c.staffId] ||= { name: c.staffName || '?', handled: 0, respMs: 0, served: 0, started: 0, closed: 0 });
+    st.name = c.staffName || st.name; st[key] = (st[key] || 0) + add;
+  }
 
 // ---------- Billing ----------
 function bill(s) {
@@ -53,7 +77,7 @@ function openSession(t) {
   return db.sessions[t.id];
 }
 
-function closeSession(t, method) {
+function closeSession(t, method, who) {
   const s = db.sessions[t.id]; if (!s) return;
   const b = bill(s);
   const lines = {};
@@ -63,13 +87,13 @@ function closeSession(t, method) {
     l.qty += i.qty;
   }));
   const tip = s.check ? Math.round(b.sub * (s.check.tipPct || 0) / 100) : 0;
-  log(s, 'closed', 'Table paid and cleared');
+  log(s, 'closed', 'Table paid and cleared' + (who ? ' by ' + who : ''));
   if (s.orders.length) {
     db.history.push({
       id: id('h'), tableId: t.id, tableNumber: t.number, startedAt: s.startedAt,
       orderedAt: s.orders[0].at, checkAt: s.check?.at || Date.now(), closedAt: Date.now(),
       guests: s.guests.length || 1, items: Object.values(lines), sub: b.sub, service: b.service, tax: b.tax, tip,
-      total: +(b.total + tip).toFixed(2), method: method || s.check?.method || 'cash', split: s.check?.split || 'table', log: s.log,
+      total: +(b.total + tip).toFixed(2), method: method || s.check?.method || 'cash', split: s.check?.split || 'table', closedBy: who || '', log: s.log,
     });
   }
   delete db.sessions[t.id];
@@ -82,7 +106,7 @@ function seedLiveSessions() {
   plan.forEach(([n, st]) => {
     const t = db.tables.find((x) => x.number === n);
     const s = openSession(t);
-    s.startedAt = Date.now() - seed.rnd(5, 50) * 60000;
+    s.startedAt = Date.now() - seed.rnd(5, 50) * 60000; s.lastAt = Date.now();
     const g = seed.rnd(1, 3);
     for (let i = 0; i < g; i++) s.guests.push({ id: id('g'), name: names[(n + i) % 8], avatar: A[(n + i) % 8] });
     if (st !== 'seated') {
@@ -110,7 +134,7 @@ if (typeof needSeed !== 'undefined') seedLiveSessions();
 const clients = new Set();
 const view = (s) => ({ ...s, bill: bill(s) });
 function snapshotFor(c) {
-  const config = { settings: db.settings, categories: db.categories, items: db.items, tables: db.tables };
+  const config = { settings: db.settings, categories: db.categories, items: db.items, tables: c.role === 'admin' ? db.tables : db.tables.map(({ key, ...r }) => r) };
   if (c.role === 'customer') {
     const t = db.tables.find((x) => x.number === c.tableNumber);
     const s = t && db.sessions[t.id];
@@ -132,6 +156,7 @@ function alertCaptains(kind, tableNumber, text) {
   rec.alerts = (rec.alerts || []).filter((a) => now - a.at < 120000).slice(-30);
   rec.alertSeq = (rec.alertSeq || 0) + 1;
   rec.alerts.push({ id: rec.alertSeq, kind, tableNumber, text, at: now });
+  if (onAlert) onAlert({ kind, tableNumber, text, at: now });
   const m = JSON.stringify({ t: 'alert', kind, tableNumber, text, at: now });
   clients.forEach((c) => c.role === 'captain' && c.ws.readyState === 1 && c.ws.send(m));
 }
@@ -147,7 +172,9 @@ function handle(c, m) {
       c.tableNumber = +m.tableNumber;
       const t = db.tables.find((x) => x.number === c.tableNumber);
       if (!t) return c.ws.send(JSON.stringify({ t: 'error', msg: 'Unknown table' }));
-      const s = openSession(t);
+      const known = db.sessions[t.id] && db.sessions[t.id].guests.find((x) => x.id === m.guestId);
+      if (!known && !keyOk(t, m.key)) return c.ws.send(JSON.stringify({ t: 'error', msg: 'scan' }));
+      const s = openSession(t); s.lastAt = Date.now(); s.idle = false;
       let g = s.guests.find((x) => x.id === m.guestId);
       if (!g) { g = { id: id('g'), name: m.name || 'Guest', avatar: m.avatar || '🙂' }; s.guests.push(g); log(s, 'join', `${g.avatar} ${g.name} joined`); }
       else { g.name = m.name || g.name; g.avatar = m.avatar || g.avatar; }
@@ -160,18 +187,19 @@ function handle(c, m) {
     const t = db.tables.find((x) => x.number === c.tableNumber);
     const s = t && db.sessions[t.id];
     if (!s) return;
+    s.lastAt = Date.now(); s.idle = false;
     switch (m.t) {
       case 'profile': { const g = s.guests.find((x) => x.id === c.guestId); if (g) { g.name = String(m.name || g.name).slice(0, 20); g.avatar = String(m.avatar || g.avatar).slice(0, 8); } break; }
       case 'cart_add': {
-        const it = db.items.find((x) => x.id === m.itemId); if (!it) break;
+        const it = db.items.find((x) => x.id === m.itemId); if (!it || it.soldOut) break;
         const ex = s.cart.find((l) => l.itemId === it.id && l.guestId === c.guestId && !l.note);
-        if (ex) ex.qty++;
-        else s.cart.push({ id: id('l'), guestId: c.guestId, itemId: it.id, name: it.name, name_ar: it.name_ar, emoji: it.emoji, price: it.price, qty: 1, note: '' });
+        if (ex) { if (ex.qty < 20) ex.qty++; }
+        else if (s.cart.length < 40) s.cart.push({ id: id('l'), guestId: c.guestId, itemId: it.id, name: it.name, name_ar: it.name_ar, emoji: it.emoji, price: it.price, qty: 1, note: '' });
         break;
       }
       case 'cart_qty': {
         const l = s.cart.find((x) => x.id === m.id); if (!l) break;
-        l.qty += m.d; if (l.qty <= 0) s.cart = s.cart.filter((x) => x !== l); break;
+        l.qty += m.d > 0 ? (l.qty < 20 ? 1 : 0) : -1; if (l.qty <= 0) s.cart = s.cart.filter((x) => x !== l); break;
       }
       case 'cart_note': { const l = s.cart.find((x) => x.id === m.id); if (l) l.note = String(m.note || '').slice(0, 140); break; }
       case 'send_order': {
@@ -198,6 +226,7 @@ function handle(c, m) {
       case 'request': {
         const labels = { waiter: 'Call waiter', water: 'Water / napkins', urgent: 'Speed up order' };
         if (!labels[m.type] || s.requests.some((r) => r.type === m.type && !r.done)) break;
+        const gq = s.guests.find((x) => x.id === c.guestId); if (gq) { gq.cd ||= {}; if (Date.now() - (gq.cd[m.type] || 0) < 45000) break; gq.cd[m.type] = Date.now(); }
         s.requests.push({ id: id('r'), type: m.type, at: Date.now(), done: false, by: c.guestId });
         log(s, 'request', labels[m.type]);
         alertCaptains(m.type === 'urgent' ? 'urgent' : 'request', t.number, `Table ${t.number}: ${labels[m.type]}`);
@@ -215,23 +244,33 @@ function handle(c, m) {
     }
     return broadcast();
   }
+  if (c.role === 'kitchen') {
+    if (m.t === 'order_status' && ['kitchen', 'served'].includes(m.status)) setStatus(c, m);
+    return broadcast();
+  }
   if (c.role === 'captain') {
-    const findOrder = () => { for (const s of Object.values(db.sessions)) { const o = s.orders.find((x) => x.id === m.orderId); if (o) return [s, o]; } return []; };
     switch (m.t) {
-      case 'order_status': {
-        const [s, o] = findOrder(); if (!o) break;
-        o.status = m.status; log(s, 'status', `Order ${m.status}`); break;
-      }
+      case 'order_status': setStatus(c, m); break;
       case 'resolve_request': {
         const s = db.sessions[m.tableId]; const r = s?.requests.find((x) => x.id === m.id);
-        if (r) { r.done = true; log(s, 'handled', `Request ${r.type} handled`); }
+        if (r) { r.done = true; log(s, 'handled', `Request ${r.type} handled` + (c.staffName ? ' by ' + c.staffName : '')); bump(c, 'handled'); bump(c, 'respMs', Math.max(0, Date.now() - r.at)); }
         break;
       }
-      case 'close_table': { const t = db.tables.find((x) => x.id === m.tableId); if (t) closeSession(t, m.method); break; }
-      case 'seat_table': { const t = db.tables.find((x) => x.id === m.tableId); if (t) openSession(t); break; }
+      case 'close_table': { const t = db.tables.find((x) => x.id === m.tableId); if (t) { bump(c, 'closed'); closeSession(t, m.method, c.staffName); } break; }
+      case 'seat_table': { const t = db.tables.find((x) => x.id === m.tableId); if (t) { const s = openSession(t); s.lastAt = Date.now(); } break; }
       case 'sim': simulate = !!m.on; break;
     }
     return broadcast();
+  }
+}
+function setStatus(c, m) {
+  for (const s of Object.values(db.sessions)) {
+    const o = s.orders.find((x) => x.id === m.orderId); if (!o) continue;
+    if (!['received', 'kitchen', 'served', 'closed'].includes(m.status)) return;
+    o.status = m.status; log(s, 'status', `Order ${m.status}` + (c.staffName ? ' by ' + c.staffName : ''));
+    if (m.status === 'kitchen') bump(c, 'started');
+    if (m.status === 'served') { bump(c, 'served'); alertCaptains('ready', s.tableNumber, `Table ${s.tableNumber}: order is ready`); }
+    return;
   }
 }
 
@@ -304,6 +343,6 @@ function analytics(days = 7) {
 }
 
   function seedLive() { seedLiveSessions(); }
-  return { rec, db, clients, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
+  return { rec, db, clients, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
 }
 module.exports = { createTenant, freshData, clone };

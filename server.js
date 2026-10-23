@@ -7,6 +7,7 @@ const os = require('os');
 const QRCode = require('qrcode');
 const XLSX = require('xlsx');
 const multer = require('multer');
+let webpush = null; try { webpush = require('web-push'); } catch {}
 const store = require('./store');
 const auth = require('./auth');
 const { createTenant, freshData } = require('./tenant');
@@ -16,6 +17,27 @@ const PROD = process.env.NODE_ENV === 'production';
 try { fs.mkdirSync(process.env.DATA_DIR || path.join(__dirname, 'data'), { recursive: true }); } catch {}
 const STATELESS = !!(process.env.STATELESS || process.env.VERCEL);   // serverless: no websockets, no in-memory state
 
+// ---------- Web push (captain / kitchen notifications that work with the phone locked) ----------
+function vapidKeys() {
+  if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) return { publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY };
+  const f = path.join(process.env.DATA_DIR || path.join(__dirname, 'data'), 'vapid.json');
+  try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch {}
+  const k = webpush ? webpush.generateVAPIDKeys() : { publicKey: '', privateKey: '' };
+  try { fs.writeFileSync(f, JSON.stringify(k)); } catch {}
+  return k;
+}
+const VAPID = vapidKeys();
+if (webpush && VAPID.publicKey) webpush.setVapidDetails('mailto:' + (process.env.VAPID_CONTACT || 'admin@example.com'), VAPID.publicKey, VAPID.privateKey);
+const PUSH_TITLE = { order: '🍽️ New order', urgent: '🚨 Urgent request', check: '🧾 Check requested', request: '🔔 Guest request', ready: '✅ Order ready' };
+async function sendPush(rec, alerts) {
+  const dead = [];
+  if (!webpush || !VAPID.publicKey || !alerts.length || !(rec.pushSubs || []).length) return dead;
+  await Promise.all(rec.pushSubs.flatMap((ps) => alerts.filter((a) => PUSH_TITLE[a.kind] && (ps.role !== 'kitchen' || a.kind === 'order')).map(async (a) => {
+    try { await webpush.sendNotification(ps.sub, JSON.stringify({ title: PUSH_TITLE[a.kind], body: a.text, tag: a.kind + a.tableNumber, url: ps.role === 'kitchen' ? '/kitchen' : '/captain', urgent: a.kind === 'urgent' }), { TTL: 120, urgency: 'high' }); }
+    catch (e) { if (e.statusCode === 404 || e.statusCode === 410) dead.push(ps.sub.endpoint); }
+  })));
+  return dead;
+}
 const tenants = new Map(); // slug -> tenant
 let uid = Date.now() * 1000 + Math.floor(Math.random() * 1000000);
 const newId = (p) => p + (uid++).toString(36);
@@ -36,8 +58,9 @@ function setupSuper() {
 
 // ---------- Tenant management ----------
 function mount(rec) {
-  const t = createTenant(rec, store.save);
+  const t = createTenant(rec, store.save, (a) => { sendPush(rec, [a]).then((dead) => { if (dead.length) { rec.pushSubs = rec.pushSubs.filter((x) => !dead.includes(x.sub.endpoint)); store.save(rec); } }).catch(() => {}); });
   tenants.set(rec.slug, t);
+  if (t.ensure()) store.save(rec);
   return t;
 }
 function makeRecord({ name, slug, email, password, plan = 'standard', demo = false }) {
@@ -56,8 +79,8 @@ async function bootstrap() {
     rec.data.settings.name = rec.name; const t = mount(rec); if (process.env.DEMO_DATA) t.seedLive(); store.save(rec);
   }
   if (!SINGLE && !tenants.has('demo') && !PROD) {
-    const rec = makeRecord({ name: 'Demo CafÃ©', slug: 'demo', email: 'demo@demo.com', password: 'demo123', demo: true });
-    rec.pin = '1234'; rec.data.settings.name = 'Demo CafÃ©';
+    const rec = makeRecord({ name: 'Demo Café', slug: 'demo', email: 'demo@demo.com', password: 'demo123', demo: true });
+    rec.pin = '1234'; rec.data.settings.name = 'Demo Café'; rec.data.settings.requireKey = false;   // dev demo: open links work without a printed QR
     const t = mount(rec); t.seedLive(); store.save(rec);
   }
 }
@@ -80,8 +103,10 @@ async function loadFresh() {
     got = await store.getRec(MAIN);
   }
   if (!got) return null;
-  const t = createTenant(got.rec, () => { t.dirty = true; });
-  t.ver = got.ver; t.dirty = false;
+  const t = createTenant(got.rec, () => { t.dirty = true; }, (a) => t.pending.push(a));
+  t.ver = got.ver; t.dirty = false; t.pending = [];
+  if (t.ensure()) t.dirty = true;
+  if (t.sweep()) t.dirty = true;
   return t;
 }
 async function createRecord(rec, demo) {
@@ -100,12 +125,12 @@ async function commit(t) {
   if (hist.length) await store.appendHist(t.rec.id, hist);
   return true;
 }
-function flushBeforeReply(res, t) {
+function flushBeforeReply(req, res, t) {
   for (const m of ['json', 'send']) {
     const orig = res[m].bind(res);
     res[m] = (...a) => {
       if (!t.dirty) return orig(...a);
-      commit(t).then((ok) => (ok ? orig(...a) : res.status(409).json({ error: 'busy', retry: true }))).catch((e) => res.status(500).json({ error: e.message }));
+      commit(t).then((ok) => (ok || req.method === 'GET' ? orig(...a) : res.status(409).json({ error: 'busy', retry: true }))).catch((e) => (req.method === 'GET' ? orig(...a) : res.status(500).json({ error: e.message })));
       return res;
     };
   }
@@ -117,7 +142,7 @@ async function tenantMw(req, res, next) {
       if (req.params.slug !== MAIN) return res.status(404).json({ error: 'Unknown restaurant' });
       t = await loadFresh();
       if (!t) return res.status(404).json({ error: 'Not set up yet' });
-      flushBeforeReply(res, t);
+      flushBeforeReply(req, res, t);
     } else t = tenants.get(req.params.slug);
     if (!t) return res.status(404).json({ error: 'Unknown restaurant' });
     if (t.rec.status !== 'active') return res.status(403).json({ error: 'This restaurant is currently suspended' });
@@ -138,7 +163,8 @@ if (SINGLE) {
   app.get('/setup', async (req, res, next) => { try { (await isSetup()) ? res.redirect('/admin') : sendPub('setup.html')(req, res); } catch (e) { next(e); } });
   app.get('/admin', (req, res) => res.redirect('/r/' + MAIN + '/admin'));
   app.get('/captain', (req, res) => res.redirect('/r/' + MAIN + '/captain'));
-  app.get('/t/:n', (req, res) => res.redirect('/r/' + MAIN + '/t/' + encodeURIComponent(req.params.n)));
+  app.get('/kitchen', (req, res) => res.redirect('/r/' + MAIN + '/kitchen'));
+  app.get('/t/:n', (req, res) => res.redirect('/r/' + MAIN + '/t/' + encodeURIComponent(req.params.n) + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')));
   app.get('/index.html', (req, res) => res.redirect('/'));
   app.get('/api/setup/status', async (req, res) => { try { res.json({ setup: await isSetup(), needsKey: !!process.env.SETUP_KEY }); } catch (e) { res.status(500).json({ error: 'Server error' }); } });
   app.post('/api/setup', async (req, res) => {
@@ -169,6 +195,7 @@ app.get('/r/:slug', page('tenant.html'));
 app.get('/r/:slug/t/:n', page('customer.html'));
 app.get('/r/:slug/captain', page('captain.html'));
 app.get('/r/:slug/admin', page('admin.html'));
+app.get('/r/:slug/kitchen', page('kitchen.html'));
 app.get('/health', (req, res) => res.send('ok'));
 
 function lanIP() {
@@ -218,7 +245,7 @@ app.get('/api/super/overview', needSuper, (req, res) => {
 });
 app.post('/api/super/tenants', needSuper, (req, res) => {
   const b = req.body || {}; const slug = String(b.slug || '').toLowerCase().trim();
-  if (!SLUG.test(slug) || ['super', 'api', 'admin', 'vendor', 'uploads'].includes(slug)) return res.status(400).json({ error: 'Slug must be 2â€“30 chars: a-z, 0-9, dashes' });
+  if (!SLUG.test(slug) || ['super', 'api', 'admin', 'vendor', 'uploads'].includes(slug)) return res.status(400).json({ error: 'Slug must be 2–30 chars: a-z, 0-9, dashes' });
   if (tenants.has(slug)) return res.status(400).json({ error: 'That slug is taken' });
   if (!b.name || !/^\S+@\S+$/.test(b.email || '')) return res.status(400).json({ error: 'Name and valid owner email required' });
   const password = b.password || auth.randomPassword();
@@ -246,30 +273,73 @@ app.delete('/api/super/tenants/:slug', needSuper, async (req, res) => {
 
 // ----- Per-restaurant public API -----
 const R = '/api/r/:slug';
-app.get(`${R}/config`, tenantMw, (req, res) => { const d = req.tenant.db; res.json({ settings: d.settings, categories: d.categories, items: d.items, tables: d.tables }); });
+app.get(`${R}/config`, tenantMw, (req, res) => { const d = req.tenant.db; res.json({ settings: d.settings, categories: d.categories, items: d.items, tables: d.tables.map(({ key, ...r }) => r) }); });
 app.get(`${R}/info`, tenantMw, (req, res) => res.json({ base: origin(req) + '/r/' + req.params.slug }));
-app.get(`${R}/qr/:n.png`, tenantMw, async (req, res) => {
+app.get(`${R}/qr/:n.png`, tenantMw, needAdmin, async (req, res) => {
   const base = String(req.query.base || origin(req) + '/r/' + req.params.slug).replace(/\/$/, '');
-  res.type('png').send(await QRCode.toBuffer(`${base}/t/${req.params.n}`, { width: 600, margin: 2, color: { dark: '#111111', light: '#ffffff' } }));
+  const tb = req.tenant.db.tables.find((x) => String(x.number) === req.params.n);
+  if (!tb) return res.status(404).end();
+  res.type('png').send(await QRCode.toBuffer(`${base}/t/${tb.number}${tb.key ? '?k=' + tb.key : ''}`, { width: 600, margin: 2, color: { dark: '#111111', light: '#ffffff' } }));
 });
 app.get(`${R}/menu/template.xlsx`, (req, res) => {
-  const ws = XLSX.utils.json_to_sheet([{ category: 'Hot Coffee', category_ar: 'Ù‚Ù‡ÙˆØ© Ø³Ø§Ø®Ù†Ø©', name: 'Mocha', name_ar: 'Ù…ÙˆÙƒØ§', price: 85, cost: 20, emoji: 'â˜•', description: 'Chocolate espresso' }]);
+  const ws = XLSX.utils.json_to_sheet([{ category: 'Hot Coffee', category_ar: 'قهوة ساخنة', name: 'Mocha', name_ar: 'موكا', price: 85, cost: 20, emoji: '☕', description: 'Chocolate espresso' }]);
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Menu');
   res.setHeader('Content-Disposition', 'attachment; filename=menu-template.xlsx');
   res.send(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
 });
+const persistRec = (t) => { if (STATELESS) t.dirty = true; else store.save(t.rec); };
 app.post(`${R}/login`, tenantMw, (req, res) => {
   const t = req.tenant, { role, email, password, pin } = req.body || {};
-  const key = `${req.params.slug}:${role}:${req.ip}`;
-  if (auth.throttled(key)) return res.status(429).json({ error: 'Too many attempts, try again in a few minutes' });
-  if (role === 'admin' && String(email).toLowerCase() === t.rec.owner.email && auth.check(password, t.rec.owner.hash)) { auth.ok(key); return res.json({ token: auth.sign('admin', t.rec.slug) }); }
-  if (role === 'captain' && String(pin) === String(t.rec.pin)) { auth.ok(key); return res.json({ token: auth.sign('captain', t.rec.slug, 2) }); }
-  auth.fail(key); res.status(401).json({ error: 'Invalid credentials' });
+  const key = `${role}:${req.ip}`, fails = (t.rec.fails ||= {}), f = fails[key] || { n: 0, t: 0 };
+  if (f.n >= 8 && Date.now() - f.t < 10 * 60000) return res.status(429).json({ error: 'Too many attempts, try again in a few minutes' });
+  const ok = (token) => { if (fails[key]) { delete fails[key]; persistRec(t); } return res.json({ token }); };
+  if (role === 'admin' && String(email).toLowerCase() === t.rec.owner.email && auth.check(password, t.rec.owner.hash)) return ok(auth.sign('admin', t.rec.slug));
+  if (role === 'captain' || role === 'kitchen') {
+    const p = String(pin || ''); let who = null;
+    for (const st of t.rec.staff || []) if (st.active !== false && st.hash && auth.check(p, st.hash)) { who = st; break; }
+    if (who && (role === 'kitchen' || who.role === 'captain')) return ok(auth.sign(role, t.rec.slug, 2, { u: who.id, n: who.name }));
+    if (!who && p && p === String(t.rec.pin)) return ok(auth.sign(role, t.rec.slug, 2, { u: 'owner-pin', n: 'Captain' }));
+  }
+  fails[key] = { n: f.n + 1, t: Date.now() };
+  for (const k of Object.keys(fails)) if (Date.now() - fails[k].t > 3600000) delete fails[k];
+  persistRec(t); res.status(401).json({ error: 'Invalid credentials' });
 });
 app.get(`${R}/me`, tenantMw, (req, res) => {
   const d = auth.verify(bearer(req)); const want = req.query.role;
-  const ok = d && (d.r === 'super' || (d.s === req.params.slug && (d.r === want || d.r === 'admin')));
-  ok ? res.json({ ok: 1, name: req.tenant.rec.name }) : res.status(401).json({ error: 'auth' });
+  const ok = d && (d.r === 'super' || (d.s === req.params.slug && (d.r === want || d.r === 'admin' || (want === 'kitchen' && d.r === 'captain'))));
+  ok ? res.json({ ok: 1, name: req.tenant.rec.name, who: d.n || '' }) : res.status(401).json({ error: 'auth' });
+});
+function needStaff(req, res, next) {
+  const d = auth.verify(bearer(req));
+  if (!d) return res.status(401).json({ error: 'auth' });
+  if (d.r !== 'super' && !(d.s === req.params.slug && ['admin', 'captain', 'kitchen'].includes(d.r))) return res.status(403).json({ error: 'forbidden' });
+  req.claims = d; next();
+}
+// quick "sold out" switch for kitchen, captain and owner
+app.put(`${R}/items/:id/stock`, tenantMw, needStaff, (req, res) => {
+  const i = req.tenant.db.items.find((x) => x.id === req.params.id); if (!i) return res.status(404).json({ error: 'not found' });
+  i.soldOut = !!req.body.soldOut; req.tenant.broadcast(); res.json({ id: i.id, soldOut: i.soldOut });
+});
+// push subscriptions
+app.get(`${R}/push/key`, tenantMw, (req, res) => res.json({ key: VAPID.publicKey || '' }));
+app.post(`${R}/push/subscribe`, tenantMw, needStaff, (req, res) => {
+  const sub = req.body && req.body.sub; if (!sub || !/^https:\/\//.test(sub.endpoint || '') || !sub.keys) return res.status(400).json({ error: 'bad subscription' });
+  const r = req.tenant.rec; r.pushSubs = (r.pushSubs || []).filter((x) => x.sub.endpoint !== sub.endpoint);
+  r.pushSubs.push({ sub, role: req.claims.r === 'kitchen' ? 'kitchen' : 'captain', who: req.claims.n || '', at: Date.now() });
+  r.pushSubs = r.pushSubs.slice(-30); req.tenant.broadcast(); res.json({ ok: 1 });
+});
+app.post(`${R}/push/unsubscribe`, tenantMw, needStaff, (req, res) => {
+  const r = req.tenant.rec, ep = req.body && req.body.endpoint; r.pushSubs = (r.pushSubs || []).filter((x) => x.sub.endpoint !== ep); req.tenant.broadcast(); res.json({ ok: 1 });
+});
+// guest feedback after paying (public, rate limited)
+app.post(`${R}/feedback`, tenantMw, (req, res) => {
+  const b = req.body || {}, r = req.tenant.rec, stars = Math.round(+b.stars);
+  if (!(stars >= 1 && stars <= 5)) return res.status(400).json({ error: 'bad rating' });
+  const rate = (r.fbRate ||= {}), k = String(req.ip).replace(/[^\w.:]/g, '').slice(0, 45), now = Date.now();
+  if (rate[k] && now - rate[k] < 3 * 60000) return res.json({ ok: 1, dup: true });
+  rate[k] = now; for (const x of Object.keys(rate)) if (now - rate[x] > 3600000) delete rate[x];
+  r.reviews = [{ id: newId('f'), at: now, stars, comment: String(b.comment || '').slice(0, 400), table: +b.table || 0, name: String(b.name || '').slice(0, 24) }, ...(r.reviews || [])].slice(0, 300);
+  req.tenant.broadcast(); res.json({ ok: 1 });
 });
 
 // ----- Admin API (owner of this restaurant, or superadmin) -----
@@ -278,18 +348,86 @@ const bc = (req) => req.tenant.broadcast();
 A('get', '/account', (req, res) => res.json({ name: req.tenant.rec.name, email: req.tenant.rec.owner.email, pin: req.tenant.rec.pin, plan: req.tenant.rec.plan }));
 A('post', '/account', (req, res) => {
   const r = req.tenant.rec, b = req.body || {};
-  if (b.pin) { if (!/^\d{4,8}$/.test(b.pin)) return res.status(400).json({ error: 'PIN must be 4â€“8 digits' }); r.pin = b.pin; }
+  if (b.pin) { if (!/^\d{4,8}$/.test(b.pin)) return res.status(400).json({ error: 'PIN must be 4–8 digits' }); r.pin = b.pin; }
   if (b.password) { if (String(b.password).length < 6) return res.status(400).json({ error: 'Password must be 6+ characters' }); r.owner.hash = auth.hash(b.password); }
   req.tenant.broadcast(); res.json({ ok: 1, pin: r.pin });
 });
+A('get', '/staff', (req, res) => res.json({ staff: (req.tenant.rec.staff || []).map(({ hash, ...x }) => x), stats: (req.tenant.rec.stats || {}).staff || {}, legacyPin: req.tenant.rec.pin }));
+const pinTaken = (rec, pin, exceptId) => String(rec.pin) === pin || (rec.staff || []).some((x) => x.id !== exceptId && x.hash && auth.check(pin, x.hash));
+A('post', '/staff', (req, res) => {
+  const r = req.tenant.rec, b = req.body || {}, name = String(b.name || '').trim().slice(0, 30), pin = String(b.pin || '');
+  if (!name) return res.status(400).json({ error: 'Name required' });
+  if (!['captain', 'kitchen'].includes(b.role)) return res.status(400).json({ error: 'Role must be captain or kitchen' });
+  if (!/^\d{4,8}$/.test(pin)) return res.status(400).json({ error: 'PIN must be 4-8 digits' });
+  if (pinTaken(r, pin)) return res.status(400).json({ error: 'That PIN is already used - choose another' });
+  const st = { id: newId('u'), name, role: b.role, hash: auth.hash(pin), active: true, createdAt: Date.now() };
+  (r.staff ||= []).push(st); bc(req); const { hash, ...pub } = st; res.json(pub);
+});
+A('put', '/staff/:id', (req, res) => {
+  const r = req.tenant.rec, st = (r.staff || []).find((x) => x.id === req.params.id), b = req.body || {};
+  if (!st) return res.status(404).json({ error: 'not found' });
+  if (b.name !== undefined) st.name = String(b.name).trim().slice(0, 30) || st.name;
+  if (['captain', 'kitchen'].includes(b.role)) st.role = b.role;
+  if (b.active !== undefined) st.active = !!b.active;
+  if (b.pin) { if (!/^\d{4,8}$/.test(String(b.pin))) return res.status(400).json({ error: 'PIN must be 4-8 digits' }); if (pinTaken(r, String(b.pin), st.id)) return res.status(400).json({ error: 'That PIN is already used' }); st.hash = auth.hash(String(b.pin)); }
+  bc(req); res.json({ ok: 1 });
+});
+A('delete', '/staff/:id', (req, res) => { const r = req.tenant.rec; r.staff = (r.staff || []).filter((x) => x.id !== req.params.id); bc(req); res.json({ ok: 1 }); });
+A('get', '/feedback', (req, res) => res.json({ reviews: req.tenant.rec.reviews || [] }));
+A('post', '/tables/:id/rekey', (req, res) => { const t = req.tenant.db.tables.find((x) => x.id === req.params.id); if (t) t.key = Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6); bc(req); res.json({ ok: 1 }); });
+A('post', '/tables-rekey', (req, res) => { req.tenant.db.tables.forEach((t) => (t.key = Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6))); bc(req); res.json({ ok: 1 }); });
+async function reportFor(t, from, to) {
+  const hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history;
+  const H = hist.filter((h) => h.closedAt >= from && h.closedAt <= to);
+  const sum = (a, f) => a.reduce((n, x) => n + f(x), 0), cats = {}, items = {}, hours = Array(24).fill(0), methods = { cash: 0, card: 0 }, splits = {}, byWho = {};
+  H.forEach((h) => {
+    methods[h.method] = (methods[h.method] || 0) + h.total; splits[h.split] = (splits[h.split] || 0) + 1; hours[new Date(h.startedAt).getHours()]++;
+    if (h.closedBy) byWho[h.closedBy] = (byWho[h.closedBy] || 0) + 1;
+    h.items.forEach((l) => {
+      const c = t.db.categories.find((x) => x.id === l.cat), cn = c ? c.name : 'Other';
+      const a = (items[l.name] ||= { name: l.name, category: cn, qty: 0, revenue: 0, profit: 0 }); a.qty += l.qty; a.revenue += l.qty * l.price; a.profit += l.qty * (l.price - l.cost);
+      const b = (cats[cn] ||= { name: cn, revenue: 0, profit: 0, qty: 0 }); b.revenue += l.qty * l.price; b.profit += l.qty * (l.price - l.cost); b.qty += l.qty;
+    });
+  });
+  const rev = (t.rec.reviews || []).filter((r) => r.at >= from && r.at <= to);
+  const staff = Object.entries((t.rec.stats || {}).staff || {}).map(([id, v]) => ({ id, ...v, avgResponseSec: v.handled ? Math.round(v.respMs / v.handled / 1000) : 0 }));
+  return {
+    from, to, sessions: H.length, guests: sum(H, (h) => h.guests), gross: sum(H, (h) => h.sub), service: sum(H, (h) => h.service), tax: sum(H, (h) => h.tax), tips: sum(H, (h) => h.tip), total: sum(H, (h) => h.total),
+    avgTicket: H.length ? sum(H, (h) => h.total) / H.length : 0, avgMinutes: H.length ? sum(H, (h) => (h.closedAt - h.startedAt) / 60000) / H.length : 0, methods, splits, hours, closedBy: byWho,
+    items: Object.values(items).sort((a, b) => b.qty - a.qty), categories: Object.values(cats).sort((a, b) => b.revenue - a.revenue), staff,
+    reviews: { count: rev.length, avg: rev.length ? rev.reduce((n, r) => n + r.stars, 0) / rev.length : 0, low: rev.filter((r) => r.stars <= 2).length }, currency: t.db.settings.currency, name: t.rec.name,
+    sessionsList: H.map((h) => ({ table: h.tableNumber, guests: h.guests, opened: h.startedAt, closed: h.closedAt, minutes: Math.round((h.closedAt - h.startedAt) / 60000), sub: h.sub, service: h.service, tax: h.tax, tip: h.tip, total: h.total, method: h.method, split: h.split, closedBy: h.closedBy || '' })),
+  };
+}
+const range = (q) => { const to = +q.to || Date.now(), from = +q.from || to - 86400000; return [from, to]; };
+A('get', '/report', async (req, res) => { const [f, t2] = range(req.query); const r = await reportFor(req.tenant, f, t2); delete r.sessionsList; res.json(r); });
+A('get', '/report.xlsx', async (req, res) => {
+  const [f, t2] = range(req.query), r = await reportFor(req.tenant, f, t2), wb = XLSX.utils.book_new(), d = (x) => new Date(x).toLocaleString('en-GB');
+  const money = (n) => Math.round(n * 100) / 100;
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    [r.name + ' - sales report'], ['From', d(f)], ['To', d(t2)], [], ['Table sessions', r.sessions], ['Guests', r.guests], ['Gross sales (before service/tax)', money(r.gross)], ['Service charge', money(r.service)], ['Tax collected', money(r.tax)], ['Tips', money(r.tips)], ['Total collected', money(r.total)],
+    ['Cash', money(r.methods.cash || 0)], ['Card', money(r.methods.card || 0)], ['Average ticket', money(r.avgTicket)], ['Average minutes at table', Math.round(r.avgMinutes)], ['Currency', r.currency], ['Guest rating (avg)', r.reviews.count ? Math.round(r.reviews.avg * 10) / 10 : 'n/a'],
+  ]), 'Summary');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.sessionsList.map((x) => ({ Table: x.table, Guests: x.guests, Opened: d(x.opened), Closed: d(x.closed), Minutes: x.minutes, Subtotal: money(x.sub), Service: money(x.service), Tax: money(x.tax), Tip: money(x.tip), Total: money(x.total), Payment: x.method, Split: x.split, 'Closed by': x.closedBy }))), 'Sessions');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.items.map((x) => ({ Item: x.name, Category: x.category, Quantity: x.qty, Revenue: money(x.revenue), Profit: money(x.profit) }))), 'Items');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.categories.map((x) => ({ Category: x.name, Quantity: x.qty, Revenue: money(x.revenue), Profit: money(x.profit) }))), 'Categories');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.staff.map((x) => ({ Staff: x.name, 'Requests handled': x.handled || 0, 'Avg response (sec)': x.avgResponseSec, 'Orders started': x.started || 0, 'Orders served': x.served || 0, 'Tables closed': x.closed || 0 }))), 'Staff');
+  res.setHeader('Content-Disposition', `attachment; filename=report-${new Date(f).toISOString().slice(0, 10)}.xlsx`);
+  res.send(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+});
+A('get', '/export.json', async (req, res) => {
+  const t = req.tenant, { staff, pushSubs, fails, fbRate, ...rec } = t.rec;
+  const out = { exportedAt: new Date().toISOString(), restaurant: { name: rec.name, slug: rec.slug }, settings: t.db.settings, categories: t.db.categories, items: t.db.items.map((i) => ({ ...i, img: i.img && i.img.startsWith('data:') ? '' : i.img })), tables: t.db.tables, staff: (staff || []).map(({ hash, ...x }) => x), reviews: rec.reviews || [], history: STATELESS ? await store.getHist(rec.id) : t.db.history };
+  res.setHeader('Content-Disposition', `attachment; filename=backup-${new Date().toISOString().slice(0, 10)}.json`); res.type('json').send(JSON.stringify(out));
+});
 A('post', '/settings', (req, res) => { const d = req.tenant.db; const b = req.body || {}; delete b.presets; Object.assign(d.settings, b); bc(req); res.json(d.settings); });
 
-A('post', '/categories', (req, res) => { const d = req.tenant.db; const c = { id: newId('c'), name: req.body.name || 'New', name_ar: req.body.name_ar || '', emoji: req.body.emoji || 'ðŸ½ï¸' }; d.categories.push(c); bc(req); res.json(c); });
+A('post', '/categories', (req, res) => { const d = req.tenant.db; const c = { id: newId('c'), name: req.body.name || 'New', name_ar: req.body.name_ar || '', emoji: req.body.emoji || '🍽️' }; d.categories.push(c); bc(req); res.json(c); });
 A('put', '/categories/order', (req, res) => { const d = req.tenant.db, o = req.body.ids || []; d.categories.sort((a, b) => o.indexOf(a.id) - o.indexOf(b.id)); bc(req); res.json({ ok: 1 }); });
 A('put', '/categories/:id', (req, res) => { const c = req.tenant.db.categories.find((x) => x.id === req.params.id); if (c) Object.assign(c, req.body, { id: c.id }); bc(req); res.json(c); });
 A('delete', '/categories/:id', (req, res) => { const d = req.tenant.db; d.categories = d.categories.filter((x) => x.id !== req.params.id); d.items = d.items.filter((i) => i.cat !== req.params.id); bc(req); res.json({ ok: 1 }); });
 
-A('post', '/items', (req, res) => { const d = req.tenant.db; const b = req.body; const i = { id: newId('i'), cat: b.cat, name: b.name || 'New item', name_ar: b.name_ar || '', price: +b.price || 0, cost: +b.cost || 0, emoji: b.emoji || 'ðŸ½ï¸', desc: b.desc || '', img: '' }; d.items.push(i); bc(req); res.json(i); });
+A('post', '/items', (req, res) => { const d = req.tenant.db; const b = req.body; const i = { id: newId('i'), cat: b.cat, name: b.name || 'New item', name_ar: b.name_ar || '', price: +b.price || 0, cost: +b.cost || 0, emoji: b.emoji || '🍽️', desc: b.desc || '', img: '' }; d.items.push(i); bc(req); res.json(i); });
 A('put', '/items/:id', (req, res) => { const i = req.tenant.db.items.find((x) => x.id === req.params.id); if (i) { Object.assign(i, req.body, { id: i.id }); i.price = +i.price; i.cost = +i.cost; } bc(req); res.json(i); });
 A('delete', '/items/:id', (req, res) => { const d = req.tenant.db; d.items = d.items.filter((x) => x.id !== req.params.id); bc(req); res.json({ ok: 1 }); });
 A('post', '/items/:id/image', upload.single('image'), async (req, res) => {
@@ -318,8 +456,8 @@ A('post', '/menu/import', upload.single('file'), (req, res) => {
       const name = String(key(r, 'name')).trim(); if (!name) return;
       const cn = String(key(r, 'category')).trim() || 'Imported';
       let cat = d.categories.find((c) => c.name.toLowerCase() === cn.toLowerCase());
-      if (!cat) { cat = { id: newId('c'), name: cn, name_ar: String(key(r, 'category_ar')), emoji: 'ðŸ½ï¸' }; d.categories.push(cat); }
-      d.items.push({ id: newId('i'), cat: cat.id, name, name_ar: String(key(r, 'name_ar')), price: +key(r, 'price') || 0, cost: +key(r, 'cost') || 0, emoji: String(key(r, 'emoji')) || 'ðŸ½ï¸', desc: String(key(r, 'description')), img: '' });
+      if (!cat) { cat = { id: newId('c'), name: cn, name_ar: String(key(r, 'category_ar')), emoji: '🍽️' }; d.categories.push(cat); }
+      d.items.push({ id: newId('i'), cat: cat.id, name, name_ar: String(key(r, 'name_ar')), price: +key(r, 'price') || 0, cost: +key(r, 'cost') || 0, emoji: String(key(r, 'emoji')) || '🍽️', desc: String(key(r, 'description')), img: '' });
       added++;
     });
     bc(req); res.json({ added });
@@ -332,7 +470,7 @@ A('post', '/tables', (req, res) => {
   const hit = (x, y) => boxes.some((o) => x < o.fx + o.fw && x + 3 > o.fx && y < o.fy + o.fh && y + 3 > o.fy);
   let spot = { fx: 0, fy: 0 };
   search: for (let y = 0; y <= F.rows - 3; y++) for (let x = 0; x <= F.cols - 3; x++) if (!hit(x, y)) { spot = { fx: x, fy: y }; break search; }
-  const t = { id: newId('t'), number: n, ...spot, fw: 3, fh: 3, shape: 'square', seats: 4 }; d.tables.push(t); bc(req); res.json(t);
+  const t = { id: newId('t'), number: n, ...spot, fw: 3, fh: 3, shape: 'square', seats: 4 }; d.tables.push(t); req.tenant.ensure(); bc(req); res.json(t);
 });
 // Bulk save from the floor-plan editor: positions, sizes, shapes, seats and decor
 A('put', '/layout', (req, res) => {
@@ -366,8 +504,8 @@ app.post(`${R}/rpc`, async (req, res) => {
       const c = { ws: { readyState: 1, send: (d) => out.push(JSON.parse(d)) }, role: null, joined: false, authed: false };
       if (jn.role !== 'customer') {
         const a = auth.verify(jn.token);
-        if (!a || !(a.r === 'super' || (a.s === req.params.slug && (a.r === jn.role || a.r === 'admin')))) return res.status(401).json({ error: 'auth' });
-        c.authed = true;
+        if (!a || !(a.r === 'super' || (a.s === req.params.slug && (a.r === jn.role || a.r === 'admin' || (jn.role === 'kitchen' && a.r === 'captain'))))) return res.status(401).json({ error: 'auth' });
+        c.authed = true; c.staffId = a.u; c.staffName = a.n;
       }
       if (jn.role === 'customer') {
         const tb = t.db.tables.find((x) => x.number === +jn.tableNumber);
@@ -375,10 +513,16 @@ app.post(`${R}/rpc`, async (req, res) => {
         if (!tb) return res.status(404).json({ error: 'Unknown table' });
         const known = s && s.guests.find((g) => g.id === jn.guestId);
         if (known) { c.role = 'customer'; c.joined = true; c.tableNumber = tb.number; c.guestId = known.id; }
-        else t.handle(c, { t: 'join', role: 'customer', tableNumber: jn.tableNumber, guestId: jn.guestId, name: jn.name, avatar: jn.avatar });
+        else if (jn.fresh === false) { c.role = 'customer'; c.joined = true; c.tableNumber = tb.number; }   // session ended while the page was open: show the end screen, do not reopen the table
+        else t.handle(c, { t: 'join', role: 'customer', tableNumber: jn.tableNumber, guestId: jn.guestId, name: jn.name, avatar: jn.avatar, key: jn.key });
       } else t.handle(c, { t: 'join', role: jn.role });
       if (j.msg) t.handle(c, j.msg);
+      const er = out.find((m) => m.t === 'error'); if (er) return res.status(403).json({ error: er.msg });
       if (t.dirty && !(await commit(t))) continue;     // conflict -> reload and replay
+      if (STATELESS && t.pending && t.pending.length) {
+        const dead = await sendPush(t.rec, t.pending).catch(() => []);
+        if (dead.length) { t.rec.pushSubs = (t.rec.pushSubs || []).filter((x) => !dead.includes(x.sub.endpoint)); t.dirty = true; await commit(t).catch(() => {}); }
+      }
       const state = t.snapshotFor(c);
       const alerts = jn.role === 'captain' && j.since >= 0 ? (t.rec.alerts || []).filter((a) => a.id > j.since) : [];
       return res.json({ state, guestId: c.guestId || null, alerts, alertSeq: t.rec.alertSeq || 0 });
@@ -410,9 +554,9 @@ if (require.main === module && !STATELESS) {
           if (!tenant || tenant.rec.status !== 'active') { ws.send(JSON.stringify({ t: 'error', msg: tenant ? 'This restaurant is suspended' : 'Unknown restaurant' })); tenant = null; return ws.close(); }
           if (m.role !== 'customer') {
             const a = auth.verify(m.token);
-            const ok = a && (a.r === 'super' || (a.s === m.slug && (a.r === m.role || a.r === 'admin')));
+            const ok = a && (a.r === 'super' || (a.s === m.slug && (a.r === m.role || a.r === 'admin' || (m.role === 'kitchen' && a.r === 'captain'))));
             if (!ok) { ws.send(JSON.stringify({ t: 'error', msg: 'auth' })); tenant = null; return ws.close(); }
-            c.authed = true;
+            c.authed = true; c.staffId = a.u; c.staffName = a.n;
           }
           tenant.clients.add(c);
         }

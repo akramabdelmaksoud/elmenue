@@ -1,6 +1,7 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Captain — Floor</title><link rel="stylesheet" href="/shared.css"><link rel="stylesheet" href="/floor.css">
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#1f4a35"><link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <style>
 body { min-height:100vh; display:flex; flex-direction:column; }
 header { display:flex; justify-content:space-between; align-items:center; padding:10px 18px; border-bottom:1px solid var(--line); gap:10px; position:sticky; top:0; z-index:30; background:color-mix(in srgb,var(--bg) 88%,transparent); backdrop-filter:blur(10px); }
@@ -41,8 +42,11 @@ h3 { margin:6px 0 10px; }
 #bar .cnt { background:var(--accent2); color:#fff; border-radius:99px; padding:1px 8px; font-size:12px; min-width:22px; text-align:center; } #bar .cnt.hot { background:#d62828; animation:pulseRed 1.2s infinite; } #bar .cnt:empty { display:none; }
 </style></head>
 <body>
-<header><h1>🧑‍✈️ <span class="ttl">Captain</span> <span id="clock"></span></h1>
+<header><h1>🧑‍✈️ <span class="ttl">Captain</span> <span id="clock"></span> <span id="who" class="muted" style="font-size:.7em;font-weight:600"></span></h1>
 <div class="hb">
+ <button class="ghost" id="inst" style="display:none" onclick="App.installEvt&&App.installEvt.prompt()"><span>⬇️</span><b class="lbl">Install app</b></button>
+ <button class="ghost" id="pushb" onclick="togglePush()" aria-label="phone alerts"><span id="pushi">📲</span><b class="lbl" id="pushl">Phone alerts</b></button>
+ <a href="/kitchen" class="ghost" style="text-decoration:none;display:none" id="klink"></a>
  <button class="ghost" id="snd" onclick="toggleSound()" aria-label="sound"><span id="sndi">🔕</span><b class="lbl" id="sndl">Sound off</b></button>
  <button class="ghost" id="sim" onclick="App.send({t:'sim',on:!App.state.simulate})"><span>🤖</span><b class="lbl">Simulate guests</b></button>
  <button class="ghost" onclick="App.toggleLang(event)"><span>🌐</span><b class="lbl">EN/ع</b></button>
@@ -69,13 +73,17 @@ function beep(kind) {
 function toggleSound() { sound = !sound; document.getElementById('sndi').textContent = sound ? '🔔' : '🔕'; document.getElementById('sndl').textContent = sound ? 'Sound on' : 'Sound off'; document.getElementById('snd').classList.toggle('sel', sound); if (sound) beep('order'); }
 setInterval(() => (document.getElementById('clock').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })), 1000);
 
-function start() { App.connect({ t: 'join', role: 'captain' }, {
+async function refreshPush() { const st = await App.push.state(), b = document.getElementById('pushb'); b.classList.toggle('sel', st === 'on'); document.getElementById('pushi').textContent = st === 'on' ? '✅' : '📲'; document.getElementById('pushl').textContent = st === 'on' ? 'Phone alerts ON' : 'Phone alerts'; b.title = { on: 'Alerts reach this phone even when locked (tap to turn off)', off: 'Get alerts even when this phone is locked', denied: 'Blocked in browser settings', unsupported: 'Not supported in this browser - on iPhone, add to Home Screen first' }[st]; }
+async function togglePush() { try { const st = await App.push.state(); if (st === 'on') await App.push.disable(); else await App.push.enable(); App.toast(st === 'on' ? 'Phone alerts off' : 'Phone alerts on ✓'); } catch (e) { alert(e.message); } refreshPush(); }
+document.addEventListener('app-installable', () => (document.getElementById('inst').style.display = ''));
+if (App.installEvt) document.getElementById('inst').style.display = '';
+function start() { document.getElementById('who').textContent = App.who() ? '· ' + App.who() : ''; refreshPush(); App.connect({ t: 'join', role: 'captain' }, {
   render(m) { if (m) S = m; render(); },
   alert(m) {
     beep(m.kind);
     try { navigator.vibrate && navigator.vibrate(m.kind === 'urgent' ? [250, 100, 250, 100, 250] : [180, 80, 180]); } catch {}
     const b = document.createElement('div'); b.className = 'banner ' + (m.kind === 'urgent' ? 'urgent' : m.kind === 'check' ? 'check' : '');
-    b.textContent = { order: '🍽️ ', urgent: '🚨 ', check: '🧾 ', request: '🔔 ', seat: '🪑 ' }[m.kind] + m.text;
+    b.textContent = { order: '🍽️ ', urgent: '🚨 ', check: '🧾 ', request: '🔔 ', seat: '🪑 ', ready: '✅ ' }[m.kind] + m.text;
     document.getElementById('banners').appendChild(b); setTimeout(() => b.remove(), 6500);
   },
 }); }
@@ -89,7 +97,7 @@ function stageHTML(cfg) {
   const tables = cfg.tables.map((t) => {
     const st = S.states[t.id], s = S.sessions[t.id], p = App.tpos(t);
     const lab = { empty: 'Empty', seated: 'Browsing', ordered: 'Ordered', urgent: 'URGENT', check: s && s.check ? `${s.check.method === 'card' ? '💳' : '💵'} ${s.check.split}` : 'Check' }[st];
-    const bd = s ? [s.requests.some((r) => !r.done && r.type === 'waiter') && '🙋', s.requests.some((r) => !r.done && r.type === 'water') && '💧', s.requests.some((r) => !r.done && r.type === 'urgent') && '⚡', s.check && '🧾'].filter(Boolean).join('') : '';
+    const bd = s ? [s.requests.some((r) => !r.done && r.type === 'waiter') && '🙋', s.requests.some((r) => !r.done && r.type === 'water') && '💧', s.requests.some((r) => !r.done && r.type === 'urgent') && '⚡', s.check && '🧾', s.idle && '💤'].filter(Boolean).join('') : '';
     return `<div class="fl-t ${t.shape} ${st}" style="left:${p.fx / F.cols * 100}%;top:${p.fy / F.rows * 100}%;width:${p.fw / F.cols * 100}%;height:${p.fh / F.rows * 100}%;--m:${Math.min(p.fw, p.fh)}" onclick="openT('${t.id}')">${App.chairs(t.shape, t.seats)}<span class="bd">${bd}</span><span class="n">${t.number}</span><span class="av">${s ? App.esc(guestsOf(s).slice(0, 12)) : ''}</span><span class="s">${lab}${s ? ' · ' + mins(s.startedAt) : ' · ' + t.seats + ' seats'}</span><span class="m">${s ? mins(s.startedAt) : ''}</span></div>`;
   }).join('');
   return decor + tables;

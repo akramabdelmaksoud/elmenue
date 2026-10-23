@@ -6,3 +6,4 @@ data/
 
 .vercel
 .env*
+.vapid.tmp

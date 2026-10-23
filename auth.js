@@ -8,7 +8,7 @@ if (!SECRET) {
 }
 const b64 = (b) => Buffer.from(b).toString('base64url');
 const sig = (p) => crypto.createHmac('sha256', SECRET).update(p).digest('base64url');
-exports.sign = (role, slug, days = 14) => { const p = b64(JSON.stringify({ r: role, s: slug, e: Date.now() + days * 864e5 })); return p + '.' + sig(p); };
+exports.sign = (role, slug, days = 14, extra = {}) => { const p = b64(JSON.stringify({ r: role, s: slug, e: Date.now() + days * 864e5, ...extra })); return p + '.' + sig(p); };
 exports.verify = (tok) => {
   if (!tok || typeof tok !== 'string') return null;
   const [p, s] = tok.split('.'); if (!p || !s) return null;

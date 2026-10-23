@@ -136,6 +136,14 @@ nav .bdg { position: absolute; top: 2px; inset-inline-start: 56%; min-width: 19p
 .join { min-height: 100vh; display: grid; place-items: center; padding: 22px; position: relative; z-index: 1; } .join .c { width: 100%; max-width: 430px; padding: 26px; animation: popIn .7s var(--spring); }
 .join input { border-radius: 16px; padding: 14px; font-size: 16px; }
 @media (min-width: 560px) { #shell { padding-inline: 24px; } }
+.pc.so { opacity: .6; } .pc.so .art { filter: grayscale(1); } .pc.so .addb { background: var(--card2); color: var(--muted); box-shadow: none; pointer-events: none; }
+.ribbon { position: absolute; top: 18px; inset-inline-start: 18px; z-index: 2; background: #e5484d; color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .06em; padding: 3px 10px; border-radius: 99px; }
+.tgs { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 3px 0; } .tg { font-style: normal; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 99px; background: var(--card2); border: 1px solid var(--line); }
+.tagbar { display: flex; gap: 8px; overflow-x: auto; padding: 0 0 12px; scrollbar-width: none; } .tagbar::-webkit-scrollbar { display: none; } .tagbar button { flex: none; padding: 7px 14px; border-radius: 99px; font-size: 13px; font-weight: 700; background: transparent; border: 1.5px dashed var(--line); } .tagbar button.on { background: color-mix(in srgb, var(--accent) 16%, var(--card)); border: 1.5px solid var(--accent); }
+.ready-banner { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 120; background: linear-gradient(120deg, #1f9d55, #35d27a); color: #fff; font-weight: 800; padding: 14px 22px; border-radius: 99px; box-shadow: 0 18px 40px -10px rgba(31,157,85,.7); animation: dropIn .7s cubic-bezier(.34,1.56,.64,1), pulseGreen 1.6s 1s 3; white-space: nowrap; }
+@keyframes dropIn { from { transform: translate(-50%, -120px); opacity: 0; } } @keyframes pulseGreen { 50% { box-shadow: 0 0 0 16px rgba(53,210,122,0); } }
+.stars { display: flex; justify-content: center; gap: 6px; margin: 16px 0; } .stars button { font-size: 38px; padding: 4px; background: none; filter: grayscale(1) opacity(.45); transition: transform .3s cubic-bezier(.34,1.56,.64,1), filter .3s; } .stars button.on { filter: none; transform: scale(1.15) rotate(-6deg); } .stars button:hover { transform: scale(1.3); }
+.join textarea { border-radius: 16px; padding: 12px; min-height: 80px; resize: vertical; }
 .lnk { padding: 10px 8px; min-height: 40px; margin: -10px -8px; }
 .stp button { width: 36px; height: 36px; }
 .join { grid-template-columns: minmax(0, 1fr); } .join .c { min-width: 0; }
@@ -190,6 +198,18 @@ const MUG = `<svg class="mug" viewBox="0 0 170 150"><ellipse cx="82" cy="140" rx
  <g class="steam"><path d="M58 38c-6-8 6-12 0-22"/><path d="M80 38c-6-8 6-12 0-22"/><path d="M102 38c-6-8 6-12 0-22"/></g></svg>`;
 
 let me = { id: App.ls(`gid:${SLUG}:${tableNumber}`), name: App.ls('name'), avatar: App.ls('avatar') };
+// the QR code carries a secret table key (?k=...); remember it, then tidy the address bar
+const urlKey = new URLSearchParams(location.search).get('k');
+if (urlKey) { App.ls(`tk:${SLUG}:${tableNumber}`, urlKey); try { history.replaceState(null, '', location.pathname); } catch {} }
+const tableKey = App.ls(`tk:${SLUG}:${tableNumber}`) || '';
+Object.assign(DICT.en, { soldOut: 'Sold out', soldSorry: 'Sorry, that is sold out right now', ready: 'Your order is ready!', scanTitle: 'Scan the QR code on your table', scanSub: 'For everyone\'s safety, ordering opens only from the code printed on the table. Please scan it with your camera.', rateTitle: 'How was your visit?', rateSub: 'Tap a star - it takes 5 seconds', rateNote: 'Anything we can do better? (optional)', rateSend: 'Send', rateSkip: 'Skip', rateThanks: 'Thank you! 💛', rateThanksSub: 'Your feedback helps us serve you better.', again: 'Start a new order', dietary: 'Dietary' });
+Object.assign(DICT.ar, { soldOut: 'نفد', soldSorry: 'عذرًا، هذا الصنف نفد حاليًا', ready: 'طلبك جاهز!', scanTitle: 'امسح رمز QR الموجود على طاولتك', scanSub: 'حفاظًا على الجميع، يُفتح الطلب فقط من الرمز المطبوع على الطاولة. من فضلك امسحه بكاميرا هاتفك.', rateTitle: 'كيف كانت زيارتك؟', rateSub: 'اضغط على نجمة - تستغرق 5 ثوانٍ', rateNote: 'هل لديك ملاحظة لتحسين خدمتنا؟ (اختياري)', rateSend: 'إرسال', rateSkip: 'تخطي', rateThanks: 'شكرًا لك! 💛', rateThanksSub: 'ملاحظاتك تساعدنا على خدمتك بشكل أفضل.', again: 'ابدأ طلبًا جديدًا', dietary: 'نظام غذائي' });
+const TAGI = { vegan: '🌱', vegetarian: '🥬', 'gluten-free': '🌾', gf: '🌾', spicy: '🌶️', nuts: '🥜', dairy: '🥛', halal: '☪️', sugarfree: '🍬', 'sugar-free': '🍬', new: '✨', popular: '🔥' };
+const tagLabel = (t) => `${TAGI[String(t).toLowerCase()] || '🏷️'} ${App.esc(t)}`;
+let tagSel = new Set(), lastHad = false, rated = false; const prevSt = {};
+// categories can be limited to hours of the day (e.g. breakfast 07:00-12:00)
+function catOpen(c) { const h = c && c.hours; if (!h || !h.from || !h.to) return true; const d = new Date(), m = d.getHours() * 60 + d.getMinutes(), [a1, a2] = h.from.split(':').map(Number), [b1, b2] = h.to.split(':').map(Number), a = a1 * 60 + a2, b = b1 * 60 + b2; return a <= b ? m >= a && m < b : m >= a || m < b; }
+const itemOpen = (cfg, i) => catOpen(cfg.categories.find((c) => c.id === i.cat));
 let tab = 'home', prevTab = 'home', cat = null, q = '', S = null, built = false, dirty = false, animate = true;
 let pay = { method: 'cash', split: 'table', tip: 10, custom: {} };
 const prevNum = {};
@@ -202,11 +222,33 @@ const artOf = (cfg, i, cls = '', idx = 0) => `<div class="art ${cls}" style="--h
 
 /* ---------------- boot ---------------- */
 function start() {
-  App.connect({ t: 'join', role: 'customer', tableNumber, guestId: me.id, name: me.name, avatar: me.avatar }, {
+  App.connect({ t: 'join', role: 'customer', tableNumber, guestId: me.id, name: me.name, avatar: me.avatar, key: tableKey }, {
     you(m) { me.id = m.guestId; App.ls(`gid:${SLUG}:${tableNumber}`, m.guestId); },
     render(m) { if (m) S = m; draw(false); },
-    error(m) { root.innerHTML = `<div class="join"><div class="c">${App.esc(m.msg)}</div></div>`; },
+    error(m) { if (m.msg === 'scan') return scanScreen(); root.innerHTML = `<div class="join"><div class="c">${App.esc(m.msg)}</div></div>`; },
   });
+}
+function scanScreen() {
+  App.applyTheme(); built = false;
+  root.innerHTML = `<div class="join"><div class="c" style="text-align:center"><div style="font-size:64px;animation:bob 3s infinite">📷</div><h2 class="serif" style="margin:10px 0 6px">${App.tr('scanTitle')}</h2><p class="muted" style="margin:0 0 18px;line-height:1.6">${App.tr('scanSub')}</p><div class="row" style="justify-content:center"><button class="ib langb" onclick="App.toggleLang(event)">${ic('globe')}${App.lang === 'ar' ? 'EN' : 'عربي'}</button><button class="ib" onclick="App.toggleMode(event)"><span class="ico sun">${ic('sun')}</span><span class="ico moon">${ic('moon')}</span></button></div></div></div>`;
+  App.handlers = { render: scanScreen };
+}
+function endedScreen() {
+  const stars = (n) => [1, 2, 3, 4, 5].map((i) => `<button class="${i <= n ? 'on' : ''}" onclick="rate(${i})">⭐</button>`).join('');
+  window.rate = (n) => { window._stars = n; document.querySelector('.stars').innerHTML = stars(n); document.getElementById('rsend').disabled = false; };
+  window.sendRate = async () => { const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stars: window._stars, comment: document.getElementById('rc').value, table: tableNumber, name: me.name }) }).catch(() => null); rated = true; root.innerHTML = `<div class="join"><div class="c" style="text-align:center"><div style="font-size:64px;animation:popIn .7s var(--spring)">💛</div><h2 class="serif">${App.tr('rateThanks')}</h2><p class="muted">${App.tr('rateThanksSub')}</p><button class="send rp" onclick="location.reload()">${App.tr('again')}</button></div></div>`; burst(innerWidth / 2, innerHeight * .35); };
+  window.skipRate = () => { rated = true; endedScreen(); };
+  if (lastHad && !rated) { root.innerHTML = `<div class="join"><div class="c" style="text-align:center"><div style="font-size:54px">🧾</div><h2 class="serif" style="margin:6px 0 0">${App.tr('rateTitle')}</h2><p class="muted" style="margin:6px 0 0">${App.tr('rateSub')}</p><div class="stars">${stars(0)}</div><textarea id="rc" placeholder="${App.tr('rateNote')}" maxlength="400"></textarea><div class="row" style="margin-top:14px"><button class="ghost" style="flex:1" onclick="skipRate()">${App.tr('rateSkip')}</button><button class="send rp" id="rsend" style="flex:2;padding:14px" disabled onclick="sendRate()">${App.tr('rateSend')}</button></div></div></div>`; return; }
+  root.innerHTML = `<div class="join"><div class="c" style="text-align:center"><div style="font-size:54px">👋</div><p>${App.tr('sessionEnded')}</p><button class="send rp" onclick="location.reload()">↻</button></div></div>`;
+}
+// "your order is ready" notice when the kitchen marks an order served
+function watchReady(s) {
+  s.orders.forEach((o) => { if (prevSt[o.id] && prevSt[o.id] !== 'served' && o.status === 'served') readyNotice(); prevSt[o.id] = o.status; });
+}
+function readyNotice() {
+  const b = document.createElement('div'); b.className = 'ready-banner'; b.textContent = '🍽️ ' + App.tr('ready'); document.body.appendChild(b); setTimeout(() => b.remove(), 7000);
+  try { navigator.vibrate && navigator.vibrate([200, 100, 200, 100, 300]); } catch {}
+  try { const a = new (window.AudioContext || window.webkitAudioContext)(); [784, 988, 1175].forEach((f, i) => { const o = a.createOscillator(), g = a.createGain(); o.frequency.value = f; o.connect(g); g.connect(a.destination); const t = a.currentTime + i * .14; g.gain.setValueAtTime(.12, t); g.gain.exponentialRampToValueAtTime(.001, t + .35); o.start(t); o.stop(t + .36); }); } catch {}
 }
 function joinScreen() {
   const cur = $('#nm'); if (cur) me.name = cur.value;
@@ -246,12 +288,14 @@ function setInd() {
 function draw(force) {
   if (!S) return;
   const s = S.session, cfg = S.config;
-  if (!s) { root.innerHTML = `<div class="join"><div class="c" style="text-align:center"><div style="font-size:54px">👋</div><p>${App.tr('sessionEnded')}</p><button class="send rp" onclick="location.reload()">↻</button></div></div>`; built = false; return; }
+  if (!s) { built = false; return endedScreen(); }
+  lastHad = lastHad || s.orders.length > 0; watchReady(s);
   const ae = document.activeElement;
   if (!force && ae && ae.closest && ae.closest('#page') && /INPUT|TEXTAREA/.test(ae.tagName)) { dirty = true; return; }   // don't steal focus while typing
   dirty = false;
   if (!built) build();
-  if (!cat || !cfg.categories.find((c) => c.id === cat)) cat = cfg.categories[0] && cfg.categories[0].id;
+  const openCats = cfg.categories.filter(catOpen);
+  if (!cat || !openCats.find((c) => c.id === cat)) cat = openCats[0] && openCats[0].id;
   const st = cfg.settings;
   $('#bn').textContent = App.lang === 'ar' && st.name_ar ? st.name_ar : st.name;
   $('#bt').textContent = `${App.tr('table')} ${tableNumber}`;
@@ -280,7 +324,7 @@ document.addEventListener('focusout', () => { if (dirty) setTimeout(() => draw(f
 
 /* ---------------- tabs ---------------- */
 function homeTab(cfg, s) {
-  const st = cfg.settings, its = cfg.items;
+  const st = cfg.settings, its = cfg.items.filter((i) => !i.soldOut && itemOpen(cfg, i));
   const tag = (App.lang === 'ar' ? st.tagline_ar : st.tagline) || App.tr('tagline');
   const sub = (App.lang === 'ar' ? st.tagline_sub_ar : st.tagline_sub) || App.tr('taglineSub');
   const feats = its.filter((i) => i.featured);
@@ -303,21 +347,25 @@ function homeTab(cfg, s) {
 }
 function gridHTML(cfg, s) {
   const needle = q.trim().toLowerCase();
-  const list = cfg.items.filter((i) => (needle ? (i.name + ' ' + (i.name_ar || '') + ' ' + i.desc).toLowerCase().includes(needle) : i.cat === cat));
+  const tagOk = (i) => !tagSel.size || [...tagSel].every((t) => (i.tags || []).map((x) => x.toLowerCase()).includes(t));
+  const list = cfg.items.filter((i) => (needle ? (i.name + ' ' + (i.name_ar || '') + ' ' + i.desc).toLowerCase().includes(needle) : tagSel.size ? true : i.cat === cat) && itemOpen(cfg, i) && tagOk(i));
   const qty = (id) => s.cart.filter((l) => l.itemId === id && l.guestId === me.id).reduce((n, l) => n + l.qty, 0);
   if (!list.length) return `<div class="empty"><span class="em">🔍</span>${App.tr('nothingFound')}</div>`;
-  return list.map((i, k) => `<div class="c pc tilt rise" style="--i:${Math.min(k, 9)}">${qty(i.id) ? `<span class="qb">×${qty(i.id)}</span>` : ''}${artOf(cfg, i, '', k)}<b>${App.esc(App.nm(i))}</b><small>${App.esc(i.desc)}</small><div class="foot"><span class="pr">${App.money(i.price)}</span><button class="addb rp" aria-label="add" onclick="add('${i.id}',this)">${ic('plus')}</button></div></div>`).join('');
+  return list.map((i, k) => `<div class="c pc tilt rise ${i.soldOut ? 'so' : ''}" style="--i:${Math.min(k, 9)}">${i.soldOut ? `<span class="ribbon">${App.tr('soldOut')}</span>` : qty(i.id) ? `<span class="qb">×${qty(i.id)}</span>` : ''}${artOf(cfg, i, '', k)}<b>${App.esc(App.nm(i))}</b><small>${App.esc(i.desc)}</small>${(i.tags || []).length ? `<div class="tgs">${i.tags.map((t) => `<em class="tg">${tagLabel(t)}</em>`).join('')}</div>` : ''}<div class="foot"><span class="pr">${App.money(i.price)}</span><button class="addb rp" aria-label="add" ${i.soldOut ? 'disabled' : ''} onclick="add('${i.id}',this)">${ic('plus')}</button></div></div>`).join('');
 }
 function menuTab(cfg, s) {
+  const tags = [...new Set(cfg.items.flatMap((i) => (i.tags || []).map((t) => t.toLowerCase())))].sort();
   return `<h2 class="ptitle rise">${App.tr('menuTitle')}</h2><p class="psub rise" style="--i:1">${App.tr('menuSub')}</p>
   <div class="search rise" style="--i:2">${ic('search')}<input id="q" value="${App.esc(q)}" placeholder="${App.tr('search')}" oninput="q=this.value;refreshGrid()"></div>
-  <div class="chips rise" style="--i:3">${cfg.categories.map((c) => `<button class="chip rp ${c.id === cat && !q ? 'on' : ''}" data-c="${c.id}" onclick="setCat('${c.id}')">${c.emoji} ${App.esc(App.nm(c))}</button>`).join('')}</div>
+  <div class="chips rise" style="--i:3">${cfg.categories.filter(catOpen).map((c) => `<button class="chip rp ${c.id === cat && !q && !tagSel.size ? 'on' : ''}" data-c="${c.id}" onclick="setCat('${c.id}')">${c.emoji} ${App.esc(App.nm(c))}</button>`).join('')}</div>
+  ${tags.length ? `<div class="tagbar rise" style="--i:4">${tags.map((t) => `<button class="${tagSel.has(t) ? 'on' : ''}" data-t="${App.esc(t)}" onclick="toggleTag(this.dataset.t)">${tagLabel(t)}</button>`).join('')}</div>` : ''}
   <div class="grid" id="grid">${gridHTML(cfg, s)}</div>`;
 }
+function toggleTag(t) { tagSel.has(t) ? tagSel.delete(t) : tagSel.add(t); document.querySelectorAll('.tagbar button').forEach((b) => b.classList.toggle('on', tagSel.has(b.dataset.t))); refreshGrid(); }
 function refreshGrid() {
   const g = $('#grid'); if (!g) return;
   g.classList.remove('anim'); g.innerHTML = gridHTML(S.config, S.session); void g.offsetWidth; g.classList.add('anim');
-  document.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', !q && c.dataset.c === cat));
+  document.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', !q && !tagSel.size && c.dataset.c === cat));
   const ch = $('.chips'); if (ch) ch.style.opacity = q ? 0.45 : 1;
 }
 function setCat(id) { q = ''; cat = id; const i = $('#q'); if (i) i.value = ''; refreshGrid(); }
@@ -384,7 +432,7 @@ function pickAv(a) { me.avatar = a; $('#mav').textContent = a; document.querySel
 function saveProfile() { me.name = $('#pn').value.trim() || me.name; App.ls('name', me.name); App.ls('avatar', me.avatar); App.send({ t: 'profile', name: me.name, avatar: me.avatar }); App.toast('✓ ' + App.tr('save')); }
 
 /* ---------------- actions & effects ---------------- */
-function add(id, el) { const it = S.config.items.find((x) => x.id === id); App.send({ t: 'cart_add', itemId: id }); App.toast(App.tr('addToCart')); if (it) fly(el, it.emoji); }
+function add(id, el) { const it = S.config.items.find((x) => x.id === id); if (it && it.soldOut) return App.toast(App.tr('soldSorry')); App.send({ t: 'cart_add', itemId: id }); App.toast(App.tr('addToCart')); if (it) fly(el, it.emoji); }
 function req(type) { App.send({ t: 'request', type }); App.toast(App.tr('requestSent')); const b = $('#bellb'); b.classList.remove('ring'); void b.offsetWidth; b.classList.add('ring'); closeSheet(); }
 function sendMine(el) { burstAt(el); App.send({ t: 'send_order' }); App.toast(App.tr('orderSent')); }
 function sendAll(el) { burstAt(el); App.send({ t: 'send_order', scope: 'all' }); App.toast(App.tr('orderSent')); }

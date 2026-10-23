@@ -171,12 +171,40 @@ const App = {
         // Only redraw when something really changed (captain also refreshes once a minute for the 'x min' timers), so idle screens never flicker
         const sig = JSON.stringify(j.state);
         App.state = j.state; App.config = j.state.config;
+        if (joinMsg.role === 'customer' && j.state.session) joinMsg.fresh = false;
         if (sig !== P.sig || Date.now() - (P.lastRender || 0) > (joinMsg.role === 'captain' ? 60000 : Infinity)) { P.sig = sig; P.lastRender = Date.now(); onMsg(j.state); }
       } catch { document.body.classList.add('offline'); }
     }));
     const tick = () => { clearTimeout(P.timer); if (!document.hidden) P.call(null); P.timer = setTimeout(tick, every); };
     document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
     tick();
+  },
+  // who is signed in (from the token) - used to greet staff and label their actions
+  who() { try { const t = App.tok(); return t ? JSON.parse(atob(t.split('.')[0].replace(/-/g, '+').replace(/_/g, '/'))).n || '' : ''; } catch { return ''; } },
+  // Web push so the phone alerts staff even when locked / in another app
+  push: {
+    supported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; },
+    async state() {
+      if (!App.push.supported()) return 'unsupported';
+      if (Notification.permission === 'denied') return 'denied';
+      try { const reg = await navigator.serviceWorker.getRegistration('/'); const sub = reg && (await reg.pushManager.getSubscription()); return sub && Notification.permission === 'granted' ? 'on' : 'off'; } catch { return 'off'; }
+    },
+    async enable() {
+      if (!App.push.supported()) throw new Error('This browser does not support notifications. On iPhone: add the page to your Home Screen first, then open it from there.');
+      const reg = await navigator.serviceWorker.register('/sw.js'); await navigator.serviceWorker.ready;
+      if ((await Notification.requestPermission()) !== 'granted') throw new Error('Notifications are blocked in your browser settings.');
+      const { key } = await (await fetch('/api/push/key')).json(); if (!key) throw new Error('Push is not configured on the server.');
+      const pad = '='.repeat((4 - (key.length % 4)) % 4), raw = atob((key + pad).replace(/-/g, '+').replace(/_/g, '/'));
+      const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: Uint8Array.from([...raw].map((c) => c.charCodeAt(0))) }));
+      const r = await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sub: sub.toJSON() }) });
+      if (!r.ok) throw new Error('Could not save the subscription.');
+      return 'on';
+    },
+    async disable() {
+      const reg = await navigator.serviceWorker.getRegistration('/'); const sub = reg && (await reg.pushManager.getSubscription());
+      if (sub) { await fetch('/api/push/unsubscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }) }); await sub.unsubscribe(); }
+      return 'off';
+    },
   },
   toast(msg) {
     let t = document.getElementById('toast');
@@ -199,3 +227,7 @@ const App = {
     return r;
   };
 })();
+
+// make the staff pages installable (needs the service worker); remember the install prompt for a button
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); App.installEvt = e; document.dispatchEvent(new Event('app-installable')); });
+if (/\/(captain|kitchen)(\/|$)/.test(location.pathname) && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});

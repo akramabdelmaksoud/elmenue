@@ -22,7 +22,7 @@ table { width:100%; border-collapse:collapse; } td, th { padding:6px; text-align
 </style></head>
 <body><div class="shell"><aside>
 <h2>⚙️ Admin</h2>
-<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="floor">🪑 Floor plan</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button>
+<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="floor">🪑 Floor plan</button><button data-t="staff">👥 Staff</button><button data-t="reports">📈 Reports</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button>
 <span style="flex:1"></span><button onclick="App.toggleLang()">🌐 EN / عربي</button><button onclick="App.toggleMode()">◐ Light / Dark</button><button onclick="App.logout()">⏻ Sign out</button></aside>
 <main id="main"></main></div>
 <script src="/vendor/sortable.js"></script><script src="/vendor/chart.js"></script><script src="/shared.js"></script>
@@ -40,7 +40,7 @@ function render(m, force) {
   if (key === cfgKey && !force) { if (tab === 'analytics') {} return; }   // ignore live-session noise
   cfgKey = key;
   const focus = document.activeElement; if (focus && focus.closest('#main') && focus.tagName === 'INPUT' && !force) return;  // don't clobber typing
-  ({ analytics, menu, floor: floorTab, theme, qr, audit })[tab]();
+  ({ analytics, menu, floor: floorTab, staff: staffTab, reports: reportsTab, theme, qr, audit })[tab]();
 }
 App.handlers.render = (m) => render(m, true);
 
@@ -124,6 +124,45 @@ function fpArrange() {
   fpTouch();
 }
 
+/* ---------------- Staff ---------------- */
+async function staffTab() {
+  const d = await api('GET', '/api/staff'), roles = { captain: '🧑‍✈️ Captain / floor', kitchen: '👨‍🍳 Kitchen' };
+  const fmt = (x) => x.handled ? Math.round(x.respMs / x.handled / 1000) + 's' : '-';
+  $('#main').innerHTML = `<h1>👥 Staff</h1><p class="muted" style="margin-top:-8px">Each person gets their own PIN, so every action is logged under their name and you can see who is fast.</p>
+  <div class="row2" style="grid-template-columns:minmax(300px,1.2fr) minmax(260px,1fr);align-items:start">
+  <div class="card" style="overflow:auto"><h3>Team</h3>
+   <table><tr><th>Name</th><th>Role</th><th>New PIN</th><th>Active</th><th></th></tr>
+   ${d.staff.map((x) => `<tr><td><input value="${App.esc(x.name)}" style="min-width:110px" onchange="stf('${x.id}',{name:this.value})"></td><td><select onchange="stf('${x.id}',{role:this.value})"><option value="captain" ${x.role === 'captain' ? 'selected' : ''}>${roles.captain}</option><option value="kitchen" ${x.role === 'kitchen' ? 'selected' : ''}>${roles.kitchen}</option></select></td>
+    <td><input placeholder="••••" inputmode="numeric" maxlength="8" style="width:90px" onchange="if(this.value)stf('${x.id}',{pin:this.value}).then(()=>this.value='')"></td><td><input type="checkbox" style="width:22px;height:22px" ${x.active === false ? '' : 'checked'} onchange="stf('${x.id}',{active:this.checked})"></td><td><button class="ghost" onclick="if(confirm('Remove ${App.esc(x.name)}?'))api('DELETE','/api/staff/${x.id}').then(()=>{cfgKey='';render(App.state,true)})">🗑</button></td></tr>`).join('') || '<tr><td colspan="5" class="muted">No staff accounts yet - add the first one below.</td></tr>'}</table>
+   <h3 style="margin-top:18px">Add a team member</h3><div class="row wrap"><input id="sn" placeholder="Name" style="max-width:170px"><select id="sr" style="max-width:190px"><option value="captain">${roles.captain}</option><option value="kitchen">${roles.kitchen}</option></select><input id="sp" placeholder="PIN (4-8 digits)" inputmode="numeric" maxlength="8" style="max-width:150px"><button class="ghost" onclick="$('#sp').value=String(Math.floor(1000+Math.random()*9000))">🎲</button><button class="primary" onclick="addStaff()">Add</button></div>
+   <p class="muted" style="font-size:12.5px;margin-top:12px">Captains sign in at <b>/captain</b>, kitchen staff at <b>/kitchen</b>. The old shared PIN (${App.esc(d.legacyPin)}) still works as "Captain" - change it under Theme & settings or stop using it once everyone has their own.</p></div>
+  <div class="card" style="overflow:auto"><h3>Performance</h3><table><tr><th>Name</th><th>Requests</th><th>Avg reply</th><th>Started</th><th>Served</th><th>Closed</th></tr>
+   ${Object.values(d.stats).map((x) => `<tr><td><b>${App.esc(x.name)}</b></td><td>${x.handled || 0}</td><td>${fmt(x)}</td><td>${x.started || 0}</td><td>${x.served || 0}</td><td>${x.closed || 0}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Numbers appear once staff start handling tables.</td></tr>'}</table></div></div>`;
+}
+async function stf(id, body) { const r = await api('PUT', '/api/staff/' + id, body); App.toast(r.error || 'Saved'); return r; }
+async function addStaff() { const r = await api('POST', '/api/staff', { name: $('#sn').value, role: $('#sr').value, pin: $('#sp').value }); if (r.error) return App.toast(r.error); App.toast('Added ' + r.name); cfgKey = ''; render(App.state, true); }
+
+/* ---------------- Reports ---------------- */
+let RP = { preset: 'today', from: null, to: null };
+function rpRange() {
+  const d0 = new Date(); d0.setHours(0, 0, 0, 0); const day = 86400000, t0 = d0.getTime();
+  if (RP.preset === 'today') return [t0, Date.now()]; if (RP.preset === 'yesterday') return [t0 - day, t0 - 1];
+  if (RP.preset === '7') return [t0 - 6 * day, Date.now()]; if (RP.preset === '30') return [t0 - 29 * day, Date.now()];
+  const f = RP.from ? new Date(RP.from + 'T00:00:00').getTime() : t0, t = RP.to ? new Date(RP.to + 'T23:59:59').getTime() : Date.now(); return [f, t];
+}
+async function reportsTab() {
+  const [f, t] = rpRange(), r = await api('GET', `/api/report?from=${f}&to=${t}`), fb = (await api('GET', '/api/feedback')).reviews || [];
+  const K = (l, v, sub) => `<div class="card kpi"><span>${l}</span><b>${v}</b>${sub ? `<small class="muted">${sub}</small>` : ''}</div>`, tk = App.tok('admin');
+  const chip = (k, l) => `<button class="${RP.preset === k ? 'sel' : ''}" onclick="RP.preset='${k}';reportsTab()">${l}</button>`;
+  $('#main').innerHTML = `<div class="spread wrap"><h1>📈 Reports</h1><div class="row wrap noprint">${chip('today', 'Today')}${chip('yesterday', 'Yesterday')}${chip('7', '7 days')}${chip('30', '30 days')}<input type="date" style="width:150px" value="${RP.from || ''}" onchange="RP.preset='c';RP.from=this.value;reportsTab()"><input type="date" style="width:150px" value="${RP.to || ''}" onchange="RP.preset='c';RP.to=this.value;reportsTab()"></div></div>
+  <div class="row wrap noprint" style="margin:6px 0 14px"><a href="/api/r/${App.slug}/report.xlsx?from=${f}&to=${t}&token=${tk}"><button class="primary">⬇ Excel report</button></a><button class="ghost" onclick="window.print()">🖨 Print / PDF</button><a href="/api/r/${App.slug}/export.json?token=${tk}"><button class="ghost">💾 Backup all data</button></a></div>
+  <div class="muted" style="margin-bottom:10px">${new Date(f).toLocaleString()} → ${new Date(t).toLocaleString()}</div>
+  <div class="grid">${K('Table sessions', r.sessions, r.guests + ' guests')}${K('Gross sales', App.money(r.gross))}${K('Service charge', App.money(r.service))}${K('Tax collected', App.money(r.tax))}${K('Tips', App.money(r.tips))}${K('Total collected', App.money(r.total), 'avg ticket ' + App.money(r.avgTicket))}${K('Cash', App.money(r.methods.cash || 0))}${K('Card', App.money(r.methods.card || 0))}${K('Guest rating', r.reviews.count ? '⭐ ' + r.reviews.avg.toFixed(1) : '-', r.reviews.count + ' ratings' + (r.reviews.low ? ' · ' + r.reviews.low + ' low' : ''))}</div>
+  <div class="row2"><div class="card" style="overflow:auto"><h3>Top items</h3><table><tr><th>Item</th><th>Qty</th><th>Revenue</th><th>Profit</th></tr>${r.items.slice(0, 12).map((x) => `<tr><td>${App.esc(x.name)}</td><td>${x.qty}</td><td>${App.money(x.revenue)}</td><td>${App.money(x.profit)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No sales in this period</td></tr>'}</table></div>
+  <div class="card" style="overflow:auto"><h3>Categories</h3><table><tr><th>Category</th><th>Revenue</th><th>Profit</th></tr>${r.categories.map((x) => `<tr><td>${App.esc(x.name)}</td><td>${App.money(x.revenue)}</td><td>${App.money(x.profit)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">-</td></tr>'}</table></div>
+  <div class="card" style="overflow:auto"><h3>💬 Guest feedback</h3>${fb.length ? fb.slice(0, 25).map((x) => `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${'⭐'.repeat(x.stars)}</b> <span class="muted">· table ${x.table || '?'}${x.name ? ' · ' + App.esc(x.name) : ''} · ${new Date(x.at).toLocaleString()}</span>${x.stars <= 2 ? ' <span class="pill" style="color:#ff6b6b">needs attention</span>' : ''}<div>${App.esc(x.comment)}</div></div>`).join('') : '<p class="muted">No ratings yet. Guests are asked after they pay.</p>'}</div></div>`;
+}
+
 /* ---------------- Menu builder ---------------- */
 function menu() {
   const { categories: C, items: I } = App.config;
@@ -134,19 +173,30 @@ function menu() {
   <div class="card"><h3>Categories <small class="muted">(drag ⠿ to reorder)</small></h3><div id="cats">${C.map(c => `<div class="cat ${c.id === actCat ? 'act' : ''}" data-id="${c.id}"><span class="h">⠿</span>
    <input style="width:42px;text-align:center" value="${App.esc(c.emoji)}" onchange="upd('categories','${c.id}',{emoji:this.value})"><input value="${App.esc(c.name)}" onchange="upd('categories','${c.id}',{name:this.value})"><input dir="rtl" value="${App.esc(c.name_ar)}" onchange="upd('categories','${c.id}',{name_ar:this.value})">
    <button class="ghost" onclick="actCat='${c.id}';cfgKey='';render(App.state,true)">▶</button><button class="ghost" onclick="if(confirm('Delete category and its items?'))api('DELETE','/api/categories/${c.id}')">🗑</button></div>`).join('')}</div>
+   ${catSettings(C.find(c => c.id === actCat))}
    <button class="primary" onclick="api('POST','/api/categories',{name:'New category'})">+ Category</button>
    <hr style="border-color:var(--line);margin:16px 0"><h3>Bulk upload</h3><p class="muted" style="font-size:13px">Excel/CSV columns: category, category_ar, name, name_ar, price, cost, emoji, description</p>
    <input type="file" id="imp" accept=".xlsx,.xls,.csv"><div class="row" style="margin-top:8px"><button class="primary" onclick="importFile()">Upload</button><a href="/api/r/${App.slug}/menu/template.xlsx" style="color:var(--accent);display:inline-block;padding:10px 6px">⬇ Template</a></div></div>
   <div class="card" style="overflow:auto"><div class="spread"><h3>Items in “${App.esc(C.find(c => c.id === actCat)?.name || '')}”</h3><button class="primary" onclick="api('POST','/api/items',{cat:'${actCat}'})">+ Item</button></div>
-  <table><tr><th></th><th>Name</th><th>الاسم</th><th>Price</th><th>Cost</th><th>Emoji</th><th title="First starred = Dish of the day, second = featured card">★</th><th>Description</th><th></th></tr>
+  <table><tr><th></th><th>Name</th><th>الاسم</th><th>Price</th><th>Cost</th><th>Emoji</th><th title="First starred = Dish of the day, second = featured card">★</th><th title="Dietary tags guests can filter by, e.g. vegan, spicy, gluten-free">Tags</th><th title="Hide from ordering until you restock">Sold out</th><th>Description</th><th></th></tr>
   ${its.map(i => `<tr><td><div class="thumb" style="${i.img ? `background-image:url(${i.img})` : ''}" title="Upload image" onclick="pick('${i.id}')">${i.img ? '' : i.emoji}</div></td>
    <td><input value="${App.esc(i.name)}" onchange="upd('items','${i.id}',{name:this.value})"></td><td><input dir="rtl" value="${App.esc(i.name_ar)}" onchange="upd('items','${i.id}',{name_ar:this.value})"></td>
    <td><input type="number" style="width:80px" value="${i.price}" onchange="upd('items','${i.id}',{price:this.value})"></td><td><input type="number" style="width:70px" value="${i.cost}" onchange="upd('items','${i.id}',{cost:this.value})"></td>
-   <td><input style="width:56px" value="${App.esc(i.emoji)}" onchange="upd('items','${i.id}',{emoji:this.value})"></td><td><input type="checkbox" style="width:auto" ${i.featured ? 'checked' : ''} onchange="upd('items','${i.id}',{featured:this.checked})"></td><td><input value="${App.esc(i.desc)}" onchange="upd('items','${i.id}',{desc:this.value})"></td>
+   <td><input style="width:56px" value="${App.esc(i.emoji)}" onchange="upd('items','${i.id}',{emoji:this.value})"></td><td><input type="checkbox" style="width:auto" ${i.featured ? 'checked' : ''} onchange="upd('items','${i.id}',{featured:this.checked})"></td><td><input style="width:130px" placeholder="vegan, spicy" value="${App.esc((i.tags || []).join(', '))}" onchange="upd('items','${i.id}',{tags:this.value.split(',').map(x=>x.trim()).filter(Boolean)})"></td><td><input type="checkbox" style="width:auto" ${i.soldOut ? 'checked' : ''} onchange="upd('items','${i.id}',{soldOut:this.checked})"></td><td><input value="${App.esc(i.desc)}" onchange="upd('items','${i.id}',{desc:this.value})"></td>
    <td><select style="width:90px" onchange="upd('items','${i.id}',{cat:this.value})">${C.map(c => `<option value="${c.id}" ${c.id === i.cat ? 'selected' : ''}>${c.emoji}</option>`).join('')}</select> <button class="ghost" onclick="api('DELETE','/api/items/${i.id}')">🗑</button></td></tr>`).join('')}</table></div></div>
   <input type="file" id="imgin" accept="image/*" hidden>`;
   Sortable.create($('#cats'), { handle: '.h', animation: 180, onEnd: () => api('PUT', '/api/categories/order', { ids: [...document.querySelectorAll('#cats .cat')].map(e => e.dataset.id) }) });
 }
+function catSettings(c) {
+  if (!c) return '';
+  const h = c.hours || {};
+  return `<div class="card" style="margin:12px 0;background:var(--card2)"><b>${c.emoji} ${App.esc(c.name)} - settings</b>
+   <label class="muted" style="font-size:12px;display:block;margin-top:8px">Prepared at (kitchen screen)</label>
+   <select onchange="upd('categories','${c.id}',{station:this.value})"><option value="kitchen" ${(c.station || 'kitchen') === 'kitchen' ? 'selected' : ''}>🍳 Kitchen</option><option value="bar" ${c.station === 'bar' ? 'selected' : ''}>🍸 Bar</option><option value="both" ${c.station === 'both' ? 'selected' : ''}>Both</option></select>
+   <label class="muted" style="font-size:12px;display:block;margin-top:8px">Only offered between (leave empty = all day)</label>
+   <div class="row"><input type="time" value="${h.from || ''}" onchange="setHours('${c.id}',this.value,'${h.to || ''}')"><span>→</span><input type="time" value="${h.to || ''}" onchange="setHours('${c.id}','${h.from || ''}',this.value)"></div></div>`;
+}
+function setHours(id, from, to) { upd('categories', id, { hours: from && to ? { from, to } : null }); }
 function upd(kind, id, body) { api('PUT', `/api/${kind}/${id}`, body); }
 function pick(id) { const f = $('#imgin'); f.onchange = async () => { const fd = new FormData(); fd.append('image', f.files[0]); await fetch(`/api/items/${id}/image`, { method: 'POST', body: fd }); }; f.click(); }
 async function importFile() {
@@ -172,7 +222,15 @@ function theme() {
    <label class="muted">شعار الصفحة الرئيسية (AR)</label><input dir="rtl" value="${App.esc(s.tagline_ar || '')}" onchange="api('POST','/api/settings',{tagline_ar:this.value})">
    <label class="muted">الاسم (AR)</label><input dir="rtl" value="${App.esc(s.name_ar)}" onchange="api('POST','/api/settings',{name_ar:this.value})">
    <div class="grid" style="margin-top:8px"><div><label class="muted">Tax %</label><input type="number" value="${s.tax}" onchange="api('POST','/api/settings',{tax:+this.value})"></div><div><label class="muted">Service %</label><input type="number" value="${s.service}" onchange="api('POST','/api/settings',{service:+this.value})"></div><div><label class="muted">Currency</label><input value="${App.esc(s.currency)}" onchange="api('POST','/api/settings',{currency:this.value})"></div></div></div></div>`;
-  accountCard();
+  accountCard(); securityCard();
+}
+function securityCard() {
+  const s = App.config.settings, el = document.createElement('div'); el.className = 'card'; el.style.marginTop = '14px';
+  el.innerHTML = `<h3>🛡️ Security & automation</h3>
+  <label class="row" style="gap:10px;margin:8px 0"><input type="checkbox" style="width:22px;height:22px" ${s.requireKey === false ? '' : 'checked'} onchange="api('POST','/api/settings',{requireKey:this.checked})"><span><b>Guests must scan the QR code on the table</b><br><small class="muted">Blocks fake orders from people who only know the web address. Turn off only for testing.</small></span></label>
+  <label class="muted" style="display:block;margin-top:10px">Free an empty table after (minutes)</label>
+  <div class="row"><input type="number" min="5" max="240" style="max-width:120px" value="${s.idleMinutes || 30}" onchange="api('POST','/api/settings',{idleMinutes:Math.max(5,+this.value||30)})"><small class="muted">Guests scanned but never ordered, so the table turns grey again by itself. Tables with orders are only flagged 💤 for the captain.</small></div>`;
+  $('#main').appendChild(el);
 }
 async function accountCard() {
   const a = await api('GET', '/api/account');
@@ -191,9 +249,9 @@ async function qr() {
   const base = App.ls('qrbase') || info.base;
   const T = App.config.tables;
   $('#main').innerHTML = `<h1>🔳 Table QR codes</h1><div class="card noprint spread wrap" style="margin-bottom:14px"><div style="flex:1;min-width:260px"><label class="muted">Public base URL (use your LAN IP so phones can reach it, or your deployed domain)</label><input id="qrbase" value="${App.esc(base)}"></div>
-  <div class="row"><button class="primary" onclick="App.ls('qrbase',$('#qrbase').value);cfgKey='';render(App.state,true)">Apply</button><button class="primary" onclick="window.print()">🖨 Print / Save as PDF</button><button class="ghost" onclick="api('POST','/api/tables')">+ Table</button></div></div>
-  <div class="grid">${T.map(t => `<div class="card qr"><img src="/api/r/${App.slug}/qr/${t.number}.png?base=${encodeURIComponent(base)}" alt="QR ${t.number}"><h3>${App.tr('table')} ${t.number}</h3><div class="muted" style="font-size:12px">${App.esc(base)}/t/${t.number}</div>
-   <div class="row noprint" style="justify-content:center;margin-top:8px"><a href="/api/r/${App.slug}/qr/${t.number}.png?base=${encodeURIComponent(base)}" download="table-${t.number}-qr.png"><button class="ghost">⬇ PNG</button></a><a href="/r/${App.slug}/t/${t.number}" target="_blank"><button class="ghost">Open</button></a><button class="ghost" onclick="if(confirm('Remove table ${t.number}?'))api('DELETE','/api/tables/${t.id}')">🗑</button></div></div>`).join('')}</div>`;
+  <div class="row"><button class="primary" onclick="App.ls('qrbase',$('#qrbase').value);cfgKey='';render(App.state,true)">Apply</button><button class="primary" onclick="window.print()">🖨 Print / Save as PDF</button><button class="ghost" onclick="api('POST','/api/tables')">+ Table</button><button class="ghost" title="Old printed QR codes stop working" onclick="if(confirm('Create brand-new keys for ALL tables? Every printed QR code must then be reprinted.'))api('POST','/api/tables-rekey').then(()=>App.toast('New keys created - reprint your QR codes'))">🔑 New keys</button></div></div>
+  <div class="grid">${T.map(t => `<div class="card qr"><img src="/api/r/${App.slug}/qr/${t.number}.png?base=${encodeURIComponent(base)}&token=${App.tok('admin')}" alt="QR ${t.number}"><h3>${App.tr('table')} ${t.number}</h3><div style="font-weight:700">Scan to order · امسح للطلب</div><div class="muted" style="font-size:12px">${App.esc(App.config.settings.name)}</div>
+   <div class="row noprint" style="justify-content:center;margin-top:8px"><a href="/api/r/${App.slug}/qr/${t.number}.png?base=${encodeURIComponent(base)}&token=${App.tok('admin')}" download="table-${t.number}-qr.png"><button class="ghost">⬇ PNG</button></a><a href="/r/${App.slug}/t/${t.number}?k=${t.key || ''}" target="_blank"><button class="ghost">Open</button></a><button class="ghost" onclick="if(confirm('Remove table ${t.number}?'))api('DELETE','/api/tables/${t.id}')">🗑</button></div></div>`).join('')}</div>`;
 }
 
 /* ---------------- Analytics ---------------- */

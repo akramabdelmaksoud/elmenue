@@ -27,6 +27,17 @@ Run this once in Supabase's SQL editor:
     alter table public.tenants add column if not exists ver bigint not null default 0;
     alter table public.tenants enable row level security;
 
+## What's included
+- **Guests** scan the table QR (it carries a secret table key, so fake orders from a bare web address are rejected), join the table, share a cart, order, split the bill, call the waiter, rate the visit.
+- **Captain** (`/captain`): live floor map (drag-built in Admin → Floor plan), alerts, order stream. On phones the whole café shows as a mini-map. Phone push alerts + installable app (PWA).
+- **Kitchen** (`/kitchen`): ticket screen with timers, Kitchen/Bar stations, one-tap "sold out", "order ready" alert to the captain and guest.
+- **Admin** (`/admin`): menu (sold-out, dietary tags, timed categories, stations), floor plan, staff PIN accounts + performance, reports with Excel export and full backup, theme, QR printing, security settings.
+- Empty tables are freed automatically; tables with orders but no activity are flagged 💤.
+
+## Push notifications
+Generate keys once (`npx web-push generate-vapid-keys`) and set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_CONTACT` (mailto:...).
+On iPhone the staff page must be added to the Home Screen first (iOS 16.4+).
+
 ## Storage
 - Default: JSON files in `DATA_DIR` (default `./data`) — mount it as a persistent disk/volume.
 - Supabase: set `SUPABASE_URL` + `SUPABASE_SECRET_KEY` (run the SQL printed at startup once).

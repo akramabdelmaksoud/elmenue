@@ -1,0 +1,73 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kitchen</title><link rel="stylesheet" href="/shared.css">
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#1f4a35"><link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<style>
+header { position:sticky; top:0; z-index:30; display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 16px; border-bottom:1px solid var(--line); background:color-mix(in srgb,var(--bg) 90%,transparent); backdrop-filter:blur(10px); }
+header h1 { margin:0; font-size:20px; white-space:nowrap; } header .sp { flex:1; } .hb { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.stn { display:flex; gap:6px; } .stn button { padding:9px 16px; border-radius:99px; font-weight:800; background:var(--card); border:1px solid var(--line); } .stn button.on { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+.ib2 { width:40px; height:40px; padding:0; border-radius:50%; display:grid; place-items:center; font-size:17px; }
+main { padding:14px 16px 40px; } .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:14px; align-items:start; }
+.tk { background:var(--card); border:2px solid var(--line); border-radius:22px; padding:14px; display:flex; flex-direction:column; gap:8px; animation:pop .35s; position:relative; overflow:hidden; box-shadow:var(--shadow); }
+.tk.warn { border-color:#e0a21a; } .tk.late { border-color:#e5484d; animation:pulseRed 1.4s infinite; } .tk.cooking::before { content:''; position:absolute; inset:0 0 auto 0; height:5px; background:linear-gradient(90deg,var(--accent),var(--accent2)); }
+.tk .hd { display:flex; align-items:center; justify-content:space-between; gap:8px; } .tk .tn { font-family:var(--serif); font-size:40px; font-weight:800; line-height:1; } .tk .tn small { font-size:13px; color:var(--muted); font-weight:600; margin-inline-start:6px; font-family:inherit; }
+.tk .tm { font-variant-numeric:tabular-nums; font-weight:800; font-size:20px; padding:4px 12px; border-radius:99px; background:var(--card2); } .tk.warn .tm { background:#e0a21a; color:#222; } .tk.late .tm { background:#e5484d; color:#fff; }
+.tk .it { display:flex; gap:10px; font-size:18px; font-weight:700; padding:6px 0; border-top:1px dashed var(--line); } .tk .it b { min-width:34px; color:var(--accent); } .tk .it small { display:block; font-weight:600; color:#e0a21a; font-size:14px; margin-top:2px; }
+.tk .ft { display:flex; gap:8px; margin-top:4px; } .tk .ft button { flex:1; padding:14px 8px; font-size:16px; font-weight:800; border-radius:16px; }
+.tag { font-size:11px; letter-spacing:.1em; font-weight:800; padding:3px 10px; border-radius:99px; background:#2563eb; color:#fff; } .tag.cook { background:#e08a1a; }
+.empty { text-align:center; color:var(--muted); padding:80px 20px; font-size:18px; } .empty .em { font-size:64px; display:block; margin-bottom:10px; }
+.done { margin-top:26px; } .done h3 { margin:0 0 10px; color:var(--muted); font-size:14px; text-transform:uppercase; letter-spacing:.1em; } .dn { display:flex; gap:8px; flex-wrap:wrap; } .dn span { display:flex; align-items:center; gap:8px; padding:6px 6px 6px 14px; border-radius:99px; background:var(--card); border:1px solid var(--line); font-weight:700; } .dn button { padding:5px 10px; border-radius:99px; font-size:12px; }
+.modal { position:fixed; inset:0; background:rgba(0,0,0,.55); display:grid; place-items:center; z-index:80; backdrop-filter:blur(4px); } .modal > .card { width:min(620px,94vw); max-height:88vh; overflow:auto; animation:pop .25s; }
+.so { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 4px; border-bottom:1px solid var(--line); font-weight:600; } .so.off span { text-decoration:line-through; color:var(--muted); }
+.sw { width:52px; height:30px; border-radius:30px; background:color-mix(in srgb,var(--text) 22%,transparent); position:relative; padding:0; flex:none; } .sw::after { content:''; position:absolute; top:3px; inset-inline-start:3px; width:24px; height:24px; border-radius:50%; background:#fff; transition:transform .3s cubic-bezier(.34,1.56,.64,1); } .sw.on { background:#e5484d; } .sw.on::after { transform:translateX(22px); } [dir=rtl] .sw.on::after { transform:translateX(-22px); }
+#flash { position:fixed; inset:0; pointer-events:none; z-index:90; box-shadow:inset 0 0 0 0 var(--accent2); } #flash.go { animation:fl 1.1s; } @keyframes fl { 20% { box-shadow:inset 0 0 0 14px var(--accent2); } 100% { box-shadow:inset 0 0 0 0 transparent; } }
+@media (max-width:700px) { header { padding:8px 10px; } header h1 { font-size:17px; } .grid { grid-template-columns:1fr; } .tk .tn { font-size:34px; } .hb .lbl { display:none; } }
+</style></head>
+<body>
+<header><h1>👨‍🍳 Kitchen <span id="clock" class="muted" style="font-weight:500"></span></h1>
+<div class="stn" id="stn"></div><span class="sp"></span>
+<div class="hb"><button class="ghost ib2" id="pushb" onclick="togglePush()" title="Notifications">🔔</button><button class="ghost ib2" id="snd" onclick="toggleSound()" title="Sound">🔕</button><button class="ghost ib2" onclick="openStock()" title="Sold-out items">🚫</button><button class="ghost ib2" onclick="App.toggleLang(event)">🌐</button><button class="ghost ib2" onclick="App.toggleMode(event)">◐</button><button class="ghost ib2" onclick="App.logout()">⏻</button></div></header>
+<main><div id="grid" class="grid"></div><div id="done" class="done"></div></main>
+<div id="modal"></div><div id="flash"></div><div id="toastbox"></div>
+<script src="/shared.js"></script>
+<script>
+let S = null, station = App.ls('kstation') || 'all', sound = false, actx = null, seen = null;
+const T = { en: { all: 'All', kitchen: 'Kitchen', bar: 'Bar', start: 'Start cooking', ready: 'Ready ✓', empty: 'No tickets - all caught up', newt: 'NEW', cooking: 'COOKING', done: 'Recently ready', back: '↩ back', stock: 'Sold-out items', stockH: 'Switch on anything you have run out of - guests can no longer order it.', close: 'Close', notes: 'Note' },
+  ar: { all: 'الكل', kitchen: 'المطبخ', bar: 'البار', start: 'ابدأ التحضير', ready: 'جاهز ✓', empty: 'لا توجد طلبات - كل شيء جاهز', newt: 'جديد', cooking: 'قيد التحضير', done: 'جاهز مؤخرًا', back: '↩ رجوع', stock: 'أصناف نفدت', stockH: 'فعّل أي صنف نفد - لن يتمكن الضيوف من طلبه.', close: 'إغلاق', notes: 'ملاحظة' } };
+const t = (k) => (T[App.lang] || T.en)[k] || T.en[k];
+function beep() { if (!sound) return; try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); [660, 880, 660, 880].forEach((f, i) => { const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = f; o.connect(g); g.connect(actx.destination); const x = actx.currentTime + i * .17; g.gain.setValueAtTime(.2, x); g.gain.exponentialRampToValueAtTime(.001, x + .16); o.start(x); o.stop(x + .17); }); } catch {} }
+function toggleSound() { sound = !sound; document.getElementById('snd').textContent = sound ? '🔔' : '🔕'; if (sound) beep(); }
+async function refreshPush() { const st = await App.push.state(), b = document.getElementById('pushb'); b.textContent = st === 'on' ? '📲' : '🔔'; b.classList.toggle('sel', st === 'on'); b.title = { on: 'Notifications are ON (tap to turn off)', off: 'Turn on notifications', denied: 'Blocked in browser settings', unsupported: 'Not supported here' }[st]; }
+async function togglePush() { try { const st = await App.push.state(); if (st === 'on') await App.push.disable(); else await App.push.enable(); App.toast(st === 'on' ? 'Notifications off' : 'Notifications on ✓'); } catch (e) { App.toast(e.message); } refreshPush(); }
+setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); tickTimers(); }, 1000);
+function tickTimers() { document.querySelectorAll('[data-at]').forEach((el) => { const s = Math.max(0, Math.floor((Date.now() - +el.dataset.at) / 1000)); el.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); const tk = el.closest('.tk'); if (tk) { tk.classList.toggle('warn', s >= 480 && s < 900); tk.classList.toggle('late', s >= 900); } }); }
+
+function start() { App.connect({ t: 'join', role: 'kitchen' }, { render(m) { if (m) S = m; render(); } }); refreshPush(); }
+App.gate('kitchen', start);
+
+const stationOf = (cfg, itemId) => { const it = cfg.items.find((x) => x.id === itemId); const c = it && cfg.categories.find((x) => x.id === it.cat); return (c && c.station) || 'kitchen'; };
+function render() {
+  if (!S) return; const cfg = S.config;
+  const sessions = Object.values(S.sessions || {});
+  const all = sessions.flatMap((s) => s.orders.map((o) => ({ s, o })));
+  const want = (x) => station === 'all' || x.stn === station || x.stn === 'both';
+  const open = all.filter(({ o }) => o.status === 'received' || o.status === 'kitchen').map(({ s, o }) => ({ s, o, items: o.items.filter((i) => want({ stn: stationOf(cfg, i.itemId) })) })).filter((x) => x.items.length).sort((a, b) => a.o.at - b.o.at);
+  // new-ticket detection (works for both websockets and polling)
+  const ids = new Set(all.map(({ o }) => o.id));
+  if (seen) { const fresh = open.filter(({ o }) => !seen.has(o.id)); if (fresh.length) { beep(); try { navigator.vibrate && navigator.vibrate([250, 100, 250]); } catch {} const f = document.getElementById('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); } }
+  seen = ids;
+  document.getElementById('stn').innerHTML = ['all', 'kitchen', 'bar'].map((k) => `<button class="${station === k ? 'on' : ''}" onclick="setStation('${k}')">${t(k)}${k === station ? ' · ' + open.length : ''}</button>`).join('');
+  document.getElementById('grid').innerHTML = open.length ? open.map(({ s, o, items }) => `<div class="tk ${o.status === 'kitchen' ? 'cooking' : ''}"><div class="hd"><div class="tn">${s.tableNumber}<small>${s.guests.slice(0, 4).map((g) => g.avatar).join('')}</small></div><div style="text-align:end"><span class="tag ${o.status === 'kitchen' ? 'cook' : ''}">${o.status === 'kitchen' ? t('cooking') : t('newt')}</span><div class="tm" data-at="${o.at}" style="margin-top:6px">00:00</div></div></div>
+    ${items.map((i) => `<div class="it"><b>${i.qty}×</b><div>${App.esc(App.nm(i))}${i.note ? `<small>📝 ${App.esc(i.note)}</small>` : ''}</div></div>`).join('')}
+    <div class="ft">${o.status === 'received' ? `<button class="ghost" onclick="setSt('${o.id}','kitchen')">${t('start')}</button>` : ''}<button class="primary" onclick="setSt('${o.id}','served')">${t('ready')}</button></div></div>`).join('') : `<div class="empty" style="grid-column:1/-1"><span class="em">🍽️</span>${t('empty')}</div>`;
+  const recent = all.filter(({ o }) => o.status === 'served').sort((a, b) => b.o.at - a.o.at).slice(0, 6);
+  document.getElementById('done').innerHTML = recent.length ? `<h3>${t('done')}</h3><div class="dn">${recent.map(({ s, o }) => `<span>T${s.tableNumber} · ${o.items.reduce((n, i) => n + i.qty, 0)}×<button class="ghost" onclick="setSt('${o.id}','kitchen')">${t('back')}</button></span>`).join('')}</div>` : '';
+  tickTimers(); if (document.getElementById('stockm')) drawStock();
+}
+function setStation(k) { station = k; App.ls('kstation', k); render(); }
+function setSt(id, status) { App.send({ t: 'order_status', orderId: id, status }); }
+function openStock() { document.getElementById('modal').innerHTML = `<div class="modal" id="stockm" onclick="if(event.target===this)closeStock()"><div class="card"><div class="spread"><h2 style="margin:0">🚫 ${t('stock')}</h2><button onclick="closeStock()">✕</button></div><p class="muted">${t('stockH')}</p><div id="stockl"></div></div></div>`; drawStock(); }
+function closeStock() { document.getElementById('modal').innerHTML = ''; }
+function drawStock() { const cfg = S.config; document.getElementById('stockl').innerHTML = cfg.categories.map((c) => `<h4 style="margin:14px 0 4px;color:var(--muted)">${c.emoji} ${App.esc(App.nm(c))}</h4>` + cfg.items.filter((i) => i.cat === c.id).map((i) => `<div class="so ${i.soldOut ? 'off' : ''}"><span>${i.emoji} ${App.esc(App.nm(i))}</span><button class="sw ${i.soldOut ? 'on' : ''}" onclick="flip('${i.id}')" aria-label="sold out"></button></div>`).join('')).join(''); }
+async function flip(id) { const it = S.config.items.find((x) => x.id === id); it.soldOut = !it.soldOut; drawStock(); const r = await fetch(`/api/items/${id}/stock`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ soldOut: it.soldOut }) }); if (!r.ok) { it.soldOut = !it.soldOut; drawStock(); App.toast('Could not save'); } }
+</script></body></html>
