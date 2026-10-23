@@ -1,6 +1,6 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin Dashboard</title><link rel="stylesheet" href="/shared.css">
+<title>Admin Dashboard</title><link rel="stylesheet" href="/shared.css"><link rel="stylesheet" href="/floor.css">
 <style>
 .shell { display:grid; grid-template-columns:220px 1fr; min-height:100vh; } @media (max-width:800px){ .shell{grid-template-columns:1fr} aside{flex-direction:row!important;overflow:auto} }
 aside { background:var(--card); border-inline-end:1px solid var(--line); padding:18px 12px; display:flex; flex-direction:column; gap:6px; position:sticky; top:0; height:100vh; }
@@ -22,7 +22,7 @@ table { width:100%; border-collapse:collapse; } td, th { padding:6px; text-align
 </style></head>
 <body><div class="shell"><aside>
 <h2>⚙️ Admin</h2>
-<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button>
+<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="floor">🪑 Floor plan</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button>
 <span style="flex:1"></span><button onclick="App.toggleLang()">🌐 EN / عربي</button><button onclick="App.toggleMode()">◐ Light / Dark</button><button onclick="App.logout()">⏻ Sign out</button></aside>
 <main id="main"></main></div>
 <script src="/vendor/sortable.js"></script><script src="/vendor/chart.js"></script><script src="/shared.js"></script>
@@ -34,16 +34,96 @@ document.querySelectorAll('aside [data-t]').forEach(b => b.onclick = () => { tab
 App.gate('admin', () => App.connect({ t: 'join', role: 'admin' }, { render(m) { render(m); } }));
 function render(m, force) {
   if (!App.config) return;
+  if (tab === 'floor' && (FP.dirty || FP.drag)) return;   // never rebuild the editor mid-edit
   document.querySelectorAll('aside [data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
   const key = JSON.stringify(App.config) + App.lang + document.documentElement.dataset.dark + tab;
   if (key === cfgKey && !force) { if (tab === 'analytics') {} return; }   // ignore live-session noise
   cfgKey = key;
   const focus = document.activeElement; if (focus && focus.closest('#main') && focus.tagName === 'INPUT' && !force) return;  // don't clobber typing
-  ({ analytics, menu, theme, qr, audit })[tab]();
+  ({ analytics, menu, floor: floorTab, theme, qr, audit })[tab]();
 }
 App.handlers.render = (m) => render(m, true);
 
 setInterval(() => { if (tab === 'analytics' || tab === 'audit') { cfgKey = ''; render(App.state, true); } }, 20000);
+/* ---------------- Floor plan editor ---------------- */
+let FP = { L: null, sel: null, dirty: false, drag: null, timer: null, v: 0 };
+const DEC = { bar: ['🍸', 'Bar', 6, 2], kitchen: ['🍳', 'Kitchen', 4, 4], wall: ['🧱', 'Wall', 6, 1], plant: ['🪴', 'Plant', 2, 2], door: ['🚪', 'Door', 2, 2] };
+const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+function floorTab() {
+  const F = App.floor();
+  if (!FP.dirty || !FP.L) FP.L = { tables: App.config.tables.map((t) => ({ id: t.id, number: t.number, shape: t.shape, seats: t.seats, ...App.tpos(t) })), decor: F.decor.map((d) => ({ ...d })) };
+  $('#main').innerHTML = `<div class="spread"><h1>🪑 Floor plan</h1><span class="muted" id="fp-st"></span></div>
+  <p class="muted" style="margin-top:-6px">Arrange the tables exactly like your café. Drag to move, pull the round handle to resize. Your captain sees this same map, scaled to fit any phone.</p>
+  <div class="fp-tools"><button class="primary" onclick="fpAddTable()">+ Table</button>${Object.entries(DEC).map(([k, v]) => `<button class="ghost" onclick="fpAddDecor('${k}')">${v[0]} ${v[1]}</button>`).join('')}<button class="ghost" onclick="fpArrange()">✨ Auto-arrange</button></div>
+  <div class="fp-layout"><div><div class="fl-stage edit" id="fp"></div></div><div class="card fp-side" id="fp-side"></div></div>`;
+  fpDraw(); fpBind();
+}
+function fpItem(kind, id) { return kind === 't' ? FP.L.tables.find((x) => x.id === id) : kind === 'd' ? FP.L.decor.find((x) => x.id === id) : null; }
+function fpDraw() {
+  const F = App.floor(), st = $('#fp'); if (!st) return;
+  st.style.setProperty('--cols', F.cols); st.style.setProperty('--rows', F.rows); st.style.aspectRatio = `${F.cols} / ${F.rows}`;
+  const pos = (p) => `left:${p.fx / F.cols * 100}%;top:${p.fy / F.rows * 100}%;width:${p.fw / F.cols * 100}%;height:${p.fh / F.rows * 100}%;--m:${Math.min(p.fw, p.fh)}`;
+  st.innerHTML = FP.L.decor.map((d) => `<div class="fl-d ${d.type} fp-el ${FP.sel === 'd:' + d.id ? 'sel' : ''}" data-k="d:${d.id}" style="${pos(d)}"><div>${App.decorIcon[d.type] || '▬'}${d.label ? `<small>${App.esc(d.label)}</small>` : ''}</div><i class="rzh"></i></div>`).join('')
+    + FP.L.tables.map((t) => `<div class="fl-t ${t.shape} fp-el ${FP.sel === 't:' + t.id ? 'sel' : ''}" data-k="t:${t.id}" style="${pos(t)}">${App.chairs(t.shape, t.seats)}<span class="n">${t.number}</span><span class="s">${t.seats} seats</span><i class="rzh"></i></div>`).join('');
+  fpInspector();
+}
+function fpInspector() {
+  const box = $('#fp-side'); if (!box) return;
+  const [kind, id] = (FP.sel || ':').split(':'), it = fpItem(kind, id);
+  const step = (label, key, min) => `<div class="fp-step"><span>${label}</span><div class="c"><button onclick="fpAdj('${key}',-1,${min})">−</button><b>${it[key]}</b><button onclick="fpAdj('${key}',1,${min})">+</button></div></div>`;
+  if (!it) { box.innerHTML = `<h3>Floor plan</h3><p class="muted">Tap a table or decor item to edit it.</p><p class="muted" style="font-size:13px">${FP.L.tables.length} tables · ${FP.L.tables.reduce((n, t) => n + t.seats, 0)} seats<br>Changes save automatically.</p>`; return; }
+  if (kind === 't') box.innerHTML = `<h3>Table ${it.number}</h3><div class="muted" style="font-size:12px">Shape</div><div class="seg">${['round', 'square', 'long'].map((s) => `<button class="${it.shape === s ? 'on' : ''}" onclick="fpShape('${s}')">${{ round: '⚪ Round', square: '⬜ Square', long: '▭ Long' }[s]}</button>`).join('')}</div>
+    ${step('Seats', 'seats', 1)}${step('Width', 'fw', 2)}${step('Height', 'fh', 2)}<button class="ghost" style="width:100%;margin-top:12px" onclick="fpDelete()">🗑 Remove table</button>`;
+  else box.innerHTML = `<h3>${DEC[it.type][0]} ${DEC[it.type][1]}</h3><div class="muted" style="font-size:12px">Label</div><input value="${App.esc(it.label || '')}" maxlength="20" oninput="fpLabel(this.value)" style="margin:6px 0 10px">${step('Width', 'fw', 1)}${step('Height', 'fh', 1)}<button class="ghost" style="width:100%;margin-top:12px" onclick="fpDelete()">🗑 Remove</button>`;
+}
+function fpBind() {
+  const st = $('#fp'); if (!st) return;
+  st.onpointerdown = (e) => {
+    const el = e.target.closest('.fp-el');
+    if (!el) { FP.sel = null; st.querySelectorAll('.fp-el.sel').forEach((x) => x.classList.remove('sel')); fpInspector(); return; }
+    const [kind, id] = el.dataset.k.split(':'), item = fpItem(kind, id); if (!item) return;
+    FP.sel = el.dataset.k; st.querySelectorAll('.fp-el').forEach((x) => x.classList.toggle('sel', x === el)); fpInspector();
+    const F = App.floor();
+    FP.drag = { el, item, kind, mode: e.target.classList.contains('rzh') ? 'resize' : 'move', x: e.clientX, y: e.clientY, o: { ...item }, cw: st.getBoundingClientRect().width / F.cols, F, moved: false };
+    st.setPointerCapture(e.pointerId); e.preventDefault();
+  };
+  st.onpointermove = (e) => {
+    const d = FP.drag; if (!d) return;
+    const dx = Math.round(((e.clientX - d.x) / d.cw) * 2) / 2, dy = Math.round(((e.clientY - d.y) / d.cw) * 2) / 2, it = d.item, F = d.F, min = d.kind === 't' ? 2 : 1;
+    if (!d.moved && !dx && !dy) return;
+    d.moved = true;
+    if (d.mode === 'move') { it.fx = clampN(d.o.fx + dx, 0, F.cols - it.fw); it.fy = clampN(d.o.fy + dy, 0, F.rows - it.fh); }
+    else { it.fw = clampN(d.o.fw + dx, min, F.cols - it.fx); it.fh = clampN(d.o.fh + dy, min, F.rows - it.fy); if (d.kind === 't' && it.shape === 'round') { const sz = Math.min(Math.max(min, Math.max(d.o.fw + dx, d.o.fh + dy)), Math.min(F.cols - it.fx, F.rows - it.fy)); it.fw = it.fh = sz; } }
+    d.el.style.left = it.fx / F.cols * 100 + '%'; d.el.style.top = it.fy / F.rows * 100 + '%'; d.el.style.width = it.fw / F.cols * 100 + '%'; d.el.style.height = it.fh / F.rows * 100 + '%'; d.el.style.setProperty('--m', Math.min(it.fw, it.fh));
+  };
+  st.onpointerup = st.onpointercancel = () => { const d = FP.drag; if (!d) return; FP.drag = null; if (d.moved) { FP.dirty = true; FP.v++; fpSaveSoon(); } fpDraw(); };
+}
+function fpSaveSoon() { const s = $('#fp-st'); if (s) s.textContent = 'Saving…'; clearTimeout(FP.timer); FP.timer = setTimeout(fpSave, 500); }
+async function fpSave() {
+  clearTimeout(FP.timer); const v = FP.v;
+  await api('PUT', '/api/layout', { tables: FP.L.tables, decor: FP.L.decor });
+  if (FP.v === v) FP.dirty = false; const s = $('#fp-st'); if (s) s.textContent = 'Saved ✓';
+}
+function fpTouch() { FP.dirty = true; FP.v++; fpDraw(); fpSaveSoon(); }
+function fpAdj(key, d, min) { const it = fpItem(...FP.sel.split(':')); if (!it) return; const F = App.floor(); const lim = key === 'seats' ? 20 : key === 'fw' ? F.cols - it.fx : F.rows - it.fy; it[key] = clampN(it[key] + d, min, lim); if (it.shape === 'round' && (key === 'fw' || key === 'fh')) it.fw = it.fh = it[key]; fpTouch(); }
+function fpShape(s) { const it = fpItem(...FP.sel.split(':')); if (!it) return; it.shape = s; if (s === 'round') it.fw = it.fh = Math.max(2, Math.round((it.fw + it.fh) / 2)); if (s === 'long' && it.fw <= it.fh) it.fw = Math.min(App.floor().cols - it.fx, it.fh + 2); fpTouch(); }
+function fpLabel(v) { const it = fpItem(...FP.sel.split(':')); if (!it) return; it.label = v; FP.dirty = true; FP.v++; fpSaveSoon(); const el = $(`#fp [data-k="${FP.sel}"] > div`); if (el) el.innerHTML = (App.decorIcon[it.type] || '▬') + (v ? `<small>${App.esc(v)}</small>` : ''); }
+function fpFree(w, h) { const F = App.floor(), all = [...FP.L.tables, ...FP.L.decor]; for (let y = 0; y <= F.rows - h; y++) for (let x = 0; x <= F.cols - w; x++) if (!all.some((o) => x < o.fx + o.fw && x + w > o.fx && y < o.fy + o.fh && y + h > o.fy)) return { fx: x, fy: y }; return { fx: 0, fy: 0 }; }
+async function refreshCfg() { App.config = await api('GET', '/api/config'); cfgKey = ''; render(App.state, true); }
+async function fpAddTable() { if (FP.dirty) await fpSave(); const t = await api('POST', '/api/tables'); FP.sel = 't:' + t.id; FP.dirty = false; await refreshCfg(); }
+function fpAddDecor(type) { const [, , w, h] = DEC[type]; FP.L.decor.push({ id: 'd' + Date.now().toString(36), type, ...fpFree(w, h), fw: w, fh: h, label: DEC[type][1] === 'Plant' || type === 'wall' ? '' : DEC[type][1] }); FP.sel = 'd:' + FP.L.decor[FP.L.decor.length - 1].id; fpTouch(); }
+async function fpDelete() {
+  const [kind, id] = FP.sel.split(':'), it = fpItem(kind, id); if (!it) return;
+  if (kind === 'd') { FP.L.decor = FP.L.decor.filter((x) => x.id !== id); FP.sel = null; return fpTouch(); }
+  if (!confirm('Remove table ' + it.number + '? Its QR code will stop working.')) return;
+  if (FP.dirty) await fpSave(); await api('DELETE', '/api/tables/' + id); FP.sel = null; FP.dirty = false; await refreshCfg();
+}
+function fpArrange() {
+  const F = App.floor(); let x = 0, y = 0, rowH = 0;
+  FP.L.tables.slice().sort((a, b) => a.number - b.number).forEach((t) => { if (x + t.fw > F.cols - 2) { x = 0; y += rowH + 1; rowH = 0; } t.fx = x; t.fy = Math.min(y, F.rows - t.fh); x += t.fw + 2; rowH = Math.max(rowH, t.fh); });
+  fpTouch();
+}
+
 /* ---------------- Menu builder ---------------- */
 function menu() {
   const { categories: C, items: I } = App.config;

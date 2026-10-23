@@ -326,7 +326,29 @@ A('post', '/menu/import', upload.single('file'), (req, res) => {
   } catch (e) { res.status(400).json({ error: 'Could not parse file: ' + e.message }); }
 });
 
-A('post', '/tables', (req, res) => { const d = req.tenant.db; const n = Math.max(0, ...d.tables.map((t) => t.number)) + 1; const t = { id: newId('t'), number: n, x: 1, y: 1, shape: 'square', seats: 4 }; d.tables.push(t); bc(req); res.json(t); });
+A('post', '/tables', (req, res) => {
+  const d = req.tenant.db, F = d.settings.floor || { cols: 24, rows: 16, decor: [] }, n = Math.max(0, ...d.tables.map((t) => t.number)) + 1;
+  const boxes = [...d.tables.map((t) => ({ fx: t.fx ?? ((t.x || 1) - 1) * 2, fy: t.fy ?? ((t.y || 1) - 1) * 2, fw: t.fw || 4, fh: t.fh || 4 })), ...(F.decor || [])];
+  const hit = (x, y) => boxes.some((o) => x < o.fx + o.fw && x + 3 > o.fx && y < o.fy + o.fh && y + 3 > o.fy);
+  let spot = { fx: 0, fy: 0 };
+  search: for (let y = 0; y <= F.rows - 3; y++) for (let x = 0; x <= F.cols - 3; x++) if (!hit(x, y)) { spot = { fx: x, fy: y }; break search; }
+  const t = { id: newId('t'), number: n, ...spot, fw: 3, fh: 3, shape: 'square', seats: 4 }; d.tables.push(t); bc(req); res.json(t);
+});
+// Bulk save from the floor-plan editor: positions, sizes, shapes, seats and decor
+A('put', '/layout', (req, res) => {
+  const d = req.tenant.db, b = req.body || {}, snap = (v) => Math.round(+v * 2) / 2;
+  (b.tables || []).forEach((u) => {
+    const t = d.tables.find((x) => x.id === u.id); if (!t) return;
+    for (const k of ['fx', 'fy', 'fw', 'fh']) if (Number.isFinite(+u[k])) t[k] = snap(u[k]);
+    if (['round', 'square', 'long'].includes(u.shape)) t.shape = u.shape;
+    if (Number.isFinite(+u.seats)) t.seats = Math.max(1, Math.min(20, Math.round(+u.seats)));
+  });
+  if (Array.isArray(b.decor)) {
+    const F = d.settings.floor || { cols: 24, rows: 16 };
+    d.settings.floor = { cols: F.cols || 24, rows: F.rows || 16, decor: b.decor.slice(0, 80).filter((x) => ['bar', 'kitchen', 'wall', 'plant', 'door'].includes(x.type)).map((x) => ({ id: String(x.id || newId('d')).slice(0, 24), type: x.type, fx: snap(x.fx), fy: snap(x.fy), fw: Math.max(1, snap(x.fw)), fh: Math.max(1, snap(x.fh)), label: String(x.label || '').slice(0, 20) })) };
+  }
+  bc(req); res.json({ ok: 1 });
+});
 A('put', '/tables/:id', (req, res) => { const t = req.tenant.db.tables.find((x) => x.id === req.params.id); if (t) Object.assign(t, req.body, { id: t.id }); bc(req); res.json(t); });
 A('delete', '/tables/:id', (req, res) => { const d = req.tenant.db; d.tables = d.tables.filter((x) => x.id !== req.params.id); delete d.sessions[req.params.id]; bc(req); res.json({ ok: 1 }); });
 A('get', '/analytics', async (req, res) => { if (STATELESS) req.tenant.db.history = await store.getHist(req.tenant.rec.id); res.json(req.tenant.analytics(+req.query.days || 7)); });

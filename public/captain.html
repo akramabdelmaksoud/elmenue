@@ -1,57 +1,61 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Captain — Floor</title><link rel="stylesheet" href="/shared.css">
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Captain — Floor</title><link rel="stylesheet" href="/shared.css"><link rel="stylesheet" href="/floor.css">
 <style>
-body { height:100vh; display:flex; flex-direction:column; overflow:hidden; }
-header { display:flex; justify-content:space-between; align-items:center; padding:10px 18px; border-bottom:1px solid var(--line); gap:10px; flex-wrap:wrap; }
-header h1 { margin:0; font-size:20px; }
-.layout { flex:1; display:grid; grid-template-columns:1fr 380px; min-height:0; }
-@media (max-width:900px) { .layout { grid-template-columns:1fr; overflow:auto; } body { overflow:auto; height:auto; } }
-.floorwrap { padding:16px; overflow:auto; }
-.floor { position:relative; display:grid; grid-template-columns:repeat(12,1fr); grid-template-rows:repeat(8,minmax(54px,1fr)); gap:6px; min-height:520px; height:calc(100vh - 150px); min-width:640px; border-radius:24px; padding:14px;
-  background:repeating-linear-gradient(45deg,var(--card2) 0 14px,transparent 14px 28px), var(--card); border:1px solid var(--line); box-shadow:inset 0 0 60px rgba(0,0,0,.18); }
-.table { border-radius:22px; border:3px solid var(--line); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-weight:800; position:relative; transition:background .5s, border-color .5s, transform .2s; cursor:pointer; padding:4px; background:#8884; color:var(--text); overflow:hidden; }
-.table:hover { transform:scale(1.05); z-index:3; }
-.table.round { border-radius:50%; } .table.long { border-radius:10px; }
-.table .n { font-size:26px; line-height:1; } .table .s { font-size:11px; font-weight:600; opacity:.9; } .table .av { font-size:15px; letter-spacing:-2px; } .table .bd { position:absolute; top:3px; inset-inline-end:5px; font-size:13px; }
-.table.empty { background:#8884; border-style:dashed; opacity:.7 } .table.seated { background:#1f9d55; border-color:#35d27a; color:#fff; } .table.ordered { background:#e08a1a; border-color:#ffb74d; color:#fff; }
-.table.urgent { background:#d62828; border-color:#ff7676; color:#fff; animation:pulseRed 1s infinite; } .table.check { background:linear-gradient(135deg,#2563eb,#ffcc33); border-color:var(--gold); color:#fff; animation:glowGold 1.6s infinite; }
-.side { border-inline-start:1px solid var(--line); overflow:auto; padding:14px; }
-.legend { display:flex; gap:12px; flex-wrap:wrap; font-size:12px; padding:0 16px 10px; } .legend i { display:inline-block; width:12px; height:12px; border-radius:4px; margin-inline-end:5px; vertical-align:-1px; }
+body { min-height:100vh; display:flex; flex-direction:column; }
+header { display:flex; justify-content:space-between; align-items:center; padding:10px 18px; border-bottom:1px solid var(--line); gap:10px; position:sticky; top:0; z-index:30; background:color-mix(in srgb,var(--bg) 88%,transparent); backdrop-filter:blur(10px); }
+header h1 { margin:0; font-size:20px; display:flex; align-items:center; gap:8px; white-space:nowrap; } #clock { color:var(--muted); font-weight:500; font-size:.8em; }
+.hb { display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; } .hb button { display:flex; align-items:center; gap:6px; }
+.statline { padding:6px 18px; font-size:13px; color:var(--muted); }
+.layout { flex:1; display:grid; grid-template-columns:minmax(0,1fr) 380px; min-height:0; }
+.floorwrap { padding:8px 16px 16px; min-width:0; }
+.side { border-inline-start:1px solid var(--line); padding:14px; overflow:auto; max-height:calc(100vh - 110px); position:sticky; top:56px; }
+.legend { display:flex; gap:12px; flex-wrap:wrap; font-size:12px; padding:0 18px 8px; } .legend i { display:inline-block; width:12px; height:12px; border-radius:4px; margin-inline-end:5px; vertical-align:-1px; }
 .ocard { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px; margin-bottom:10px; animation:pop .3s; }
-.ocard.flash { animation:glowGold 1s 3; }
 .st { font-size:12px; padding:2px 10px; border-radius:99px; color:#fff; } .st.received { background:#5b6 } .st.kitchen { background:var(--warn) } .st.served { background:#3b82f6 } .st.closed { background:#777 }
-.line { display:flex; justify-content:space-between; padding:2px 0; font-size:14px; }
-.modal { position:fixed; inset:0; background:rgba(0,0,0,.55); display:grid; place-items:center; z-index:50; backdrop-filter:blur(4px); }
+.line { display:flex; justify-content:space-between; padding:2px 0; font-size:14px; gap:8px; }
+.modal { position:fixed; inset:0; background:rgba(0,0,0,.55); display:grid; place-items:center; z-index:80; backdrop-filter:blur(4px); }
 .modal > .card { width:min(560px,94vw); max-height:90vh; overflow:auto; animation:pop .25s; }
-#banners { position:fixed; top:70px; inset-inline-end:16px; display:flex; flex-direction:column; gap:8px; z-index:60; }
+#banners { position:fixed; top:70px; inset-inline-end:16px; display:flex; flex-direction:column; gap:8px; z-index:90; }
 .banner { background:var(--text); color:var(--bg); padding:12px 18px; border-radius:14px; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.4); animation:pop .3s; }
 .banner.urgent { background:#d62828; color:#fff; } .banner.check { background:var(--gold); color:#222; }
 h3 { margin:6px 0 10px; }
+/* alert chips + bottom bar (phones) */
+#chips, #inl { display:none; } #bar { display:none; } #inl { padding:6px 12px 0; }
+.chip { flex:none; display:flex; align-items:center; gap:8px; padding:6px 6px 6px 12px; border-radius:99px; background:var(--card); border:1px solid var(--line); font-size:13px; font-weight:700; animation:pop .3s; } .chip.u { border-color:#ff6b6b; background:color-mix(in srgb,#d62828 16%,var(--card)); }
+.chip button { width:30px; height:30px; padding:0; border-radius:50%; background:var(--accent); color:var(--on-accent); font-size:14px; }
+#sheet { position:fixed; inset:0; z-index:70; display:none; } #sheet.open { display:block; } #sheet .bg { position:absolute; inset:0; background:rgba(0,0,0,.45); backdrop-filter:blur(3px); animation:fadeUp .2s; }
+#sheet .pan { position:absolute; left:0; right:0; bottom:0; max-height:78vh; overflow:auto; background:var(--bg); border-radius:26px 26px 0 0; padding:10px 14px calc(88px + env(safe-area-inset-bottom)); box-shadow:0 -20px 60px rgba(0,0,0,.4); animation:sheetUp .4s cubic-bezier(.2,.9,.2,1); }
+@keyframes sheetUp { from { transform:translateY(100%); } } #sheet .grab { width:44px; height:5px; border-radius:5px; background:var(--line); margin:4px auto 12px; }
+@media (max-width:1000px) { .layout { grid-template-columns:1fr; } .side { display:none; } #bar { display:flex; } #chips { display:flex; } #inl { display:block; } body { padding-bottom:84px; } }
+@media (max-width:440px) { .ttl { display:none; } }
 @media (max-width:700px) {
-  header { padding:10px 12px; } header h1 { font-size:18px; } header .row button, header button { padding:8px 12px; }
-  .legend { padding:0 12px 8px; gap:8px 12px; } .floorwrap { padding:10px 12px; overflow:visible; }
-  .floor { min-width:0; height:auto; min-height:0; grid-template-columns:repeat(auto-fill,minmax(98px,1fr)); grid-template-rows:none; grid-auto-rows:98px; padding:10px; gap:10px; border-radius:20px; }
-  .floor .table { grid-column:auto !important; grid-row:auto !important; }
-  .table .n { font-size:24px; } .side { border-inline-start:0; border-top:1px solid var(--line); padding:12px; }
-  .modal > .card { width:96vw; max-height:92vh; padding:14px; } #banners { inset-inline:10px; top:60px; } .banner { font-size:14px; }
+  header { padding:8px 10px; } header h1 { font-size:17px; } .hb { gap:6px; flex-wrap:nowrap; } .hb button { padding:0; width:38px; height:38px; justify-content:center; border-radius:50%; font-size:16px; } .hb .lbl { display:none; }
+  .statline { padding:4px 12px; font-size:12px; } .legend { flex-wrap:nowrap; overflow-x:auto; padding:0 12px 6px; gap:12px; scrollbar-width:none; white-space:nowrap; font-size:11px; } .legend::-webkit-scrollbar { display:none; }
+  .floorwrap { padding:4px 8px 8px; } .fl-stage { border-radius:16px; }
+  .modal > .card { width:96vw; max-height:92vh; padding:14px; } #banners { inset-inline:10px; top:54px; } .banner { font-size:14px; padding:10px 14px; }
 }
-@media (min-width:701px) and (max-width:1000px) { body { overflow:auto; height:auto; } .layout { grid-template-columns:1fr; overflow:visible; } .floor { min-width:0; height:min(68vh,640px); } .side { border-inline-start:0; border-top:1px solid var(--line); } }
+#chips { gap:8px; overflow-x:auto; padding:10px 12px 2px; scrollbar-width:none; } #chips::-webkit-scrollbar { display:none; } #chips .none { color:var(--muted); font-size:13px; padding:6px 4px; }
+#bar { position:fixed; left:10px; right:10px; bottom:calc(10px + env(safe-area-inset-bottom)); z-index:75; gap:8px; padding:8px; border-radius:24px; background:color-mix(in srgb,var(--card) 86%,transparent); backdrop-filter:blur(16px); border:1px solid var(--line); box-shadow:0 18px 40px -12px rgba(0,0,0,.5); }
+#bar button { flex:1; padding:13px 8px; border-radius:18px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:8px; position:relative; } #bar button.on { background:var(--accent); color:var(--on-accent); }
+#bar .cnt { background:var(--accent2); color:#fff; border-radius:99px; padding:1px 8px; font-size:12px; min-width:22px; text-align:center; } #bar .cnt.hot { background:#d62828; animation:pulseRed 1.2s infinite; } #bar .cnt:empty { display:none; }
 </style></head>
 <body>
-<header><h1>🧑‍✈️ Captain · <span id="clock"></span></h1>
-<div class="row wrap"><span id="stats" class="muted"></span>
-<button class="ghost" id="snd" onclick="toggleSound()">🔕 Sound off</button>
-<button class="ghost" id="sim" onclick="App.send({t:'sim',on:!App.state.simulate})">🤖 Simulate guests</button>
-<button class="ghost" onclick="App.toggleLang()">EN/ع</button><button class="ghost" onclick="App.toggleMode()">◐</button>
-<button class="ghost" onclick="App.logout()">Sign out</button></div></header>
+<header><h1>🧑‍✈️ <span class="ttl">Captain</span> <span id="clock"></span></h1>
+<div class="hb">
+ <button class="ghost" id="snd" onclick="toggleSound()" aria-label="sound"><span id="sndi">🔕</span><b class="lbl" id="sndl">Sound off</b></button>
+ <button class="ghost" id="sim" onclick="App.send({t:'sim',on:!App.state.simulate})"><span>🤖</span><b class="lbl">Simulate guests</b></button>
+ <button class="ghost" onclick="App.toggleLang(event)"><span>🌐</span><b class="lbl">EN/ع</b></button>
+ <button class="ghost" onclick="App.toggleMode(event)"><span>◐</span></button>
+ <button class="ghost" onclick="App.logout()"><span>⏻</span><b class="lbl">Sign out</b></button></div></header>
+<div class="statline" id="stats"></div>
 <div class="legend">
-<span><i style="background:#8884"></i>Empty</span><span><i style="background:#1f9d55"></i>Seated / browsing</span><span><i style="background:#e08a1a"></i>Order in progress</span><span><i style="background:#d62828"></i>Urgent request</span><span><i style="background:linear-gradient(135deg,#2563eb,#ffcc33)"></i>Check requested</span></div>
-<div class="layout"><div class="floorwrap"><div class="floor" id="floor"></div></div><div class="side" id="side"></div></div>
-<div id="banners"></div><div id="modal"></div>
+<span><i style="background:#8884"></i>Empty</span><span><i style="background:#1f9d55"></i>Seated</span><span><i style="background:#e08a1a"></i>Order in progress</span><span><i style="background:#d62828"></i>Urgent</span><span><i style="background:linear-gradient(135deg,#2563eb,#ffcc33)"></i>Check</span></div>
+<div class="layout"><div class="floorwrap"><div class="fl-stage" id="stage"></div><div id="chips"></div><div id="inl"></div></div><div class="side" id="side"></div></div>
+<div id="bar"></div><div id="sheet"></div><div id="banners"></div><div id="modal"></div>
 <script src="/shared.js"></script>
 <script>
-let S = null, open = null, sound = false, actx = null;
+let S = null, open = null, sound = false, actx = null, sheet = null;
 const NEXT = { received: 'kitchen', kitchen: 'served', served: 'closed' };
 const RQ = { waiter: '🙋 Call waiter', water: '💧 Water/napkins', urgent: '⚡ Speed up', bill: '🧾 Check' };
 function beep(kind) {
@@ -62,41 +66,69 @@ function beep(kind) {
     seq.forEach((f, i) => { const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = f; o.type = 'sine'; o.connect(g); g.connect(actx.destination); const t = actx.currentTime + i * 0.16; g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15); o.start(t); o.stop(t + 0.16); });
   } catch {}
 }
-function toggleSound() { sound = !sound; document.getElementById('snd').textContent = sound ? '🔔 Sound on' : '🔕 Sound off'; if (sound) beep('order'); }
-setInterval(() => (document.getElementById('clock').textContent = new Date().toLocaleTimeString()), 1000);
+function toggleSound() { sound = !sound; document.getElementById('sndi').textContent = sound ? '🔔' : '🔕'; document.getElementById('sndl').textContent = sound ? 'Sound on' : 'Sound off'; document.getElementById('snd').classList.toggle('sel', sound); if (sound) beep('order'); }
+setInterval(() => (document.getElementById('clock').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })), 1000);
 
 function start() { App.connect({ t: 'join', role: 'captain' }, {
   render(m) { if (m) S = m; render(); },
   alert(m) {
     beep(m.kind);
+    try { navigator.vibrate && navigator.vibrate(m.kind === 'urgent' ? [250, 100, 250, 100, 250] : [180, 80, 180]); } catch {}
     const b = document.createElement('div'); b.className = 'banner ' + (m.kind === 'urgent' ? 'urgent' : m.kind === 'check' ? 'check' : '');
     b.textContent = { order: '🍽️ ', urgent: '🚨 ', check: '🧾 ', request: '🔔 ', seat: '🪑 ' }[m.kind] + m.text;
-    document.getElementById('banners').appendChild(b); setTimeout(() => b.remove(), 6000);
+    document.getElementById('banners').appendChild(b); setTimeout(() => b.remove(), 6500);
   },
 }); }
 App.gate('captain', start);
+
 const guestsOf = (s) => s.guests.map((g) => g.avatar).join('');
+const mins = (ts) => { const m = Math.max(0, Math.round((Date.now() - ts) / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0'); };
+function stageHTML(cfg) {
+  const F = App.floor();
+  const decor = F.decor.map((d) => App.decorHTML(d, F)).join('');
+  const tables = cfg.tables.map((t) => {
+    const st = S.states[t.id], s = S.sessions[t.id], p = App.tpos(t);
+    const lab = { empty: 'Empty', seated: 'Browsing', ordered: 'Ordered', urgent: 'URGENT', check: s && s.check ? `${s.check.method === 'card' ? '💳' : '💵'} ${s.check.split}` : 'Check' }[st];
+    const bd = s ? [s.requests.some((r) => !r.done && r.type === 'waiter') && '🙋', s.requests.some((r) => !r.done && r.type === 'water') && '💧', s.requests.some((r) => !r.done && r.type === 'urgent') && '⚡', s.check && '🧾'].filter(Boolean).join('') : '';
+    return `<div class="fl-t ${t.shape} ${st}" style="left:${p.fx / F.cols * 100}%;top:${p.fy / F.rows * 100}%;width:${p.fw / F.cols * 100}%;height:${p.fh / F.rows * 100}%;--m:${Math.min(p.fw, p.fh)}" onclick="openT('${t.id}')">${App.chairs(t.shape, t.seats)}<span class="bd">${bd}</span><span class="n">${t.number}</span><span class="av">${s ? App.esc(guestsOf(s).slice(0, 12)) : ''}</span><span class="s">${lab}${s ? ' · ' + mins(s.startedAt) : ' · ' + t.seats + ' seats'}</span><span class="m">${s ? mins(s.startedAt) : ''}</span></div>`;
+  }).join('');
+  return decor + tables;
+}
+function reqHTML(reqs) {
+  return `<h3>🔔 Requests (${reqs.length})</h3>${reqs.map(({ s, r }) => `<div class="ocard spread"><div><b>T${s.tableNumber}</b> ${RQ[r.type]}<div class="muted" style="font-size:12px">${App.ago(r.at)} ago</div></div><button class="primary" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">Done</button></div>`).join('') || '<p class="muted">No pending requests</p>'}`;
+}
+function ordHTML(orders) { return `<h3>🍽️ Order stream (${orders.length})</h3>${orders.map(({ s, o }) => orderCard(s, o)).join('') || '<p class="muted">No open orders</p>'}`; }
 function render() {
   if (!S) return;
-  const cfg = S.config;
+  const cfg = S.config, F = App.floor();
   document.getElementById('sim').classList.toggle('sel', !!S.simulate);
   const sessions = Object.values(S.sessions);
   const orders = sessions.flatMap((s) => s.orders.filter((o) => o.status !== 'closed').map((o) => ({ s, o }))).sort((a, b) => a.o.at - b.o.at);
   const reqs = sessions.flatMap((s) => s.requests.filter((r) => !r.done).map((r) => ({ s, r }))).sort((a, b) => a.r.at - b.r.at);
   const rev = sessions.reduce((n, s) => n + s.bill.total, 0);
-  document.getElementById('stats').textContent = `${sessions.length}/${cfg.tables.length} tables · ${orders.length} open orders · ${App.money(rev)} live`;
-  document.getElementById('floor').innerHTML = cfg.tables.map((t) => {
-    const st = S.states[t.id], s = S.sessions[t.id];
-    const lab = { empty: 'Empty', seated: 'Browsing', ordered: 'Ordered', urgent: 'URGENT', check: s?.check ? `${s.check.method === 'card' ? '💳' : '💵'} ${s.check.split}` : 'Check' }[st];
-    const bd = s ? [s.requests.some((r) => !r.done && r.type === 'waiter') && '🙋', s.requests.some((r) => !r.done && r.type === 'water') && '💧', s.requests.some((r) => !r.done && r.type === 'urgent') && '⚡', s.check && '🧾'].filter(Boolean).join('') : '';
-    return `<div class="table ${t.shape} ${st}" style="grid-column:${t.x}/span 2;grid-row:${t.y}/span 2" onclick="openT('${t.id}')"><span class="bd">${bd}</span><span class="n">${t.number}</span><span class="av">${s ? App.esc(guestsOf(s).slice(0, 12)) : '🪑'.repeat(Math.min(t.seats, 4) > 2 ? 1 : 1)}</span><span class="s">${lab}${s ? ' · ' + App.ago(s.startedAt) : ' · ' + t.seats + ' seats'}</span></div>`;
-  }).join('');
-  document.getElementById('side').innerHTML = `<h3>🔔 Requests (${reqs.length})</h3>${reqs.map(({ s, r }) => `<div class="ocard spread"><div><b>T${s.tableNumber}</b> ${RQ[r.type]}<div class="muted" style="font-size:12px">${App.ago(r.at)} ago</div></div><button class="primary" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">Done</button></div>`).join('') || '<p class="muted">No pending requests</p>'}
-  <h3>🍽️ Order stream (${orders.length})</h3>${orders.map(({ s, o }) => orderCard(s, o)).join('') || '<p class="muted">No open orders</p>'}`;
+  document.getElementById('stats').textContent = `${sessions.length}/${cfg.tables.length} tables · ${orders.length} orders · ${App.money(rev)}`;
+  document.title = (reqs.length ? `(${reqs.length}) ` : '') + 'Captain';
+  const stage = document.getElementById('stage');
+  stage.style.setProperty('--cols', F.cols); stage.style.setProperty('--rows', F.rows); stage.style.aspectRatio = `${F.cols} / ${F.rows}`;
+  stage.innerHTML = stageHTML(cfg);
+  document.getElementById('side').innerHTML = reqHTML(reqs) + ordHTML(orders);
+  // phone: pending requests as one-tap chips + bottom bar
+  const urgent = reqs.some(({ r }) => r.type === 'urgent') || sessions.some((s) => s.check);
+  document.getElementById('chips').innerHTML = reqs.length ? reqs.map(({ s, r }) => `<div class="chip ${r.type === 'urgent' ? 'u' : ''}">T${s.tableNumber} ${RQ[r.type]}<button aria-label="done" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">✓</button></div>`).join('') : '<span class="none">✓ No pending requests</span>';
+  document.getElementById('inl').innerHTML = ordHTML(orders);
+  document.getElementById('bar').innerHTML = `<button class="${sheet === 'req' ? 'on' : ''}" onclick="openSheet('req')">🔔 Alerts <span class="cnt ${urgent ? 'hot' : ''}">${reqs.length || ''}</span></button><button onclick="if(sheet)openSheet(sheet);document.getElementById('inl').scrollIntoView({behavior:'smooth',block:'start'})">🍽️ Orders <span class="cnt">${orders.length || ''}</span></button>`;
+  if (sheet) drawSheet(reqs, orders);
   if (open) renderModal();
 }
-function orderCard(s, o, compact) {
-  const g = (id) => s.guests.find((x) => x.id === id)?.avatar || '🙂';
+function openSheet(w) { sheet = sheet === w ? null : w; if (!sheet) document.getElementById('sheet').className = ''; render(); }
+function drawSheet(reqs, orders) {
+  const el = document.getElementById('sheet'); const wasOpen = el.classList.contains('open'), sc = (el.querySelector('.pan') || {}).scrollTop || 0;
+  el.className = 'open';
+  el.innerHTML = `<div class="bg" onclick="openSheet('${sheet}')"></div><div class="pan" style="${wasOpen ? 'animation:none' : ''}"><div class="grab"></div>${sheet === 'req' ? reqHTML(reqs) : ordHTML(orders)}</div>`;
+  el.querySelector('.pan').scrollTop = sc;
+}
+function orderCard(s, o) {
+  const g = (id) => (s.guests.find((x) => x.id === id) || {}).avatar || '🙂';
   const nxt = NEXT[o.status];
   return `<div class="ocard"><div class="spread"><b>Table ${s.tableNumber} <span class="muted">· ${s.guests.map((x) => x.avatar).join('')}</span></b><span class="st ${o.status}">${o.status}</span></div>
   ${o.items.map((i) => `<div class="line"><span>${g(i.guestId)} ${i.qty}× ${App.esc(i.name)}${i.note ? `<br><small style="color:var(--accent)">📝 ${App.esc(i.note)}</small>` : ''}</span><span>${App.money(i.qty * i.price)}</span></div>`).join('')}
@@ -109,7 +141,7 @@ function renderModal() {
   let h;
   if (!s) h = `<div class="spread"><h2>Table ${t.number}</h2><button onclick="closeM()">✕</button></div><p class="muted">No active QR session.</p><button class="primary" onclick="App.send({t:'seat_table',tableId:'${t.id}'})">🪑 Seat guests manually</button>`;
   else {
-    const b = s.bill, tip = Math.round(b.sub * (s.check?.tipPct || 0) / 100);
+    const b = s.bill, tip = Math.round(b.sub * (s.check && s.check.tipPct || 0) / 100);
     h = `<div class="spread"><h2>Table ${t.number} <span class="pill">${App.ago(s.startedAt)}</span></h2><button onclick="closeM()">✕</button></div>
     <div class="row wrap">${s.guests.map((g) => `<span class="pill" style="font-size:14px">${g.avatar} ${App.esc(g.name)} · ${App.money((b.byGuest[g.id] || {}).total || 0)}</span>`).join('') || '<span class="muted">No guests</span>'}</div>
     ${s.requests.filter((r) => !r.done).map((r) => `<div class="ocard spread" style="margin-top:10px"><span>${RQ[r.type]} · ${App.ago(r.at)}</span><button class="primary" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">Done</button></div>`).join('')}

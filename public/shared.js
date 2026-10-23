@@ -45,6 +45,17 @@ const App = {
   ago(ts) { const m = Math.max(0, Math.round((Date.now() - ts) / 60000)); return m < 1 ? 'now' : m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; },
   ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch { return null; } },
 
+  // ---- floor plan helpers (24 x 16 grid; old layouts without fx/fy are converted on the fly)
+  tpos(t) { if (t.fx !== undefined) return { fx: t.fx, fy: t.fy, fw: t.fw || 4, fh: t.fh || 4 }; const lg = t.shape === 'long'; return { fx: ((t.x || 1) - 1) * 2 + 0.5, fy: ((t.y || 1) - 1) * 2 + 0.5, fw: lg ? 5 : 3, fh: lg ? 2.5 : 3 }; },
+  floor() { const f = (App.config && App.config.settings && App.config.settings.floor) || {}; return { cols: f.cols || 24, rows: f.rows || 16, decor: f.decor || [] }; },
+  chairs(shape, seats) {
+    const n = Math.max(0, Math.min(seats || 0, 12)); let out = '';
+    if (shape === 'round') for (let i = 0; i < n; i++) { const a = (2 * Math.PI * i) / n - Math.PI / 2; out += `<i class="chair" style="left:${(50 + 60 * Math.cos(a)).toFixed(1)}%;top:${(50 + 60 * Math.sin(a)).toFixed(1)}%"></i>`; }
+    else { const top = Math.ceil(n / 2), bot = n - top; for (let j = 0; j < top; j++) out += `<i class="chair" style="left:${(((j + 1) / (top + 1)) * 100).toFixed(1)}%;top:-8%"></i>`; for (let j = 0; j < bot; j++) out += `<i class="chair" style="left:${(((j + 1) / (bot + 1)) * 100).toFixed(1)}%;top:108%"></i>`; }
+    return out;
+  },
+  decorIcon: { bar: '🍸', kitchen: '🍳', wall: '', plant: '🪴', door: '🚪' },
+  decorHTML(d, F, extra = '') { return `<div class="fl-d ${d.type} ${extra}" data-id="${d.id}" style="left:${d.fx / F.cols * 100}%;top:${d.fy / F.rows * 100}%;width:${d.fw / F.cols * 100}%;height:${d.fh / F.rows * 100}%;--m:${Math.min(d.fw, d.fh)}"><div>${App.decorIcon[d.type] || ''}${d.label ? `<small>${App.esc(d.label)}</small>` : ''}</div></div>`; },
   PRESETS: {
     bloom: { light: { bg: '#f2ebe0', card: '#fbf8f2', text: '#2a2b25', accent: '#1f4a35', accent2: '#b98a3e' }, dark: { bg: '#0f1813', card: '#17251d', text: '#f0e9db', accent: '#4f9a6e', accent2: '#e0bb73' } },
     espresso: { light: { bg: '#f4ece4', card: '#fffaf5', text: '#2b1d14', accent: '#6b3f23', accent2: '#d08a3c' }, dark: { bg: '#14110f', card: '#1f1b18', text: '#f4ede4', accent: '#e8a64a', accent2: '#ff7b54' } },

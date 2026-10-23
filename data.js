@@ -62,7 +62,15 @@ const layout = [
   [1, 5, 'long', 6], [4, 5, 'round', 2], [6, 5, 'round', 2], [8, 5, 'square', 4], [10, 5, 'square', 4],
   [2, 7, 'round', 2], [5, 7, 'long', 8], [9, 7, 'long', 6],
 ];
-const tables = layout.map((l, i) => ({ id: 't' + (i + 1), number: i + 1, x: l[0], y: l[1], shape: l[2], seats: l[3] }));
+const tables = layout.map((l, i) => {
+  const long = l[2] === 'long';
+  const fw = long ? (i === 8 ? 3 : 5) : 3, fh = long ? 2.5 : 3;   // cells on a 24 x 16 floor grid; centred in a 4x4 slot so chairs + aisles show
+  return { id: 't' + (i + 1), number: i + 1, x: l[0], y: l[1], fx: (l[0] - 1) * 2 + 0.5, fy: (l[1] - 1) * 2 + 0.5, fw, fh, shape: l[2], seats: l[3] };
+});
+settings.floor = { cols: 24, rows: 16, decor: [
+  { id: 'd1', type: 'bar', fx: 22, fy: 0, fw: 2, fh: 8, label: 'Bar' }, { id: 'd2', type: 'kitchen', fx: 22, fy: 8, fw: 2, fh: 8, label: 'Kitchen' },
+  { id: 'd3', type: 'plant', fx: 0, fy: 12, fw: 2, fh: 3, label: '' }, { id: 'd4', type: 'door', fx: 14, fy: 13, fw: 2, fh: 3, label: 'Door' },
+] };
 
 function buildHistory() {
   const hist = [];
