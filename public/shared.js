@@ -157,7 +157,10 @@ const App = {
         if (j.guestId && joinMsg.guestId !== j.guestId) { joinMsg.guestId = j.guestId; onMsg({ t: 'you', guestId: j.guestId }); }
         if (P.since >= 0) j.alerts.forEach((a) => onMsg({ t: 'alert', ...a }));
         P.since = j.alertSeq;
-        onMsg(j.state);
+        // Only redraw when something really changed (captain also refreshes once a minute for the 'x min' timers), so idle screens never flicker
+        const sig = JSON.stringify(j.state);
+        App.state = j.state; App.config = j.state.config;
+        if (sig !== P.sig || Date.now() - (P.lastRender || 0) > (joinMsg.role === 'captain' ? 60000 : Infinity)) { P.sig = sig; P.lastRender = Date.now(); onMsg(j.state); }
       } catch { document.body.classList.add('offline'); }
     }));
     const tick = () => { clearTimeout(P.timer); if (!document.hidden) P.call(null); P.timer = setTimeout(tick, every); };
