@@ -390,7 +390,7 @@ function tableTab(cfg, s) {
 }
 function tipOf(base) { return Math.round(base * pay.tip / 100); }
 function checkBanner(s) {
-  const c = s.check, b = s.bill, payer = guestOf(s, c.by), tip = Math.round(b.sub * (c.tipPct || 0) / 100);
+  const c = s.check, b = s.bill, payer = guestOf(s, c.by), tip = Math.round(b.net * (c.tipPct || 0) / 100);
   if (c.split === 'table') { const amt = App.money(b.total + tip); return c.by === me.id ? `👥 ${App.tr('youPayAll')}: <b>${amt}</b>` : `${payer.avatar} <b>${App.esc(payer.name)}</b> ${App.tr('paysAll')}: <b>${amt}</b><br><span class="muted">${App.tr('nothingToPay')}</span>`; }
   const g = b.byGuest[me.id] || { sub: 0, total: 0 };
   const mineDue = c.split === 'custom' ? (+(c.custom || {})[me.id] || 0) : g.total + Math.round(g.sub * (c.tipPct || 0) / 100);
@@ -401,15 +401,15 @@ function billTab(cfg, s) {
   if (!s.orders.length) return `<h2 class="ptitle rise">${App.tr('bill')}</h2><div class="empty rise"><span class="em">🧾</span>${App.tr('empty')}</div>`;
   const my = b.byGuest[me.id] || { sub: 0, total: 0 };
   const base = pay.split === 'self' ? my : b;
-  let due = base.total + tipOf(base.sub);
+  let due = base.total + tipOf(pay.split === 'self' ? my.sub : b.net);
   if (pay.split === 'custom') due = +pay.custom[me.id] || 0;
   const sum = pay.split === 'custom' ? G.reduce((n, g) => n + (+pay.custom[g.id] || 0), 0) : 0;
-  const withTip = b.total + tipOf(b.sub), st = cfg.settings;
+  const withTip = b.total + tipOf(b.net), st = cfg.settings;
   return `<h2 class="ptitle rise">${App.tr('sessionTotal')}</h2>
   ${G.map((g, k) => { const x = b.byGuest[g.id] || { sub: 0, service: 0, tax: 0, total: 0, items: [] }; return `<div class="c li guestbill rise" style="--i:${k + 1}"><div class="row2"><b style="font-size:16px"><span style="font-size:22px">${g.avatar}</span> ${App.esc(g.name)}${g.id === me.id ? ' · ' + App.tr('youLabel') : ''}</b><b class="serif" style="font-size:19px">${App.money(x.total)}</b></div>
    ${x.items.map((i) => `<div class="line muted"><span>${i.qty}× ${App.esc(App.nm(i))}</span><span>${App.money(i.price * i.qty)}</span></div>`).join('')}</div>`; }).join('')}
-  <div class="c li rise" style="--i:5"><div class="line"><span>${App.tr('subtotal')}</span><span>${App.money(b.sub)}</span></div><div class="line"><span>${App.tr('service')} (${st.service}%)</span><span>${App.money(b.service)}</span></div><div class="line"><span>${App.tr('tax')} (${st.tax}%)</span><span>${App.money(b.tax)}</span></div>
-  <div class="line"><span>${App.tr('tip')} (${pay.tip}%)</span><span>${App.money(tipOf(b.sub))}</span></div><div class="line" style="border-top:1px dashed var(--line);margin-top:6px;padding-top:10px"><b>${App.tr('total')}</b><b class="bigp">${cnt(withTip, 'tot')}</b></div></div>
+  <div class="c li rise" style="--i:5"><div class="line"><span>${App.tr('subtotal')}</span><span>${App.money(b.sub)}</span></div>${b.discount ? `<div class="line" style="color:var(--ok)"><span>Discount</span><span>−${App.money(b.discount)}</span></div>` : ''}<div class="line"><span>${App.tr('service')} (${st.service}%)</span><span>${App.money(b.service)}</span></div><div class="line"><span>${App.tr('tax')} (${st.tax}%)</span><span>${App.money(b.tax)}</span></div>
+  <div class="line"><span>${App.tr('tip')} (${pay.tip}%)</span><span>${App.money(tipOf(b.net))}</span></div><div class="line" style="border-top:1px dashed var(--line);margin-top:6px;padding-top:10px"><b>${App.tr('total')}</b><b class="bigp">${cnt(withTip, 'tot')}</b></div></div>
   <div class="h3">${App.tr('tip')}</div><div class="seg">${[0, 5, 10, 15, 20].map((p) => `<button class="rp ${pay.tip === p ? 'on' : ''}" onclick="pay.tip=${p};draw(true)">${p}%</button>`).join('')}</div>
   <div class="h3">${App.tr('bill')}</div><div class="seg"><button class="rp ${pay.split === 'self' ? 'on' : ''}" onclick="pay.split='self';draw(true)">👤 ${App.tr('payMine')}</button><button class="rp ${pay.split === 'table' ? 'on' : ''}" onclick="pay.split='table';draw(true)">👥 ${App.tr('payTable')}</button><button class="rp ${pay.split === 'custom' ? 'on' : ''}" onclick="pay.split='custom';draw(true)">✂️ ${App.tr('payCustom')}</button></div>
   ${pay.split === 'custom' ? `<div class="c li" style="margin-top:12px"><p class="muted" style="margin:0 0 8px">${App.tr('assign')}</p>${G.map((g) => `<div class="row" style="margin-bottom:8px;gap:10px"><span style="font-size:22px">${g.avatar}</span><span style="flex:1">${App.esc(g.name)}</span><input type="number" style="width:120px;border-radius:14px" value="${pay.custom[g.id] ?? ''}" placeholder="${Math.round(withTip / G.length)}" onchange="pay.custom['${g.id}']=this.value;draw(true)"></div>`).join('')}

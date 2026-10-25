@@ -32,6 +32,8 @@ Run this once in Supabase's SQL editor:
 - **Captain** (`/captain`): live floor map (drag-built in Admin → Floor plan), alerts, order stream. On phones the whole café shows as a mini-map. Phone push alerts + installable app (PWA).
 - **Kitchen** (`/kitchen`): ticket screen with timers, Kitchen/Bar stations, one-tap "sold out", "order ready" alert to the captain and guest.
 - **Admin** (`/admin`): menu (sold-out, dietary tags, timed categories, stations), floor plan, staff PIN accounts + performance, reports with Excel export and full backup, theme, QR printing, security settings.
+- **Staff ordering / cashier** (captain screen): take orders for any table, takeaway and delivery tickets, per-item notes, discounts (captains are capped, owner is not), tip, cash / card / cash+card with change, printable 80 mm receipt or bill, remove items with a reason (waste is tracked), move or merge tables, reservations shown on the floor map.
+- **Inventory** (Admin → Inventory): optional portion counts per item; orders take from the count, items go sold-out at zero, restock / waste / count with a movement log, low-stock alerts. Reports add discounts, voids, estimated profit, sales by staff and by order type, and receipt reprints.
 - Empty tables are freed automatically; tables with orders but no activity are flagged 💤.
 
 ## Push notifications

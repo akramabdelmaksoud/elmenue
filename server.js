@@ -376,13 +376,26 @@ A('delete', '/staff/:id', (req, res) => { const r = req.tenant.rec; r.staff = (r
 A('get', '/feedback', (req, res) => res.json({ reviews: req.tenant.rec.reviews || [] }));
 A('post', '/tables/:id/rekey', (req, res) => { const t = req.tenant.db.tables.find((x) => x.id === req.params.id); if (t) t.key = Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6); bc(req); res.json({ ok: 1 }); });
 A('post', '/tables-rekey', (req, res) => { req.tenant.db.tables.forEach((t) => (t.key = Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6))); bc(req); res.json({ ok: 1 }); });
+A('post', '/items/:id/adjust', (req, res) => {
+  const t = req.tenant, i = t.db.items.find((x) => x.id === req.params.id); if (!i) return res.status(404).json({ error: 'not found' });
+  const b = req.body || {}, type = ['restock', 'waste', 'count'].includes(b.type) ? b.type : 'restock', q = Math.floor(+b.qty);
+  if (!(q >= 0) || (type !== 'count' && q <= 0)) return res.status(400).json({ error: 'Enter a quantity' });
+  const cur = i.stock === undefined || i.stock === null || i.stock === '' ? 0 : Math.floor(+i.stock);
+  const next = type === 'restock' ? cur + q : type === 'waste' ? Math.max(0, cur - q) : q;
+  i.stock = next; i.soldOut = next <= 0;
+  t.rec.stockLog = [{ at: Date.now(), itemId: i.id, item: i.name, delta: next - cur, type, reason: String(b.reason || '').slice(0, 60), who: 'owner', left: next }, ...(t.rec.stockLog || [])].slice(0, 400);
+  bc(req); res.json({ id: i.id, stock: next });
+});
+A('get', '/stock-log', (req, res) => res.json({ log: req.tenant.rec.stockLog || [] }));
+A('get', '/receipts', async (req, res) => { const hist = STATELESS ? await store.getHist(req.tenant.rec.id) : req.tenant.db.history; res.json({ receipts: hist.slice(-40).reverse().map(({ log, ...h }) => h) }); });
 async function reportFor(t, from, to) {
   const hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history;
-  const H = hist.filter((h) => h.closedAt >= from && h.closedAt <= to);
-  const sum = (a, f) => a.reduce((n, x) => n + f(x), 0), cats = {}, items = {}, hours = Array(24).fill(0), methods = { cash: 0, card: 0 }, splits = {}, byWho = {};
+  const H = hist.filter((h) => h.closedAt >= from && h.closedAt <= to && !h.unpaid);
+  const sum = (a, f) => a.reduce((n, x) => n + f(x), 0), cats = {}, items = {}, hours = Array(24).fill(0), methods = { cash: 0, card: 0 }, splits = {}, byWho = {}, salesBy = {}, kinds = {}; let voidN = 0, voidV = 0, wasteV = 0;
   H.forEach((h) => {
-    methods[h.method] = (methods[h.method] || 0) + h.total; splits[h.split] = (splits[h.split] || 0) + 1; hours[new Date(h.startedAt).getHours()]++;
-    if (h.closedBy) byWho[h.closedBy] = (byWho[h.closedBy] || 0) + 1;
+    methods.cash += h.pay ? h.pay.cash : h.method === 'cash' ? h.total : 0; methods.card += h.pay ? h.pay.card : h.method === 'card' ? h.total : 0; splits[h.split] = (splits[h.split] || 0) + 1; hours[new Date(h.startedAt).getHours()]++;
+    if (h.closedBy) { byWho[h.closedBy] = (byWho[h.closedBy] || 0) + 1; salesBy[h.closedBy] = (salesBy[h.closedBy] || 0) + h.total; }
+    kinds[h.kind || 'table'] = (kinds[h.kind || 'table'] || 0) + h.total; (h.voids || []).forEach((v) => { voidN += v.qty; voidV += v.qty * v.price; if (v.waste) wasteV += v.qty * v.price; });
     h.items.forEach((l) => {
       const c = t.db.categories.find((x) => x.id === l.cat), cn = c ? c.name : 'Other';
       const a = (items[l.name] ||= { name: l.name, category: cn, qty: 0, revenue: 0, profit: 0 }); a.qty += l.qty; a.revenue += l.qty * l.price; a.profit += l.qty * (l.price - l.cost);
@@ -392,11 +405,12 @@ async function reportFor(t, from, to) {
   const rev = (t.rec.reviews || []).filter((r) => r.at >= from && r.at <= to);
   const staff = Object.entries((t.rec.stats || {}).staff || {}).map(([id, v]) => ({ id, ...v, avgResponseSec: v.handled ? Math.round(v.respMs / v.handled / 1000) : 0 }));
   return {
-    from, to, sessions: H.length, guests: sum(H, (h) => h.guests), gross: sum(H, (h) => h.sub), service: sum(H, (h) => h.service), tax: sum(H, (h) => h.tax), tips: sum(H, (h) => h.tip), total: sum(H, (h) => h.total),
+    from, to, sessions: H.length, guests: sum(H, (h) => h.guests), gross: sum(H, (h) => h.sub), discounts: sum(H, (h) => h.discount || 0), voids: { count: voidN, value: voidV, waste: wasteV }, salesBy, kinds,
+    profit: Object.values(items).reduce((n, x) => n + x.profit, 0) - sum(H, (h) => h.discount || 0), cogs: Object.values(items).reduce((n, x) => n + (x.revenue - x.profit), 0), service: sum(H, (h) => h.service), tax: sum(H, (h) => h.tax), tips: sum(H, (h) => h.tip), total: sum(H, (h) => h.total),
     avgTicket: H.length ? sum(H, (h) => h.total) / H.length : 0, avgMinutes: H.length ? sum(H, (h) => (h.closedAt - h.startedAt) / 60000) / H.length : 0, methods, splits, hours, closedBy: byWho,
     items: Object.values(items).sort((a, b) => b.qty - a.qty), categories: Object.values(cats).sort((a, b) => b.revenue - a.revenue), staff,
     reviews: { count: rev.length, avg: rev.length ? rev.reduce((n, r) => n + r.stars, 0) / rev.length : 0, low: rev.filter((r) => r.stars <= 2).length }, currency: t.db.settings.currency, name: t.rec.name,
-    sessionsList: H.map((h) => ({ table: h.tableNumber, guests: h.guests, opened: h.startedAt, closed: h.closedAt, minutes: Math.round((h.closedAt - h.startedAt) / 60000), sub: h.sub, service: h.service, tax: h.tax, tip: h.tip, total: h.total, method: h.method, split: h.split, closedBy: h.closedBy || '' })),
+    sessionsList: H.map((h) => ({ kind: h.kind || 'table', discount: h.discount || 0, cash: h.pay ? h.pay.cash : 0, card: h.pay ? h.pay.card : 0, table: h.tableNumber, guests: h.guests, opened: h.startedAt, closed: h.closedAt, minutes: Math.round((h.closedAt - h.startedAt) / 60000), sub: h.sub, service: h.service, tax: h.tax, tip: h.tip, total: h.total, method: h.method, split: h.split, closedBy: h.closedBy || '' })),
   };
 }
 const range = (q) => { const to = +q.to || Date.now(), from = +q.from || to - 86400000; return [from, to]; };
@@ -405,10 +419,10 @@ A('get', '/report.xlsx', async (req, res) => {
   const [f, t2] = range(req.query), r = await reportFor(req.tenant, f, t2), wb = XLSX.utils.book_new(), d = (x) => new Date(x).toLocaleString('en-GB');
   const money = (n) => Math.round(n * 100) / 100;
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-    [r.name + ' - sales report'], ['From', d(f)], ['To', d(t2)], [], ['Table sessions', r.sessions], ['Guests', r.guests], ['Gross sales (before service/tax)', money(r.gross)], ['Service charge', money(r.service)], ['Tax collected', money(r.tax)], ['Tips', money(r.tips)], ['Total collected', money(r.total)],
+    [r.name + ' - sales report'], ['From', d(f)], ['To', d(t2)], [], ['Table sessions', r.sessions], ['Guests', r.guests], ['Gross sales (before service/tax)', money(r.gross)], ['Discounts given', money(r.discounts)], ['Voided items (value)', money(r.voids.value)], ['Estimated profit (after discounts)', money(r.profit)], ['Service charge', money(r.service)], ['Tax collected', money(r.tax)], ['Tips', money(r.tips)], ['Total collected', money(r.total)],
     ['Cash', money(r.methods.cash || 0)], ['Card', money(r.methods.card || 0)], ['Average ticket', money(r.avgTicket)], ['Average minutes at table', Math.round(r.avgMinutes)], ['Currency', r.currency], ['Guest rating (avg)', r.reviews.count ? Math.round(r.reviews.avg * 10) / 10 : 'n/a'],
   ]), 'Summary');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.sessionsList.map((x) => ({ Table: x.table, Guests: x.guests, Opened: d(x.opened), Closed: d(x.closed), Minutes: x.minutes, Subtotal: money(x.sub), Service: money(x.service), Tax: money(x.tax), Tip: money(x.tip), Total: money(x.total), Payment: x.method, Split: x.split, 'Closed by': x.closedBy }))), 'Sessions');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.sessionsList.map((x) => ({ Table: x.table, Guests: x.guests, Opened: d(x.opened), Closed: d(x.closed), Minutes: x.minutes, Type: x.kind, Subtotal: money(x.sub), Discount: money(x.discount), Service: money(x.service), Tax: money(x.tax), Tip: money(x.tip), Total: money(x.total), Payment: x.method, Cash: money(x.cash), Card: money(x.card), Split: x.split, 'Closed by': x.closedBy }))), 'Sessions');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.items.map((x) => ({ Item: x.name, Category: x.category, Quantity: x.qty, Revenue: money(x.revenue), Profit: money(x.profit) }))), 'Items');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.categories.map((x) => ({ Category: x.name, Quantity: x.qty, Revenue: money(x.revenue), Profit: money(x.profit) }))), 'Categories');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.staff.map((x) => ({ Staff: x.name, 'Requests handled': x.handled || 0, 'Avg response (sec)': x.avgResponseSec, 'Orders started': x.started || 0, 'Orders served': x.served || 0, 'Tables closed': x.closed || 0 }))), 'Staff');
@@ -427,8 +441,8 @@ A('put', '/categories/order', (req, res) => { const d = req.tenant.db, o = req.b
 A('put', '/categories/:id', (req, res) => { const c = req.tenant.db.categories.find((x) => x.id === req.params.id); if (c) Object.assign(c, req.body, { id: c.id }); bc(req); res.json(c); });
 A('delete', '/categories/:id', (req, res) => { const d = req.tenant.db; d.categories = d.categories.filter((x) => x.id !== req.params.id); d.items = d.items.filter((i) => i.cat !== req.params.id); bc(req); res.json({ ok: 1 }); });
 
-A('post', '/items', (req, res) => { const d = req.tenant.db; const b = req.body; const i = { id: newId('i'), cat: b.cat, name: b.name || 'New item', name_ar: b.name_ar || '', price: +b.price || 0, cost: +b.cost || 0, emoji: b.emoji || '🍽️', desc: b.desc || '', img: '' }; d.items.push(i); bc(req); res.json(i); });
-A('put', '/items/:id', (req, res) => { const i = req.tenant.db.items.find((x) => x.id === req.params.id); if (i) { Object.assign(i, req.body, { id: i.id }); i.price = +i.price; i.cost = +i.cost; } bc(req); res.json(i); });
+A('post', '/items', (req, res) => { const d = req.tenant.db; const b = req.body; const i = { id: newId('i'), cat: b.cat, name: b.name || 'New item', name_ar: b.name_ar || '', price: +b.price || 0, cost: +b.cost || 0, emoji: b.emoji || '🍽️', desc: b.desc || '', img: '' }; if (b.stock !== undefined && b.stock !== null && b.stock !== '') i.stock = Math.max(0, Math.floor(+b.stock) || 0); d.items.push(i); bc(req); res.json(i); });
+A('put', '/items/:id', (req, res) => { const i = req.tenant.db.items.find((x) => x.id === req.params.id); if (i) { Object.assign(i, req.body, { id: i.id }); i.price = +i.price; i.cost = +i.cost; const b = req.body || {}; if ('stock' in b) i.stock = b.stock === null || b.stock === '' ? null : Math.max(0, Math.floor(+b.stock) || 0); if ('lowAt' in b) i.lowAt = Math.max(0, Math.floor(+b.lowAt) || 0); } bc(req); res.json(i); });
 A('delete', '/items/:id', (req, res) => { const d = req.tenant.db; d.items = d.items.filter((x) => x.id !== req.params.id); bc(req); res.json({ ok: 1 }); });
 A('post', '/items/:id/image', upload.single('image'), async (req, res) => {
   const i = req.tenant.db.items.find((x) => x.id === req.params.id);
@@ -505,7 +519,7 @@ app.post(`${R}/rpc`, async (req, res) => {
       if (jn.role !== 'customer') {
         const a = auth.verify(jn.token);
         if (!a || !(a.r === 'super' || (a.s === req.params.slug && (a.r === jn.role || a.r === 'admin' || (jn.role === 'kitchen' && a.r === 'captain'))))) return res.status(401).json({ error: 'auth' });
-        c.authed = true; c.staffId = a.u; c.staffName = a.n;
+        c.authed = true; c.staffId = a.u; c.staffName = a.n; c.adm = a.r === 'admin' || a.r === 'super';
       }
       if (jn.role === 'customer') {
         const tb = t.db.tables.find((x) => x.number === +jn.tableNumber);
@@ -525,7 +539,7 @@ app.post(`${R}/rpc`, async (req, res) => {
       }
       const state = t.snapshotFor(c);
       const alerts = jn.role === 'captain' && j.since >= 0 ? (t.rec.alerts || []).filter((a) => a.id > j.since) : [];
-      return res.json({ state, guestId: c.guestId || null, alerts, alertSeq: t.rec.alertSeq || 0 });
+      return res.json({ state, guestId: c.guestId || null, alerts, alertSeq: t.rec.alertSeq || 0, notices: out.filter((m) => m.t === 'notice').map((m) => m.msg) });
     }
     res.status(409).json({ error: 'busy' });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
@@ -556,7 +570,7 @@ if (require.main === module && !STATELESS) {
             const a = auth.verify(m.token);
             const ok = a && (a.r === 'super' || (a.s === m.slug && (a.r === m.role || a.r === 'admin' || (m.role === 'kitchen' && a.r === 'captain'))));
             if (!ok) { ws.send(JSON.stringify({ t: 'error', msg: 'auth' })); tenant = null; return ws.close(); }
-            c.authed = true; c.staffId = a.u; c.staffName = a.n;
+            c.authed = true; c.staffId = a.u; c.staffName = a.n; c.adm = a.r === 'admin' || a.r === 'super';
           }
           tenant.clients.add(c);
         }

@@ -22,7 +22,7 @@ table { width:100%; border-collapse:collapse; } td, th { padding:6px; text-align
 </style></head>
 <body><div class="shell"><aside>
 <h2>⚙️ Admin</h2>
-<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="floor">🪑 Floor plan</button><button data-t="staff">👥 Staff</button><button data-t="reports">📈 Reports</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button>
+<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="inventory">📦 Inventory</button><button data-t="floor">🪑 Floor plan</button><button data-t="staff">👥 Staff</button><button data-t="reports">📈 Reports</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button>
 <span style="flex:1"></span><button onclick="App.toggleLang()">🌐 EN / عربي</button><button onclick="App.toggleMode()">◐ Light / Dark</button><button onclick="App.logout()">⏻ Sign out</button></aside>
 <main id="main"></main></div>
 <script src="/vendor/sortable.js"></script><script src="/vendor/chart.js"></script><script src="/shared.js"></script>
@@ -40,7 +40,7 @@ function render(m, force) {
   if (key === cfgKey && !force) { if (tab === 'analytics') {} return; }   // ignore live-session noise
   cfgKey = key;
   const focus = document.activeElement; if (focus && focus.closest('#main') && focus.tagName === 'INPUT' && !force) return;  // don't clobber typing
-  ({ analytics, menu, floor: floorTab, staff: staffTab, reports: reportsTab, theme, qr, audit })[tab]();
+  ({ analytics, menu, inventory: inventoryTab, floor: floorTab, staff: staffTab, reports: reportsTab, theme, qr, audit })[tab]();
 }
 App.handlers.render = (m) => render(m, true);
 
@@ -143,7 +143,11 @@ async function stf(id, body) { const r = await api('PUT', '/api/staff/' + id, bo
 async function addStaff() { const r = await api('POST', '/api/staff', { name: $('#sn').value, role: $('#sr').value, pin: $('#sp').value }); if (r.error) return App.toast(r.error); App.toast('Added ' + r.name); cfgKey = ''; render(App.state, true); }
 
 /* ---------------- Reports ---------------- */
-let RP = { preset: 'today', from: null, to: null };
+let RP = { preset: 'today', from: null, to: null }, RC = [];
+function rpPrint(i) {
+  const h = RC[i]; if (!h) return;
+  App.printHTML(App.receiptHTML({ label: h.tableNumber, kind: h.kind, customer: h.customer, at: h.closedAt, items: h.items, gross: h.sub, discount: h.discount, discountNote: h.discountNote, service: h.service, tax: h.tax, tip: h.tip, total: h.total, method: h.method, pay: h.pay, by: h.closedBy }));
+}
 function rpRange() {
   const d0 = new Date(); d0.setHours(0, 0, 0, 0); const day = 86400000, t0 = d0.getTime();
   if (RP.preset === 'today') return [t0, Date.now()]; if (RP.preset === 'yesterday') return [t0 - day, t0 - 1];
@@ -151,15 +155,18 @@ function rpRange() {
   const f = RP.from ? new Date(RP.from + 'T00:00:00').getTime() : t0, t = RP.to ? new Date(RP.to + 'T23:59:59').getTime() : Date.now(); return [f, t];
 }
 async function reportsTab() {
-  const [f, t] = rpRange(), r = await api('GET', `/api/report?from=${f}&to=${t}`), fb = (await api('GET', '/api/feedback')).reviews || [];
+  const [f, t] = rpRange(), r = await api('GET', `/api/report?from=${f}&to=${t}`), fb = (await api('GET', '/api/feedback')).reviews || []; RC = (await api('GET', '/api/receipts')).receipts || [];
   const K = (l, v, sub) => `<div class="card kpi"><span>${l}</span><b>${v}</b>${sub ? `<small class="muted">${sub}</small>` : ''}</div>`, tk = App.tok('admin');
   const chip = (k, l) => `<button class="${RP.preset === k ? 'sel' : ''}" onclick="RP.preset='${k}';reportsTab()">${l}</button>`;
   $('#main').innerHTML = `<div class="spread wrap"><h1>📈 Reports</h1><div class="row wrap noprint">${chip('today', 'Today')}${chip('yesterday', 'Yesterday')}${chip('7', '7 days')}${chip('30', '30 days')}<input type="date" style="width:150px" value="${RP.from || ''}" onchange="RP.preset='c';RP.from=this.value;reportsTab()"><input type="date" style="width:150px" value="${RP.to || ''}" onchange="RP.preset='c';RP.to=this.value;reportsTab()"></div></div>
   <div class="row wrap noprint" style="margin:6px 0 14px"><a href="/api/r/${App.slug}/report.xlsx?from=${f}&to=${t}&token=${tk}"><button class="primary">⬇ Excel report</button></a><button class="ghost" onclick="window.print()">🖨 Print / PDF</button><a href="/api/r/${App.slug}/export.json?token=${tk}"><button class="ghost">💾 Backup all data</button></a></div>
   <div class="muted" style="margin-bottom:10px">${new Date(f).toLocaleString()} → ${new Date(t).toLocaleString()}</div>
-  <div class="grid">${K('Table sessions', r.sessions, r.guests + ' guests')}${K('Gross sales', App.money(r.gross))}${K('Service charge', App.money(r.service))}${K('Tax collected', App.money(r.tax))}${K('Tips', App.money(r.tips))}${K('Total collected', App.money(r.total), 'avg ticket ' + App.money(r.avgTicket))}${K('Cash', App.money(r.methods.cash || 0))}${K('Card', App.money(r.methods.card || 0))}${K('Guest rating', r.reviews.count ? '⭐ ' + r.reviews.avg.toFixed(1) : '-', r.reviews.count + ' ratings' + (r.reviews.low ? ' · ' + r.reviews.low + ' low' : ''))}</div>
+  <div class="grid">${K('Table sessions', r.sessions, r.guests + ' guests')}${K('Gross sales', App.money(r.gross))}${K('Service charge', App.money(r.service))}${K('Tax collected', App.money(r.tax))}${K('Tips', App.money(r.tips))}${K('Total collected', App.money(r.total), 'avg ticket ' + App.money(r.avgTicket))}${K('Cash', App.money(r.methods.cash || 0))}${K('Card', App.money(r.methods.card || 0))}${K('Discounts given', App.money(r.discounts || 0))}${K('Voided items', (r.voids || {}).count || 0, App.money((r.voids || {}).value || 0) + ((r.voids || {}).waste ? ' · wasted ' + App.money(r.voids.waste) : ''))}${K('Est. profit', App.money(r.profit || 0), 'after cost of goods and discounts')}${K('Guest rating', r.reviews.count ? '⭐ ' + r.reviews.avg.toFixed(1) : '-', r.reviews.count + ' ratings' + (r.reviews.low ? ' · ' + r.reviews.low + ' low' : ''))}</div>
   <div class="row2"><div class="card" style="overflow:auto"><h3>Top items</h3><table><tr><th>Item</th><th>Qty</th><th>Revenue</th><th>Profit</th></tr>${r.items.slice(0, 12).map((x) => `<tr><td>${App.esc(x.name)}</td><td>${x.qty}</td><td>${App.money(x.revenue)}</td><td>${App.money(x.profit)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No sales in this period</td></tr>'}</table></div>
   <div class="card" style="overflow:auto"><h3>Categories</h3><table><tr><th>Category</th><th>Revenue</th><th>Profit</th></tr>${r.categories.map((x) => `<tr><td>${App.esc(x.name)}</td><td>${App.money(x.revenue)}</td><td>${App.money(x.profit)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">-</td></tr>'}</table></div>
+  <div class="card" style="overflow:auto"><h3>Sales by staff</h3><table><tr><th>Staff</th><th>Tables closed</th><th>Collected</th></tr>${Object.keys(r.salesBy || {}).map((n) => `<tr><td>${App.esc(n)}</td><td>${r.closedBy[n]}</td><td>${App.money(r.salesBy[n])}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Sales are attributed when staff sign in with their own PIN</td></tr>'}</table>
+  <h3 style="margin-top:14px">By order type</h3>${Object.keys(r.kinds || {}).map((k) => `<div class="spread"><span>${{ table: '🪑 Dine-in', takeaway: '🛍️ Takeaway', delivery: '🛵 Delivery' }[k] || k}</span><b>${App.money(r.kinds[k])}</b></div>`).join('') || '<p class="muted">-</p>'}</div>
+  <div class="card" style="overflow:auto"><h3>🧾 Recent receipts</h3><table>${RC.map((h, i) => `<tr><td>${new Date(h.closedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td><td>${h.kind && h.kind !== 'table' ? App.esc(h.kind) + ' ' : 'T'}${App.esc(h.tableNumber)}</td><td>${App.money(h.total)}${h.unpaid ? ' <span class="pill" style="color:#ff6b6b">unpaid</span>' : ''}</td><td><button class="ghost" onclick="rpPrint(${i})">🖨</button></td></tr>`).join('') || '<tr><td class="muted">Nothing yet</td></tr>'}</table></div>
   <div class="card" style="overflow:auto"><h3>💬 Guest feedback</h3>${fb.length ? fb.slice(0, 25).map((x) => `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${'⭐'.repeat(x.stars)}</b> <span class="muted">· table ${x.table || '?'}${x.name ? ' · ' + App.esc(x.name) : ''} · ${new Date(x.at).toLocaleString()}</span>${x.stars <= 2 ? ' <span class="pill" style="color:#ff6b6b">needs attention</span>' : ''}<div>${App.esc(x.comment)}</div></div>`).join('') : '<p class="muted">No ratings yet. Guests are asked after they pay.</p>'}</div></div>`;
 }
 
@@ -206,6 +213,38 @@ async function importFile() {
   App.toast(r.error || `Imported ${r.added} items`);
 }
 
+/* ---------------- Inventory ---------------- */
+async function inventoryTab() {
+  const { categories: C, items: I } = App.config, lg = (await api('GET', '/api/stock-log')).log || [];
+  const tr = (i) => i.stock !== undefined && i.stock !== null && i.stock !== '';
+  const low = (i) => tr(i) && i.stock <= (i.lowAt === undefined ? 5 : i.lowAt);
+  const lows = I.filter(low), value = I.filter(tr).reduce((n, i) => n + i.stock * (i.cost || 0), 0);
+  const cn = (id) => (C.find((c) => c.id === id) || {}).name || '';
+  $('#main').innerHTML = `<h1>📦 Inventory</h1>
+  <div class="grid"><div class="card kpi"><span>Tracked items</span><b>${I.filter(tr).length}</b><small class="muted">of ${I.length} on the menu</small></div><div class="card kpi"><span>Low or out</span><b style="color:${lows.length ? '#ff6b6b' : 'inherit'}">${lows.length}</b><small class="muted">${lows.slice(0, 3).map((i) => App.esc(i.name)).join(', ') || 'all good'}</small></div><div class="card kpi"><span>Stock value (at cost)</span><b>${App.money(value)}</b></div></div>
+  <div class="card" style="overflow:auto;margin-top:14px"><p class="muted" style="margin-top:0">Tick <b>Track</b> to count portions of an item. Every order takes from the count, the item turns <b>sold out</b> by itself at zero and comes back when you restock. Items you do not track stay unlimited.</p>
+  <table><tr><th>Item</th><th>Category</th><th>Track</th><th>Left</th><th>Alert at</th><th>Add / remove</th></tr>
+  ${I.map((i) => `<tr style="${low(i) ? 'background:color-mix(in srgb,#d62828 10%,transparent)' : ''}"><td>${App.esc(i.emoji || '')} ${App.esc(i.name)}</td><td class="muted">${App.esc(cn(i.cat))}</td>
+   <td><input type="checkbox" style="width:auto" ${tr(i) ? 'checked' : ''} onchange="upd('items','${i.id}',{stock:this.checked?0:null})"></td>
+   <td>${tr(i) ? `<b style="color:${i.stock <= 0 ? '#ff6b6b' : low(i) ? 'var(--warn,#e08a1a)' : 'inherit'}">${i.stock}</b>${i.stock <= 0 ? ' <span class="pill">out</span>' : low(i) ? ' <span class="pill">low</span>' : ''}` : '<span class="muted">∞</span>'}</td>
+   <td>${tr(i) ? `<input type="number" min="0" style="width:64px" value="${i.lowAt === undefined ? 5 : i.lowAt}" onchange="upd('items','${i.id}',{lowAt:this.value})">` : ''}</td>
+   <td>${tr(i) ? `<div class="row wrap"><input id="q_${i.id}" type="number" min="0" placeholder="qty" style="width:70px"><input id="r_${i.id}" placeholder="note" style="width:110px"><button class="primary" onclick="adj('${i.id}','restock')">＋ Restock</button><button class="ghost" onclick="adj('${i.id}','waste')">Waste</button><button class="ghost" onclick="adj('${i.id}','count')">Set count</button></div>` : ''}</td></tr>`).join('')}</table></div>
+  <div class="card" style="overflow:auto;margin-top:14px"><h3>Stock movements</h3><table><tr><th>When</th><th>Item</th><th>Change</th><th>Left</th><th>Type</th><th>Who / note</th></tr>${lg.slice(0, 60).map((l) => `<tr><td>${new Date(l.at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td><td>${App.esc(l.item)}</td><td style="color:${l.delta < 0 ? '#ff6b6b' : 'var(--ok,#1f9d55)'}">${l.delta > 0 ? '+' : ''}${l.delta}</td><td>${l.left}</td><td>${App.esc(l.type)}</td><td class="muted">${App.esc(l.who || '')} ${App.esc(l.reason || '')}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nothing yet</td></tr>'}</table></div>`;
+}
+async function adj(id, type) {
+  const q = $('#q_' + id).value; if (q === '') return App.toast('Enter a quantity');
+  const r = await api('POST', `/api/items/${id}/adjust`, { type, qty: q, reason: $('#r_' + id).value });
+  App.toast(r.error || 'Stock updated'); cfgKey = ''; render(App.state, true);
+}
+function receiptCard() {
+  const s = App.config.settings, el = document.createElement('div'); el.className = 'card'; el.style.marginTop = '14px';
+  const f = (k, l, ph) => `<label class="muted" style="display:block;margin-top:8px;font-size:12px">${l}</label><input value="${App.esc(s[k] || '')}" placeholder="${ph || ''}" onchange="api('POST','/api/settings',{${k}:this.value})">`;
+  el.innerHTML = `<h3>🧾 Bills, receipts & discounts</h3>${f('address', 'Address on receipts')}${f('phone', 'Phone on receipts')}${f('taxId', 'Tax / VAT number')}${f('receiptFooter', 'Receipt footer', 'Thank you - see you soon!')}
+   <label class="muted" style="display:block;margin-top:12px;font-size:12px">Largest discount a captain may give without you (%)</label>
+   <div class="row"><input type="number" min="0" max="100" style="max-width:120px" value="${s.discountCapPct === undefined || s.discountCapPct === '' ? 20 : s.discountCapPct}" onchange="api('POST','/api/settings',{discountCapPct:Math.min(100,Math.max(0,+this.value||0))})"><small class="muted">Anything bigger is refused unless the owner is signed in on the captain screen. Every discount, void and refund is written to the table's log.</small></div>`;
+  $('#main').appendChild(el);
+}
+
 /* ---------------- Theme & settings ---------------- */
 function theme() {
   const s = App.config.settings, p = s.palette;
@@ -222,7 +261,7 @@ function theme() {
    <label class="muted">شعار الصفحة الرئيسية (AR)</label><input dir="rtl" value="${App.esc(s.tagline_ar || '')}" onchange="api('POST','/api/settings',{tagline_ar:this.value})">
    <label class="muted">الاسم (AR)</label><input dir="rtl" value="${App.esc(s.name_ar)}" onchange="api('POST','/api/settings',{name_ar:this.value})">
    <div class="grid" style="margin-top:8px"><div><label class="muted">Tax %</label><input type="number" value="${s.tax}" onchange="api('POST','/api/settings',{tax:+this.value})"></div><div><label class="muted">Service %</label><input type="number" value="${s.service}" onchange="api('POST','/api/settings',{service:+this.value})"></div><div><label class="muted">Currency</label><input value="${App.esc(s.currency)}" onchange="api('POST','/api/settings',{currency:this.value})"></div></div></div></div>`;
-  accountCard(); securityCard();
+  accountCard(); securityCard(); receiptCard();
 }
 function securityCard() {
   const s = App.config.settings, el = document.createElement('div'); el.className = 'card'; el.style.marginTop = '14px';

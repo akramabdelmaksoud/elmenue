@@ -19,6 +19,7 @@ function createTenant(rec, persist, onAlert) {
     let ch = false;
     db.tables.forEach((t) => { if (!t.key) { t.key = rkey(); ch = true; } });
     if (!rec.stats) { rec.stats = { staff: {} }; ch = true; }
+    if (!db.reservations) { db.reservations = []; ch = true; }
     return ch;
   }
   const keyOk = (t, key) => db.settings.requireKey === false || (!!t.key && key === t.key);
@@ -37,29 +38,68 @@ function createTenant(rec, persist, onAlert) {
     const st = ((rec.stats ||= { staff: {} }).staff[c.staffId] ||= { name: c.staffName || '?', handled: 0, respMs: 0, served: 0, started: 0, closed: 0 });
     st.name = c.staffName || st.name; st[key] = (st[key] || 0) + add;
   }
+  // ---------- Inventory (optional per item: stock = number of portions left, null = unlimited) ----------
+  const tracked = (it) => it && it.stock !== undefined && it.stock !== null && it.stock !== '';
+  function slog(it, delta, type, reason, who) {
+    rec.stockLog = [{ at: Date.now(), itemId: it.id, item: it.name, delta, type, reason: reason || '', who: who || '', left: it.stock }, ...(rec.stockLog || [])].slice(0, 400);
+  }
+  // takes stock for the given lines (mutates qty down when there is not enough); returns the lines that remain
+  function takeStock(lines, who) {
+    lines.forEach((l) => {
+      const it = db.items.find((x) => x.id === l.itemId); if (!tracked(it)) return;
+      const have = Math.max(0, Math.floor(+it.stock)); if (l.qty > have) l.qty = have;
+      if (l.qty <= 0) return;
+      it.stock = have - l.qty; slog(it, -l.qty, 'sale', '', who);
+      if (it.stock <= 0) it.soldOut = true;
+    });
+    return lines.filter((l) => l.qty > 0);
+  }
+  function putStock(itemId, qty, type, reason, who) {
+    const it = db.items.find((x) => x.id === itemId); if (!tracked(it) || qty <= 0) return;
+    it.stock = Math.floor(+it.stock) + qty; slog(it, qty, type, reason, who);
+    if (it.stock > 0) it.soldOut = false;
+  }
+  // splits what was paid into cash / card and works out the change for the cash part
+  function settle(method, total, pay) {
+    pay = pay || {};
+    if (method === 'card') return { cash: 0, card: total, tendered: 0, change: 0 };
+    if (method === 'mixed') {
+      const card = +Math.min(total, Math.max(0, +pay.card || 0)).toFixed(2), cash = +(total - card).toFixed(2), tendered = Math.max(cash, +pay.tendered || cash);
+      return { cash, card, tendered, change: +(tendered - cash).toFixed(2) };
+    }
+    const tendered = Math.max(total, +pay.tendered || total);
+    return { cash: total, card: 0, tendered, change: +(tendered - total).toFixed(2) };
+  }
 
 // ---------- Billing ----------
 function bill(s) {
   const st = db.settings;
   const by = {};
   s.guests.forEach((g) => (by[g.id] = { sub: 0, items: [] }));
-  let sub = 0;
+  let gross = 0;
   s.orders.forEach((o) => o.items.forEach((it) => {
-    const v = it.price * it.qty; sub += v;
+    const v = it.price * it.qty; gross += v;
     (by[it.guestId] ||= { sub: 0, items: [] }); by[it.guestId].sub += v; by[it.guestId].items.push(it);
   }));
+  // discount comes off the food total first; service and tax are charged on what is left
+  let disc = 0;
+  if (s.discount && gross > 0) disc = s.discount.type === 'pct' ? gross * Math.min(100, Math.max(0, +s.discount.value || 0)) / 100 : Math.min(gross, Math.max(0, +s.discount.value || 0));
+  disc = +disc.toFixed(2);
+  const net = +(gross - disc).toFixed(2), k = gross ? net / gross : 1;
   const calc = (x) => {
     const service = +(x * st.service / 100).toFixed(2);
     const tax = +((x + service) * st.tax / 100).toFixed(2);
     return { sub: x, service, tax, total: +(x + service + tax).toFixed(2) };
   };
-  Object.keys(by).forEach((k) => Object.assign(by[k], calc(by[k].sub)));
-  return { ...calc(sub), byGuest: by };
+  Object.keys(by).forEach((g) => { by[g].gross = by[g].sub; Object.assign(by[g], calc(+(by[g].sub * k).toFixed(2))); });
+  return { ...calc(net), sub: gross, gross, discount: disc, net, byGuest: by };
 }
 
+// a reservation counts from 45 minutes before until 20 minutes after its time
+function nextRes(t) { const n = Date.now(); return (db.reservations || []).find((r) => r.tableId === t.id && n >= r.at - 45 * 60000 && n <= r.at + 20 * 60000); }
 function tableState(t) {
   const s = db.sessions[t.id];
-  if (!s) return 'empty';
+  if (!s) return nextRes(t) ? 'reserved' : 'empty';
   if (s.requests.some((r) => !r.done && r.type !== 'bill')) return 'urgent';
   if (s.check) return 'check';
   if (s.orders.some((o) => o.status !== 'closed')) return 'ordered';
@@ -77,7 +117,7 @@ function openSession(t) {
   return db.sessions[t.id];
 }
 
-function closeSession(t, method, who) {
+function closeSession(t, method, who, pay) {
   const s = db.sessions[t.id]; if (!s) return;
   const b = bill(s);
   const lines = {};
@@ -86,18 +126,21 @@ function closeSession(t, method, who) {
     const l = (lines[i.itemId] ||= { itemId: i.itemId, cat: m?.cat, name: i.name, qty: 0, price: i.price, cost: m?.cost || 0 });
     l.qty += i.qty;
   }));
-  const tip = s.check ? Math.round(b.sub * (s.check.tipPct || 0) / 100) : 0;
+  const tip = pay && pay.tip !== undefined && pay.tip !== null && pay.tip !== '' ? Math.max(0, +(+pay.tip).toFixed(2)) : Math.round(b.net * (s.check?.tipPct || 0) / 100);
+  const total = +(b.total + tip).toFixed(2);
+  const m = ['cash', 'card', 'mixed', 'unpaid'].includes(method) ? method : (s.check?.method || 'cash');
   log(s, 'closed', 'Table paid and cleared' + (who ? ' by ' + who : ''));
   if (s.orders.length) {
     db.history.push({
-      id: id('h'), tableId: t.id, tableNumber: t.number, startedAt: s.startedAt,
+      id: id('h'), tableId: t.id, tableNumber: t.number, kind: s.kind || 'table', customer: s.customer || null, startedAt: s.startedAt,
       orderedAt: s.orders[0].at, checkAt: s.check?.at || Date.now(), closedAt: Date.now(),
-      guests: s.guests.length || 1, items: Object.values(lines), sub: b.sub, service: b.service, tax: b.tax, tip,
-      total: +(b.total + tip).toFixed(2), method: method || s.check?.method || 'cash', split: s.check?.split || 'table', closedBy: who || '', log: s.log,
+      guests: s.guests.length || 1, items: Object.values(lines), sub: b.gross, discount: b.discount, discountNote: s.discount ? (s.discount.reason || '') : '', service: b.service, tax: b.tax, tip,
+      total, method: m, unpaid: m === 'unpaid', pay: m === 'unpaid' ? { cash: 0, card: 0, tendered: 0, change: 0 } : settle(m, total, pay), split: s.check?.split || 'table', closedBy: who || '', voids: s.voids || [], log: s.log,
     });
   }
   delete db.sessions[t.id];
 }
+const tableOf = (tid) => db.tables.find((x) => x.id === tid) || (db.sessions[tid] && { id: tid, number: db.sessions[tid].tableNumber });
 
 function seedLiveSessions() {
   const A = ['😎', '🧑‍🎤', '🦊', '🐼', '🎮', '👩‍🎨', '🧔', '🐱'];
@@ -135,6 +178,7 @@ const clients = new Set();
 const view = (s) => ({ ...s, bill: bill(s) });
 function snapshotFor(c) {
   const config = { settings: db.settings, categories: db.categories, items: db.items, tables: c.role === 'admin' ? db.tables : db.tables.map(({ key, ...r }) => r) };
+  if (c.role !== 'customer') config.reservations = (db.reservations || []).filter((r) => r.at > Date.now() - 3 * 3600000);
   if (c.role === 'customer') {
     const t = db.tables.find((x) => x.number === c.tableNumber);
     const s = t && db.sessions[t.id];
@@ -204,10 +248,12 @@ function handle(c, m) {
       case 'cart_note': { const l = s.cart.find((x) => x.id === m.id); if (l) l.note = String(m.note || '').slice(0, 140); break; }
       case 'send_order': {
         // each guest sends their own items straight to the table order; scope 'all' sends everyone's pending items
-        const mine = m.scope === 'all' ? s.cart.slice() : s.cart.filter((l) => l.guestId === c.guestId);
-        if (!mine.length) break;
+        const want = m.scope === 'all' ? s.cart.slice() : s.cart.filter((l) => l.guestId === c.guestId);
+        if (!want.length) break;
         const first = !s.orders.length;
-        s.cart = s.cart.filter((l) => !mine.includes(l));
+        s.cart = s.cart.filter((l) => !want.includes(l));
+        const mine = takeStock(want);
+        if (!mine.length) break;
         s.orders.push({ id: id('o'), at: Date.now(), status: 'received', items: mine, by: c.guestId });
         s.check = null; s.requests = s.requests.filter((r) => r.type !== 'bill' || r.done);
         const g = s.guests.find((x) => x.id === c.guestId);
@@ -219,7 +265,7 @@ function handle(c, m) {
         // a guest may withdraw their own item until the kitchen starts it
         for (const o of s.orders) {
           const i = o.items.findIndex((x) => x.id === m.id && x.guestId === c.guestId);
-          if (i >= 0 && o.status === 'received') { o.items.splice(i, 1); if (!o.items.length) s.orders = s.orders.filter((x) => x !== o); log(s, 'ordered', 'Guest removed an item'); break; }
+          if (i >= 0 && o.status === 'received') { putStock(o.items[i].itemId, o.items[i].qty, 'return', 'guest removed'); o.items.splice(i, 1); if (!o.items.length) s.orders = s.orders.filter((x) => x !== o); log(s, 'ordered', 'Guest removed an item'); break; }
         }
         break;
       }
@@ -256,7 +302,82 @@ function handle(c, m) {
         if (r) { r.done = true; log(s, 'handled', `Request ${r.type} handled` + (c.staffName ? ' by ' + c.staffName : '')); bump(c, 'handled'); bump(c, 'respMs', Math.max(0, Date.now() - r.at)); }
         break;
       }
-      case 'close_table': { const t = db.tables.find((x) => x.id === m.tableId); if (t) { bump(c, 'closed'); closeSession(t, m.method, c.staffName); } break; }
+      case 'close_table': { const t = tableOf(m.tableId); if (t) { bump(c, 'closed'); closeSession(t, m.unpaid ? 'unpaid' : m.method, c.staffName, m.pay); } break; }
+      case 'open_ticket': {
+        // takeaway / delivery order that is not tied to a table
+        if (!['takeaway', 'delivery'].includes(m.kind) || !/^tk_[a-z0-9]{6,14}$/.test(String(m.tid || '')) || db.sessions[m.tid]) break;
+        db.ticketSeq = (db.ticketSeq || 0) + 1;
+        const s = { id: id('s'), tableId: m.tid, tableNumber: (m.kind === 'delivery' ? 'DL-' : 'TA-') + db.ticketSeq, kind: m.kind, startedAt: Date.now(), lastAt: Date.now(), guests: [], cart: [], orders: [], requests: [], check: null, log: [],
+          customer: { name: String(m.name || '').slice(0, 30), phone: String(m.phone || '').slice(0, 20), address: String(m.address || '').slice(0, 140) } };
+        s.guests.push({ id: 'cust', name: s.customer.name || (m.kind === 'delivery' ? 'Delivery' : 'Takeaway'), avatar: m.kind === 'delivery' ? '🛵' : '🛍️' });
+        db.sessions[m.tid] = s; log(s, 'seated', `${m.kind} ticket ${s.tableNumber} opened` + (c.staffName ? ' by ' + c.staffName : '')); break;
+      }
+      case 'staff_order': {
+        const t = db.tables.find((x) => x.id === m.tableId); let s = db.sessions[m.tableId];
+        if (!s && t) s = openSession(t); if (!s) break;
+        const want = [];
+        (Array.isArray(m.items) ? m.items : []).slice(0, 40).forEach((x) => {
+          const it = db.items.find((y) => y.id === x.itemId); const q = Math.min(20, Math.floor(+x.qty));
+          if (!it || it.soldOut || !(q > 0)) return;
+          want.push({ id: id('l'), guestId: null, itemId: it.id, name: it.name, name_ar: it.name_ar, emoji: it.emoji, price: it.price, qty: q, note: String(x.note || '').slice(0, 140) });
+        });
+        if (!want.length) break;
+        let g = s.guests.find((x) => x.id === m.guestId) || s.guests[0];
+        if (!g) { g = { id: 'staff', name: 'Staff', avatar: '🧑‍🍳' }; s.guests.push(g); }
+        const lines = takeStock(want, c.staffName); if (!lines.length) break;
+        lines.forEach((l) => (l.guestId = g.id));
+        s.orders.push({ id: id('o'), at: Date.now(), status: 'received', items: lines, by: 'staff', staff: c.staffName || '' });
+        s.check = null; s.requests = s.requests.filter((r) => r.type !== 'bill' || r.done); s.lastAt = Date.now(); s.idle = false;
+        log(s, 'ordered', `${c.staffName || 'Staff'} took an order (${lines.reduce((n, l) => n + l.qty, 0)} item(s))`); bump(c, 'taken'); break;
+      }
+      case 'void_item': {
+        const s = db.sessions[m.tableId]; if (!s) break;
+        for (const o of s.orders) {
+          const i = o.items.findIndex((x) => x.id === m.itemId); if (i < 0) continue;
+          const it = o.items[i], q = Math.min(it.qty, Math.max(1, Math.floor(+m.qty) || it.qty));
+          (s.voids ||= []).push({ name: it.name, qty: q, price: it.price, reason: String(m.reason || '').slice(0, 80), waste: !!m.waste, by: c.staffName || '', at: Date.now() });
+          if (!m.waste) putStock(it.itemId, q, 'return', 'voided: ' + String(m.reason || '').slice(0, 40), c.staffName);
+          it.qty -= q; if (it.qty <= 0) o.items.splice(i, 1); if (!o.items.length) s.orders = s.orders.filter((x) => x !== o);
+          log(s, 'void', `${q}× ${it.name} voided${m.reason ? ' (' + String(m.reason).slice(0, 80) + ')' : ''}` + (c.staffName ? ' by ' + c.staffName : '')); break;
+        }
+        break;
+      }
+      case 'discount': {
+        const s = db.sessions[m.tableId]; if (!s) break;
+        const v = Math.max(0, +m.value || 0), type = m.type === 'amt' ? 'amt' : 'pct';
+        if (!v) { s.discount = null; log(s, 'discount', 'Discount removed'); break; }
+        const capSet = db.settings.discountCapPct, cap = c.adm ? 100 : (capSet === undefined || capSet === '' || capSet === null ? 20 : Math.max(0, +capSet));
+        const gross = bill(s).gross, pct = type === 'pct' ? v : gross ? v / gross * 100 : 0;
+        if (pct > cap) { c.ws.send(JSON.stringify({ t: 'notice', msg: `Discounts above ${cap}% need the owner` })); break; }
+        s.discount = { type, value: v, reason: String(m.reason || '').slice(0, 60), by: c.staffName || '' };
+        log(s, 'discount', `Discount ${type === 'pct' ? v + '%' : v}${m.reason ? ' (' + String(m.reason).slice(0, 60) + ')' : ''}` + (c.staffName ? ' by ' + c.staffName : '')); break;
+      }
+      case 'move_table': {
+        const a = db.sessions[m.from], to = db.tables.find((x) => x.id === m.to);
+        if (!a || !to || db.sessions[to.id] || a.kind) break;
+        delete db.sessions[m.from]; a.tableId = to.id; a.tableNumber = to.number; db.sessions[to.id] = a;
+        log(a, 'moved', `Moved to table ${to.number}` + (c.staffName ? ' by ' + c.staffName : '')); break;
+      }
+      case 'merge_tables': {
+        const a = db.sessions[m.from], b = db.sessions[m.to];
+        if (!a || !b || a === b || a.kind || b.kind) break;
+        a.guests.forEach((g) => { if (!b.guests.some((x) => x.id === g.id)) b.guests.push(g); });
+        b.orders.push(...a.orders); b.cart.push(...a.cart); b.requests.push(...a.requests.filter((r) => !r.done)); b.voids = (b.voids || []).concat(a.voids || []);
+        if (!b.discount && a.discount) b.discount = a.discount;
+        b.orders.sort((x, y) => x.at - y.at); b.startedAt = Math.min(a.startedAt, b.startedAt); b.check = null;
+        log(b, 'merged', `Table ${a.tableNumber} merged into ${b.tableNumber}` + (c.staffName ? ' by ' + c.staffName : '')); delete db.sessions[m.from]; break;
+      }
+      case 'res_add': {
+        const t = db.tables.find((x) => x.id === m.tableId), at = +m.at; if (!t || !(at > 0)) break;
+        db.reservations.push({ id: id('rv'), tableId: t.id, tableNumber: t.number, name: String(m.name || 'Guest').slice(0, 30), phone: String(m.phone || '').slice(0, 20), guests: Math.min(50, Math.max(1, Math.floor(+m.guests) || 2)), at, note: String(m.note || '').slice(0, 100), by: c.staffName || '' });
+        db.reservations = db.reservations.filter((r) => r.at > Date.now() - 3 * 3600000).slice(-300); break;
+      }
+      case 'res_del': db.reservations = (db.reservations || []).filter((r) => r.id !== m.id); break;
+      case 'res_seat': {
+        const r = (db.reservations || []).find((x) => x.id === m.id), t = r && db.tables.find((x) => x.id === r.tableId); if (!t) break;
+        const s = openSession(t); s.lastAt = Date.now(); if (!s.guests.length) s.guests.push({ id: 'cust', name: r.name, avatar: '📅' });
+        log(s, 'seated', `Reservation for ${r.name} seated`); db.reservations = db.reservations.filter((x) => x !== r); break;
+      }
       case 'seat_table': { const t = db.tables.find((x) => x.id === m.tableId); if (t) { const s = openSession(t); s.lastAt = Date.now(); } break; }
       case 'sim': simulate = !!m.on; break;
     }
@@ -279,7 +400,7 @@ function tick() {
   if (!simulate) return;
   const r = Math.random();
   const empties = db.tables.filter((t) => !db.sessions[t.id]);
-  const act = Object.values(db.sessions);
+  const act = Object.values(db.sessions).filter((x) => !x.kind);
   if (r < 0.25 && empties.length) {
     const t = seed.pick(empties); const s = openSession(t);
     s.guests.push({ id: id('g'), name: seed.pick(['Hassan', 'Dina', 'Tamer', 'Salma', 'Mostafa']), avatar: seed.pick(['🦁', '🐯', '🧑‍🚀', '🎧', '🐧']) });
@@ -306,11 +427,11 @@ function tick() {
 
 function analytics(days = 7) {
   const since = Date.now() - days * 86400000;
-  const H = db.history.filter((h) => h.closedAt >= since);
+  const H = db.history.filter((h) => h.closedAt >= since && !h.unpaid);
   const sum = (a, f) => a.reduce((s, x) => s + f(x), 0);
   const revenue = {
     gross: sum(H, (h) => h.sub), service: sum(H, (h) => h.service), tax: sum(H, (h) => h.tax), tips: sum(H, (h) => h.tip), total: sum(H, (h) => h.total),
-    cash: sum(H.filter((h) => h.method === 'cash'), (h) => h.total), card: sum(H.filter((h) => h.method === 'card'), (h) => h.total), sessions: H.length,
+    cash: sum(H, (h) => (h.pay ? h.pay.cash : h.method === 'cash' ? h.total : 0)), card: sum(H, (h) => (h.pay ? h.pay.card : h.method === 'card' ? h.total : 0)), discounts: sum(H, (h) => h.discount || 0), sessions: H.length,
   };
   const itemMap = {}, catMap = {};
   H.forEach((h) => h.items.forEach((l) => {

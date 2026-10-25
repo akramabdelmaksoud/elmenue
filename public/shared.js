@@ -42,7 +42,21 @@ const App = {
   nm(o) { return App.lang === 'ar' && o.name_ar ? o.name_ar : o.name; },
   money(n) { return Number(n || 0).toLocaleString(App.lang === 'ar' ? 'ar-EG' : 'en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' ' + (App.config ? App.config.settings.currency : ''); },
   esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); },
-  ago(ts) { const m = Math.max(0, Math.round((Date.now() - ts) / 60000)); return m < 1 ? 'now' : m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; },
+  // 80mm thermal-style receipt; r = {label, kind, customer, at, items[{name,qty,price}], gross, discount, discountNote, service, tax, tip, total, method, pay, by}
+  receiptHTML(r) {
+    const st = (App.config && App.config.settings) || {}, E = App.esc, M = (n) => Number(n || 0).toFixed(2);
+    const rows = r.items.map((l) => `<tr><td colspan="2"><b>${E(l.name)}</b></td></tr><tr><td>${l.qty} x ${M(l.price)}</td><td class="r">${M(l.qty * l.price)}</td></tr>`).join('');
+    const ln = (a, b) => `<tr><td>${a}</td><td class="r">${b}</td></tr>`;
+    const pay = r.pay || {};
+    return `<!doctype html><meta charset="utf-8"><title>Receipt</title><style>@page{size:80mm auto;margin:4mm}body{font:12px/1.35 monospace;width:72mm;margin:0;color:#000}table{width:100%;border-collapse:collapse}.r{text-align:right}hr{border:0;border-top:1px dashed #000;margin:6px 0}.c{text-align:center}.big td{font-size:15px;font-weight:bold}</style>
+    <div class="c"><b style="font-size:16px">${E(st.name || '')}</b>${st.address ? '<br>' + E(st.address) : ''}${st.phone ? '<br>' + E(st.phone) : ''}${st.taxId ? '<br>Tax ID: ' + E(st.taxId) : ''}<br>${new Date(r.at || Date.now()).toLocaleString()}<br>${r.kind && r.kind !== 'table' ? E(r.kind) + ' ' : 'Table '}${E(r.label)}${r.by ? ' · ' + E(r.by) : ''}</div>
+    ${r.customer && (r.customer.name || r.customer.phone || r.customer.address) ? `<div>${E(r.customer.name || '')} ${E(r.customer.phone || '')}<br>${E(r.customer.address || '')}</div>` : ''}<hr><table>${rows}</table><hr><table>
+    ${ln('Subtotal', M(r.gross))}${r.discount ? ln('Discount' + (r.discountNote ? ' (' + E(r.discountNote) + ')' : ''), '-' + M(r.discount)) : ''}${ln('Service', M(r.service))}${ln('Tax', M(r.tax))}${r.tip ? ln('Tip', M(r.tip)) : ''}<tr class="big"><td>TOTAL</td><td class="r">${M(r.total)} ${E(st.currency || '')}</td></tr></table><hr>
+    ${r.pre ? '<div class="c"><b>— BILL · NOT A RECEIPT —</b></div>' : `<table>${ln('Paid by', E(r.method || ''))}${pay.cash ? ln('Cash', M(pay.cash)) : ''}${pay.card ? ln('Card', M(pay.card)) : ''}${pay.tendered && pay.cash ? ln('Received', M(pay.tendered)) + ln('Change', M(pay.change)) : ''}</table>`}<hr>
+    <div class="c">${E(st.receiptFooter || 'Thank you - see you soon!')}</div>`;
+  },
+  printHTML(html) { const f = document.createElement('iframe'); f.style.cssText = 'position:fixed;width:0;height:0;border:0;opacity:0'; f.srcdoc = html; f.onload = () => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) {} setTimeout(() => f.remove(), 60000); }; document.body.appendChild(f); },
+  ago(ts) { const m =Math.max(0, Math.round((Date.now() - ts) / 60000)); return m < 1 ? 'now' : m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; },
   ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch { return null; } },
 
   // ---- floor plan helpers (24 x 16 grid; old layouts without fx/fy are converted on the fly)
@@ -168,6 +182,7 @@ const App = {
         if (j.guestId && joinMsg.guestId !== j.guestId) { joinMsg.guestId = j.guestId; onMsg({ t: 'you', guestId: j.guestId }); }
         if (P.since >= 0) j.alerts.forEach((a) => onMsg({ t: 'alert', ...a }));
         P.since = j.alertSeq;
+        (j.notices || []).forEach((n) => App.toast(n));
         // Only redraw when something really changed (captain also refreshes once a minute for the 'x min' timers), so idle screens never flicker
         const sig = JSON.stringify(j.state);
         App.state = j.state; App.config = j.state.config;

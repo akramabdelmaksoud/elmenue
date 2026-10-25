@@ -31,11 +31,23 @@ h3 { margin:6px 0 10px; }
 @media (max-width:1000px) { .layout { grid-template-columns:1fr; } .side { display:none; } #bar { display:flex; } #chips { display:flex; } #inl { display:block; } body { padding-bottom:84px; } }
 @media (max-width:440px) { .ttl { display:none; } }
 @media (max-width:700px) {
-  header { padding:8px 10px; } header h1 { font-size:17px; } .hb { gap:6px; flex-wrap:nowrap; } .hb button { padding:0; width:38px; height:38px; justify-content:center; border-radius:50%; font-size:16px; } .hb .lbl { display:none; }
+  header { padding:8px 10px; } header h1 { font-size:17px; } header { flex-wrap:wrap; } .hb { gap:5px; flex-wrap:wrap; } #sim { display:none; } .hb button { padding:0; width:36px; height:36px; justify-content:center; border-radius:50%; font-size:16px; } .hb .lbl { display:none; }
   .statline { padding:4px 12px; font-size:12px; } .legend { flex-wrap:nowrap; overflow-x:auto; padding:0 12px 6px; gap:12px; scrollbar-width:none; white-space:nowrap; font-size:11px; } .legend::-webkit-scrollbar { display:none; }
   .floorwrap { padding:4px 8px 8px; } .fl-stage { border-radius:16px; }
   .modal > .card { width:96vw; max-height:92vh; padding:14px; } #banners { inset-inline:10px; top:54px; } .banner { font-size:14px; padding:10px 14px; }
 }
+/* staff order screen, payment, tickets */
+#dlg .modal { z-index:95; } .spread { display:flex; justify-content:space-between; align-items:center; gap:8px; } .wrap { flex-wrap:wrap; } .muted { color:var(--muted); }
+.posgrid { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:14px; } .pcart { border-inline-start:1px solid var(--line); padding-inline-start:14px; } @media (max-width:760px) { .posgrid { grid-template-columns:1fr; } .pcart { border:0; padding:0; border-top:1px solid var(--line); padding-top:10px; } }
+.pitems { display:grid; grid-template-columns:repeat(auto-fill,minmax(122px,1fr)); gap:8px; max-height:46vh; overflow:auto; padding:2px; } @media (max-width:760px) { .pitems { max-height:34vh; } }
+.pit { position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:10px; border-radius:14px; background:var(--card); border:1px solid var(--line); text-align:start; min-height:78px; } .pit .e { font-size:22px; } .pit b { font-size:13px; line-height:1.2; } .pit small { color:var(--muted); } .pit.out { opacity:.4; }
+.pit .bd { position:absolute; top:6px; inset-inline-end:6px; background:var(--accent); color:var(--on-accent); border-radius:99px; min-width:22px; height:22px; display:grid; place-items:center; font-style:normal; font-size:12px; font-weight:800; }
+.pchips { display:flex; gap:6px; overflow-x:auto; padding:8px 0; scrollbar-width:none; } .pchips button { flex:none; padding:6px 12px; border-radius:99px; font-size:13px; }
+.pcl { padding:8px 0; border-bottom:1px dashed var(--line); display:flex; flex-direction:column; gap:6px; } .pcl input { padding:6px 10px; font-size:13px; } .step { display:flex; align-items:center; gap:8px; } .step button { width:30px; height:30px; padding:0; border-radius:10px; }
+.fgrid2 { display:grid; grid-template-columns:1fr 1fr; gap:0 10px; } .field { margin-bottom:8px; } .field label { font-size:12px; color:var(--muted); display:block; margin-bottom:3px; }
+.tickets { padding:4px 16px 14px; display:flex; gap:10px; flex-wrap:wrap; } .tk { cursor:pointer; min-width:150px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px 12px; text-align:start; } .tk b { display:block; } .tk small { color:var(--muted); }
+.vx { background:transparent; padding:0 6px; color:var(--bad); font-weight:800; }
+#chips, #inl { display:none; }
 #chips { gap:8px; overflow-x:auto; padding:10px 12px 2px; scrollbar-width:none; } #chips::-webkit-scrollbar { display:none; } #chips .none { color:var(--muted); font-size:13px; padding:6px 4px; }
 #bar { position:fixed; left:10px; right:10px; bottom:calc(10px + env(safe-area-inset-bottom)); z-index:75; gap:8px; padding:8px; border-radius:24px; background:color-mix(in srgb,var(--card) 86%,transparent); backdrop-filter:blur(16px); border:1px solid var(--line); box-shadow:0 18px 40px -12px rgba(0,0,0,.5); }
 #bar button { flex:1; padding:13px 8px; border-radius:18px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:8px; position:relative; } #bar button.on { background:var(--accent); color:var(--on-accent); }
@@ -45,6 +57,9 @@ h3 { margin:6px 0 10px; }
 <header><h1>🧑‍✈️ <span class="ttl">Captain</span> <span id="clock"></span> <span id="who" class="muted" style="font-size:.7em;font-weight:600"></span></h1>
 <div class="hb">
  <button class="ghost" id="inst" style="display:none" onclick="App.installEvt&&App.installEvt.prompt()"><span>⬇️</span><b class="lbl">Install app</b></button>
+ <button class="ghost" onclick="PX.newTicket('takeaway')" title="Takeaway order"><span>🛍️</span><b class="lbl">Takeaway</b></button>
+ <button class="ghost" onclick="PX.newTicket('delivery')" title="Delivery order"><span>🛵</span><b class="lbl">Delivery</b></button>
+ <button class="ghost" onclick="PX.resDlg()" title="Reservations"><span>📅</span><b class="lbl">Reservations</b></button>
  <button class="ghost" id="pushb" onclick="togglePush()" aria-label="phone alerts"><span id="pushi">📲</span><b class="lbl" id="pushl">Phone alerts</b></button>
  <a href="/kitchen" class="ghost" style="text-decoration:none;display:none" id="klink"></a>
  <button class="ghost" id="snd" onclick="toggleSound()" aria-label="sound"><span id="sndi">🔕</span><b class="lbl" id="sndl">Sound off</b></button>
@@ -54,10 +69,10 @@ h3 { margin:6px 0 10px; }
  <button class="ghost" onclick="App.logout()"><span>⏻</span><b class="lbl">Sign out</b></button></div></header>
 <div class="statline" id="stats"></div>
 <div class="legend">
-<span><i style="background:#8884"></i>Empty</span><span><i style="background:#1f9d55"></i>Seated</span><span><i style="background:#e08a1a"></i>Order in progress</span><span><i style="background:#d62828"></i>Urgent</span><span><i style="background:linear-gradient(135deg,#2563eb,#ffcc33)"></i>Check</span></div>
-<div class="layout"><div class="floorwrap"><div class="fl-stage" id="stage"></div><div id="chips"></div><div id="inl"></div></div><div class="side" id="side"></div></div>
-<div id="bar"></div><div id="sheet"></div><div id="banners"></div><div id="modal"></div>
-<script src="/shared.js"></script>
+<span><i style="background:#8884"></i>Empty</span><span><i style="background:#7c3aed"></i>Reserved</span><span><i style="background:#1f9d55"></i>Seated</span><span><i style="background:#e08a1a"></i>Order in progress</span><span><i style="background:#d62828"></i>Urgent</span><span><i style="background:linear-gradient(135deg,#2563eb,#ffcc33)"></i>Check</span></div>
+<div class="layout"><div class="floorwrap"><div class="fl-stage" id="stage"></div><div class="tickets" id="tickets"></div><div id="chips"></div><div id="inl"></div></div><div class="side" id="side"></div></div>
+<div id="bar"></div><div id="sheet"></div><div id="banners"></div><div id="modal"></div><div id="dlg"></div>
+<script src="/shared.js"></script><script src="/pos.js"></script>
 <script>
 let S = null, open = null, sound = false, actx = null, sheet = null;
 const NEXT = { received: 'kitchen', kitchen: 'served', served: 'closed' };
@@ -96,7 +111,8 @@ function stageHTML(cfg) {
   const decor = F.decor.map((d) => App.decorHTML(d, F)).join('');
   const tables = cfg.tables.map((t) => {
     const st = S.states[t.id], s = S.sessions[t.id], p = App.tpos(t);
-    const lab = { empty: 'Empty', seated: 'Browsing', ordered: 'Ordered', urgent: 'URGENT', check: s && s.check ? `${s.check.method === 'card' ? '💳' : '💵'} ${s.check.split}` : 'Check' }[st];
+    const rv = st === 'reserved' && (S.config.reservations || []).find((r) => r.tableId === t.id && Date.now() >= r.at - 45 * 60000 && Date.now() <= r.at + 20 * 60000);
+    const lab = { empty: 'Empty', reserved: rv ? '📅 ' + new Date(rv.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Reserved', seated: 'Browsing', ordered: 'Ordered', urgent: 'URGENT', check: s && s.check ? `${s.check.method === 'card' ? '💳' : '💵'} ${s.check.split}` : 'Check' }[st];
     const bd = s ? [s.requests.some((r) => !r.done && r.type === 'waiter') && '🙋', s.requests.some((r) => !r.done && r.type === 'water') && '💧', s.requests.some((r) => !r.done && r.type === 'urgent') && '⚡', s.check && '🧾', s.idle && '💤'].filter(Boolean).join('') : '';
     return `<div class="fl-t ${t.shape} ${st}" style="left:${p.fx / F.cols * 100}%;top:${p.fy / F.rows * 100}%;width:${p.fw / F.cols * 100}%;height:${p.fh / F.rows * 100}%;--m:${Math.min(p.fw, p.fh)}" onclick="openT('${t.id}')">${App.chairs(t.shape, t.seats)}<span class="bd">${bd}</span><span class="n">${t.number}</span><span class="av">${s ? App.esc(guestsOf(s).slice(0, 12)) : ''}</span><span class="s">${lab}${s ? ' · ' + mins(s.startedAt) : ' · ' + t.seats + ' seats'}</span><span class="m">${s ? mins(s.startedAt) : ''}</span></div>`;
   }).join('');
@@ -114,7 +130,9 @@ function render() {
   const orders = sessions.flatMap((s) => s.orders.filter((o) => o.status !== 'closed').map((o) => ({ s, o }))).sort((a, b) => a.o.at - b.o.at);
   const reqs = sessions.flatMap((s) => s.requests.filter((r) => !r.done).map((r) => ({ s, r }))).sort((a, b) => a.r.at - b.r.at);
   const rev = sessions.reduce((n, s) => n + s.bill.total, 0);
-  document.getElementById('stats').textContent = `${sessions.length}/${cfg.tables.length} tables · ${orders.length} orders · ${App.money(rev)}`;
+  const tks = sessions.filter((s) => s.kind), tbls = sessions.length - tks.length;
+  document.getElementById('stats').textContent = `${tbls}/${cfg.tables.length} tables${tks.length ? ' · ' + tks.length + ' takeaway/delivery' : ''} · ${orders.length} orders · ${App.money(rev)}`;
+  document.getElementById('tickets').innerHTML = tks.map((s) => `<button class="tk" onclick="openT('${s.tableId}')"><b>${s.kind === 'delivery' ? '🛵' : '🛍️'} ${App.esc(s.tableNumber)}${s.customer && s.customer.name ? ' · ' + App.esc(s.customer.name) : ''}</b><small>${s.orders.reduce((n, o) => n + o.items.reduce((m, i) => m + i.qty, 0), 0)} items · ${App.money(s.bill.total)} · ${mins(s.startedAt)}</small></button>`).join('');
   document.title = (reqs.length ? `(${reqs.length}) ` : '') + 'Captain';
   const stage = document.getElementById('stage');
   stage.style.setProperty('--cols', F.cols); stage.style.setProperty('--rows', F.rows); stage.style.aspectRatio = `${F.cols} / ${F.rows}`;
@@ -127,6 +145,7 @@ function render() {
   document.getElementById('bar').innerHTML = `<button class="${sheet === 'req' ? 'on' : ''}" onclick="openSheet('req')">🔔 Alerts <span class="cnt ${urgent ? 'hot' : ''}">${reqs.length || ''}</span></button><button onclick="if(sheet)openSheet(sheet);document.getElementById('inl').scrollIntoView({behavior:'smooth',block:'start'})">🍽️ Orders <span class="cnt">${orders.length || ''}</span></button>`;
   if (sheet) drawSheet(reqs, orders);
   if (open) renderModal();
+  PX.refresh();
 }
 function openSheet(w) { sheet = sheet === w ? null : w; if (!sheet) document.getElementById('sheet').className = ''; render(); }
 function drawSheet(reqs, orders) {
@@ -135,31 +154,37 @@ function drawSheet(reqs, orders) {
   el.innerHTML = `<div class="bg" onclick="openSheet('${sheet}')"></div><div class="pan" style="${wasOpen ? 'animation:none' : ''}"><div class="grab"></div>${sheet === 'req' ? reqHTML(reqs) : ordHTML(orders)}</div>`;
   el.querySelector('.pan').scrollTop = sc;
 }
-function orderCard(s, o) {
+function orderCard(s, o, tools) {
   const g = (id) => (s.guests.find((x) => x.id === id) || {}).avatar || '🙂';
   const nxt = NEXT[o.status];
   return `<div class="ocard"><div class="spread"><b>Table ${s.tableNumber} <span class="muted">· ${s.guests.map((x) => x.avatar).join('')}</span></b><span class="st ${o.status}">${o.status}</span></div>
-  ${o.items.map((i) => `<div class="line"><span>${g(i.guestId)} ${i.qty}× ${App.esc(i.name)}${i.note ? `<br><small style="color:var(--accent)">📝 ${App.esc(i.note)}</small>` : ''}</span><span>${App.money(i.qty * i.price)}</span></div>`).join('')}
+  ${o.items.map((i) => `<div class="line"><span>${g(i.guestId)} ${i.qty}× ${App.esc(i.name)}${i.note ? `<br><small style="color:var(--accent)">📝 ${App.esc(i.note)}</small>` : ''}</span><span>${App.money(i.qty * i.price)}${tools ? ` <button class="vx" title="Remove item" onclick="PX.voidDlg('${s.tableId}','${i.id}')">✕</button>` : ''}</span></div>`).join('')}
   <div class="spread" style="margin-top:6px"><span class="muted">${App.ago(o.at)} ago · ${App.money(o.items.reduce((n, i) => n + i.qty * i.price, 0))}</span>${nxt ? `<button class="primary" onclick="App.send({t:'order_status',orderId:'${o.id}',status:'${nxt}'})">→ ${nxt}</button>` : ''}</div></div>`;
 }
 function openT(id) { open = id; renderModal(); }
 function closeM() { open = null; document.getElementById('modal').innerHTML = ''; }
 function renderModal() {
-  const t = S.config.tables.find((x) => x.id === open), s = S.sessions[open];
+  const s = S.sessions[open], t = S.config.tables.find((x) => x.id === open) || (s && { id: open, number: s.tableNumber });
+  if (!t) return closeM();
   let h;
-  if (!s) h = `<div class="spread"><h2>Table ${t.number}</h2><button onclick="closeM()">✕</button></div><p class="muted">No active QR session.</p><button class="primary" onclick="App.send({t:'seat_table',tableId:'${t.id}'})">🪑 Seat guests manually</button>`;
-  else {
-    const b = s.bill, tip = Math.round(b.sub * (s.check && s.check.tipPct || 0) / 100);
-    h = `<div class="spread"><h2>Table ${t.number} <span class="pill">${App.ago(s.startedAt)}</span></h2><button onclick="closeM()">✕</button></div>
+  if (!s) {
+    const rs = (S.config.reservations || []).filter((r) => r.tableId === t.id).sort((a, b) => a.at - b.at);
+    h = `<div class="spread"><h2>Table ${t.number}</h2><button onclick="closeM()">✕</button></div>${rs.map((r) => `<div class="ocard spread"><span>📅 <b>${new Date(r.at).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</b> · ${App.esc(r.name)} (${r.guests})</span><button class="primary" onclick="App.send({t:'res_seat',id:'${r.id}'})">Seat</button></div>`).join('')}<p class="muted">Free table.</p>
+    <div class="row wrap"><button class="primary" onclick="PX.openPOS('${t.id}')">➕ Take order</button><button class="ghost" onclick="App.send({t:'seat_table',tableId:'${t.id}'})">🪑 Seat guests</button><button class="ghost" onclick="PX.resDlg('${t.id}')">📅 Reserve</button></div>`;
+  } else {
+    const b = s.bill, tip = Math.round(b.net * (s.check && s.check.tipPct || 0) / 100);
+    h = `<div class="spread"><h2>${s.kind ? (s.kind === 'delivery' ? '🛵 ' : '🛍️ ') + App.esc(s.tableNumber) : 'Table ' + t.number} <span class="pill">${App.ago(s.startedAt)}</span></h2><button onclick="closeM()">✕</button></div>
+    ${s.customer && (s.customer.name || s.customer.phone || s.customer.address) ? `<p class="muted">👤 ${App.esc(s.customer.name)} ${s.customer.phone ? `· <a href="tel:${App.esc(s.customer.phone)}">${App.esc(s.customer.phone)}</a>` : ''}${s.customer.address ? '<br>📍 ' + App.esc(s.customer.address) : ''}</p>` : ''}
     <div class="row wrap">${s.guests.map((g) => `<span class="pill" style="font-size:14px">${g.avatar} ${App.esc(g.name)} · ${App.money((b.byGuest[g.id] || {}).total || 0)}</span>`).join('') || '<span class="muted">No guests</span>'}</div>
     ${s.requests.filter((r) => !r.done).map((r) => `<div class="ocard spread" style="margin-top:10px"><span>${RQ[r.type]} · ${App.ago(r.at)}</span><button class="primary" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">Done</button></div>`).join('')}
     ${s.cart.length ? `<p class="muted">🛒 In cart (not sent): ${s.cart.map((c) => c.qty + '× ' + App.esc(c.name)).join(', ')}</p>` : ''}
-    <h3>Orders</h3>${s.orders.map((o) => orderCard(s, o)).join('') || '<p class="muted">No orders yet</p>'}
-    <div class="card"><div class="line"><span>Subtotal</span><span>${App.money(b.sub)}</span></div><div class="line"><span>Service</span><span>${App.money(b.service)}</span></div><div class="line"><span>Tax</span><span>${App.money(b.tax)}</span></div>${s.check ? `<div class="line"><span>Tip (${s.check.tipPct}%)</span><span>${App.money(tip)}</span></div>` : ''}<div class="line"><b>Total</b><b>${App.money(b.total + tip)}</b></div></div>
+    <div class="row wrap" style="margin:10px 0"><button class="primary" onclick="PX.openPOS('${s.tableId}')">➕ Add items</button>${s.kind ? '' : `<button class="ghost" onclick="PX.moveDlg('${s.tableId}')">⇄ Move</button><button class="ghost" onclick="PX.mergeDlg('${s.tableId}')">⧉ Merge</button>`}</div>
+    <h3>Orders</h3>${s.orders.map((o) => orderCard(s, o, true)).join('') || '<p class="muted">No orders yet</p>'}
+    <div class="card"><div class="line"><span>Subtotal</span><span>${App.money(b.sub)}</span></div>${b.discount ? `<div class="line" style="color:var(--ok)"><span>Discount${s.discount && s.discount.reason ? ' (' + App.esc(s.discount.reason) + ')' : ''}</span><span>−${App.money(b.discount)}</span></div>` : ''}<div class="line"><span>Service</span><span>${App.money(b.service)}</span></div><div class="line"><span>Tax</span><span>${App.money(b.tax)}</span></div>${s.check ? `<div class="line"><span>Tip (${s.check.tipPct}%)</span><span>${App.money(tip)}</span></div>` : ''}<div class="line"><b>Total</b><b>${App.money(b.total + tip)}</b></div></div>
     ${s.check ? `<div class="ocard" style="border-color:var(--gold)">🧾 <b>Check requested</b> by ${(s.guests.find((g) => g.id === s.check.by) || {}).avatar || ''} ${App.esc((s.guests.find((g) => g.id === s.check.by) || {}).name || 'guest')}${s.check.split === 'table' ? ` — <b>pays whole table: ${App.money(b.total + tip)}</b>` : ''} · ${s.check.method === 'card' ? '💳 Card' : '💵 Cash'} · split: <b>${s.check.split}</b>
       ${s.check.split === 'custom' && s.check.custom ? '<br>' + s.guests.map((g) => `${g.avatar} ${App.money(s.check.custom[g.id] || 0)}`).join(' · ') : ''}
       ${s.check.split === 'self' ? '<br>' + s.guests.map((g) => `${g.avatar} ${App.money((b.byGuest[g.id] || {}).total || 0)}`).join(' · ') : ''}</div>` : ''}
-    <div class="row wrap" style="margin-top:12px"><button class="primary" onclick="App.send({t:'close_table',tableId:'${s.tableId}'});closeM()">✅ Paid · Clear table</button>${s.check ? '' : '<button class="ghost" onclick="App.send({t:\'close_table\',tableId:\'' + s.tableId + '\'});closeM()">Clear without payment</button>'}</div>
+    <div class="row wrap" style="margin-top:12px">${s.orders.length ? `<button class="primary" onclick="PX.openPay('${s.tableId}')">💳 Pay &amp; discount…</button>` : ''}<button class="ghost" onclick="if(confirm('${s.orders.length ? 'Clear this table WITHOUT payment? The sale will be recorded as unpaid-cleared.' : 'Clear this table?'}')){App.send({t:'close_table',tableId:'${s.tableId}',unpaid:${s.orders.length ? 'true' : 'false'}});closeM()}">${s.orders.length ? 'Clear without payment' : 'Clear table'}</button></div>
     <h3>Timeline</h3>${s.log.slice().reverse().map((l) => `<div class="line muted"><span>${App.esc(l.text)}</span><span>${new Date(l.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>`).join('')}`;
   }
   document.getElementById('modal').innerHTML = `<div class="modal" onclick="if(event.target===this)closeM()"><div class="card">${h}</div></div>`;
