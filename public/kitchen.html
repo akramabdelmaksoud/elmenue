@@ -26,7 +26,7 @@ main { padding:14px 16px 40px; } .grid { display:grid; grid-template-columns:rep
 <body>
 <header><h1>👨‍🍳 Kitchen <span id="clock" class="muted" style="font-weight:500"></span></h1>
 <div class="stn" id="stn"></div><span class="sp"></span>
-<div class="hb"><button class="ghost ib2" id="pushb" onclick="togglePush()" title="Notifications">🔔</button><button class="ghost ib2" id="snd" onclick="toggleSound()" title="Sound">🔕</button><button class="ghost ib2" onclick="openStock()" title="Sold-out items">🚫</button><button class="ghost ib2" onclick="App.toggleLang(event)">🌐</button><button class="ghost ib2" onclick="App.toggleMode(event)">◐</button><button class="ghost ib2" onclick="App.logout()">⏻</button></div></header>
+<div class="hb"><button class="ghost ib2" id="pushb" onclick="togglePush()" title="Notifications">🔔</button><button class="ghost ib2" id="snd" onclick="toggleSound()" title="Sound">🔕</button><button class="ghost ib2" onclick="openStock()" title="Sold-out items">🚫</button><button class="ghost ib2" onclick="App.skinMenu(event)" title="Look">🎨</button><button class="ghost ib2" onclick="App.toggleLang(event)">🌐</button><button class="ghost ib2" onclick="App.toggleMode(event)">◐</button><button class="ghost ib2" onclick="App.logout()">⏻</button></div></header>
 <main><div id="grid" class="grid"></div><div id="done" class="done"></div></main>
 <div id="modal"></div><div id="flash"></div><div id="toastbox"></div>
 <script src="/shared.js"></script>

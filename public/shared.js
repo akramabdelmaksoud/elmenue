@@ -35,7 +35,11 @@ Object.assign(DICT.ar, {
   menuTitle: 'قائمتنا', menuSub: 'طازج ويُحضَّر عند الطلب. شاركوا الطاولة وقسّموا الحساب.', hello: 'مرحبًا', changeName: 'تغيير الاسم', leave: 'عدّل حسابك', theme: 'المظهر', language: 'اللغة', light: 'فاتح', dark: 'داكن', save: 'حفظ', tableFor: 'طاولة', callQ: 'نداء الكابتن', billQ: 'اطلب الحساب', statusReceived: 'تم الاستلام', statusKitchen: 'قيد التحضير', statusServed: 'تم التقديم', nothingFound: 'لا توجد نتائج', tagline: 'اشرب بسعادة، عش بجرأة', taglineSub: 'طعام لذيذ. أجواء رائعة. وأفضل كل يوم.', guests: 'ضيوف', yourOrder: 'اختياراتك', cartEmpty: 'سلتك فارغة - اختر شيئًا لذيذًا!', tapToAdd: 'اضغط + للإضافة إلى الطاولة', sendFor: 'أرسل اختياراتي',
 });
 
+// ?demo=1 (remembered for this tab) runs the whole app on in-browser sample data - see demo.js
+const DEMO = (() => { if (/^\/r\/live-demo(\/|$)/.test(location.pathname)) return true; try { if (new URLSearchParams(location.search).has('demo')) sessionStorage.setItem('demo', '1'); return sessionStorage.getItem('demo') === '1'; } catch { return false; } })();
 const App = {
+  demo: DEMO,
+  loadDemo() { return (App._dl ||= new Promise((res) => { const s = document.createElement('script'); s.src = '/demo.js'; s.onload = () => App.demoReady().then(res); s.onerror = res; document.head.appendChild(s); })); },
   slug: (location.pathname.match(/^\/r\/([^/]+)/) || [])[1] || null, authRole: null,
   config: null, ws: null, lang: null, mode: null, handlers: {},
   tr(k) { return (DICT[App.lang] && DICT[App.lang][k]) || DICT.en[k] || k; },
@@ -82,6 +86,8 @@ const App = {
     App.lang = App.ls('lang') || s.lang || 'en';
     let mode = App.ls('mode');
     if (mode !== 'light' && mode !== 'dark') mode = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    const skin = App.skinChoice(), maison = skin !== 'default';
+    if (maison) mode = skin === 'maison-light' ? 'light' : 'dark';
     const name = s.theme === 'dark' ? 'espresso' : s.theme;
     const lum = (h) => { const n = parseInt(h.slice(1), 16); return ((n >> 16) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114) / 255; };
     let p;
@@ -91,12 +97,18 @@ const App = {
     } else p = { ...(App.PRESETS[name] || App.PRESETS.bloom)[mode] };
     const dark = mode === 'dark';
     const r = document.documentElement, set = (k, v) => r.style.setProperty(k, v);
-    set('--accent', p.accent); set('--accent2', p.accent2); set('--bg', p.bg); set('--card', p.card); set('--text', p.text);
-    set('--muted', dark ? 'rgba(255,255,255,.58)' : 'rgba(0,0,0,.52)');
-    set('--line', dark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.09)');
-    set('--card2', dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.045)');
-    set('--on-accent', lum(p.accent) > 0.6 ? '#111' : '#fff');
-    set('--shadow', dark ? '0 14px 40px -14px rgba(0,0,0,.7)' : '0 14px 40px -16px rgba(60,45,20,.35)');
+    if (maison) {   // the Maison skin brings its own tokens (maison.css); drop any inline palette so they apply
+      ['--accent', '--accent2', '--bg', '--card', '--text', '--muted', '--line', '--card2', '--on-accent', '--shadow'].forEach((k) => r.style.removeProperty(k));
+      r.dataset.theme = dark ? 'maison' : 'maison-light';
+    } else {
+      delete r.dataset.theme;
+      set('--accent', p.accent); set('--accent2', p.accent2); set('--bg', p.bg); set('--card', p.card); set('--text', p.text);
+      set('--muted', dark ? 'rgba(255,255,255,.58)' : 'rgba(0,0,0,.52)');
+      set('--line', dark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.09)');
+      set('--card2', dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.045)');
+      set('--on-accent', lum(p.accent) > 0.6 ? '#111' : '#fff');
+      set('--shadow', dark ? '0 14px 40px -14px rgba(0,0,0,.7)' : '0 14px 40px -16px rgba(60,45,20,.35)');
+    }
     r.dataset.dark = dark ? '1' : '0';
     r.lang = App.lang; r.dir = App.lang === 'ar' ? 'rtl' : 'ltr';
     document.querySelectorAll('[data-i]').forEach((el) => (el.textContent = App.tr(el.dataset.i)));
@@ -111,7 +123,29 @@ const App = {
     const t = document.startViewTransition(apply);
     t.ready.then(() => document.documentElement.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${rad}px at ${x}px ${y}px)`] }, { duration: 700, easing: 'cubic-bezier(.2,.8,.2,1)', pseudoElement: '::view-transition-new(root)' })).catch(() => {});
   },
-  toggleMode(ev) { App.transition(() => { App.ls('mode', App.isDark() ? 'light' : 'dark'); App.applyTheme(); App.handlers.render && App.handlers.render(); }, ev); },
+  // ---- looks: the restaurant's own theme ('default') or Maison dark / light; the pick is remembered per signed-in user
+  skinKey() { return `skin:${App.slug || '_'}:${App.who() || App.authRole || 'guest'}`; },
+  skinChoice() { const v = App.ls(App.skinKey()), d = App.config && App.config.settings && App.config.settings.skin; return ['default', 'maison-dark', 'maison-light'].includes(v) ? v : ['maison-dark', 'maison-light'].includes(d) ? d : 'default'; },
+  setSkin(v, ev) { App.transition(() => { App.ls(App.skinKey(), v); App.applyTheme(); App.handlers.render && App.handlers.render(); }, ev); },
+  skinMenu(ev) {
+    ev && ev.stopPropagation && ev.stopPropagation();
+    const old = document.getElementById('skinmenu'); if (old) return old.remove();
+    const cur = App.skinChoice(), b = ev && ev.currentTarget ? ev.currentTarget.getBoundingClientRect() : { right: innerWidth - 10, bottom: 56, left: 10 };
+    const m = document.createElement('div'); m.id = 'skinmenu';
+    m.style.cssText = `position:fixed;z-index:200;top:${Math.min(b.bottom + 6, innerHeight - 200)}px;${document.dir === 'rtl' || b.left > innerWidth / 2 ? `right:${Math.max(8, innerWidth - b.right)}px` : `left:${Math.max(8, b.left)}px`};min-width:200px;padding:8px;border-radius:16px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:4px`;
+    m.innerHTML = [['maison-dark', '🌙 Maison · dark'], ['maison-light', '☀️ Maison · light'], ['default', '🎨 Restaurant theme']].map(([k, l]) => `<button data-k="${k}" style="text-align:start;${cur === k ? 'outline:2px solid var(--accent)' : ''}">${l}${cur === k ? ' ✓' : ''}</button>`).join('');
+    m.onclick = (e) => { const k = e.target.closest('[data-k]'); if (k) { m.remove(); App.setSkin(k.dataset.k, e); } };
+    document.body.appendChild(m); setTimeout(() => document.addEventListener('click', () => m.remove(), { once: true }), 0);
+  },
+  countUps(root = document) {
+    root.querySelectorAll('[data-count]').forEach((el) => {
+      const to = parseFloat(el.dataset.count) || 0, dec = +(el.dataset.dec || 0), t0 = performance.now(), dur = 1100;
+      const fmt = (n) => n.toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec });
+      const tick = (t) => { const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 4); el.textContent = fmt(to * e) + (el.dataset.suf || ''); if (p < 1) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    });
+  },
+  toggleMode(ev) { const sk = App.skinChoice(); if (sk !== 'default') return App.setSkin(sk === 'maison-dark' ? 'maison-light' : 'maison-dark', ev); App.transition(() => { App.ls('mode', App.isDark() ? 'light' : 'dark'); App.applyTheme(); App.handlers.render && App.handlers.render(); }, ev); },
   toggleLang(ev) { App.transition(() => { App.ls('lang', App.lang === 'ar' ? 'en' : 'ar'); App.applyTheme(); App.handlers.render && App.handlers.render(); }, ev); },
 
   tok(role) { return App.ls(`tok:${App.slug || '_'}:${role || App.authRole}`); },
@@ -126,6 +160,7 @@ const App = {
   // Luxury sign-in for admin (email + password) or captain (PIN). Calls go() once authenticated.
   async gate(role, go) {
     App.authRole = role;
+    if (App.demo) { await App.loadDemo(); return go(); }
     const t = App.tok(role);
     if (t) { const r = await fetch(`/api/r/${App.slug}/me?role=${role}`); if (r.ok) return go(); if (r.status === 404 || r.status === 403) { document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif">This restaurant is unavailable.</div>'; return; } }
     await App.loadAuth();
@@ -147,6 +182,7 @@ const App = {
   },
   connect(joinMsg, handlers) {
     App.handlers = handlers;
+    if (App.demo) { App.loadDemo().then(() => App.demoConnect({ ...joinMsg, slug: App.slug }, handlers)); return; }
     joinMsg = { ...joinMsg, slug: App.slug }; if (joinMsg.role !== 'customer') joinMsg.token = App.tok(joinMsg.role);
     const onMsg = (m) => {
       if (m.t === 'state') { App.state = m; App.config = m.config; App.applyTheme(); handlers.render && handlers.render(m); }
@@ -167,7 +203,7 @@ const App = {
     };
     open();
   },
-  send(o) { if (App.poll) return App.poll.call(o); App.ws && App.ws.readyState === 1 && App.ws.send(JSON.stringify(o)); },
+  send(o) { if (App.demoSend) return App.demoSend(o); if (App.poll) return App.poll.call(o); App.ws && App.ws.readyState === 1 && App.ws.send(JSON.stringify(o)); },
   startPolling(joinMsg, handlers, onMsg) {
     const P = (App.poll = { since: -1, chain: Promise.resolve(), timer: null });
     document.body.classList.remove('offline');
@@ -230,9 +266,10 @@ const App = {
 
 // Route relative /api/... calls to this restaurant, attach the auth token, and retry write conflicts (409)
 (() => {
-  const f = window.fetch.bind(window);
+  const f = window.fetch.bind(window); App.rawFetch = f;
   window.fetch = async (u, o = {}) => {
     const api = typeof u === 'string' && u.startsWith('/api/');
+    if (api && App.demo) { await App.loadDemo(); if (App.demoFetch) return App.demoFetch(u, o); }
     if (api) {
       if (App.slug && !/^\/api\/(r|super|public)\//.test(u)) u = '/api/r/' + App.slug + u.slice(4);
       const tk = App.tok(); if (tk) o = { ...o, headers: { ...(o.headers || {}), Authorization: 'Bearer ' + tk } };
@@ -242,6 +279,14 @@ const App = {
     return r;
   };
 })();
+
+// button ripple (Maison looks)
+document.addEventListener('click', (e) => {
+  if (!(document.documentElement.dataset.theme || '').startsWith('maison')) return;
+  const b = e.target.closest && e.target.closest('button'); if (!b || b.disabled) return;
+  const r = b.getBoundingClientRect(), s = Math.max(r.width, r.height), d = document.createElement('span');
+  d.className = 'm-ripple'; d.style.cssText = `width:${s}px;height:${s}px;left:${e.clientX - r.left - s / 2}px;top:${e.clientY - r.top - s / 2}px`; b.appendChild(d); setTimeout(() => d.remove(), 600);
+});
 
 // make the staff pages installable (needs the service worker); remember the install prompt for a button
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); App.installEvt = e; document.dispatchEvent(new Event('app-installable')); });

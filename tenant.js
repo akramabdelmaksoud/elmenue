@@ -426,16 +426,21 @@ function tick() {
 }
 
 function analytics(days = 7) {
-  const since = Date.now() - days * 86400000;
+  const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+  const since = days === 1 ? d0.getTime() : Date.now() - days * 86400000, span = Date.now() - since, prevSince = since - span;
   const H = db.history.filter((h) => h.closedAt >= since && !h.unpaid);
   const sum = (a, f) => a.reduce((s, x) => s + f(x), 0);
+  const kp = (arr) => { const rev = sum(arr, (h) => h.total); return { revenue: rev, orders: arr.length, avg: arr.length ? rev / arr.length : 0, profit: sum(arr, (h) => sum(h.items, (l) => l.qty * (l.price - l.cost)) - (h.discount || 0)) }; };
+  const kpi = { ...kp(H), prev: kp(db.history.filter((h) => h.closedAt >= prevSince && h.closedAt < since && !h.unpaid)) };
+  const hourly = Array(24).fill(0); H.forEach((h) => { hourly[new Date(h.closedAt).getHours()] += h.total; });
+  const lowStock = db.items.filter((i) => i.stock !== undefined && i.stock !== null && i.stock !== '' && i.stock <= (i.lowAt === undefined ? 5 : i.lowAt)).map((i) => ({ id: i.id, name: i.name, emoji: i.emoji, stock: i.stock })).sort((a, b) => a.stock - b.stock);
   const revenue = {
     gross: sum(H, (h) => h.sub), service: sum(H, (h) => h.service), tax: sum(H, (h) => h.tax), tips: sum(H, (h) => h.tip), total: sum(H, (h) => h.total),
     cash: sum(H, (h) => (h.pay ? h.pay.cash : h.method === 'cash' ? h.total : 0)), card: sum(H, (h) => (h.pay ? h.pay.card : h.method === 'card' ? h.total : 0)), discounts: sum(H, (h) => h.discount || 0), sessions: H.length,
   };
   const itemMap = {}, catMap = {};
   H.forEach((h) => h.items.forEach((l) => {
-    const a = (itemMap[l.name] ||= { name: l.name, qty: 0, revenue: 0, profit: 0 }); a.qty += l.qty; a.revenue += l.qty * l.price; a.profit += l.qty * (l.price - l.cost);
+    const a = (itemMap[l.name] ||= { name: l.name, emoji: (db.items.find((x) => x.id === l.itemId) || {}).emoji, qty: 0, revenue: 0, profit: 0 }); a.qty += l.qty; a.revenue += l.qty * l.price; a.profit += l.qty * (l.price - l.cost);
     const cat = db.categories.find((c) => c.id === l.cat); const cn = cat ? cat.name : 'Other';
     const b = (catMap[cn] ||= { name: cn, revenue: 0, profit: 0 }); b.revenue += l.qty * l.price; b.profit += l.qty * (l.price - l.cost);
   }));
@@ -456,7 +461,7 @@ function analytics(days = 7) {
   const audit = [...db.history.slice(-40).reverse().map((h) => ({ tableNumber: h.tableNumber, startedAt: h.startedAt, orderedAt: h.orderedAt, checkAt: h.checkAt, closedAt: h.closedAt, total: h.total, guests: h.guests, method: h.method })),];
   Object.values(db.sessions).forEach((s) => audit.unshift({ tableNumber: s.tableNumber, startedAt: s.startedAt, orderedAt: s.orders[0]?.at, checkAt: s.check?.at, closedAt: null, total: bill(s).total, guests: s.guests.length, method: s.check?.method || '—', live: true }));
   return {
-    days, revenue, turnover: { avgOccupiedMin: avgOcc, avgEmptyGapMin: avgGap, turnsPerTablePerDay: H.length / Math.max(1, db.tables.length) / days, occupancyPct: occupancy },
+    days, kpi, hourly, lowStock, revenue, turnover: { avgOccupiedMin: avgOcc, avgEmptyGapMin: avgGap, turnsPerTablePerDay: H.length / Math.max(1, db.tables.length) / days, occupancyPct: occupancy },
     topItems: Object.values(itemMap).sort((a, b) => b.qty - a.qty).slice(0, 8),
     categories: Object.values(catMap).sort((a, b) => b.profit - a.profit),
     heat, perTable, daily, audit,

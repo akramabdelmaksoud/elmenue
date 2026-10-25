@@ -46,6 +46,9 @@ h3 { margin:6px 0 10px; }
 .pcl { padding:8px 0; border-bottom:1px dashed var(--line); display:flex; flex-direction:column; gap:6px; } .pcl input { padding:6px 10px; font-size:13px; } .step { display:flex; align-items:center; gap:8px; } .step button { width:30px; height:30px; padding:0; border-radius:10px; }
 .fgrid2 { display:grid; grid-template-columns:1fr 1fr; gap:0 10px; } .field { margin-bottom:8px; } .field label { font-size:12px; color:var(--muted); display:block; margin-bottom:3px; }
 .tickets { padding:4px 16px 14px; display:flex; gap:10px; flex-wrap:wrap; } .tk { cursor:pointer; min-width:150px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px 12px; text-align:start; } .tk b { display:block; } .tk small { color:var(--muted); }
+.zn { margin:6px 0 14px; } .zg { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px; }
+.mt { display:flex; flex-direction:column; align-items:flex-start; gap:3px; text-align:start; padding:12px; border-radius:16px; background:var(--card); border:2px solid var(--line); min-height:104px; position:relative; } .mt b { font-size:22px; font-family:var(--serif,inherit); } .mt .sd { color:var(--muted); letter-spacing:2px; font-size:11px; } .mt .am { font-weight:800; margin-top:auto; }
+.mt.empty { border-style:dashed; opacity:.8; } .mt.reserved { border-color:#7c3aed; } .mt.seated { border-color:#1f9d55; } .mt.ordered { border-color:#e08a1a; } .mt.urgent { border-color:#d62828; animation:pulseRed 1s infinite; } .mt.check { border-color:var(--gold); } .mt.rdy { border-color:#5fd0a0; animation:m-ready 1.8s infinite; }
 .vx { background:transparent; padding:0 6px; color:var(--bad); font-weight:800; }
 #chips, #inl { display:none; }
 #chips { gap:8px; overflow-x:auto; padding:10px 12px 2px; scrollbar-width:none; } #chips::-webkit-scrollbar { display:none; } #chips .none { color:var(--muted); font-size:13px; padding:6px 4px; }
@@ -57,6 +60,7 @@ h3 { margin:6px 0 10px; }
 <header><h1>🧑‍✈️ <span class="ttl">Captain</span> <span id="clock"></span> <span id="who" class="muted" style="font-size:.7em;font-weight:600"></span></h1>
 <div class="hb">
  <button class="ghost" id="inst" style="display:none" onclick="App.installEvt&&App.installEvt.prompt()"><span>⬇️</span><b class="lbl">Install app</b></button>
+ <button class="ghost" id="vw" onclick="toggleView()" title="Map / list by zone"><span id="vwi">☰</span><b class="lbl" id="vwl">List</b></button>
  <button class="ghost" onclick="PX.newTicket('takeaway')" title="Takeaway order"><span>🛍️</span><b class="lbl">Takeaway</b></button>
  <button class="ghost" onclick="PX.newTicket('delivery')" title="Delivery order"><span>🛵</span><b class="lbl">Delivery</b></button>
  <button class="ghost" onclick="PX.resDlg()" title="Reservations"><span>📅</span><b class="lbl">Reservations</b></button>
@@ -65,6 +69,7 @@ h3 { margin:6px 0 10px; }
  <button class="ghost" id="snd" onclick="toggleSound()" aria-label="sound"><span id="sndi">🔕</span><b class="lbl" id="sndl">Sound off</b></button>
  <button class="ghost" id="sim" onclick="App.send({t:'sim',on:!App.state.simulate})"><span>🤖</span><b class="lbl">Simulate guests</b></button>
  <button class="ghost" onclick="App.toggleLang(event)"><span>🌐</span><b class="lbl">EN/ع</b></button>
+ <button class="ghost" onclick="App.skinMenu(event)" title="Look"><span>🎨</span><b class="lbl">Look</b></button>
  <button class="ghost" onclick="App.toggleMode(event)"><span>◐</span></button>
  <button class="ghost" onclick="App.logout()"><span>⏻</span><b class="lbl">Sign out</b></button></div></header>
 <div class="statline" id="stats"></div>
@@ -74,6 +79,8 @@ h3 { margin:6px 0 10px; }
 <div id="bar"></div><div id="sheet"></div><div id="banners"></div><div id="modal"></div><div id="dlg"></div>
 <script src="/shared.js"></script><script src="/pos.js"></script>
 <script>
+let listView = App.ls('cview') === 'list';
+function toggleView() { listView = !listView; App.ls('cview', listView ? 'list' : 'map'); render(); }
 let S = null, open = null, sound = false, actx = null, sheet = null;
 const NEXT = { received: 'kitchen', kitchen: 'served', served: 'closed' };
 const RQ = { waiter: '🙋 Call waiter', water: '💧 Water/napkins', urgent: '⚡ Speed up', bill: '🧾 Check' };
@@ -114,9 +121,16 @@ function stageHTML(cfg) {
     const rv = st === 'reserved' && (S.config.reservations || []).find((r) => r.tableId === t.id && Date.now() >= r.at - 45 * 60000 && Date.now() <= r.at + 20 * 60000);
     const lab = { empty: 'Empty', reserved: rv ? '📅 ' + new Date(rv.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Reserved', seated: 'Browsing', ordered: 'Ordered', urgent: 'URGENT', check: s && s.check ? `${s.check.method === 'card' ? '💳' : '💵'} ${s.check.split}` : 'Check' }[st];
     const bd = s ? [s.requests.some((r) => !r.done && r.type === 'waiter') && '🙋', s.requests.some((r) => !r.done && r.type === 'water') && '💧', s.requests.some((r) => !r.done && r.type === 'urgent') && '⚡', s.check && '🧾', s.idle && '💤'].filter(Boolean).join('') : '';
-    return `<div class="fl-t ${t.shape} ${st}" style="left:${p.fx / F.cols * 100}%;top:${p.fy / F.rows * 100}%;width:${p.fw / F.cols * 100}%;height:${p.fh / F.rows * 100}%;--m:${Math.min(p.fw, p.fh)}" onclick="openT('${t.id}')">${App.chairs(t.shape, t.seats)}<span class="bd">${bd}</span><span class="n">${t.number}</span><span class="av">${s ? App.esc(guestsOf(s).slice(0, 12)) : ''}</span><span class="s">${lab}${s ? ' · ' + mins(s.startedAt) : ' · ' + t.seats + ' seats'}</span><span class="m">${s ? mins(s.startedAt) : ''}</span></div>`;
+    return `<div class="fl-t ${t.shape} ${st}${s && s.orders.some((o) => o.status === 'served') ? ' rdy' : ''}" style="left:${p.fx / F.cols * 100}%;top:${p.fy / F.rows * 100}%;width:${p.fw / F.cols * 100}%;height:${p.fh / F.rows * 100}%;--m:${Math.min(p.fw, p.fh)}" onclick="openT('${t.id}')">${App.chairs(t.shape, t.seats)}<span class="bd">${bd}</span><span class="n">${t.number}</span><span class="av">${s ? App.esc(guestsOf(s).slice(0, 12)) : ''}</span><span class="s">${lab}${s ? ' · ' + mins(s.startedAt) : ' · ' + t.seats + ' seats'}</span><span class="m">${s ? mins(s.startedAt) : ''}</span></div>`;
   }).join('');
   return decor + tables;
+}
+function zonesHTML(cfg) {
+  const lbl = { empty: 'Free', reserved: 'Reserved', seated: 'Browsing', ordered: 'Ordered', urgent: 'URGENT', check: 'Check' };
+  return [...new Set(cfg.tables.map((t) => t.zone || 'Main'))].map((z) => `<div class="zn"><h3>${App.esc(z)}</h3><div class="zg">${cfg.tables.filter((t) => (t.zone || 'Main') === z).map((t) => {
+    const s = S.sessions[t.id], st = S.states[t.id], rdy = s && s.orders.some((o) => o.status === 'served');
+    return `<button class="mt ${st}${rdy ? ' rdy' : ''}" onclick="openT('${t.id}')"><b>${t.number}</b><span class="sd">${'•'.repeat(Math.min(t.seats, 10))}</span><span>${rdy ? '✅ Ready' : lbl[st]}</span><span class="am">${s ? App.money(s.bill.total) : t.seats + ' seats'}</span>${s ? `<small class="muted">${mins(s.startedAt)}</small>` : ''}</button>`;
+  }).join('')}</div></div>`).join('');
 }
 function reqHTML(reqs) {
   return `<h3>🔔 Requests (${reqs.length})</h3>${reqs.map(({ s, r }) => `<div class="ocard spread"><div><b>T${s.tableNumber}</b> ${RQ[r.type]}<div class="muted" style="font-size:12px">${App.ago(r.at)} ago</div></div><button class="primary" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">Done</button></div>`).join('') || '<p class="muted">No pending requests</p>'}`;
@@ -136,7 +150,10 @@ function render() {
   document.title = (reqs.length ? `(${reqs.length}) ` : '') + 'Captain';
   const stage = document.getElementById('stage');
   stage.style.setProperty('--cols', F.cols); stage.style.setProperty('--rows', F.rows); stage.style.aspectRatio = `${F.cols} / ${F.rows}`;
-  stage.innerHTML = stageHTML(cfg);
+  stage.style.display = listView ? 'none' : ''; document.getElementById('vwi').textContent = listView ? '🗺️' : '☰'; document.getElementById('vwl').textContent = listView ? 'Map' : 'List';
+  let zl = document.getElementById('zones'); if (!zl) { zl = document.createElement('div'); zl.id = 'zones'; stage.after(zl); }
+  zl.style.display = listView ? '' : 'none'; zl.innerHTML = listView ? zonesHTML(cfg) : '';
+  if (!listView) stage.innerHTML = stageHTML(cfg);
   document.getElementById('side').innerHTML = reqHTML(reqs) + ordHTML(orders);
   // phone: pending requests as one-tap chips + bottom bar
   const urgent = reqs.some(({ r }) => r.type === 'urgent') || sessions.some((s) => s.check);

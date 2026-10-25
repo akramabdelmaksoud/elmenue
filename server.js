@@ -189,6 +189,9 @@ app.use('/vendor/chart.js', express.static(path.join(__dirname, 'node_modules/ch
 if (!SINGLE) app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'platform.html')));
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 const page = (f) => (req, res) => res.sendFile(path.join(__dirname, 'public', f));
+// the order engine is plain JS, so the in-browser demo can run the exact same code with nothing saved
+app.get('/engine/:f', (req, res, next) => ['tenant.js', 'data.js'].includes(req.params.f) ? res.type('js').sendFile(path.join(__dirname, req.params.f)) : next());
+app.get('/demo', page('demo.html'));
 
 if (!SINGLE) app.get('/super', page('super.html'));
 app.get('/r/:slug', page('tenant.html'));
@@ -387,6 +390,10 @@ A('post', '/items/:id/adjust', (req, res) => {
   bc(req); res.json({ id: i.id, stock: next });
 });
 A('get', '/stock-log', (req, res) => res.json({ log: req.tenant.rec.stockLog || [] }));
+A('get', '/orders', async (req, res) => {
+  const [f, t2] = range(req.query), hist = STATELESS ? await store.getHist(req.tenant.rec.id) : req.tenant.db.history;
+  res.json({ orders: hist.filter((h) => h.closedAt >= f && h.closedAt <= t2).slice(-400).reverse().map(({ log, ...h }) => h) });
+});
 A('get', '/receipts', async (req, res) => { const hist = STATELESS ? await store.getHist(req.tenant.rec.id) : req.tenant.db.history; res.json({ receipts: hist.slice(-40).reverse().map(({ log, ...h }) => h) }); });
 async function reportFor(t, from, to) {
   const hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history;
@@ -493,6 +500,7 @@ A('put', '/layout', (req, res) => {
     const t = d.tables.find((x) => x.id === u.id); if (!t) return;
     for (const k of ['fx', 'fy', 'fw', 'fh']) if (Number.isFinite(+u[k])) t[k] = snap(u[k]);
     if (['round', 'square', 'long'].includes(u.shape)) t.shape = u.shape;
+    if (typeof u.zone === 'string') t.zone = u.zone.trim().slice(0, 20);
     if (Number.isFinite(+u.seats)) t.seats = Math.max(1, Math.min(20, Math.round(+u.seats)));
   });
   if (Array.isArray(b.decor)) {

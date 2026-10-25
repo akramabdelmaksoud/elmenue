@@ -34,6 +34,9 @@ Run this once in Supabase's SQL editor:
 - **Admin** (`/admin`): menu (sold-out, dietary tags, timed categories, stations), floor plan, staff PIN accounts + performance, reports with Excel export and full backup, theme, QR printing, security settings.
 - **Staff ordering / cashier** (captain screen): take orders for any table, takeaway and delivery tickets, per-item notes, discounts (captains are capped, owner is not), tip, cash / card / cash+card with change, printable 80 mm receipt or bill, remove items with a reason (waste is tracked), move or merge tables, reservations shown on the floor map.
 - **Inventory** (Admin → Inventory): optional portion counts per item; orders take from the count, items go sold-out at zero, restock / waste / count with a movement log, low-stock alerts. Reports add discounts, voids, estimated profit, sales by staff and by order type, and receipt reprints.
+- **Looks**: the restaurant theme plus **Maison** (dark / light: Playfair + Inter, glass panels, gold accents, animated orbs and charts). The 🎨 button switches it on every screen and the choice is remembered per signed-in user; Admin → Theme sets the default for new visitors. Maison tokens live on `html[data-theme="maison"]` / `"maison-light"` in `public/maison.css`, so the other themes are untouched.
+- **Insights & orders**: Admin → Analytics starts with revenue / orders / average ticket / profit against the previous period, an area chart, category donut, best sellers and low stock; Admin → Orders is the day-by-day ticket history with reprint and CSV export. Captain screen can switch between the floor map and a list grouped by table zone (set zones in the floor-plan editor).
+- **Live demo**: open `/demo` — the whole app runs in your browser on sample data (same engine, nothing saved, tabs share it), so you can show it to a client without a database.
 - Empty tables are freed automatically; tables with orders but no activity are flagged 💤.
 
 ## Push notifications

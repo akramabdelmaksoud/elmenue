@@ -22,8 +22,8 @@ table { width:100%; border-collapse:collapse; } td, th { padding:6px; text-align
 </style></head>
 <body><div class="shell"><aside>
 <h2>⚙️ Admin</h2>
-<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="inventory">📦 Inventory</button><button data-t="floor">🪑 Floor plan</button><button data-t="staff">👥 Staff</button><button data-t="reports">📈 Reports</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button>
-<span style="flex:1"></span><button onclick="App.toggleLang()">🌐 EN / عربي</button><button onclick="App.toggleMode()">◐ Light / Dark</button><button onclick="App.logout()">⏻ Sign out</button></aside>
+<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="inventory">📦 Inventory</button><button data-t="floor">🪑 Floor plan</button><button data-t="staff">👥 Staff</button><button data-t="orders">🧾 Orders</button><button data-t="reports">📈 Reports</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button>
+<span style="flex:1"></span><button onclick="App.toggleLang()">🌐 EN / عربي</button><button onclick="App.skinMenu(event)">🎨 Look (Maison)</button><button onclick="App.toggleMode(event)">◐ Light / Dark</button><button onclick="App.logout()">⏻ Sign out</button></aside>
 <main id="main"></main></div>
 <script src="/vendor/sortable.js"></script><script src="/vendor/chart.js"></script><script src="/shared.js"></script>
 <script>
@@ -40,7 +40,7 @@ function render(m, force) {
   if (key === cfgKey && !force) { if (tab === 'analytics') {} return; }   // ignore live-session noise
   cfgKey = key;
   const focus = document.activeElement; if (focus && focus.closest('#main') && focus.tagName === 'INPUT' && !force) return;  // don't clobber typing
-  ({ analytics, menu, inventory: inventoryTab, floor: floorTab, staff: staffTab, reports: reportsTab, theme, qr, audit })[tab]();
+  ({ analytics, menu, inventory: inventoryTab, orders: ordersTab, floor: floorTab, staff: staffTab, reports: reportsTab, theme, qr, audit })[tab]();
 }
 App.handlers.render = (m) => render(m, true);
 
@@ -73,7 +73,7 @@ function fpInspector() {
   const step = (label, key, min) => `<div class="fp-step"><span>${label}</span><div class="c"><button onclick="fpAdj('${key}',-1,${min})">−</button><b>${it[key]}</b><button onclick="fpAdj('${key}',1,${min})">+</button></div></div>`;
   if (!it) { box.innerHTML = `<h3>Floor plan</h3><p class="muted">Tap a table or decor item to edit it.</p><p class="muted" style="font-size:13px">${FP.L.tables.length} tables · ${FP.L.tables.reduce((n, t) => n + t.seats, 0)} seats<br>Changes save automatically.</p>`; return; }
   if (kind === 't') box.innerHTML = `<h3>Table ${it.number}</h3><div class="muted" style="font-size:12px">Shape</div><div class="seg">${['round', 'square', 'long'].map((s) => `<button class="${it.shape === s ? 'on' : ''}" onclick="fpShape('${s}')">${{ round: '⚪ Round', square: '⬜ Square', long: '▭ Long' }[s]}</button>`).join('')}</div>
-    ${step('Seats', 'seats', 1)}${step('Width', 'fw', 2)}${step('Height', 'fh', 2)}<button class="ghost" style="width:100%;margin-top:12px" onclick="fpDelete()">🗑 Remove table</button>`;
+    <div class="muted" style="font-size:12px;margin-top:10px">Zone (Main, Terrace, VIP…)</div><input value="${App.esc(it.zone || '')}" maxlength="20" placeholder="Main" list="fpz" oninput="fpZone(this.value)" style="margin:6px 0 4px"><datalist id="fpz">${[...new Set(FP.L.tables.map((x) => x.zone).filter(Boolean))].map((z) => `<option value="${App.esc(z)}">`).join('')}</datalist>${step('Seats', 'seats', 1)}${step('Width', 'fw', 2)}${step('Height', 'fh', 2)}<button class="ghost" style="width:100%;margin-top:12px" onclick="fpDelete()">🗑 Remove table</button>`;
   else box.innerHTML = `<h3>${DEC[it.type][0]} ${DEC[it.type][1]}</h3><div class="muted" style="font-size:12px">Label</div><input value="${App.esc(it.label || '')}" maxlength="20" oninput="fpLabel(this.value)" style="margin:6px 0 10px">${step('Width', 'fw', 1)}${step('Height', 'fh', 1)}<button class="ghost" style="width:100%;margin-top:12px" onclick="fpDelete()">🗑 Remove</button>`;
 }
 function fpBind() {
@@ -107,6 +107,7 @@ async function fpSave() {
 function fpTouch() { FP.dirty = true; FP.v++; fpDraw(); fpSaveSoon(); }
 function fpAdj(key, d, min) { const it = fpItem(...FP.sel.split(':')); if (!it) return; const F = App.floor(); const lim = key === 'seats' ? 20 : key === 'fw' ? F.cols - it.fx : F.rows - it.fy; it[key] = clampN(it[key] + d, min, lim); if (it.shape === 'round' && (key === 'fw' || key === 'fh')) it.fw = it.fh = it[key]; fpTouch(); }
 function fpShape(s) { const it = fpItem(...FP.sel.split(':')); if (!it) return; it.shape = s; if (s === 'round') it.fw = it.fh = Math.max(2, Math.round((it.fw + it.fh) / 2)); if (s === 'long' && it.fw <= it.fh) it.fw = Math.min(App.floor().cols - it.fx, it.fh + 2); fpTouch(); }
+function fpZone(v) { const it = fpItem(...FP.sel.split(':')); if (!it) return; it.zone = v; FP.dirty = true; FP.v++; fpSaveSoon(); }
 function fpLabel(v) { const it = fpItem(...FP.sel.split(':')); if (!it) return; it.label = v; FP.dirty = true; FP.v++; fpSaveSoon(); const el = $(`#fp [data-k="${FP.sel}"] > div`); if (el) el.innerHTML = (App.decorIcon[it.type] || '▬') + (v ? `<small>${App.esc(v)}</small>` : ''); }
 function fpFree(w, h) { const F = App.floor(), all = [...FP.L.tables, ...FP.L.decor]; for (let y = 0; y <= F.rows - h; y++) for (let x = 0; x <= F.cols - w; x++) if (!all.some((o) => x < o.fx + o.fw && x + w > o.fx && y < o.fy + o.fh && y + h > o.fy)) return { fx: x, fy: y }; return { fx: 0, fy: 0 }; }
 async function refreshCfg() { App.config = await api('GET', '/api/config'); cfgKey = ''; render(App.state, true); }
@@ -261,7 +262,7 @@ function theme() {
    <label class="muted">شعار الصفحة الرئيسية (AR)</label><input dir="rtl" value="${App.esc(s.tagline_ar || '')}" onchange="api('POST','/api/settings',{tagline_ar:this.value})">
    <label class="muted">الاسم (AR)</label><input dir="rtl" value="${App.esc(s.name_ar)}" onchange="api('POST','/api/settings',{name_ar:this.value})">
    <div class="grid" style="margin-top:8px"><div><label class="muted">Tax %</label><input type="number" value="${s.tax}" onchange="api('POST','/api/settings',{tax:+this.value})"></div><div><label class="muted">Service %</label><input type="number" value="${s.service}" onchange="api('POST','/api/settings',{service:+this.value})"></div><div><label class="muted">Currency</label><input value="${App.esc(s.currency)}" onchange="api('POST','/api/settings',{currency:this.value})"></div></div></div></div>`;
-  accountCard(); securityCard(); receiptCard();
+  accountCard(); securityCard(); receiptCard(); lookCard();
 }
 function securityCard() {
   const s = App.config.settings, el = document.createElement('div'); el.className = 'card'; el.style.marginTop = '14px';
@@ -298,13 +299,15 @@ async function analytics() {
   A = await api('GET', '/api/analytics?days=' + days);
   const r = A.revenue, tv = A.turnover;
   const kpi = (l, v) => `<div class="card kpi"><span>${l}</span><b>${v}</b></div>`;
-  $('#main').innerHTML = `<div class="spread"><h1>📊 Analytics</h1><div class="row">${[1, 7, 30].map(d => `<button class="${days === d ? 'sel' : ''}" onclick="days=${d};cfgKey='';render(App.state,true)">${d === 1 ? 'Today+' : d + ' days'}</button>`).join('')}</div></div>
+  $('#main').innerHTML = `<div class="spread"><h1>📊 Analytics</h1><div class="row">${[1, 7, 30].map(d => `<button class="${days === d ? 'sel' : ''}" onclick="days=${d};cfgKey='';render(App.state,true)">${d === 1 ? 'Today' : d + ' days'}</button>`).join('')}</div></div>
+  ${insights(A)}<h3 style="margin:22px 0 4px">Details</h3>
   <div class="grid">${kpi('Gross sales', App.money(r.gross))}${kpi('Taxes collected', App.money(r.tax))}${kpi('Service charges', App.money(r.service))}${kpi('Tips', App.money(r.tips))}${kpi('Cash / Card', App.money(r.cash) + '<br><small>' + App.money(r.card) + '</small>')}${kpi('Table sessions', r.sessions)}</div>
   <div class="grid" style="margin-top:14px">${kpi('Avg. table occupied', Math.round(tv.avgOccupiedMin) + ' min')}${kpi('Avg. empty gap', Math.round(tv.avgEmptyGapMin) + ' min')}${kpi('Turnover / table / day', tv.turnsPerTablePerDay.toFixed(1) + '×')}${kpi('Occupancy', tv.occupancyPct.toFixed(0) + '%')}</div>
   <div class="row2"><div class="card"><h3>Revenue per day</h3><canvas id="c1"></canvas></div><div class="card"><h3>Revenue breakdown</h3><canvas id="c2"></canvas></div>
   <div class="card"><h3>Top-selling items (qty)</h3><canvas id="c3"></canvas></div><div class="card"><h3>Category revenue vs profit</h3><canvas id="c4"></canvas></div></div>
   <div class="card" style="margin-top:14px;overflow:auto"><h3>Rush hours heatmap (session starts)</h3><div id="heat" style="min-width:640px"></div></div>
   <div class="card" style="margin-top:14px"><h3>Table usage</h3><canvas id="c5" height="80"></canvas></div>`;
+  App.countUps($('#main')); requestAnimationFrame(() => setTimeout(() => document.querySelectorAll('.mi-hbar .fl').forEach((e) => (e.style.width = e.dataset.w + '%')), 350));
   charts.forEach(c => c.destroy()); charts = [];
   const cs = getComputedStyle(document.documentElement), ac = cs.getPropertyValue('--accent').trim(), ac2 = cs.getPropertyValue('--accent2').trim(), tx = cs.getPropertyValue('--text').trim();
   Chart.defaults.color = tx; Chart.defaults.borderColor = 'rgba(128,128,128,.2)';
@@ -320,6 +323,61 @@ async function analytics() {
   let h = '<div class="heat"><span></span>' + Array.from({ length: 24 }, (_, i) => `<span style="text-align:center">${i}</span>`).join('');
   A.heat.forEach((row, d) => { h += `<span>${D[d]}</span>` + row.map((v, hr) => `<i title="${D[d]} ${hr}:00 — ${v}" style="background:${v ? ac : 'var(--card2)'};opacity:${v ? 0.2 + 0.8 * v / max : 1}">${v || ''}</i>`).join(''); });
   $('#heat').innerHTML = h + '</div>';
+}
+
+/* ---------------- Insights block (period comparison, area chart, donut, best sellers, low stock) ---------------- */
+function insights(A) {
+  const k = A.kpi, P = k.prev, COL = ['#d9b36c', '#6aa7ff', '#5fd0a0', '#f07178', '#b48cf2', '#f0b95b'];
+  const K = (l, v, dec, p, i) => { const d = p ? ((v - p) / p) * 100 : null; return `<div class="card mi-kpi"><div class="l">${l}</div><div class="v" data-count="${v}" data-dec="${dec}">0</div><div class="d">${d == null ? '<span class="muted">no earlier data to compare</span>' : `<span class="${d >= 0 ? 'mi-up' : 'mi-down'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1)}% vs previous period</span>`}</div></div>`; };
+  let keys, vals;
+  if (days === 1) { keys = [...Array(24).keys()]; vals = A.hourly.map(Math.round); }
+  else { keys = []; for (let i = days - 1; i >= 0; i--) keys.push(new Date(Date.now() - i * 864e5).toISOString().slice(0, 10)); vals = keys.map((x) => Math.round(A.daily[x] || 0)); }
+  const W = 640, H = 210, max = Math.max(1, ...vals), px = (i) => 20 + (i * (W - 40)) / Math.max(1, keys.length - 1), py = (v) => H - 24 - (v / max) * (H - 50);
+  const path = vals.map((v, i) => `${i ? 'L' : 'M'}${px(i).toFixed(1)},${py(v).toFixed(1)}`).join(' ');
+  const cats = A.categories.filter((c) => c.revenue > 0), cTot = cats.reduce((n, c) => n + c.revenue, 0) || 1; let off = 0;
+  const top = A.topItems.slice().sort((a, b) => b.revenue - a.revenue).slice(0, 8), tMax = (top[0] && top[0].revenue) || 1;
+  const area = k.orders ? `<svg class="mi-area" viewBox="0 0 ${W} ${H}" style="width:100%"><defs><linearGradient id="mig" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".45"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    ${[0, .5, 1].map((f) => `<line x1="20" x2="${W - 20}" y1="${py(max * f)}" y2="${py(max * f)}" stroke="var(--line)"/><text x="20" y="${py(max * f) - 4}" font-size="10" fill="var(--muted)">${Math.round(max * f)}</text>`).join('')}
+    <path class="fill" d="${path} L${px(keys.length - 1)},${H - 24} L${px(0)},${H - 24}Z"/><path class="line" pathLength="1" d="${path}"/>
+    ${vals.map((v, i) => (v ? `<circle class="dot" cx="${px(i)}" cy="${py(v)}" r="3.5"><title>${days === 1 ? keys[i] + ':00' : keys[i]} · ${App.money(v)}</title></circle>` : '')).join('')}
+    ${keys.map((x, i) => (keys.length <= 12 || i % Math.ceil(keys.length / 8) === 0 ? `<text x="${px(i)}" y="${H - 6}" font-size="10" text-anchor="middle" fill="var(--muted)">${days === 1 ? x + 'h' : String(x).slice(8)}</text>` : '')).join('')}</svg>` : '<p class="muted" style="padding:30px 0;text-align:center">No sales in this period yet</p>';
+  return `<div class="mi-kpis mi-stag">${K('Revenue', k.revenue, 2, P.revenue, 0)}${K('Orders', k.orders, 0, P.orders, 1)}${K('Average ticket', k.avg, 2, P.avg, 2)}${K('Est. profit', k.profit, 2, P.profit, 3)}</div>
+  <div class="row2"><div class="card"><h3>${days === 1 ? 'Revenue by hour' : 'Revenue by day'}</h3>${area}</div>
+   <div class="card"><h3>Sales by category</h3><div class="row wrap" style="gap:24px;align-items:center"><svg class="mi-donut" viewBox="0 0 42 42" width="160" height="160"><circle cx="21" cy="21" r="15.9155" stroke="var(--card2)" style="animation:none;stroke-dasharray:100 0"/>
+    ${cats.map((c, i) => { const len = (c.revenue / cTot) * 100, x = `<circle cx="21" cy="21" r="15.9155" pathLength="100" stroke="${COL[i % 6]}" style="--i:${i};--len:${len.toFixed(2)};stroke-dashoffset:${(-off).toFixed(2)}"/>`; off += len; return x; }).join('')}</svg>
+    <div class="mi-legend" style="flex:1;min-width:140px">${cats.map((c, i) => `<div><i style="background:${COL[i % 6]}"></i>${App.esc(c.name)} <b style="float:inline-end">${((c.revenue / cTot) * 100).toFixed(0)}%</b></div>`).join('') || '<span class="muted">-</span>'}</div></div></div></div>
+  <div class="row2" style="margin-top:14px"><div class="card"><h3>Best sellers</h3>${top.map((x) => `<div class="mi-hbar"><span>${App.esc(x.emoji || '🍽️')} ${App.esc(x.name)}</span><div class="tr"><div class="fl" data-w="${(x.revenue / tMax) * 100}"></div></div><b style="text-align:end">${Math.round(x.revenue)}</b></div>`).join('') || '<p class="muted">No data yet</p>'}</div>
+   <div class="card"><h3>Low stock</h3>${A.lowStock.length ? A.lowStock.map((i) => `<div class="spread" style="padding:7px 0;border-bottom:1px dashed var(--line)"><span>${App.esc(i.emoji || '')} ${App.esc(i.name)}</span><span class="mi-pill" style="color:${i.stock <= 0 ? 'var(--bad)' : 'var(--warn)'}">${i.stock <= 0 ? 'out' : i.stock + ' left'}</span></div>`).join('') : '<p style="color:var(--ok)">Everything is well stocked ✓</p>'}<p class="muted" style="font-size:12px;margin-bottom:0">Turn on stock counting per item in Inventory.</p></div></div>`;
+}
+
+/* ---------------- Orders history ---------------- */
+const ld = (d = new Date()) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+let OD = { day: ld(), list: [] };
+async function ordersTab() {
+  const f = new Date(OD.day + 'T00:00:00').getTime(), t = f + 864e5 - 1;
+  $('#main').innerHTML = '<h1>🧾 Orders</h1><div class="skeleton" style="height:220px"></div>';
+  OD.list = (await api('GET', `/api/orders?from=${f}&to=${t}`)).orders || [];
+  const paid = OD.list.filter((o) => !o.unpaid), rev = paid.reduce((n, o) => n + o.total, 0), M = App.money;
+  $('#main').innerHTML = `<div class="spread wrap"><h1>🧾 Orders</h1><div class="row wrap noprint"><button class="ghost" onclick="OD.day=ld(new Date(new Date(OD.day).getTime()-864e5));ordersTab()">◀</button><input type="date" style="width:160px" value="${OD.day}" onchange="OD.day=this.value||ld();ordersTab()"><button class="ghost" onclick="OD.day=ld(new Date(new Date(OD.day).getTime()+864e5));ordersTab()">▶</button><button class="primary" onclick="odCsv()">⬇ CSV</button></div></div>
+  <p class="muted">${paid.length} paid · ${M(rev)}${OD.list.length - paid.length ? ` · ${OD.list.length - paid.length} cleared unpaid` : ''}</p><div class="mi-stag">${OD.list.map((o, i) => `<details class="card" style="--i:${Math.min(i, 12)};margin-bottom:10px;padding:12px 16px"><summary style="cursor:pointer;display:flex;gap:12px;align-items:center;list-style:none;flex-wrap:wrap">
+    <b class="serif" style="font-size:17px">${o.kind && o.kind !== 'table' ? ({ takeaway: '🛍️', delivery: '🛵' }[o.kind] || '') + ' ' : 'Table '}${App.esc(o.tableNumber)}</b><span class="muted" style="flex:1">${new Date(o.closedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${o.closedBy ? ' · ' + App.esc(o.closedBy) : ''}</span>
+    <span class="mi-pill" style="color:${o.unpaid ? 'var(--bad)' : 'var(--ok)'}">${o.unpaid ? 'cleared unpaid' : App.esc(o.method)}</span><b>${M(o.total)}</b></summary>
+    <table style="margin-top:8px">${o.items.map((l) => `<tr><td>${l.qty}× ${App.esc(l.name)}</td><td style="text-align:end">${M(l.qty * l.price)}</td></tr>`).join('')}
+    ${o.discount ? `<tr><td class="muted">Discount ${App.esc(o.discountNote || '')}</td><td style="text-align:end">−${M(o.discount)}</td></tr>` : ''}<tr><td class="muted">Service + tax</td><td style="text-align:end">${M(o.service + o.tax)}</td></tr>${o.tip ? `<tr><td class="muted">Tip</td><td style="text-align:end">${M(o.tip)}</td></tr>` : ''}</table>
+    ${(o.voids || []).length ? `<p class="muted" style="font-size:12px">Removed: ${o.voids.map((v) => v.qty + '× ' + App.esc(v.name) + (v.reason ? ' (' + App.esc(v.reason) + ')' : '')).join(', ')}</p>` : ''}
+    <div class="row wrap" style="margin-top:8px"><button class="ghost" onclick="odPrint(${i})">🖨 Reprint</button></div></details>`).join('') || '<div class="card" style="text-align:center"><p class="muted">No orders on this day.</p></div>'}</div>`;
+}
+function odPrint(i) { const h = OD.list[i]; if (h) App.printHTML(App.receiptHTML({ label: h.tableNumber, kind: h.kind, customer: h.customer, at: h.closedAt, items: h.items, gross: h.sub, discount: h.discount, discountNote: h.discountNote, service: h.service, tax: h.tax, tip: h.tip, total: h.total, method: h.unpaid ? 'cleared unpaid' : h.method, pay: h.pay, by: h.closedBy })); }
+function odCsv() {
+  const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`, rows = [['table', 'type', 'closed', 'payment', 'item', 'qty', 'unit_price', 'line_total', 'order_total', 'closed_by'].join(',')];
+  OD.list.forEach((o) => o.items.forEach((l) => rows.push([o.tableNumber, o.kind || 'table', new Date(o.closedAt).toISOString(), o.unpaid ? 'unpaid' : o.method, l.name, l.qty, l.price, l.qty * l.price, o.total, o.closedBy || ''].map(q).join(','))));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' })); a.download = `orders_${OD.day}.csv`; a.click();
+}
+function lookCard() {
+  const s = App.config.settings, el = document.createElement('div'); el.className = 'card'; el.style.marginTop = '14px';
+  el.innerHTML = `<h3>✨ Look</h3><p class="muted" style="margin-top:0">Pick the look new visitors see. Everyone can still choose their own with the 🎨 button, and it is remembered for them.</p>
+   <select style="max-width:280px" onchange="api('POST','/api/settings',{skin:this.value})">${[['default', 'Restaurant theme (below)'], ['maison-dark', 'Maison · dark'], ['maison-light', 'Maison · light']].map(([k, l]) => `<option value="${k}" ${(s.skin || 'default') === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+  $('#main').appendChild(el);
 }
 
 /* ---------------- Audit ---------------- */
