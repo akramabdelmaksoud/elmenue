@@ -461,6 +461,18 @@ A('post', '/items/:id/image', upload.single('image'), async (req, res) => {
   i.img = `/api/r/${req.params.slug}/img/${key}`; bc(req); res.json({ ok: 1 });
 });
 A('delete', '/items/:id/image', (req, res) => { const i = req.tenant.db.items.find((x) => x.id === req.params.id); if (i) i.img = ''; bc(req); res.json({ ok: 1 }); });
+const putImage = async (req, res, label) => {
+  if (!req.file) return res.status(400).json({ error: 'bad request' });
+  if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(req.file.mimetype)) return res.status(400).json({ error: 'Unsupported image type' });
+  if (req.file.size > 700 * 1024) return res.status(400).json({ error: 'Image too large (max 700KB)' });
+  const key = `${req.tenant.rec.id}-${label}-${Date.now().toString(36)}`;
+  await store.putBlob(key, `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`);
+  return `/api/r/${req.params.slug}/img/${key}`;
+};
+A('post', '/categories/:id/image', upload.single('image'), async (req, res) => { const c = req.tenant.db.categories.find((x) => x.id === req.params.id); if (!c) return res.status(404).json({ error: 'not found' }); const u = await putImage(req, res, 'c' + c.id); if (!u) return; c.img = u; bc(req); res.json({ ok: 1 }); });
+A('delete', '/categories/:id/image', (req, res) => { const c = req.tenant.db.categories.find((x) => x.id === req.params.id); if (c) c.img = ''; bc(req); res.json({ ok: 1 }); });
+A('post', '/hero-image', upload.single('image'), async (req, res) => { const u = await putImage(req, res, 'hero'); if (!u) return; req.tenant.db.settings.heroImg = u; bc(req); res.json({ ok: 1 }); });
+A('delete', '/hero-image', (req, res) => { req.tenant.db.settings.heroImg = ''; bc(req); res.json({ ok: 1 }); });
 app.get(`${R}/img/:key`, async (req, res) => {
   const d = await store.getBlob(req.params.key); const m = d && /^data:([\w/+.-]+);base64,(.*)$/.exec(d);
   if (!m) return res.status(404).end();
@@ -512,6 +524,12 @@ A('put', '/layout', (req, res) => {
 });
 A('put', '/tables/:id', (req, res) => { const t = req.tenant.db.tables.find((x) => x.id === req.params.id); if (t) Object.assign(t, req.body, { id: t.id }); bc(req); res.json(t); });
 A('delete', '/tables/:id', (req, res) => { const d = req.tenant.db; d.tables = d.tables.filter((x) => x.id !== req.params.id); delete d.sessions[req.params.id]; bc(req); res.json({ ok: 1 }); });
+A('post', '/stats/clear', (req, res) => {   // reset one statistics block (or all); sales records and receipts are never touched
+  const d = req.tenant.db, k = String(req.body.key || ''); d.statsReset ||= {};
+  if (!['all', 'kpi', 'trend', 'cats', 'best', 'details', 'heat', 'tables'].includes(k)) return res.status(400).json({ error: 'unknown block' });
+  if (req.body.restore) { if (k === 'all') d.statsReset = {}; else delete d.statsReset[k]; } else d.statsReset[k] = Date.now();
+  bc(req); res.json({ ok: 1 });
+});
 A('get', '/analytics', async (req, res) => { if (STATELESS) req.tenant.db.history = await store.getHist(req.tenant.rec.id); res.json(req.tenant.analytics(+req.query.days || 7)); });
 
 // ---------- Polling transport (used when websockets are unavailable, e.g. Vercel) ----------

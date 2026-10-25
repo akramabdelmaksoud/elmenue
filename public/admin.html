@@ -19,6 +19,7 @@ table { width:100%; border-collapse:collapse; } td, th { padding:6px; text-align
 .sw { width:44px; height:44px; padding:0; border:0; background:none; } .row2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; margin-top:14px; }
 @media (max-width:800px) { main { padding:14px; } aside button { white-space:nowrap; } .row2 { grid-template-columns:1fr !important; } .card { overflow-x:auto; } h1 { font-size:24px; } input[type=checkbox] { width:22px; height:22px; } }
 @media print { aside, .noprint, .shell > main > h1 { display:none!important } .shell { display:block } body { background:#fff; color:#000 } .qr { color:#000 } .card { border:1px solid #ccc; background:#fff } }
+.sbar { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; } .sbar small { font-size: 11px; } .sb { padding: 4px 10px; font-size: 12px; border-radius: 99px; } @media print { .noprint { display: none !important; } }
 </style></head>
 <body><div class="shell"><aside>
 <h2>⚙️ Admin</h2>
@@ -181,7 +182,7 @@ function menu() {
   <div class="card"><h3>Categories <small class="muted">(drag ⠿ to reorder)</small></h3><div id="cats">${C.map(c => `<div class="cat ${c.id === actCat ? 'act' : ''}" data-id="${c.id}"><span class="h">⠿</span>
    <input style="width:42px;text-align:center" value="${App.esc(c.emoji)}" onchange="upd('categories','${c.id}',{emoji:this.value})"><input value="${App.esc(c.name)}" onchange="upd('categories','${c.id}',{name:this.value})"><input dir="rtl" value="${App.esc(c.name_ar)}" onchange="upd('categories','${c.id}',{name_ar:this.value})">
    <button class="ghost" onclick="actCat='${c.id}';cfgKey='';render(App.state,true)">▶</button><button class="ghost" onclick="if(confirm('Delete category and its items?'))api('DELETE','/api/categories/${c.id}')">🗑</button></div>`).join('')}</div>
-   ${catSettings(C.find(c => c.id === actCat))}
+   ${menuLook()}${catSettings(C.find(c => c.id === actCat))}
    <button class="primary" onclick="api('POST','/api/categories',{name:'New category'})">+ Category</button>
    <hr style="border-color:var(--line);margin:16px 0"><h3>📷 Photos for all items</h3><p class="muted" style="font-size:13px">Pick or drop many photos at once. Name each file like the dish (<b>cappuccino.jpg</b>) and it is attached to the matching item. You can also drop one photo on any item's picture.</p>
    <div class="card" id="dz" style="border:2px dashed var(--line);text-align:center;padding:18px;cursor:copy" ondragover="event.preventDefault()" ondrop="event.preventDefault();bulkImgs(event.dataTransfer.files)" onclick="$('#bulkin').click()">Drop photos here or click to choose</div><input type="file" id="bulkin" accept="image/*" multiple hidden onchange="bulkImgs(this.files);this.value=''">
@@ -197,10 +198,26 @@ function menu() {
   <input type="file" id="imgin" accept="image/*" hidden>`;
   Sortable.create($('#cats'), { handle: '.h', animation: 180, onEnd: () => api('PUT', '/api/categories/order', { ids: [...document.querySelectorAll('#cats .cat')].map(e => e.dataset.id) }) });
 }
+// how the guests' order page looks: one default layout, plus a layout and a banner photo for each category
+const LAYOUTS = [['cards', '▦ Cards - two columns'], ['list', '☰ List with photos'], ['hero', '🖼 Big photo cards'], ['feature', '✨ Magazine - one large + grid'], ['carousel', '↔ Swipe row'], ['classic', '📜 Classic text menu']];
+function menuLook() {
+  const s = App.config.settings, L = (cur, none) => `${none ? `<option value="" ${!cur ? 'selected' : ''}>${none}</option>` : ''}${LAYOUTS.map(([k, l]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${l}</option>`).join('')}`;
+  return `<div class="card" style="margin:12px 0;background:var(--card2)"><b>✨ Guest order page look</b><p class="muted" style="font-size:12px;margin:4px 0 8px">What guests see when they scan the table code. Each category can use its own layout and banner photo.</p>
+   <label class="muted" style="font-size:12px">Default layout</label><select onchange="api('POST','/api/settings',{menuLayout:this.value})">${L(s.menuLayout || 'cards')}</select>
+   <label class="muted" style="font-size:12px;display:block;margin-top:8px">Cover photo at the top of the order page</label>
+   <div class="row" style="gap:8px"><div class="thumb" style="width:90px;height:52px;border-radius:12px;${s.heroImg ? `background-image:url(${s.heroImg})` : ''}" onclick="pickTo('/api/hero-image')">${s.heroImg ? '' : '🖼'}</div><button class="ghost" onclick="pickTo('/api/hero-image')">📷 ${s.heroImg ? 'Change' : 'Add'}</button>${s.heroImg ? `<button class="ghost" onclick="rmTo('/api/hero-image')">✕</button>` : ''}</div></div>`;
+}
+// upload a photo to any image endpoint (category banner, cover photo)
+function pickTo(url) { const f = $('#imgin'); f.onchange = async () => { const file = f.files[0]; f.value = ''; if (!file) return; try { const fd = new FormData(); fd.append('image', await shrink(file, 1400), 'photo.webp'); const j = await (await fetch(url, { method: 'POST', body: fd })).json(); App.toast(j.error || 'Photo saved ✓'); } catch (e) { App.toast('Could not read that image'); } }; f.click(); }
+async function rmTo(url) { await api('DELETE', url); App.toast('Photo removed'); }
 function catSettings(c) {
   if (!c) return '';
   const h = c.hours || {};
   return `<div class="card" style="margin:12px 0;background:var(--card2)"><b>${c.emoji} ${App.esc(c.name)} - settings</b>
+   <label class="muted" style="font-size:12px;display:block;margin-top:8px">Layout of this category on the order page</label>
+   <select onchange="upd('categories','${c.id}',{layout:this.value})">${[['', 'Use the default layout'], ...LAYOUTS].map(([k, l]) => `<option value="${k}" ${(c.layout || '') === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+   <label class="muted" style="font-size:12px;display:block;margin-top:8px">Banner photo (shown above the dishes)</label>
+   <div class="row" style="gap:8px"><div class="thumb" style="width:90px;height:52px;border-radius:12px;${c.img ? `background-image:url(${c.img})` : ''}" onclick="pickTo('/api/categories/${c.id}/image')">${c.img ? '' : '🖼'}</div><button class="ghost" onclick="pickTo('/api/categories/${c.id}/image')">📷 ${c.img ? 'Change' : 'Add'}</button>${c.img ? `<button class="ghost" onclick="rmTo('/api/categories/${c.id}/image')">✕</button>` : ''}</div>
    <label class="muted" style="font-size:12px;display:block;margin-top:8px">Prepared at (kitchen screen)</label>
    <select onchange="upd('categories','${c.id}',{station:this.value})"><option value="kitchen" ${(c.station || 'kitchen') === 'kitchen' ? 'selected' : ''}>🍳 Kitchen</option><option value="bar" ${c.station === 'bar' ? 'selected' : ''}>🍸 Bar</option><option value="both" ${c.station === 'both' ? 'selected' : ''}>Both</option></select>
    <label class="muted" style="font-size:12px;display:block;margin-top:8px">Only offered between (leave empty = all day)</label>
@@ -328,14 +345,16 @@ async function analytics() {
   A = await api('GET', '/api/analytics?days=' + days);
   const r = A.revenue, tv = A.turnover;
   const kpi = (l, v) => `<div class="card kpi"><span>${l}</span><b>${v}</b></div>`;
-  $('#main').innerHTML = `<div class="spread"><h1>📊 Analytics</h1><div class="row">${[1, 7, 30].map(d => `<button class="${days === d ? 'sel' : ''}" onclick="days=${d};cfgKey='';render(App.state,true)">${d === 1 ? 'Today' : d + ' days'}</button>`).join('')}</div></div>
-  ${insights(A)}<h3 style="margin:22px 0 4px">Details</h3>
+  statRows(A);
+  $('#main').innerHTML = `<div class="spread wrap"><h1>📊 Analytics</h1><div class="row wrap">${[1, 7, 30].map(d => `<button class="${days === d ? 'sel' : ''}" onclick="days=${d};cfgKey='';render(App.state,true)">${d === 1 ? 'Today' : d + ' days'}</button>`).join('')}<span class="noprint" style="width:12px"></span><button class="ghost" onclick="stExport('all')">⬇ Export all</button><button class="ghost" onclick="stClear('all')">🗑 Clear all</button>${(A.resets || {}).all ? '<button class="ghost" onclick="stClear(\'all\',true)">↩ Restore all</button>' : ''}</div></div>
+  <p class="muted" style="margin:4px 0 12px;font-size:13px">Every block below has its own <b>Export</b> (CSV file) and <b>Clear</b> button. Clearing only restarts that statistic from now - your sales records, receipts and Orders history are never deleted, and you can restore it.</p>
+  ${insights(A)}<div class="spread" style="margin:22px 0 4px"><h3>Details</h3>${sb('details')}</div>
   <div class="grid">${kpi('Gross sales', App.money(r.gross))}${kpi('Taxes collected', App.money(r.tax))}${kpi('Service charges', App.money(r.service))}${kpi('Tips', App.money(r.tips))}${kpi('Cash / Card', App.money(r.cash) + '<br><small>' + App.money(r.card) + '</small>')}${kpi('Table sessions', r.sessions)}</div>
   <div class="grid" style="margin-top:14px">${kpi('Avg. table occupied', Math.round(tv.avgOccupiedMin) + ' min')}${kpi('Avg. empty gap', Math.round(tv.avgEmptyGapMin) + ' min')}${kpi('Turnover / table / day', tv.turnsPerTablePerDay.toFixed(1) + '×')}${kpi('Occupancy', tv.occupancyPct.toFixed(0) + '%')}</div>
-  <div class="row2"><div class="card"><h3>Revenue per day</h3><canvas id="c1"></canvas></div><div class="card"><h3>Revenue breakdown</h3><canvas id="c2"></canvas></div>
-  <div class="card"><h3>Top-selling items (qty)</h3><canvas id="c3"></canvas></div><div class="card"><h3>Category revenue vs profit</h3><canvas id="c4"></canvas></div></div>
-  <div class="card" style="margin-top:14px;overflow:auto"><h3>Rush hours heatmap (session starts)</h3><div id="heat" style="min-width:640px"></div></div>
-  <div class="card" style="margin-top:14px"><h3>Table usage</h3><canvas id="c5" height="80"></canvas></div>`;
+  <div class="row2"><div class="card"><div class="spread"><h3>Revenue per day</h3>${sb('trend')}</div><canvas id="c1"></canvas></div><div class="card"><div class="spread"><h3>Revenue breakdown</h3>${sb('details')}</div><canvas id="c2"></canvas></div>
+  <div class="card"><div class="spread"><h3>Top-selling items (qty)</h3>${sb('best')}</div><canvas id="c3"></canvas></div><div class="card"><div class="spread"><h3>Category revenue vs profit</h3>${sb('cats')}</div><canvas id="c4"></canvas></div></div>
+  <div class="card" style="margin-top:14px;overflow:auto"><div class="spread"><h3>Rush hours heatmap (session starts)</h3>${sb('heat')}</div><div id="heat" style="min-width:640px"></div></div>
+  <div class="card" style="margin-top:14px"><div class="spread"><h3>Table usage</h3>${sb('tables')}</div><canvas id="c5" height="80"></canvas></div>`;
   App.countUps($('#main')); requestAnimationFrame(() => setTimeout(() => document.querySelectorAll('.mi-hbar .fl').forEach((e) => (e.style.width = e.dataset.w + '%')), 350));
   charts.forEach(c => c.destroy()); charts = [];
   const cs = getComputedStyle(document.documentElement), ac = cs.getPropertyValue('--accent').trim(), ac2 = cs.getPropertyValue('--accent2').trim(), tx = cs.getPropertyValue('--text').trim();
@@ -354,6 +373,36 @@ async function analytics() {
   $('#heat').innerHTML = h + '</div>';
 }
 
+/* ---------------- per-block export / clear ---------------- */
+const EXP = {};
+function statRows(A) {
+  const k = A.kpi, P = k.prev, r = A.revenue, tv = A.turnover, M = (v) => Math.round(v * 100) / 100;
+  EXP.kpi = ['Summary', [['Metric', 'This period', 'Previous period'], ['Revenue', M(k.revenue), M(P.revenue)], ['Orders', k.orders, P.orders], ['Average ticket', M(k.avg), M(P.avg)], ['Est. profit', M(k.profit), M(P.profit)]]];
+  const dk = Object.keys(A.daily).sort();
+  EXP.trend = [days === 1 ? 'Revenue by hour' : 'Revenue by day', [[days === 1 ? 'Hour' : 'Day', 'Revenue'], ...(days === 1 ? A.hourly.map((v, h) => [h + ':00', M(v)]) : dk.map((d) => [d, M(A.daily[d])]))]];
+  EXP.cats = ['Sales by category', [['Category', 'Revenue', 'Profit'], ...A.categories.map((c) => [c.name, M(c.revenue), M(c.profit)])]];
+  EXP.best = ['Best sellers', [['Item', 'Quantity', 'Revenue', 'Profit'], ...A.topItems.map((i) => [i.name, i.qty, M(i.revenue), M(i.profit)])]];
+  EXP.details = ['Details', [['Metric', 'Value'], ['Gross sales', M(r.gross)], ['Taxes', M(r.tax)], ['Service charges', M(r.service)], ['Tips', M(r.tips)], ['Cash', M(r.cash)], ['Card', M(r.card)], ['Discounts', M(r.discounts)], ['Table sessions', r.sessions], ['Avg. table occupied (min)', Math.round(tv.avgOccupiedMin)], ['Avg. empty gap (min)', Math.round(tv.avgEmptyGapMin)], ['Turnover per table per day', M(tv.turnsPerTablePerDay)], ['Occupancy %', Math.round(tv.occupancyPct)]]];
+  const D = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  EXP.heat = ['Rush hours', [['Day', ...Array.from({ length: 24 }, (_, h) => h + ':00')], ...A.heat.map((row, d) => [D[d], ...row])]];
+  EXP.tables = ['Table usage', [['Table', 'Sessions'], ...App.config.tables.map((t) => ['T' + t.number, A.perTable[t.number] || 0])]];
+}
+// the small buttons shown on every statistics block
+function sb(key) {
+  const rs = (A && A.resets) || {}, at = rs[key];
+  return `<span class="sbar noprint">${at ? `<small class="muted">cleared ${new Date(at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small><button class="ghost sb" title="Bring the old numbers back" onclick="stClear('${key}',true)">↩</button>` : ''}<button class="ghost sb" onclick="stExport('${key}')">⬇ Export</button><button class="ghost sb" onclick="stClear('${key}')">🗑 Clear</button></span>`;
+}
+function stExport(key) {
+  const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`, keys = key === 'all' ? Object.keys(EXP) : [key];
+  const csv = keys.map((k) => (key === 'all' ? q(EXP[k][0]) + '\n' : '') + EXP[k][1].map((r) => r.map(q).join(',')).join('\n')).join('\n\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv' }));
+  a.download = `${key === 'all' ? 'statistics' : EXP[key][0].toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${days === 1 ? 'today' : days + 'd'}_${ld()}.csv`; a.click(); App.toast('Saved ✓');
+}
+async function stClear(key, restore) {
+  if (!restore && !confirm(key === 'all' ? 'Clear ALL statistics?\n\nThey restart from zero now. Sales records, receipts and Orders history are kept, and you can restore them.' : 'Clear this statistic?\n\nIt restarts from zero now. Your sales records are kept and you can restore it. Tip: use Export first to save the numbers.')) return;
+  await api('POST', '/api/stats/clear', { key, restore: !!restore }); App.toast(restore ? 'Restored ✓' : 'Cleared ✓'); cfgKey = ''; render(App.state, true);
+}
+
 /* ---------------- Insights block (period comparison, area chart, donut, best sellers, low stock) ---------------- */
 function insights(A) {
   const k = A.kpi, P = k.prev, COL = ['#d9b36c', '#6aa7ff', '#5fd0a0', '#f07178', '#b48cf2', '#f0b95b'];
@@ -370,12 +419,12 @@ function insights(A) {
     <path class="fill" d="${path} L${px(keys.length - 1)},${H - 24} L${px(0)},${H - 24}Z"/><path class="line" pathLength="1" d="${path}"/>
     ${vals.map((v, i) => (v ? `<circle class="dot" cx="${px(i)}" cy="${py(v)}" r="3.5"><title>${days === 1 ? keys[i] + ':00' : keys[i]} · ${App.money(v)}</title></circle>` : '')).join('')}
     ${keys.map((x, i) => (keys.length <= 12 || i % Math.ceil(keys.length / 8) === 0 ? `<text x="${px(i)}" y="${H - 6}" font-size="10" text-anchor="middle" fill="var(--muted)">${days === 1 ? x + 'h' : String(x).slice(8)}</text>` : '')).join('')}</svg>` : '<p class="muted" style="padding:30px 0;text-align:center">No sales in this period yet</p>';
-  return `<div class="mi-kpis mi-stag">${K('Revenue', k.revenue, 2, P.revenue, 0)}${K('Orders', k.orders, 0, P.orders, 1)}${K('Average ticket', k.avg, 2, P.avg, 2)}${K('Est. profit', k.profit, 2, P.profit, 3)}</div>
-  <div class="row2"><div class="card"><h3>${days === 1 ? 'Revenue by hour' : 'Revenue by day'}</h3>${area}</div>
-   <div class="card"><h3>Sales by category</h3><div class="row wrap" style="gap:24px;align-items:center"><svg class="mi-donut" viewBox="0 0 42 42" width="160" height="160"><circle cx="21" cy="21" r="15.9155" stroke="var(--card2)" style="animation:none;stroke-dasharray:100 0"/>
+  return `<div class="spread" style="margin-bottom:8px"><h3>Summary</h3>${sb('kpi')}</div><div class="mi-kpis mi-stag">${K('Revenue', k.revenue, 2, P.revenue, 0)}${K('Orders', k.orders, 0, P.orders, 1)}${K('Average ticket', k.avg, 2, P.avg, 2)}${K('Est. profit', k.profit, 2, P.profit, 3)}</div>
+  <div class="row2"><div class="card"><div class="spread"><h3>${days === 1 ? 'Revenue by hour' : 'Revenue by day'}</h3>${sb('trend')}</div>${area}</div>
+   <div class="card"><div class="spread"><h3>Sales by category</h3>${sb('cats')}</div><div class="row wrap" style="gap:24px;align-items:center"><svg class="mi-donut" viewBox="0 0 42 42" width="160" height="160"><circle cx="21" cy="21" r="15.9155" stroke="var(--card2)" style="animation:none;stroke-dasharray:100 0"/>
     ${cats.map((c, i) => { const len = (c.revenue / cTot) * 100, x = `<circle cx="21" cy="21" r="15.9155" pathLength="100" stroke="${COL[i % 6]}" style="--i:${i};--len:${len.toFixed(2)};stroke-dashoffset:${(-off).toFixed(2)}"/>`; off += len; return x; }).join('')}</svg>
     <div class="mi-legend" style="flex:1;min-width:140px">${cats.map((c, i) => `<div><i style="background:${COL[i % 6]}"></i>${App.esc(c.name)} <b style="float:inline-end">${((c.revenue / cTot) * 100).toFixed(0)}%</b></div>`).join('') || '<span class="muted">-</span>'}</div></div></div></div>
-  <div class="row2" style="margin-top:14px"><div class="card"><h3>Best sellers</h3>${top.map((x) => `<div class="mi-hbar"><span>${App.esc(x.emoji || '🍽️')} ${App.esc(x.name)}</span><div class="tr"><div class="fl" data-w="${(x.revenue / tMax) * 100}"></div></div><b style="text-align:end">${Math.round(x.revenue)}</b></div>`).join('') || '<p class="muted">No data yet</p>'}</div>
+  <div class="row2" style="margin-top:14px"><div class="card"><div class="spread"><h3>Best sellers</h3>${sb('best')}</div>${top.map((x) => `<div class="mi-hbar"><span>${App.esc(x.emoji || '🍽️')} ${App.esc(x.name)}</span><div class="tr"><div class="fl" data-w="${(x.revenue / tMax) * 100}"></div></div><b style="text-align:end">${Math.round(x.revenue)}</b></div>`).join('') || '<p class="muted">No data yet</p>'}</div>
    <div class="card"><h3>Low stock</h3>${A.lowStock.length ? A.lowStock.map((i) => `<div class="spread" style="padding:7px 0;border-bottom:1px dashed var(--line)"><span>${App.esc(i.emoji || '')} ${App.esc(i.name)}</span><span class="mi-pill" style="color:${i.stock <= 0 ? 'var(--bad)' : 'var(--warn)'}">${i.stock <= 0 ? 'out' : i.stock + ' left'}</span></div>`).join('') : '<p style="color:var(--ok)">Everything is well stocked ✓</p>'}<p class="muted" style="font-size:12px;margin-bottom:0">Turn on stock counting per item in Inventory.</p></div></div>`;
 }
 

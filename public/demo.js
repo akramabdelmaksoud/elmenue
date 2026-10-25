@@ -95,6 +95,13 @@
       if (m === 'DELETE') i.img = ''; else { const f = o.body && o.body.get && o.body.get('image'); if (!f) return J({ error: 'bad request' }, 400); i.img = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(f); }); }
       return done({ ok: 1 });
     }
+    if (p === '/api/stats/clear') { const k = String(body.key || ''); d.statsReset ||= {}; if (body.restore) { if (k === 'all') d.statsReset = {}; else delete d.statsReset[k]; } else d.statsReset[k] = Date.now(); return done({ ok: 1 }); }
+    if ((r = p.match(/^\/api\/categories\/([^/]+)\/image$/)) || p === '/api/hero-image') {
+      const tgt = r ? d.categories.find((x) => x.id === r[1]) : d.settings; if (!tgt) return J({ error: 'not found' }, 404);
+      const key = r ? 'img' : 'heroImg';
+      if (m === 'DELETE') tgt[key] = ''; else { const f = o.body && o.body.get && o.body.get('image'); if (!f) return J({ error: 'bad request' }, 400); tgt[key] = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(f); }); }
+      return done({ ok: 1 });
+    }
     if (p === '/api/feedback') { T.rec.reviews = [{ id: nid('f'), at: Date.now(), stars: Math.round(+body.stars) || 5, comment: String(body.comment || '').slice(0, 400), table: +body.table || 0, name: String(body.name || '').slice(0, 24) }, ...(T.rec.reviews || [])]; return done({ ok: 1 }); }
     if (p === '/api/settings') { delete body.presets; Object.assign(d.settings, body); return done(d.settings); }
     if (p === '/api/account') return J({ ok: 1 });

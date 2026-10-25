@@ -161,6 +161,60 @@ nav .bdg { position: absolute; top: 2px; inset-inline-start: 56%; min-width: 19p
 }
 @media (max-height: 460px) and (orientation: landscape) { .hero { min-height: 0; padding-top: 8px; } .mugw { width: 110px !important; } nav { bottom: 6px; } #shell { padding-bottom: 96px; } header { padding-block: 8px; } }
 @media (min-width: 900px) { body::before { content: ''; } #shell { max-width: 520px; } }
+
+/* ---- luxury order page ---- */
+#shell { padding-bottom: 190px; }
+.cover { position: relative; margin: 6px 0 14px; min-height: 210px; border-radius: 32px; overflow: hidden; display: flex; align-items: flex-end; color: #fbf3e2; background: radial-gradient(420px 240px at 85% 0%, color-mix(in srgb, var(--accent2) 55%, transparent), transparent 70%), linear-gradient(135deg, color-mix(in srgb, var(--accent) 88%, #000), color-mix(in srgb, var(--accent) 55%, #000)); background-size: cover; background-position: center; box-shadow: 0 30px 60px -28px rgba(0,0,0,.6), inset 0 0 0 1px color-mix(in srgb, var(--accent2) 55%, transparent); }
+.cover.has::before { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.72), rgba(0,0,0,.12) 70%); }
+.cover .cin { position: relative; padding: 22px; }
+.cover .eyebrow { color: color-mix(in srgb, var(--accent2) 80%, #fff); letter-spacing: .3em; }
+.cover h2 { font-size: clamp(32px, 9vw, 42px); line-height: 1.05; margin: 6px 0 6px; font-weight: 700; }
+.cover p { margin: 0 0 12px; font-size: 14px; opacity: .85; max-width: 300px; }
+.chipx { display: inline-block; padding: 6px 14px; border-radius: 99px; font-size: 12px; font-weight: 700; background: rgba(255,255,255,.16); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,.28); }
+.how { position: relative; padding: 14px 16px 16px; margin-bottom: 14px; border-radius: 24px; border: 1px dashed color-mix(in srgb, var(--accent2) 70%, transparent); background: color-mix(in srgb, var(--accent2) 9%, var(--card)); }
+.how .x { position: absolute; top: 8px; inset-inline-end: 10px; background: none; width: 28px; height: 28px; border-radius: 50%; color: var(--muted); font-size: 14px; padding: 0; }
+.how .ht { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; font-weight: 800; color: var(--accent2); margin-bottom: 10px; }
+.how .hs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.how .hs div { text-align: center; } .how .hs i { display: grid; place-items: center; width: 30px; height: 30px; margin: 0 auto 6px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-style: normal; font-weight: 800; }
+.how .hs b { display: block; font-size: 12.5px; line-height: 1.25; } .how .hs small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; line-height: 1.3; }
+.stk { position: sticky; top: 62px; z-index: 20; margin: 0 -18px; padding: 6px 18px 2px; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(14px); }
+.stk .chips { padding-bottom: 8px; } .stk .tagbar { padding-bottom: 8px; }
+.msec { scroll-margin-top: 130px; margin: 6px 0 26px; }
+.mhead { position: relative; display: flex; align-items: baseline; gap: 10px; padding: 8px 2px 12px; border-radius: 22px; }
+.mhead h3 { font-size: 26px; font-weight: 700; } .mhead .em { font-size: 24px; } .mhead small { margin-inline-start: auto; color: var(--muted); font-size: 12px; }
+.mhead:not(.has)::after { content: ''; position: absolute; inset-inline: 2px; bottom: 4px; height: 1px; background: linear-gradient(90deg, var(--accent2), transparent); }
+.mhead.has { min-height: 118px; align-items: flex-end; padding: 14px 18px; margin-bottom: 12px; color: #fff; background-size: cover; background-position: center; box-shadow: var(--shadow); }
+.mhead.has::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(to top, rgba(0,0,0,.75), rgba(0,0,0,.05) 80%); } .mhead.has > * { position: relative; } .mhead.has small { color: rgba(255,255,255,.8); }
+.addb2 { padding: 8px 15px; border-radius: 99px; background: var(--accent); color: var(--on-accent); font-weight: 800; font-size: 13px; box-shadow: 0 8px 18px -8px var(--accent); white-space: nowrap; }
+.stp2 { display: inline-flex; align-items: center; gap: 8px; background: var(--card2); border: 1px solid var(--line); padding: 3px; border-radius: 99px; color: var(--text); }
+.stp2 button { width: 30px; height: 30px; padding: 0; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 18px; font-weight: 800; line-height: 1; display: grid; place-items: center; } .stp2 b { min-width: 16px; text-align: center; font-size: 14px; }
+.soldtag { font-size: 11px; font-weight: 800; color: var(--muted); border: 1px solid var(--line); padding: 4px 10px; border-radius: 99px; }
+.pc.wide { grid-column: 1 / -1; } .pc.wide .art { height: 180px; } .pc.wide b { font-size: 18px; font-family: var(--serif); }
+.pc .foot .pr, .lr .pr, .cw .pr { font-size: 15px; }
+.stackc { display: flex; flex-direction: column; gap: 12px; }
+.lr { display: flex; gap: 14px; padding: 12px; align-items: stretch; } .lr .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; } .lr b { font-family: var(--serif); font-size: 17px; margin-bottom: 3px; }
+.lr small { color: var(--muted); font-size: 12px; line-height: 1.4; flex: 1; } .lr .art { width: 112px; min-height: 112px; flex: none; border-radius: 20px; } .lr .foot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; gap: 8px; } .lr .pr { font-weight: 800; color: var(--accent); }
+.hx { position: relative; height: 220px; border-radius: 28px; overflow: hidden; display: flex; align-items: flex-end; gap: 10px; color: #fff; background: linear-gradient(145deg, hsl(var(--h) 42% 30%), hsl(var(--h) 36% 16%)); background-size: cover; background-position: center; box-shadow: var(--shadow); }
+.hx.big { height: 300px; } .hx::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.82), rgba(0,0,0,.04) 62%); }
+.hx .em { position: absolute; top: 20px; inset-inline-end: 26px; font-size: 86px; filter: drop-shadow(0 12px 12px rgba(0,0,0,.4)); animation: bob 5s ease-in-out infinite; }
+.hx .tx { position: relative; z-index: 1; padding: 18px; flex: 1; min-width: 0; } .hx b { display: block; font-family: var(--serif); font-size: 22px; line-height: 1.15; } .hx small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; opacity: .82; font-size: 12.5px; margin: 4px 0 6px; } .hx .pr { font-weight: 800; color: #f1d9a0; font-size: 17px; }
+.hx .ctl { position: relative; z-index: 1; padding: 18px; } .hx .stp2 { background: rgba(255,255,255,.92); border-color: transparent; color: #222; }
+.cwrail { gap: 14px; } .cw { flex: none; width: 200px; scroll-snap-align: start; padding: 10px; border-radius: 26px; display: flex; flex-direction: column; } .cw .art { height: 128px; } .cw b { margin: 10px 3px 2px; font-size: 14.5px; font-family: var(--serif); } .cw small { color: var(--muted); font-size: 12px; margin: 0 3px; flex: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } .cw .foot { display: flex; align-items: center; justify-content: space-between; margin: 10px 3px 2px; } .cw .pr { font-weight: 800; color: var(--accent); }
+.cl { padding: 14px 2px 12px; border-bottom: 1px solid var(--line); } .cl .top { display: flex; align-items: baseline; gap: 8px; } .cl .top b { font-family: var(--serif); font-size: 18px; } .cl .dots { flex: 1; border-bottom: 2px dotted var(--line); transform: translateY(-4px); min-width: 14px; } .cl .pr { font-weight: 800; color: var(--accent); font-size: 16px; } .cl small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 3px; font-style: italic; } .cl .bot { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.so { opacity: .55; }
+#cartbar { position: fixed; z-index: 45; left: 50%; transform: translateX(-50%); bottom: calc(92px + env(safe-area-inset-bottom)); width: min(456px, calc(100% - 24px)); display: flex; gap: 8px; animation: popIn .5s var(--spring); }
+#cartbar[hidden] { display: none; }
+#cartbar button { height: 54px; border-radius: 99px; font-weight: 800; box-shadow: 0 18px 38px -12px rgba(0,0,0,.6); }
+.cbv { flex: 1; display: flex; align-items: center; gap: 10px; padding: 0 16px 0 8px; background: var(--card); border: 1px solid var(--line); color: var(--text); text-align: start; } .cbv b { display: block; font-size: 14px; } .cbv small { display: block; color: var(--muted); font-size: 11px; font-weight: 600; }
+.cbn { width: 38px; height: 38px; border-radius: 50%; background: var(--accent2); color: #fff; display: grid; place-items: center; font-size: 15px; } .cbt { margin-inline-start: auto; font-family: var(--serif); font-size: 17px; }
+.cbs { flex: none; padding: 0 20px; display: flex; align-items: center; gap: 8px; background: linear-gradient(120deg, var(--accent), color-mix(in srgb, var(--accent) 60%, var(--accent2))); color: var(--on-accent); font-size: 14px; } .cbs svg { width: 18px; height: 18px; }
+@media (max-width: 430px) { .cbv { min-width: 0; padding-inline-end: 12px; } .cbv small { display: none; } .cbv b { white-space: nowrap; } .cbs { padding: 0 16px; } }
+@media (max-width: 380px) { .cbs { padding: 0 14px; font-size: 13px; } .how .hs b { font-size: 11.5px; } }
+
+.crown { position: absolute; top: -12px; inset-inline-end: -4px; font-style: normal; font-size: 18px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.3)); transform: rotate(14deg); } .person .av { position: relative; }
+.hostc { padding: 14px 16px; margin-top: 12px; border-color: color-mix(in srgb, var(--accent2) 60%, var(--line)); background: color-mix(in srgb, var(--accent2) 8%, var(--card)); }
+.hostc .hl { display: flex; gap: 12px; align-items: center; } .hostc .hc { font-size: 28px; } .hostc b { font-size: 14.5px; display: block; } .hostc small { color: var(--muted); font-size: 12px; }
+.hpick { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; } .hpick button { padding: 8px 14px; border-radius: 99px; background: var(--card); border: 1.5px solid var(--line); font-weight: 700; font-size: 13px; }
 </style></head>
 <body>
 <div class="amb"><i>🌿</i><i>☕</i><i>🍃</i><i>🫘</i></div>
@@ -171,7 +225,7 @@ const tableNumber = +location.pathname.split('/').pop();
 const SLUG = App.slug;
 const AV = ['😎','🧑‍🎤','🦊','🐼','🎮','👩‍🎨','🧔','🐱','🦁','🐯','🧑‍🚀','🎧','🐧','🦄','🤖','👽','🌸','🍕'];
 const HUES = [28, 150, 42, 12, 335, 200, 95, 265];
-const TABS = ['home', 'menu', 'table', 'bill', 'profile'];
+const TABS = ['menu', 'table', 'bill', 'home', 'profile'];
 const P = { // icons
   home: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   cup: '<path d="M4 9h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 10h2a2 2 0 0 1 0 4h-2"/><path d="M8 3v3M12 3v3"/>',
@@ -202,19 +256,20 @@ let me = { id: App.ls(`gid:${SLUG}:${tableNumber}`), name: App.ls('name'), avata
 const urlKey = new URLSearchParams(location.search).get('k');
 if (urlKey) { App.ls(`tk:${SLUG}:${tableNumber}`, urlKey); try { history.replaceState(null, '', location.pathname); } catch {} }
 const tableKey = App.ls(`tk:${SLUG}:${tableNumber}`) || '';
-Object.assign(DICT.en, { soldOut: 'Sold out', soldSorry: 'Sorry, that is sold out right now', ready: 'Your order is ready!', scanTitle: 'Scan the QR code on your table', scanSub: 'For everyone\'s safety, ordering opens only from the code printed on the table. Please scan it with your camera.', rateTitle: 'How was your visit?', rateSub: 'Tap a star - it takes 5 seconds', rateNote: 'Anything we can do better? (optional)', rateSend: 'Send', rateSkip: 'Skip', rateThanks: 'Thank you! 💛', rateThanksSub: 'Your feedback helps us serve you better.', again: 'Start a new order', dietary: 'Dietary' });
-Object.assign(DICT.ar, { soldOut: 'نفد', soldSorry: 'عذرًا، هذا الصنف نفد حاليًا', ready: 'طلبك جاهز!', scanTitle: 'امسح رمز QR الموجود على طاولتك', scanSub: 'حفاظًا على الجميع، يُفتح الطلب فقط من الرمز المطبوع على الطاولة. من فضلك امسحه بكاميرا هاتفك.', rateTitle: 'كيف كانت زيارتك؟', rateSub: 'اضغط على نجمة - تستغرق 5 ثوانٍ', rateNote: 'هل لديك ملاحظة لتحسين خدمتنا؟ (اختياري)', rateSend: 'إرسال', rateSkip: 'تخطي', rateThanks: 'شكرًا لك! 💛', rateThanksSub: 'ملاحظاتك تساعدنا على خدمتك بشكل أفضل.', again: 'ابدأ طلبًا جديدًا', dietary: 'نظام غذائي' });
+Object.assign(DICT.en, { hostTitle: 'Table host', hostYou: 'You are the host. Hand it over to anyone at the table:', hostOther: 'The host looks after the table. The captain sees who it is.', hostConfirm: 'Make host', menuLbl: 'Menu', cartLbl: 'My order', addLbl: 'Add', dishes: 'dishes', welcomeTo: 'Welcome to', howTitle: 'How to order', step1: 'Pick your dishes', step1s: 'Tap + Add on anything you like', step2: 'Check your order', step2s: 'Change amounts or add a note', step3: 'Send to kitchen', step3s: 'We cook it and bring it to your table', viewOrder: 'View order', itemsN: 'items', sendNow: 'Send to kitchen', soldOut: 'Sold out', soldSorry: 'Sorry, that is sold out right now', ready: 'Your order is ready!', scanTitle: 'Scan the QR code on your table', scanSub: 'For everyone\'s safety, ordering opens only from the code printed on the table. Please scan it with your camera.', rateTitle: 'How was your visit?', rateSub: 'Tap a star - it takes 5 seconds', rateNote: 'Anything we can do better? (optional)', rateSend: 'Send', rateSkip: 'Skip', rateThanks: 'Thank you! 💛', rateThanksSub: 'Your feedback helps us serve you better.', again: 'Start a new order', dietary: 'Dietary' });
+Object.assign(DICT.ar, { hostTitle: 'مضيف الطاولة', hostYou: 'أنت المضيف. يمكنك تسليم الدور لأي شخص على الطاولة:', hostOther: 'المضيف يتولى الطاولة، ويراه الكابتن.', hostConfirm: 'اجعل المضيف', menuLbl: 'القائمة', cartLbl: 'طلبي', addLbl: 'أضف', dishes: 'أصناف', welcomeTo: 'أهلاً بك في', howTitle: 'كيف تطلب', step1: 'اختر أطباقك', step1s: 'اضغط + أضف على ما يعجبك', step2: 'راجع طلبك', step2s: 'غيّر الكمية أو أضف ملاحظة', step3: 'أرسل للمطبخ', step3s: 'نحضّره ونوصله إلى طاولتك', viewOrder: 'عرض الطلب', itemsN: 'أصناف', sendNow: 'أرسل للمطبخ', soldOut: 'نفد', soldSorry: 'عذرًا، هذا الصنف نفد حاليًا', ready: 'طلبك جاهز!', scanTitle: 'امسح رمز QR الموجود على طاولتك', scanSub: 'حفاظًا على الجميع، يُفتح الطلب فقط من الرمز المطبوع على الطاولة. من فضلك امسحه بكاميرا هاتفك.', rateTitle: 'كيف كانت زيارتك؟', rateSub: 'اضغط على نجمة - تستغرق 5 ثوانٍ', rateNote: 'هل لديك ملاحظة لتحسين خدمتنا؟ (اختياري)', rateSend: 'إرسال', rateSkip: 'تخطي', rateThanks: 'شكرًا لك! 💛', rateThanksSub: 'ملاحظاتك تساعدنا على خدمتك بشكل أفضل.', again: 'ابدأ طلبًا جديدًا', dietary: 'نظام غذائي' });
 const TAGI = { vegan: '🌱', vegetarian: '🥬', 'gluten-free': '🌾', gf: '🌾', spicy: '🌶️', nuts: '🥜', dairy: '🥛', halal: '☪️', sugarfree: '🍬', 'sugar-free': '🍬', new: '✨', popular: '🔥' };
 const tagLabel = (t) => `${TAGI[String(t).toLowerCase()] || '🏷️'} ${App.esc(t)}`;
 let tagSel = new Set(), lastHad = false, rated = false; const prevSt = {};
 // categories can be limited to hours of the day (e.g. breakfast 07:00-12:00)
 function catOpen(c) { const h = c && c.hours; if (!h || !h.from || !h.to) return true; const d = new Date(), m = d.getHours() * 60 + d.getMinutes(), [a1, a2] = h.from.split(':').map(Number), [b1, b2] = h.to.split(':').map(Number), a = a1 * 60 + a2, b = b1 * 60 + b2; return a <= b ? m >= a && m < b : m >= a || m < b; }
 const itemOpen = (cfg, i) => catOpen(cfg.categories.find((c) => c.id === i.cat));
-let tab = 'home', prevTab = 'home', cat = null, q = '', S = null, built = false, dirty = false, animate = true;
+let tab = 'menu', prevTab = 'menu', cat = null, q = '', S = null, built = false, dirty = false, animate = true;
 let pay = { method: 'cash', split: 'table', tip: 10, custom: {} };
 const prevNum = {};
 const $ = (s) => document.querySelector(s);
 const root = $('#app');
+const hostOf = (s) => s.guests.find((g) => g.id === s.host) || s.guests[0];
 const guestOf = (s, id) => s.guests.find((g) => g.id === id) || { name: '?', avatar: '🙂' };
 const hue = (cfg, i) => HUES[Math.max(0, cfg.categories.findIndex((c) => c.id === i.cat)) % HUES.length];
 const cnt = (v, k) => `<span class="cnt" data-k="${k}" data-v="${v}">${App.money(v)}</span>`;
@@ -273,10 +328,11 @@ function build() {
    <button class="ib rp" aria-label="theme" onclick="App.toggleMode(event)"><span class="ico sun">${ic('sun')}</span><span class="ico moon">${ic('moon')}</span></button>
    <button class="ib bell rp" id="bellb" onclick="openSheet()">${ic('bell')}<i class="dotb" id="bdot" hidden></i></button></div></header>
    <main id="page-wrap"><div id="page"></div></main></div>
+   <div id="cartbar" hidden></div>
    <nav id="nav"><i id="ind"></i>${TABS.map((t) => `<button class="rp" data-t="${t}" onclick="go('${t}')">${ic({ home: 'home', menu: 'cup', table: 'users', bill: 'receipt', profile: 'user' }[t])}<span class="lb"></span></button>`).join('')}</nav>`;
   built = true;
 }
-const LBL = { home: 'home', menu: 'order', table: 'tableTab', bill: 'bill', profile: 'profile' };
+const LBL = { home: 'home', menu: 'menuLbl', table: 'cartLbl', bill: 'bill', profile: 'profile' };
 function go(t) { if (t === tab) return; prevTab = tab; tab = t; animate = true; draw(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 function setInd() {
   const b = $(`#nav [data-t=${tab}]`), ind = $('#ind'), nav = $('#nav'); if (!b || !ind) return;
@@ -317,6 +373,7 @@ function draw(force) {
   if (!animate) page.classList.add('still'); else page.classList.remove('still');
   animate = false;
   window.scrollTo(0, sc);
+  cartBar(s);
   requestAnimationFrame(() => { setInd(); countUp(); });
 }
 window.addEventListener('resize', setInd);
@@ -341,34 +398,89 @@ function homeTab(cfg, s) {
    <button class="tile rp" onclick="go('bill')">${ic('receipt')}${App.tr('bill')}</button></div>
   ${hero ? `<div class="feat tilt rise" style="--i:4"><i class="bean">🫘</i><i class="bean">🫘</i><i class="bean">🫘</i><div style="position:relative"><div class="eyebrow">${App.tr('featured')}</div><h3>${App.esc(App.nm(hero))}</h3><p>${App.esc(hero.desc)}</p><span class="price">${App.money(hero.price)}</span><button class="cream rp" onclick="add('${hero.id}',this)">${App.tr('orderNow')}</button></div><div class="big">${hero.img ? `<img src="${hero.img}" style="width:120px;height:120px;border-radius:24px;object-fit:cover">` : hero.emoji}</div></div>` : ''}
   <div class="sec rise" style="--i:5">${App.tr('atTable')}<span>${s.guests.length} ${App.tr('guests')}</span></div>
-  <div class="people rise" style="--i:6">${s.guests.map((g, k) => `<div class="person ${g.id === me.id ? 'me' : ''} pop" style="--i:${k}"><div class="av">${g.avatar}</div>${App.esc(g.name)}</div>`).join('')}</div>
+  <div class="people rise" style="--i:6">${s.guests.map((g, k) => `<div class="person ${g.id === me.id ? 'me' : ''} pop" style="--i:${k}"><div class="av">${g.avatar}${g.id === (hostOf(s) || {}).id ? '<i class="crown">👑</i>' : ''}</div>${App.esc(g.name)}</div>`).join('')}</div>
   <div class="sec rise" style="--i:7">${App.tr('popular')}<span><button class="lnk" onclick="go('menu')">${App.tr('seeAll')}</button></span></div>
   <div class="rail rise" style="--i:8">${pop.map((i, k) => `<div class="c mini tilt">${artOf(cfg, i, '', k)}<b>${App.esc(App.nm(i))}</b><div class="row2"><span class="pr">${App.money(i.price)}</span><button class="addb rp" style="width:32px;height:32px" onclick="add('${i.id}',this)">${ic('plus')}</button></div></div>`).join('')}</div>`;
+}
+/* ---- the order page: cover, how-to, every category as a section with its own layout, one-tap cart bar ---- */
+const myLines = (s, id) => s.cart.filter((l) => l.guestId === me.id && (!id || l.itemId === id));
+function addCtl(i, s) {
+  if (i.soldOut) return `<span class="soldtag">${App.tr('soldOut')}</span>`;
+  const ls = myLines(s, i.id), n = ls.reduce((a, l) => a + l.qty, 0);
+  return n ? `<span class="stp2"><button aria-label="less" onclick="App.send({t:'cart_qty',id:'${ls[0].id}',d:-1})">−</button><b>${n}</b><button aria-label="more" onclick="add('${i.id}',this)">+</button></span>`
+    : `<button class="addb2 rp" onclick="add('${i.id}',this)">+ ${App.tr('addLbl')}</button>`;
+}
+const tagsHTML = (i) => ((i.tags || []).length ? `<div class="tgs">${i.tags.map((t) => `<em class="tg">${tagLabel(t)}</em>`).join('')}</div>` : '');
+const IT = {
+  cards: (cfg, s, i, k) => `<div class="c pc tilt rise ${i.soldOut ? 'so' : ''} ${i.featured ? 'wide' : ''}" style="--i:${Math.min(k, 9)}">${i.soldOut ? `<span class="ribbon">${App.tr('soldOut')}</span>` : ''}${artOf(cfg, i, '', k)}<b>${App.esc(App.nm(i))}</b><small>${App.esc(i.desc)}</small>${tagsHTML(i)}<div class="foot"><span class="pr">${App.money(i.price)}</span>${addCtl(i, s)}</div></div>`,
+  list: (cfg, s, i, k) => `<div class="c lr rise ${i.soldOut ? 'so' : ''}" style="--i:${Math.min(k, 9)}"><div class="tx"><b>${App.esc(App.nm(i))}</b><small>${App.esc(i.desc)}</small>${tagsHTML(i)}<div class="foot"><span class="pr">${App.money(i.price)}</span>${addCtl(i, s)}</div></div>${artOf(cfg, i, '', k)}</div>`,
+  hero: (cfg, s, i, k, big) => `<div class="hx rise ${big ? 'big' : ''} ${i.soldOut ? 'so' : ''}" style="--h:${hue(cfg, i)};--i:${Math.min(k, 9)};${i.img ? `background-image:url('${i.img}')` : ''}">${i.img ? '' : `<span class="em">${i.emoji}</span>`}<div class="tx"><b>${App.esc(App.nm(i))}</b><small>${App.esc(i.desc)}</small><span class="pr">${App.money(i.price)}</span></div><div class="ctl">${addCtl(i, s)}</div></div>`,
+  carousel: (cfg, s, i, k) => `<div class="c cw ${i.soldOut ? 'so' : ''}">${artOf(cfg, i, '', k)}<b>${App.esc(App.nm(i))}</b><small>${App.esc(i.desc)}</small><div class="foot"><span class="pr">${App.money(i.price)}</span>${addCtl(i, s)}</div></div>`,
+  classic: (cfg, s, i, k) => `<div class="cl rise ${i.soldOut ? 'so' : ''}" style="--i:${Math.min(k, 9)}"><div class="top"><b>${App.esc(App.nm(i))}</b><i class="dots"></i><span class="pr">${App.money(i.price)}</span></div><small>${App.esc(i.desc)}</small><div class="bot">${tagsHTML(i)}<span style="margin-inline-start:auto">${addCtl(i, s)}</span></div></div>`,
+};
+function sectionHTML(cfg, s, c, items) {
+  const ok = (x) => x === 'feature' || !!IT[x], L = ok(c.layout) ? c.layout : ok(cfg.settings.menuLayout) ? cfg.settings.menuLayout : 'cards', f = IT[L];
+  let body;
+  if (L === 'feature') body = `${IT.hero(cfg, s, items[0], 0, true)}<div class="grid" style="margin-top:14px">${items.slice(1).map((i, k) => IT.cards(cfg, s, i, k + 1)).join('')}</div>`;
+  else if (L === 'cards') body = `<div class="grid">${items.map((i, k) => f(cfg, s, i, k)).join('')}</div>`;
+  else if (L === 'carousel') body = `<div class="rail cwrail">${items.map((i, k) => f(cfg, s, i, k)).join('')}</div>`;
+  else body = `<div class="stackc L-${L}">${items.map((i, k) => f(cfg, s, i, k)).join('')}</div>`;
+  const head = `<div class="mhead ${c.img ? 'has' : ''}" style="${c.img ? `background-image:url('${c.img}')` : ''}"><span class="em">${c.emoji}</span><h3 class="serif">${App.esc(App.nm(c))}</h3><small>${items.length} ${App.tr('dishes')}</small></div>`;
+  return `<section class="msec" id="sec-${c.id}" data-c="${c.id}">${head}${body}</section>`;
 }
 function gridHTML(cfg, s) {
   const needle = q.trim().toLowerCase();
   const tagOk = (i) => !tagSel.size || [...tagSel].every((t) => (i.tags || []).map((x) => x.toLowerCase()).includes(t));
-  const list = cfg.items.filter((i) => (needle ? (i.name + ' ' + (i.name_ar || '') + ' ' + i.desc).toLowerCase().includes(needle) : tagSel.size ? true : i.cat === cat) && itemOpen(cfg, i) && tagOk(i));
-  const qty = (id) => s.cart.filter((l) => l.itemId === id && l.guestId === me.id).reduce((n, l) => n + l.qty, 0);
-  if (!list.length) return `<div class="empty"><span class="em">🔍</span>${App.tr('nothingFound')}</div>`;
-  return list.map((i, k) => `<div class="c pc tilt rise ${i.soldOut ? 'so' : ''}" style="--i:${Math.min(k, 9)}">${i.soldOut ? `<span class="ribbon">${App.tr('soldOut')}</span>` : qty(i.id) ? `<span class="qb">×${qty(i.id)}</span>` : ''}${artOf(cfg, i, '', k)}<b>${App.esc(App.nm(i))}</b><small>${App.esc(i.desc)}</small>${(i.tags || []).length ? `<div class="tgs">${i.tags.map((t) => `<em class="tg">${tagLabel(t)}</em>`).join('')}</div>` : ''}<div class="foot"><span class="pr">${App.money(i.price)}</span><button class="addb rp" aria-label="add" ${i.soldOut ? 'disabled' : ''} onclick="add('${i.id}',this)">${ic('plus')}</button></div></div>`).join('');
+  if (needle || tagSel.size) {
+    const list = cfg.items.filter((i) => (!needle || (i.name + ' ' + (i.name_ar || '') + ' ' + i.desc).toLowerCase().includes(needle)) && itemOpen(cfg, i) && tagOk(i));
+    return list.length ? `<div class="grid">${list.map((i, k) => IT.cards(cfg, s, i, k)).join('')}</div>` : `<div class="empty"><span class="em">🔍</span>${App.tr('nothingFound')}</div>`;
+  }
+  const secs = cfg.categories.filter(catOpen).map((c) => [c, cfg.items.filter((i) => i.cat === c.id)]).filter(([, l]) => l.length);
+  return secs.map(([c, l]) => sectionHTML(cfg, s, c, l)).join('') || `<div class="empty"><span class="em">🍽️</span>${App.tr('nothingFound')}</div>`;
 }
 function menuTab(cfg, s) {
-  const tags = [...new Set(cfg.items.flatMap((i) => (i.tags || []).map((t) => t.toLowerCase())))].sort();
-  return `<h2 class="ptitle rise">${App.tr('menuTitle')}</h2><p class="psub rise" style="--i:1">${App.tr('menuSub')}</p>
-  <div class="search rise" style="--i:2">${ic('search')}<input id="q" value="${App.esc(q)}" placeholder="${App.tr('search')}" oninput="q=this.value;refreshGrid()"></div>
-  <div class="chips rise" style="--i:3">${cfg.categories.filter(catOpen).map((c) => `<button class="chip rp ${c.id === cat && !q && !tagSel.size ? 'on' : ''}" data-c="${c.id}" onclick="setCat('${c.id}')">${c.emoji} ${App.esc(App.nm(c))}</button>`).join('')}</div>
-  ${tags.length ? `<div class="tagbar rise" style="--i:4">${tags.map((t) => `<button class="${tagSel.has(t) ? 'on' : ''}" data-t="${App.esc(t)}" onclick="toggleTag(this.dataset.t)">${tagLabel(t)}</button>`).join('')}</div>` : ''}
-  <div class="grid" id="grid">${gridHTML(cfg, s)}</div>`;
+  const st = cfg.settings, tags = [...new Set(cfg.items.flatMap((i) => (i.tags || []).map((t) => t.toLowerCase())))].sort();
+  const nm = App.lang === 'ar' && st.name_ar ? st.name_ar : st.name, tag = (App.lang === 'ar' ? st.tagline_ar : st.tagline) || App.tr('tagline');
+  const how = App.ls(`how:${SLUG}`) ? '' : `<div class="how rise" style="--i:2"><button class="x" aria-label="close" onclick="App.ls('how:${SLUG}','1');draw(true)">✕</button><div class="ht">${App.tr('howTitle')}</div><div class="hs">${[1, 2, 3].map((n) => `<div><i>${n}</i><b>${App.tr('step' + n)}</b><small>${App.tr('step' + n + 's')}</small></div>`).join('')}</div></div>`;
+  return `<section class="cover rise ${st.heroImg ? 'has' : ''}" style="${st.heroImg ? `background-image:url('${st.heroImg}')` : ''}"><div class="cin"><span class="eyebrow">${App.tr('welcomeTo')}</span><h2 class="serif">${App.esc(nm)}</h2><p>${App.esc(tag)}</p><span class="chipx">${App.tr('table')} ${tableNumber} · ${App.esc(me.name)} ${me.avatar}</span></div></section>
+  ${how}
+  <div class="search rise" style="--i:3">${ic('search')}<input id="q" value="${App.esc(q)}" placeholder="${App.tr('search')}" oninput="q=this.value;refreshGrid()"></div>
+  <div class="stk rise" style="--i:4"><div class="chips">${cfg.categories.filter(catOpen).map((c) => `<button class="chip rp ${c.id === cat && !q && !tagSel.size ? 'on' : ''}" data-c="${c.id}" onclick="setCat('${c.id}')">${c.emoji} ${App.esc(App.nm(c))}</button>`).join('')}</div>
+  ${tags.length ? `<div class="tagbar">${tags.map((t) => `<button class="${tagSel.has(t) ? 'on' : ''}" data-t="${App.esc(t)}" onclick="toggleTag(this.dataset.t)">${tagLabel(t)}</button>`).join('')}</div>` : ''}</div>
+  <div id="grid">${gridHTML(cfg, s)}</div>`;
 }
 function toggleTag(t) { tagSel.has(t) ? tagSel.delete(t) : tagSel.add(t); document.querySelectorAll('.tagbar button').forEach((b) => b.classList.toggle('on', tagSel.has(b.dataset.t))); refreshGrid(); }
 function refreshGrid() {
   const g = $('#grid'); if (!g) return;
   g.classList.remove('anim'); g.innerHTML = gridHTML(S.config, S.session); void g.offsetWidth; g.classList.add('anim');
   document.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', !q && !tagSel.size && c.dataset.c === cat));
-  const ch = $('.chips'); if (ch) ch.style.opacity = q ? 0.45 : 1;
+  const ch = $('.chips'); if (ch) ch.style.opacity = q || tagSel.size ? 0.45 : 1;
 }
-function setCat(id) { q = ''; cat = id; const i = $('#q'); if (i) i.value = ''; refreshGrid(); }
+function setCat(id) {
+  const had = q || tagSel.size; q = ''; tagSel.clear(); cat = id; const i = $('#q'); if (i) i.value = '';
+  document.querySelectorAll('.tagbar button').forEach((b) => b.classList.remove('on'));
+  if (had) refreshGrid();
+  document.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c.dataset.c === id));
+  const el = document.getElementById('sec-' + id); if (el) { spyLock = Date.now() + 900; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+}
+// highlight the chip of the section you are reading
+let spyLock = 0, spyRaf = 0;
+window.addEventListener('scroll', () => {
+  if (tab !== 'menu' || q || tagSel.size || Date.now() < spyLock || spyRaf) return;
+  spyRaf = requestAnimationFrame(() => {
+    spyRaf = 0; let cur = null;
+    document.querySelectorAll('.msec').forEach((el) => { if (el.getBoundingClientRect().top < 170) cur = el.dataset.c; });
+    if (cur && cur !== cat) { cat = cur; document.querySelectorAll('.chip').forEach((c) => { const on = c.dataset.c === cur; c.classList.toggle('on', on); if (on) c.scrollIntoView({ block: 'nearest', inline: 'center' }); }); }
+  });
+}, { passive: true });
+// floating bar: what you picked + one tap to send it
+function cartBar(s) {
+  const el = $('#cartbar'); if (!el) return;
+  const ls = myLines(s), n = ls.reduce((a, l) => a + l.qty, 0), tot = ls.reduce((a, l) => a + l.qty * l.price, 0);
+  el.hidden = !(tab === 'menu' && n);
+  if (el.hidden) return;
+  el.innerHTML = `<button class="cbv rp" onclick="go('table')"><span class="cbn">${n}</span><span><b>${App.tr('viewOrder')}</b><small>${n} ${App.tr('itemsN')}</small></span><span class="cbt">${App.money(tot)}</span></button><button class="cbs rp" onclick="sendMine(this)">${ic('send')}${App.tr('sendNow')}</button>`;
+}
 function tableTab(cfg, s) {
   const mine = s.cart.filter((l) => l.guestId === me.id), others = s.cart.filter((l) => l.guestId !== me.id);
   const ITEM = (id) => cfg.items.find((x) => x.id === id) || { cat: '', emoji: '🍽️' };
@@ -381,13 +493,22 @@ function tableTab(cfg, s) {
    <div class="track" style="--p:${o.status === 'closed' ? 1 : idx / 2}"><i class="fill"></i>${['statusReceived', 'statusKitchen', 'statusServed'].map((kk, j) => `<span class="${j <= idx || o.status === 'closed' ? 'd' : ''} ${j === idx && o.status !== 'closed' ? 'cur' : ''}"><b>${j <= idx ? ic('check') : ''}</b>${App.tr(kk)}</span>`).join('')}</div>
    ${o.items.map((i) => `<div class="line"><span>${guestOf(s, i.guestId).avatar} ${i.qty}× ${App.esc(App.nm(i))}${i.note ? ` <small class="muted">(${App.esc(i.note)})</small>` : ''}</span><span>${App.money(i.price * i.qty)}${i.guestId === me.id && o.status === 'received' ? ` <button class="ib" style="width:26px;height:26px;display:inline-grid;vertical-align:middle;margin-inline-start:4px" onclick="App.send({t:'order_item_remove',id:'${i.id}'})">${ic('x').replace('<svg', '<svg width="12" height="12"')}</button>` : ''}</span></div>`).join('')}</div>`; }).join('');
   const mineTotal = mine.reduce((n, l) => n + l.qty * l.price, 0), othersTotal = others.reduce((n, l) => n + l.qty * l.price, 0);
-  return `<h2 class="ptitle rise">${App.tr('tableFor')} ${tableNumber}</h2><div class="people rise" style="--i:1">${s.guests.map((g, k) => `<div class="person ${g.id === me.id ? 'me' : ''}"><div class="av">${g.avatar}</div>${App.esc(g.name)}</div>`).join('')}</div>
+  return `<h2 class="ptitle rise">${App.tr('tableFor')} ${tableNumber}</h2><div class="people rise" style="--i:1">${s.guests.map((g, k) => `<div class="person ${g.id === me.id ? 'me' : ''}"><div class="av">${g.avatar}${g.id === (hostOf(s) || {}).id ? '<i class="crown">👑</i>' : ''}</div>${App.esc(g.name)}</div>`).join('')}</div>
+  ${hostCard(s)}
   <div class="h3 rise" style="--i:2">${App.tr('yourOrder')}</div>
   ${mine.length ? mine.map((l, k) => line(l, true, k + 2)).join('') : `<div class="c note rise muted" style="--i:3;text-align:center;padding:26px">${ic('cup').replace('<svg', '<svg width="34" height="34" style="color:var(--accent);margin-bottom:6px"')}<br>${App.tr('cartEmpty')}</div>`}
   ${mine.length ? `<button class="send rp" onclick="sendMine(this)">${ic('send')}${App.tr('sendFor')} · ${cnt(mineTotal, 'mine')}</button>` : ''}
   ${others.length ? `<div class="h3">${App.tr('tableOrder')}</div>${others.map((l, k) => line(l, false, k)).join('')}<button class="c note rp" style="width:100%" onclick="sendAll(this)">${ic('users').replace('<svg', '<svg width="18" height="18" style="vertical-align:-4px"')} ${App.tr('sendAll')} (${App.money(othersTotal)})</button>` : ''}
   ${s.orders.length ? `<div class="h3">${App.tr('orders')}</div>${orders}` : ''}`;
 }
+// the table host: the first guest to sit down; they can hand the role to anyone at the table, and the captain sees their name
+function hostCard(s) {
+  const h = hostOf(s); if (!h) return '';
+  const mine = h.id === me.id;
+  return `<div class="c hostc rise" style="--i:2"><div class="hl"><span class="hc">👑</span><div><b>${App.tr('hostTitle')}: ${App.esc(h.name)}${mine ? ' · ' + App.tr('youLabel') : ''}</b><small>${mine ? App.tr('hostYou') : App.tr('hostOther')}</small></div></div>
+   ${mine && s.guests.length > 1 ? `<div class="hpick">${s.guests.filter((g) => g.id !== me.id).map((g) => `<button class="rp" onclick="makeHost('${g.id}')">${g.avatar} ${App.esc(g.name)}</button>`).join('')}</div>` : ''}</div>`;
+}
+function makeHost(id) { const g = S.session.guests.find((x) => x.id === id); if (g && confirm(`${App.tr('hostConfirm')} ${g.name}?`)) { App.send({ t: 'host_set', guestId: id }); App.toast('👑 ' + g.name); } }
 function tipOf(base) { return Math.round(base * pay.tip / 100); }
 function checkBanner(s) {
   const c = s.check, b = s.bill, payer = guestOf(s, c.by), tip = Math.round(b.net * (c.tipPct || 0) / 100);
@@ -408,7 +529,7 @@ function billTab(cfg, s) {
   return `<h2 class="ptitle rise">${App.tr('sessionTotal')}</h2>
   ${G.map((g, k) => { const x = b.byGuest[g.id] || { sub: 0, service: 0, tax: 0, total: 0, items: [] }; return `<div class="c li guestbill rise" style="--i:${k + 1}"><div class="row2"><b style="font-size:16px"><span style="font-size:22px">${g.avatar}</span> ${App.esc(g.name)}${g.id === me.id ? ' · ' + App.tr('youLabel') : ''}</b><b class="serif" style="font-size:19px">${App.money(x.total)}</b></div>
    ${x.items.map((i) => `<div class="line muted"><span>${i.qty}× ${App.esc(App.nm(i))}</span><span>${App.money(i.price * i.qty)}</span></div>`).join('')}</div>`; }).join('')}
-  <div class="c li rise" style="--i:5"><div class="line"><span>${App.tr('subtotal')}</span><span>${App.money(b.sub)}</span></div>${b.discount ? `<div class="line" style="color:var(--ok)"><span>Discount</span><span>−${App.money(b.discount)}</span></div>` : ''}<div class="line"><span>${App.tr('service')} (${st.service}%)</span><span>${App.money(b.service)}</span></div><div class="line"><span>${App.tr('tax')} (${st.tax}%)</span><span>${App.money(b.tax)}</span></div>
+  <div class="c li rise" style="--i:5"><div class="line"><span>${App.tr('subtotal')}</span><span>${App.money(b.sub)}</span></div>${b.discount ? `<div class="line" style="color:var(--ok)"><span>${App.tr('discount')}</span><span>−${App.money(b.discount)}</span></div>` : ''}<div class="line"><span>${App.tr('service')} (${st.service}%)</span><span>${App.money(b.service)}</span></div><div class="line"><span>${App.tr('tax')} (${st.tax}%)</span><span>${App.money(b.tax)}</span></div>
   <div class="line"><span>${App.tr('tip')} (${pay.tip}%)</span><span>${App.money(tipOf(b.net))}</span></div><div class="line" style="border-top:1px dashed var(--line);margin-top:6px;padding-top:10px"><b>${App.tr('total')}</b><b class="bigp">${cnt(withTip, 'tot')}</b></div></div>
   <div class="h3">${App.tr('tip')}</div><div class="seg">${[0, 5, 10, 15, 20].map((p) => `<button class="rp ${pay.tip === p ? 'on' : ''}" onclick="pay.tip=${p};draw(true)">${p}%</button>`).join('')}</div>
   <div class="h3">${App.tr('bill')}</div><div class="seg"><button class="rp ${pay.split === 'self' ? 'on' : ''}" onclick="pay.split='self';draw(true)">👤 ${App.tr('payMine')}</button><button class="rp ${pay.split === 'table' ? 'on' : ''}" onclick="pay.split='table';draw(true)">👥 ${App.tr('payTable')}</button><button class="rp ${pay.split === 'custom' ? 'on' : ''}" onclick="pay.split='custom';draw(true)">✂️ ${App.tr('payCustom')}</button></div>

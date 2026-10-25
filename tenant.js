@@ -220,7 +220,7 @@ function handle(c, m) {
       if (!known && !keyOk(t, m.key)) return c.ws.send(JSON.stringify({ t: 'error', msg: 'scan' }));
       const s = openSession(t); s.lastAt = Date.now(); s.idle = false;
       let g = s.guests.find((x) => x.id === m.guestId);
-      if (!g) { g = { id: id('g'), name: m.name || 'Guest', avatar: m.avatar || '🙂' }; s.guests.push(g); log(s, 'join', `${g.avatar} ${g.name} joined`); }
+      if (!g) { g = { id: id('g'), name: m.name || 'Guest', avatar: m.avatar || '🙂' }; s.guests.push(g); if (!s.host || !s.guests.some((x) => x.id === s.host)) s.host = g.id; log(s, 'join', `${g.avatar} ${g.name} joined${s.host === g.id ? ' (host)' : ''}`); }
       else { g.name = m.name || g.name; g.avatar = m.avatar || g.avatar; }
       c.guestId = g.id;
       c.ws.send(JSON.stringify({ t: 'you', guestId: g.id }));
@@ -233,6 +233,11 @@ function handle(c, m) {
     if (!s) return;
     s.lastAt = Date.now(); s.idle = false;
     switch (m.t) {
+      case 'host_set': {   // the table host (first to sit down) can hand the role to anyone at the table
+        const cur = s.guests.some((x) => x.id === s.host) ? s.host : (s.guests[0] || {}).id, to = s.guests.find((x) => x.id === m.guestId);
+        if (to && c.guestId === cur && to.id !== cur) { s.host = to.id; log(s, 'host', `${to.avatar} ${to.name} is now the table host`); }
+        break;
+      }
       case 'profile': { const g = s.guests.find((x) => x.id === c.guestId); if (g) { g.name = String(m.name || g.name).slice(0, 20); g.avatar = String(m.avatar || g.avatar).slice(0, 8); } break; }
       case 'cart_add': {
         const it = db.items.find((x) => x.id === m.itemId); if (!it || it.soldOut) break;
@@ -297,6 +302,7 @@ function handle(c, m) {
   if (c.role === 'captain') {
     switch (m.t) {
       case 'order_status': setStatus(c, m); break;
+      case 'host_set': { const t = tableOf(m.tableId), s = t && db.sessions[t.id], to = s && s.guests.find((x) => x.id === m.guestId); if (to) { s.host = to.id; log(s, 'host', `${to.avatar} ${to.name} is now the table host (set by staff)`); } break; }
       case 'resolve_request': {
         const s = db.sessions[m.tableId]; const r = s?.requests.find((x) => x.id === m.id);
         if (r) { r.done = true; log(s, 'handled', `Request ${r.type} handled` + (c.staffName ? ' by ' + c.staffName : '')); bump(c, 'handled'); bump(c, 'respMs', Math.max(0, Date.now() - r.at)); }
@@ -428,40 +434,47 @@ function tick() {
 function analytics(days = 7) {
   const d0 = new Date(); d0.setHours(0, 0, 0, 0);
   const since = days === 1 ? d0.getTime() : Date.now() - days * 86400000, span = Date.now() - since, prevSince = since - span;
+  const RS = db.statsReset || {}, from = (k) => Math.max(since, RS.all || 0, RS[k] || 0);
   const H = db.history.filter((h) => h.closedAt >= since && !h.unpaid);
+  const HB = (k) => { const f = from(k); return H.filter((h) => h.closedAt >= f); };   // history for one statistics block (after its last "clear")
   const sum = (a, f) => a.reduce((s, x) => s + f(x), 0);
   const kp = (arr) => { const rev = sum(arr, (h) => h.total); return { revenue: rev, orders: arr.length, avg: arr.length ? rev / arr.length : 0, profit: sum(arr, (h) => sum(h.items, (l) => l.qty * (l.price - l.cost)) - (h.discount || 0)) }; };
-  const kpi = { ...kp(H), prev: kp(db.history.filter((h) => h.closedAt >= prevSince && h.closedAt < since && !h.unpaid)) };
-  const hourly = Array(24).fill(0); H.forEach((h) => { hourly[new Date(h.closedAt).getHours()] += h.total; });
+  const kpi = { ...kp(HB('kpi')), prev: kp(db.history.filter((h) => h.closedAt >= Math.max(prevSince, RS.all || 0, RS.kpi || 0) && h.closedAt < since && !h.unpaid)) };
+  const hourly = Array(24).fill(0); HB('trend').forEach((h) => { hourly[new Date(h.closedAt).getHours()] += h.total; });
   const lowStock = db.items.filter((i) => i.stock !== undefined && i.stock !== null && i.stock !== '' && i.stock <= (i.lowAt === undefined ? 5 : i.lowAt)).map((i) => ({ id: i.id, name: i.name, emoji: i.emoji, stock: i.stock })).sort((a, b) => a.stock - b.stock);
+  const HD = HB('details');
   const revenue = {
-    gross: sum(H, (h) => h.sub), service: sum(H, (h) => h.service), tax: sum(H, (h) => h.tax), tips: sum(H, (h) => h.tip), total: sum(H, (h) => h.total),
-    cash: sum(H, (h) => (h.pay ? h.pay.cash : h.method === 'cash' ? h.total : 0)), card: sum(H, (h) => (h.pay ? h.pay.card : h.method === 'card' ? h.total : 0)), discounts: sum(H, (h) => h.discount || 0), sessions: H.length,
+    gross: sum(HD, (h) => h.sub), service: sum(HD, (h) => h.service), tax: sum(HD, (h) => h.tax), tips: sum(HD, (h) => h.tip), total: sum(HD, (h) => h.total),
+    cash: sum(HD, (h) => (h.pay ? h.pay.cash : h.method === 'cash' ? h.total : 0)), card: sum(HD, (h) => (h.pay ? h.pay.card : h.method === 'card' ? h.total : 0)), discounts: sum(HD, (h) => h.discount || 0), sessions: HD.length,
   };
   const itemMap = {}, catMap = {};
-  H.forEach((h) => h.items.forEach((l) => {
+  const item = (h, l) => {
     const a = (itemMap[l.name] ||= { name: l.name, emoji: (db.items.find((x) => x.id === l.itemId) || {}).emoji, qty: 0, revenue: 0, profit: 0 }); a.qty += l.qty; a.revenue += l.qty * l.price; a.profit += l.qty * (l.price - l.cost);
+  };
+  HB('best').forEach((h) => h.items.forEach((l) => item(h, l)));
+  HB('cats').forEach((h) => h.items.forEach((l) => {
     const cat = db.categories.find((c) => c.id === l.cat); const cn = cat ? cat.name : 'Other';
     const b = (catMap[cn] ||= { name: cn, revenue: 0, profit: 0 }); b.revenue += l.qty * l.price; b.profit += l.qty * (l.price - l.cost);
   }));
   const heat = Array.from({ length: 7 }, () => Array(24).fill(0));
   const perTable = {};
-  H.forEach((h) => { const d = new Date(h.startedAt); heat[d.getDay()][d.getHours()]++; perTable[h.tableNumber] = (perTable[h.tableNumber] || 0) + 1; });
-  const durs = H.map((h) => (h.closedAt - h.startedAt) / 60000);
+  HB('heat').forEach((h) => { const d = new Date(h.startedAt); heat[d.getDay()][d.getHours()]++; });
+  HB('tables').forEach((h) => { perTable[h.tableNumber] = (perTable[h.tableNumber] || 0) + 1; });
+  const durs = HD.map((h) => (h.closedAt - h.startedAt) / 60000);
   const avgOcc = durs.length ? sum(durs, (x) => x) / durs.length : 0;
   // gaps between consecutive sessions on same table, same day
   const gaps = [];
-  const byT = {}; H.forEach((h) => (byT[h.tableId] ||= []).push(h));
+  const byT = {}; HD.forEach((h) => (byT[h.tableId] ||= []).push(h));
   Object.values(byT).forEach((arr) => { arr.sort((a, b) => a.startedAt - b.startedAt); for (let i = 1; i < arr.length; i++) { const g = (arr[i].startedAt - arr[i - 1].closedAt) / 60000; if (g >= 0 && g < 240) gaps.push(g); } });
   const avgGap = gaps.length ? sum(gaps, (x) => x) / gaps.length : 0;
   const openMin = 14 * 60 * days * Math.max(1, db.tables.length);
   const occupancy = Math.min(100, sum(durs, (x) => x) / openMin * 100);
   const daily = {};
-  H.forEach((h) => { const k = new Date(h.closedAt).toISOString().slice(0, 10); daily[k] = (daily[k] || 0) + h.total; });
+  HB('trend').forEach((h) => { const k = new Date(h.closedAt).toISOString().slice(0, 10); daily[k] = (daily[k] || 0) + h.total; });
   const audit = [...db.history.slice(-40).reverse().map((h) => ({ tableNumber: h.tableNumber, startedAt: h.startedAt, orderedAt: h.orderedAt, checkAt: h.checkAt, closedAt: h.closedAt, total: h.total, guests: h.guests, method: h.method })),];
   Object.values(db.sessions).forEach((s) => audit.unshift({ tableNumber: s.tableNumber, startedAt: s.startedAt, orderedAt: s.orders[0]?.at, checkAt: s.check?.at, closedAt: null, total: bill(s).total, guests: s.guests.length, method: s.check?.method || '—', live: true }));
   return {
-    days, kpi, hourly, lowStock, revenue, turnover: { avgOccupiedMin: avgOcc, avgEmptyGapMin: avgGap, turnsPerTablePerDay: H.length / Math.max(1, db.tables.length) / days, occupancyPct: occupancy },
+    days, resets: RS, kpi, hourly, lowStock, revenue, turnover: { avgOccupiedMin: avgOcc, avgEmptyGapMin: avgGap, turnsPerTablePerDay: HD.length / Math.max(1, db.tables.length) / days, occupancyPct: occupancy },
     topItems: Object.values(itemMap).sort((a, b) => b.qty - a.qty).slice(0, 8),
     categories: Object.values(catMap).sort((a, b) => b.profit - a.profit),
     heat, perTable, daily, audit,

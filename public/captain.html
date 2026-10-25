@@ -112,7 +112,8 @@ function start() { document.getElementById('who').textContent = App.who() ? '· 
 }); }
 App.gate('captain', start);
 
-const guestsOf = (s) => s.guests.map((g) => g.avatar).join('');
+const hostOf = (s) => s.guests.find((g) => g.id === s.host) || s.guests[0];
+const guestsOf = (s) => { const h = hostOf(s); return h ? `👑${h.name.slice(0, 9)}${s.guests.length > 1 ? ' +' + (s.guests.length - 1) : ''}` : ''; };
 const mins = (ts) => { const m = Math.max(0, Math.round((Date.now() - ts) / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0'); };
 function stageHTML(cfg) {
   const F = App.floor();
@@ -122,7 +123,7 @@ function stageHTML(cfg) {
     const rv = st === 'reserved' && (S.config.reservations || []).find((r) => r.tableId === t.id && Date.now() >= r.at - 45 * 60000 && Date.now() <= r.at + 20 * 60000);
     const lab = { empty: 'Empty', reserved: rv ? '📅 ' + new Date(rv.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Reserved', seated: 'Browsing', ordered: 'Ordered', urgent: 'URGENT', check: s && s.check ? `${s.check.method === 'card' ? '💳' : '💵'} ${s.check.split}` : 'Check' }[st];
     const bd = s ? [s.requests.some((r) => !r.done && r.type === 'waiter') && '🙋', s.requests.some((r) => !r.done && r.type === 'water') && '💧', s.requests.some((r) => !r.done && r.type === 'urgent') && '⚡', s.check && '🧾', s.idle && '💤'].filter(Boolean).join('') : '';
-    return `<div class="fl-t ${t.shape} ${st}${s && s.orders.some((o) => o.status === 'served') ? ' rdy' : ''}" style="left:${p.fx / F.cols * 100}%;top:${p.fy / F.rows * 100}%;width:${p.fw / F.cols * 100}%;height:${p.fh / F.rows * 100}%;--m:${Math.min(p.fw, p.fh)}" onclick="openT('${t.id}')">${App.chairs(t.shape, t.seats)}<span class="bd">${bd}</span><span class="n">${t.number}</span><span class="av">${s ? App.esc(guestsOf(s).slice(0, 12)) : ''}</span><span class="s">${lab}${s ? ' · ' + mins(s.startedAt) : ' · ' + t.seats + ' seats'}</span><span class="m">${s ? mins(s.startedAt) : ''}</span></div>`;
+    return `<div class="fl-t ${t.shape} ${st}${s && s.orders.some((o) => o.status === 'served') ? ' rdy' : ''}" style="left:${p.fx / F.cols * 100}%;top:${p.fy / F.rows * 100}%;width:${p.fw / F.cols * 100}%;height:${p.fh / F.rows * 100}%;--m:${Math.min(p.fw, p.fh)}" onclick="openT('${t.id}')">${App.chairs(t.shape, t.seats)}<span class="bd">${bd}</span><span class="n">${t.number}</span><span class="av" title="${s && hostOf(s) ? 'Host: ' + App.esc(hostOf(s).name) : ''}">${s ? App.esc(guestsOf(s)) : ''}</span><span class="s">${lab}${s ? ' · ' + mins(s.startedAt) : ' · ' + t.seats + ' seats'}</span><span class="m">${s ? mins(s.startedAt) : ''}</span></div>`;
   }).join('');
   return decor + tables;
 }
@@ -193,7 +194,8 @@ function renderModal() {
     const b = s.bill, tip = Math.round(b.net * (s.check && s.check.tipPct || 0) / 100);
     h = `<div class="spread"><h2>${s.kind ? (s.kind === 'delivery' ? '🛵 ' : '🛍️ ') + App.esc(s.tableNumber) : 'Table ' + t.number} <span class="pill">${App.ago(s.startedAt)}</span></h2><button onclick="closeM()">✕</button></div>
     ${s.customer && (s.customer.name || s.customer.phone || s.customer.address) ? `<p class="muted">👤 ${App.esc(s.customer.name)} ${s.customer.phone ? `· <a href="tel:${App.esc(s.customer.phone)}">${App.esc(s.customer.phone)}</a>` : ''}${s.customer.address ? '<br>📍 ' + App.esc(s.customer.address) : ''}</p>` : ''}
-    <div class="row wrap">${s.guests.map((g) => `<span class="pill" style="font-size:14px">${g.avatar} ${App.esc(g.name)} · ${App.money((b.byGuest[g.id] || {}).total || 0)}</span>`).join('') || '<span class="muted">No guests</span>'}</div>
+    ${hostOf(s) ? `<div class="row wrap" style="margin-bottom:6px"><span>👑 Table host: <b>${App.esc(hostOf(s).name)}</b></span>${s.guests.length > 1 ? `<select style="width:auto" onchange="App.send({t:'host_set',tableId:'${t.id}',guestId:this.value})">${s.guests.map((g) => `<option value="${g.id}" ${g.id === hostOf(s).id ? 'selected' : ''}>${App.esc(g.name)}</option>`).join('')}</select>` : ''}</div>` : ''}
+    <div class="row wrap">${s.guests.map((g) => `<span class="pill" style="font-size:14px">${g.id === (hostOf(s) || {}).id ? '👑' : ''}${g.avatar} ${App.esc(g.name)} · ${App.money((b.byGuest[g.id] || {}).total || 0)}</span>`).join('') || '<span class="muted">No guests</span>'}</div>
     ${s.requests.filter((r) => !r.done).map((r) => `<div class="ocard spread" style="margin-top:10px"><span>${RQ[r.type]} · ${App.ago(r.at)}</span><button class="primary" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">Done</button></div>`).join('')}
     ${s.cart.length ? `<p class="muted">🛒 In cart (not sent): ${s.cart.map((c) => c.qty + '× ' + App.esc(c.name)).join(', ')}</p>` : ''}
     <div class="row wrap" style="margin:10px 0"><button class="primary" onclick="PX.openPOS('${s.tableId}')">➕ Add items</button>${s.kind ? '' : `<button class="ghost" onclick="PX.moveDlg('${s.tableId}')">⇄ Move</button><button class="ghost" onclick="PX.mergeDlg('${s.tableId}')">⧉ Merge</button>`}</div>
