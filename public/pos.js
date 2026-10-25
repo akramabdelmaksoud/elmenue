@@ -28,7 +28,7 @@ const PX = (() => {
     return list.map((i) => {
       const inCart = (PO.cart.find((c) => c.itemId === i.id) || {}).qty || 0, tr = i.stock != null && i.stock !== '';
       const out = i.soldOut || (tr && i.stock - inCart <= 0);
-      return `<button class="pit ${out ? 'out' : ''}" ${out ? 'disabled' : ''} onclick="PX.add('${i.id}')"><span class="e">${E(i.emoji || '🍽️')}</span><b>${E(i.name)}</b><small>${M(i.price)}${tr ? ' · ' + i.stock + ' left' : ''}${i.soldOut ? ' · sold out' : ''}</small>${inCart ? `<i class="bd">${inCart}</i>` : ''}</button>`;
+      return `<button class="pit ${out ? 'out' : ''}" ${out ? 'disabled' : ''} onclick="PX.add('${i.id}')">${i.img ? `<span class="ph" style="background-image:url(${i.img})"></span>` : `<span class="e">${E(i.emoji || '🍽️')}</span>`}<b>${E(i.name)}</b><small>${M(i.price)}${tr ? ' · ' + i.stock + ' left' : ''}${i.soldOut ? ' · sold out' : ''}</small>${inCart ? `<i class="bd">${inCart}</i>` : ''}</button>`;
     }).join('') || '<p class="muted">No items</p>';
   }
   function cartHTML() {

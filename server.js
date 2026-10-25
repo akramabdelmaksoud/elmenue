@@ -460,6 +460,7 @@ A('post', '/items/:id/image', upload.single('image'), async (req, res) => {
   await store.putBlob(key, `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`);
   i.img = `/api/r/${req.params.slug}/img/${key}`; bc(req); res.json({ ok: 1 });
 });
+A('delete', '/items/:id/image', (req, res) => { const i = req.tenant.db.items.find((x) => x.id === req.params.id); if (i) i.img = ''; bc(req); res.json({ ok: 1 }); });
 app.get(`${R}/img/:key`, async (req, res) => {
   const d = await store.getBlob(req.params.key); const m = d && /^data:([\w/+.-]+);base64,(.*)$/.exec(d);
   if (!m) return res.status(404).end();

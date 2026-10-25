@@ -121,3 +121,6 @@
   .steps u { width: 22px; } .steps b { width: 30px; height: 30px; }
 }
 @media (max-height: 560px) { .emblem { display: none; } .pad button { font-size: 20px; } .pad { max-width: 230px; gap: 8px; } .auth-shell { align-items: start; padding-top: 56px; } }
+
+.swr { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; margin-top: 14px; font-size: 13px; color: var(--muted); }
+.swr a { color: var(--accent); text-decoration: none; padding: 5px 12px; border-radius: 99px; border: 1px solid var(--line); background: color-mix(in srgb, var(--card) 70%, transparent); transition: transform .2s, border-color .2s; } .swr a:hover { transform: translateY(-2px); border-color: var(--accent); }

@@ -23,7 +23,7 @@ table { width:100%; border-collapse:collapse; } td, th { padding:6px; text-align
 <body><div class="shell"><aside>
 <h2>⚙️ Admin</h2>
 <button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="inventory">📦 Inventory</button><button data-t="floor">🪑 Floor plan</button><button data-t="staff">👥 Staff</button><button data-t="orders">🧾 Orders</button><button data-t="reports">📈 Reports</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button>
-<span style="flex:1"></span><button onclick="App.toggleLang()">🌐 EN / عربي</button><button onclick="App.skinMenu(event)">🎨 Look (Maison)</button><button onclick="App.toggleMode(event)">◐ Light / Dark</button><button onclick="App.logout()">⏻ Sign out</button></aside>
+<span style="flex:1"></span><button onclick="App.toggleLang()">🌐 EN / عربي</button><button onclick="App.roleMenu(event)">⇄ Switch role</button><button onclick="App.skinMenu(event)">🎨 Look (Maison)</button><button onclick="App.toggleMode(event)">◐ Light / Dark</button><button onclick="App.logout()">⏻ Sign out</button></aside>
 <main id="main"></main></div>
 <script src="/vendor/sortable.js"></script><script src="/vendor/chart.js"></script><script src="/shared.js"></script>
 <script>
@@ -183,11 +183,13 @@ function menu() {
    <button class="ghost" onclick="actCat='${c.id}';cfgKey='';render(App.state,true)">▶</button><button class="ghost" onclick="if(confirm('Delete category and its items?'))api('DELETE','/api/categories/${c.id}')">🗑</button></div>`).join('')}</div>
    ${catSettings(C.find(c => c.id === actCat))}
    <button class="primary" onclick="api('POST','/api/categories',{name:'New category'})">+ Category</button>
+   <hr style="border-color:var(--line);margin:16px 0"><h3>📷 Photos for all items</h3><p class="muted" style="font-size:13px">Pick or drop many photos at once. Name each file like the dish (<b>cappuccino.jpg</b>) and it is attached to the matching item. You can also drop one photo on any item's picture.</p>
+   <div class="card" id="dz" style="border:2px dashed var(--line);text-align:center;padding:18px;cursor:copy" ondragover="event.preventDefault()" ondrop="event.preventDefault();bulkImgs(event.dataTransfer.files)" onclick="$('#bulkin').click()">Drop photos here or click to choose</div><input type="file" id="bulkin" accept="image/*" multiple hidden onchange="bulkImgs(this.files);this.value=''">
    <hr style="border-color:var(--line);margin:16px 0"><h3>Bulk upload</h3><p class="muted" style="font-size:13px">Excel/CSV columns: category, category_ar, name, name_ar, price, cost, emoji, description</p>
    <input type="file" id="imp" accept=".xlsx,.xls,.csv"><div class="row" style="margin-top:8px"><button class="primary" onclick="importFile()">Upload</button><a href="/api/r/${App.slug}/menu/template.xlsx" style="color:var(--accent);display:inline-block;padding:10px 6px">⬇ Template</a></div></div>
   <div class="card" style="overflow:auto"><div class="spread"><h3>Items in “${App.esc(C.find(c => c.id === actCat)?.name || '')}”</h3><button class="primary" onclick="api('POST','/api/items',{cat:'${actCat}'})">+ Item</button></div>
   <table><tr><th></th><th>Name</th><th>الاسم</th><th>Price</th><th>Cost</th><th>Emoji</th><th title="First starred = Dish of the day, second = featured card">★</th><th title="Dietary tags guests can filter by, e.g. vegan, spicy, gluten-free">Tags</th><th title="Hide from ordering until you restock">Sold out</th><th>Description</th><th></th></tr>
-  ${its.map(i => `<tr><td><div class="thumb" style="${i.img ? `background-image:url(${i.img})` : ''}" title="Upload image" onclick="pick('${i.id}')">${i.img ? '' : i.emoji}</div></td>
+  ${its.map(i => `<tr><td style="white-space:nowrap"><div class="thumb" style="${i.img ? `background-image:url(${i.img})` : ''}" title="Click or drop a photo" onclick="pick('${i.id}')" ondragover="event.preventDefault()" ondrop="event.preventDefault();upImg('${i.id}',event.dataTransfer.files[0])">${i.img ? '' : i.emoji}</div><div class="row" style="gap:4px;margin-top:4px"><button class="ghost" style="padding:2px 8px;font-size:11px" onclick="pick('${i.id}')">📷 ${i.img ? 'Change' : 'Add photo'}</button>${i.img ? `<button class="ghost" style="padding:2px 8px;font-size:11px" onclick="rmImg('${i.id}')" title="Remove photo">✕</button>` : ''}</div></td>
    <td><input value="${App.esc(i.name)}" onchange="upd('items','${i.id}',{name:this.value})"></td><td><input dir="rtl" value="${App.esc(i.name_ar)}" onchange="upd('items','${i.id}',{name_ar:this.value})"></td>
    <td><input type="number" style="width:80px" value="${i.price}" onchange="upd('items','${i.id}',{price:this.value})"></td><td><input type="number" style="width:70px" value="${i.cost}" onchange="upd('items','${i.id}',{cost:this.value})"></td>
    <td><input style="width:56px" value="${App.esc(i.emoji)}" onchange="upd('items','${i.id}',{emoji:this.value})"></td><td><input type="checkbox" style="width:auto" ${i.featured ? 'checked' : ''} onchange="upd('items','${i.id}',{featured:this.checked})"></td><td><input style="width:130px" placeholder="vegan, spicy" value="${App.esc((i.tags || []).join(', '))}" onchange="upd('items','${i.id}',{tags:this.value.split(',').map(x=>x.trim()).filter(Boolean)})"></td><td><input type="checkbox" style="width:auto" ${i.soldOut ? 'checked' : ''} onchange="upd('items','${i.id}',{soldOut:this.checked})"></td><td><input value="${App.esc(i.desc)}" onchange="upd('items','${i.id}',{desc:this.value})"></td>
@@ -206,7 +208,34 @@ function catSettings(c) {
 }
 function setHours(id, from, to) { upd('categories', id, { hours: from && to ? { from, to } : null }); }
 function upd(kind, id, body) { api('PUT', `/api/${kind}/${id}`, body); }
-function pick(id) { const f = $('#imgin'); f.onchange = async () => { const fd = new FormData(); fd.append('image', f.files[0]); await fetch(`/api/items/${id}/image`, { method: 'POST', body: fd }); }; f.click(); }
+// photos are shrunk in the browser first (max 900px, webp) so any phone photo uploads fast and fits the limit
+async function shrink(file, max = 900) {
+  const bmp = await createImageBitmap(file), k = Math.min(1, max / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(bmp.width * k)); c.height = Math.max(1, Math.round(bmp.height * k)); c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  let q = 0.86, b; do { b = await new Promise((r) => c.toBlob(r, 'image/webp', q)); q -= 0.14; } while (b && b.size > 600 * 1024 && q > 0.2);
+  return b;
+}
+async function upImg(id, file, quiet) {
+  if (!file || !/^image\//.test(file.type)) { if (!quiet) App.toast('Choose an image file'); return false; }
+  try {
+    const fd = new FormData(); fd.append('image', await shrink(file), 'photo.webp');
+    const j = await (await fetch(`/api/items/${id}/image`, { method: 'POST', body: fd })).json();
+    if (!quiet) App.toast(j.error || 'Photo saved ✓'); return !j.error;
+  } catch (e) { if (!quiet) App.toast('Could not read that image'); return false; }
+}
+function pick(id) { const f = $('#imgin'); f.onchange = () => { upImg(id, f.files[0]); f.value = ''; }; f.click(); }
+async function rmImg(id) { await api('DELETE', `/api/items/${id}/image`); App.toast('Photo removed'); }
+const norm = (s) => String(s || '').toLowerCase().replace(/\.[a-z0-9]{2,4}$/, '').replace(/[^\p{L}\p{N}]+/gu, '');
+// drop or choose many photos at once: each is matched to the item with the same name (cappuccino.jpg -> Cappuccino)
+async function bulkImgs(files) {
+  files = [...files].filter((f) => /^image\//.test(f.type)); if (!files.length) return App.toast('Choose image files');
+  const I = App.config.items; let ok = 0; const miss = [];
+  for (const f of files) {
+    const n = norm(f.name), it = I.find((x) => norm(x.name) === n || norm(x.name_ar) === n) || I.find((x) => n && (norm(x.name).includes(n) || n.includes(norm(x.name))) && norm(x.name).length > 2);
+    if (it && await upImg(it.id, f, true)) ok++; else miss.push(f.name);
+  }
+  App.toast(`${ok} photo${ok === 1 ? '' : 's'} added` + (miss.length ? ` · no matching item for: ${miss.slice(0, 4).join(', ')}${miss.length > 4 ? '…' : ''}` : ''));
+}
 async function importFile() {
   const f = $('#imp').files[0]; if (!f) return App.toast('Choose a file first');
   const fd = new FormData(); fd.append('file', f);

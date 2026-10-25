@@ -83,7 +83,7 @@ const Auth = (() => {
             <div class="hint rz" style="--i:2"></div>
             <button class="gold-btn rz" style="--i:3"><span>${t('signin')}</span>${ic('arrow')}</button></form>`;
         }
-        shell.innerHTML = `${hero()}<div class="auth-card"><div class="rz" style="--i:-3">${emblem()}</div><div class="kick rz" style="--i:-2">${t('welcome')}</div><h2 class="rz" style="--i:-1"><span class="foil">${title}</span></h2><div class="brand rz" style="--i:0">${App.esc(brandName)}</div>${body}<div class="secure rz" style="--i:5">${ic('shield')} ${t('secure')}</div></div>`;
+        shell.innerHTML = `${hero()}<div class="auth-card"><div class="rz" style="--i:-3">${emblem()}</div><div class="kick rz" style="--i:-2">${t('welcome')}</div><h2 class="rz" style="--i:-1"><span class="foil">${title}</span></h2><div class="brand rz" style="--i:0">${App.esc(brandName)}</div>${body}<div class="secure rz" style="--i:5">${ic('shield')} ${t('secure')}</div>${App.slug ? `<div class="swr rz" style="--i:6"><a href="/r/${App.slug}">← ${App.lang === 'ar' ? 'رجوع' : 'Back'}</a><span>${App.lang === 'ar' ? 'الدخول كـ' : 'Sign in as'}</span>${[['admin', App.lang === 'ar' ? 'المالك' : 'Owner'], ['captain', App.lang === 'ar' ? 'الكابتن' : 'Captain'], ['kitchen', App.lang === 'ar' ? 'المطبخ' : 'Kitchen']].filter(([k]) => k !== App.authRole).map(([k, l]) => `<a href="/r/${App.slug}/${k}">${l}</a>`).join('')}</div>` : ''}</div>`;
         if (kind === 'pin') {
           dots();
           shell.querySelectorAll('.pad button').forEach((b) => (b.onpointerdown = (e) => ripple(b, e)));

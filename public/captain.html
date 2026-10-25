@@ -40,7 +40,7 @@ h3 { margin:6px 0 10px; }
 #dlg .modal { z-index:95; } .spread { display:flex; justify-content:space-between; align-items:center; gap:8px; } .wrap { flex-wrap:wrap; } .muted { color:var(--muted); }
 .posgrid { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:14px; } .pcart { border-inline-start:1px solid var(--line); padding-inline-start:14px; } @media (max-width:760px) { .posgrid { grid-template-columns:1fr; } .pcart { border:0; padding:0; border-top:1px solid var(--line); padding-top:10px; } }
 .pitems { display:grid; grid-template-columns:repeat(auto-fill,minmax(122px,1fr)); gap:8px; max-height:46vh; overflow:auto; padding:2px; } @media (max-width:760px) { .pitems { max-height:34vh; } }
-.pit { position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:10px; border-radius:14px; background:var(--card); border:1px solid var(--line); text-align:start; min-height:78px; } .pit .e { font-size:22px; } .pit b { font-size:13px; line-height:1.2; } .pit small { color:var(--muted); } .pit.out { opacity:.4; }
+.pit { position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:10px; border-radius:14px; background:var(--card); border:1px solid var(--line); text-align:start; min-height:78px; } .pit .e { font-size:22px; } .pit .ph { width:100%; height:54px; border-radius:10px; background-size:cover; background-position:center; } .pit b { font-size:13px; line-height:1.2; } .pit small { color:var(--muted); } .pit.out { opacity:.4; }
 .pit .bd { position:absolute; top:6px; inset-inline-end:6px; background:var(--accent); color:var(--on-accent); border-radius:99px; min-width:22px; height:22px; display:grid; place-items:center; font-style:normal; font-size:12px; font-weight:800; }
 .pchips { display:flex; gap:6px; overflow-x:auto; padding:8px 0; scrollbar-width:none; } .pchips button { flex:none; padding:6px 12px; border-radius:99px; font-size:13px; }
 .pcl { padding:8px 0; border-bottom:1px dashed var(--line); display:flex; flex-direction:column; gap:6px; } .pcl input { padding:6px 10px; font-size:13px; } .step { display:flex; align-items:center; gap:8px; } .step button { width:30px; height:30px; padding:0; border-radius:10px; }
@@ -69,6 +69,7 @@ h3 { margin:6px 0 10px; }
  <button class="ghost" id="snd" onclick="toggleSound()" aria-label="sound"><span id="sndi">🔕</span><b class="lbl" id="sndl">Sound off</b></button>
  <button class="ghost" id="sim" onclick="App.send({t:'sim',on:!App.state.simulate})"><span>🤖</span><b class="lbl">Simulate guests</b></button>
  <button class="ghost" onclick="App.toggleLang(event)"><span>🌐</span><b class="lbl">EN/ع</b></button>
+ <button class="ghost" onclick="App.roleMenu(event)" title="Switch role"><span>⇄</span><b class="lbl">Switch role</b></button>
  <button class="ghost" onclick="App.skinMenu(event)" title="Look"><span>🎨</span><b class="lbl">Look</b></button>
  <button class="ghost" onclick="App.toggleMode(event)"><span>◐</span></button>
  <button class="ghost" onclick="App.logout()"><span>⏻</span><b class="lbl">Sign out</b></button></div></header>

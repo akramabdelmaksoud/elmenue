@@ -148,8 +148,19 @@ const App = {
   toggleMode(ev) { const sk = App.skinChoice(); if (sk !== 'default') return App.setSkin(sk === 'maison-dark' ? 'maison-light' : 'maison-dark', ev); App.transition(() => { App.ls('mode', App.isDark() ? 'light' : 'dark'); App.applyTheme(); App.handlers.render && App.handlers.render(); }, ev); },
   toggleLang(ev) { App.transition(() => { App.ls('lang', App.lang === 'ar' ? 'en' : 'ar'); App.applyTheme(); App.handlers.render && App.handlers.render(); }, ev); },
 
-  tok(role) { return App.ls(`tok:${App.slug || '_'}:${role || App.authRole}`); },
-  logout() { App.ls(`tok:${App.slug || '_'}:${App.authRole}`, ''); location.reload(); },
+  // the owner's token also opens the captain and kitchen screens; a captain/kitchen token only opens its own
+  tok(role) { const r = role || App.authRole, k = (x) => `tok:${App.slug || '_'}:${x}`; return App.ls(k(r)) || (r === 'captain' || r === 'kitchen' ? App.ls(k('admin')) : null); },
+  logout() { const k = (x) => `tok:${App.slug || '_'}:${x}`; App.ls(k(App.authRole), ''); if (App.authRole !== 'admin' && App.authRole !== 'super') App.ls(k('admin'), ''); location.reload(); },
+  // switch between the role screens of this restaurant without typing addresses
+  roleMenu(ev) {
+    ev && ev.stopPropagation && ev.stopPropagation();
+    const old = document.getElementById('rolemenu'); if (old) return old.remove();
+    const b = ev && ev.currentTarget ? ev.currentTarget.getBoundingClientRect() : { right: innerWidth - 10, bottom: 56, left: 10 }, base = App.slug ? '/r/' + App.slug : '';
+    const m = document.createElement('div'); m.id = 'rolemenu';
+    m.style.cssText = `position:fixed;z-index:200;top:${Math.min(b.bottom + 6, innerHeight - 220)}px;${document.dir === 'rtl' || b.left > innerWidth / 2 ? `right:${Math.max(8, innerWidth - b.right)}px` : `left:${Math.max(8, b.left)}px`};min-width:210px;padding:8px;border-radius:16px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:4px`;
+    m.innerHTML = [['admin', '⚙️ Owner / admin'], ['captain', '🧑‍✈️ Captain'], ['kitchen', '🍳 Kitchen']].map(([k, l]) => `<a href="${base}/${k}" style="text-decoration:none;color:inherit;padding:10px 12px;border-radius:12px;background:var(--card2);${App.authRole === k ? 'outline:2px solid var(--accent)' : ''}">${l}${App.authRole === k ? ' ✓' : ''}</a>`).join('');
+    document.body.appendChild(m); setTimeout(() => document.addEventListener('click', () => m.remove(), { once: true }), 0);
+  },
   loadAuth() {
     if (window.Auth) return Promise.resolve();
     return new Promise((res) => {

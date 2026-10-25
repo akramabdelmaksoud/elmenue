@@ -90,6 +90,11 @@
       if (p === '/api/push/key') return J({ key: '' });
       return J({ error: 'Not available in the demo' }, 404);
     }
+    if ((r = p.match(/^\/api\/items\/([^/]+)\/image$/))) {
+      const i = d.items.find((x) => x.id === r[1]); if (!i) return J({ error: 'not found' }, 404);
+      if (m === 'DELETE') i.img = ''; else { const f = o.body && o.body.get && o.body.get('image'); if (!f) return J({ error: 'bad request' }, 400); i.img = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(f); }); }
+      return done({ ok: 1 });
+    }
     if (p === '/api/feedback') { T.rec.reviews = [{ id: nid('f'), at: Date.now(), stars: Math.round(+body.stars) || 5, comment: String(body.comment || '').slice(0, 400), table: +body.table || 0, name: String(body.name || '').slice(0, 24) }, ...(T.rec.reviews || [])]; return done({ ok: 1 }); }
     if (p === '/api/settings') { delete body.presets; Object.assign(d.settings, body); return done(d.settings); }
     if (p === '/api/account') return J({ ok: 1 });
