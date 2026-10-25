@@ -44,3 +44,12 @@ img, svg, canvas, video { max-width: 100%; }
   input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([type=button]), textarea { cursor: text; }
   button:disabled, [disabled] { cursor: not-allowed; }
 }
+
+/* dropdown lists: always readable (solid background, contrasting text, native popup follows light/dark) */
+select, select option, select optgroup { background-color: #ffffff; color: #1c1c1c; }
+:root[data-dark="1"] select, :root[data-dark="1"] select option, :root[data-dark="1"] select optgroup,
+html[data-theme="maison"] select, html[data-theme="maison"] select option, html[data-theme="maison"] select optgroup { background-color: #1f2723; color: #f4efe4; }
+html[data-theme="maison-light"] select, html[data-theme="maison-light"] select option, html[data-theme="maison-light"] select optgroup { background-color: #ffffff; color: #1c1c1c; }
+:root[data-dark="1"] select, html[data-theme="maison"] select { color-scheme: dark; }
+:root[data-dark="0"] select, html[data-theme="maison-light"] select { color-scheme: light; }
+select option:checked, select option:hover { background-color: var(--accent, #2f6b4f) !important; color: #fff !important; }
