@@ -291,6 +291,22 @@ const tagLabel = (t) => `${TAGI[String(t).toLowerCase()] || '🏷️'} ${App.esc
 let tagSel = new Set(), lastHad = false, rated = false, lastVisit = ''; const prevSt = {};
 // categories can be limited to hours of the day (e.g. breakfast 07:00-12:00)
 function catOpen(c) { const h = c && c.hours; if (!h || !h.from || !h.to) return true; const d = new Date(), m = d.getHours() * 60 + d.getMinutes(), [a1, a2] = h.from.split(':').map(Number), [b1, b2] = h.to.split(':').map(Number), a = a1 * 60 + a2, b = b1 * 60 + b2; return a <= b ? m >= a && m < b : m >= a || m < b; }
+// online card / wallet payment: the amount is calculated on the server from the live bill; the guest pays on the provider's own page
+function payOnlineBox(cfg, s) {
+  const op = cfg.settings.onlinePay; if (!cfg.features.onlinepay || !op || !op.enabled) return '';
+  const b = s.bill, paid = (s.online || []).reduce((n, x) => n + x.amount, 0);
+  const note = paid ? `<div class="muted" style="font-size:13px;margin-bottom:6px">✅ ${App.tr('payOnPaid')}: ${App.money(paid)}</div>` : '';
+  if (b.due <= 0.004) return note ? `<div class="c li rise" style="margin-top:10px">${note}</div>` : '';
+  return `<div class="c li rise" style="margin-top:10px">${note}<b>💳 ${App.tr('payOnTitle')}</b><div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap"><button class="send rp" style="min-width:0;flex:1" onclick="payOnline('mine')">${App.tr('payOnMine')}</button><button class="send rp" style="min-width:0;flex:1" onclick="payOnline('table')">${App.tr('payOnTable')}</button></div><div id="payerr" class="muted" style="color:var(--bad);margin-top:6px"></div></div>`;
+}
+window.payOnline = async (scope) => {
+  const e = document.getElementById('payerr'); if (e) e.textContent = '';
+  try {
+    const r = await fetch('/api/pay/intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tableNumber, guestId: me.id, key: tableKey, scope, tipPct: pay.tip }) }), j = await r.json();
+    if (!r.ok) { if (e) e.textContent = j.error || App.tr('payOnErr'); return; }
+    location.href = j.url + (j.url.includes('/pay/sandbox/') ? '?back=' + encodeURIComponent(location.pathname) : '');
+  } catch { if (e) e.textContent = App.tr('payOnErr'); }
+};
 // coupon code box on the bill (only when the venue switched coupons on)
 function couponBox(cfg, s) {
   if (!cfg.features.coupons || !(cfg.settings.promo && cfg.settings.promo.enabled)) return '';
@@ -628,6 +644,7 @@ function billTab(cfg, s) {
   <div class="line"><span>${App.tr('tip')} (${pay.tip}%)</span><span>${App.money(tipOf(b.net))}</span></div><div class="line" style="border-top:1px dashed var(--line);margin-top:6px;padding-top:10px"><b>${App.tr('total')}</b><b class="bigp">${cnt(withTip, 'tot')}</b></div></div>
   ${loyaltyBill(cfg, s)}
   ${couponBox(cfg, s)}
+  ${payOnlineBox(cfg, s)}
   <div class="h3">${App.tr('tip')}</div><div class="seg">${[0, 5, 10, 15, 20].map((p) => `<button class="rp ${pay.tip === p ? 'on' : ''}" onclick="pay.tip=${p};draw(true)">${p}%</button>`).join('')}</div>
   <div class="h3">${App.tr('bill')}</div><div class="seg"><button class="rp ${pay.split === 'self' ? 'on' : ''}" onclick="pay.split='self';draw(true)">👤 ${App.tr('payMine')}</button><button class="rp ${pay.split === 'table' ? 'on' : ''}" onclick="pay.split='table';draw(true)">👥 ${App.tr('payTable')}</button><button class="rp ${pay.split === 'custom' ? 'on' : ''}" onclick="pay.split='custom';draw(true)">✂️ ${App.tr('payCustom')}</button></div>
   ${pay.split === 'custom' ? `<div class="c li" style="margin-top:12px"><p class="muted" style="margin:0 0 8px">${App.tr('assign')}</p>${G.map((g) => `<div class="row" style="margin-bottom:8px;gap:10px"><span style="font-size:22px">${g.avatar}</span><span style="flex:1">${App.esc(g.name)}</span><input type="number" style="width:120px;border-radius:14px" value="${pay.custom[g.id] ?? ''}" placeholder="${Math.round(withTip / G.length)}" onchange="pay.custom['${g.id}']=this.value;draw(true)"></div>`).join('')}

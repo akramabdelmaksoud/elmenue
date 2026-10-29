@@ -74,7 +74,7 @@ const PX = (() => {
   }
   function calc() {
     const s = S.sessions[PY.tid], b = s.bill;
-    const tip = PY.tipCustom !== null ? Math.max(0, +PY.tipCustom || 0) : Math.round(b.net * PY.tipPct / 100), total = r2(b.total + tip - (b.gift || 0));   // a gift card pays part of the bill
+    const tip = PY.tipCustom !== null ? Math.max(0, +PY.tipCustom || 0) : Math.round(b.net * PY.tipPct / 100), onl = (s.online || []).reduce((n, x) => n + x.amount, 0), total = r2(Math.max(0, b.total + tip - (b.gift || 0) - Math.min(onl, b.total + tip - (b.gift || 0))));   // a gift card and any online payment already received pay part of the bill
     let pay;
     if (PY.method === 'card') pay = { cash: 0, card: total, tendered: 0, change: 0 };
     else if (PY.method === 'mixed') { const card = r2(Math.min(total, Math.max(0, +PY.card || 0))), cash = r2(total - card), tendered = Math.max(cash, +PY.tendered || cash); pay = { cash, card, tendered, change: r2(tendered - cash) }; }
@@ -86,7 +86,7 @@ const PX = (() => {
     const { s, b, tip, total, pay, short } = calc();
     return `<div class="card" style="margin:10px 0"><div class="line"><span>Subtotal</span><span>${M(b.gross)}</span></div>${b.discount ? `<div class="line" style="color:var(--ok)"><span>Discount${s.discount && s.discount.reason ? ' (' + E(s.discount.reason) + ')' : ''}</span><span>−${M(b.discount)}</span></div>` : ''}${b.couponCode ? `<div class="line muted"><span>🎟️ ${E(b.couponCode)}</span><span>−${M(b.promoCoupon)}</span></div>` : ''}${b.offerName ? `<div class="line muted"><span>✨ ${E(b.offerName)}</span><span>−${M(b.promoOffer)}</span></div>` : ''}
       <div class="line"><span>Service</span><span>${M(b.service)}</span></div><div class="line"><span>Tax</span><span>${M(b.tax)}</span></div>${tip ? `<div class="line"><span>Tip</span><span>${M(tip)}</span></div>` : ''}
-      ${b.gift ? `<div class="line" style="color:var(--ok)"><span>🎁 Gift card</span><span>−${M(b.gift)}</span></div>` : ''}<div class="line"><b>Total due</b><b style="font-size:22px">${M(total)}</b></div>${PY.method !== 'card' ? `<div class="line"><span>Received</span><span>${M(pay.tendered)}</span></div><div class="line"><b>Change</b><b style="color:${short ? 'var(--bad)' : 'var(--ok)'}">${short ? 'not enough' : M(pay.change)}</b></div>` : ''}
+      ${(s.online || []).length ? `<div class="line" style="color:var(--ok)"><span>💳 Paid online</span><span>−${M((s.online || []).reduce((n, x) => n + x.amount, 0))}</span></div>` : ''}${b.gift ? `<div class="line" style="color:var(--ok)"><span>🎁 Gift card</span><span>−${M(b.gift)}</span></div>` : ''}<div class="line"><b>Total due</b><b style="font-size:22px">${M(total)}</b></div>${PY.method !== 'card' ? `<div class="line"><span>Received</span><span>${M(pay.tendered)}</span></div><div class="line"><b>Change</b><b style="color:${short ? 'var(--bad)' : 'var(--ok)'}">${short ? 'not enough' : M(pay.change)}</b></div>` : ''}
       ${PY.method === 'mixed' ? `<div class="line"><span>Cash part</span><span>${M(pay.cash)}</span></div><div class="line"><span>Card part</span><span>${M(pay.card)}</span></div>` : ''}</div>
       <button class="primary block" ${short ? 'disabled' : ''} onclick="PX.confirmPay()" style="width:100%">✅ Confirm payment${PY.method === 'mixed' ? ' (cash + card)' : ' · ' + PY.method}</button>`;
   }

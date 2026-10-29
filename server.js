@@ -10,6 +10,7 @@ const multer = require('multer');
 let webpush = null; try { webpush = require('web-push'); } catch {}
 const store = require('./store');
 const auth = require('./auth');
+const PAY = require('./payments');
 const { createTenant, freshData } = require('./tenant');
 const F = require('./features');
 
@@ -586,9 +587,9 @@ app.get(`${R}/receipts`, tenantMw, needCash, async (req, res) => { const hist = 
 async function reportFor(t, from, to) {
   const hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history;
   const H = hist.filter((h) => h.closedAt >= from && h.closedAt <= to && !h.unpaid);
-  const sum = (a, f) => a.reduce((n, x) => n + f(x), 0), cats = {}, items = {}, hours = Array(24).fill(0), methods = { cash: 0, card: 0 }, splits = {}, byWho = {}, salesBy = {}, kinds = {}; let voidN = 0, voidV = 0, wasteV = 0;
+  const sum = (a, f) => a.reduce((n, x) => n + f(x), 0), cats = {}, items = {}, hours = Array(24).fill(0), methods = { cash: 0, card: 0, online: 0 }, splits = {}, byWho = {}, salesBy = {}, kinds = {}; let voidN = 0, voidV = 0, wasteV = 0;
   H.forEach((h) => {
-    methods.cash += h.pay ? h.pay.cash : h.method === 'cash' ? h.total : 0; methods.card += h.pay ? h.pay.card : h.method === 'card' ? h.total : 0; splits[h.split] = (splits[h.split] || 0) + 1; hours[new Date(h.startedAt).getHours()]++;
+    methods.cash += h.pay ? h.pay.cash : h.method === 'cash' ? h.total : 0; methods.card += h.pay ? h.pay.card : h.method === 'card' ? h.total : 0; methods.online += h.pay ? h.pay.online || 0 : 0; splits[h.split] = (splits[h.split] || 0) + 1; hours[new Date(h.startedAt).getHours()]++;
     if (h.closedBy) { byWho[h.closedBy] = (byWho[h.closedBy] || 0) + 1; salesBy[h.closedBy] = (salesBy[h.closedBy] || 0) + h.total; }
     kinds[h.kind || 'table'] = (kinds[h.kind || 'table'] || 0) + h.total; (h.voids || []).forEach((v) => { voidN += v.qty; voidV += v.qty * v.price; if (v.waste) wasteV += v.qty * v.price; });
     h.items.forEach((l) => {
@@ -636,6 +637,7 @@ A('post', '/settings', (req, res) => {
   if (b.upsell) { if (!F.has(req.tenant.rec.plan, 'upsell')) return res.status(402).json({ error: 'Upsell suggestions need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.upsell = F.upCfg({ upsell: b.upsell }); }
   if (b.fb) { if (!F.has(req.tenant.rec.plan, 'feedback')) return res.status(402).json({ error: 'Guest feedback & Google reviews need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); const u = String(b.fb.googleUrl || '').trim().slice(0, 300); b.fb = { enabled: !!b.fb.enabled, googleUrl: /^https:\/\/[^\s]+$/.test(u) ? u : '' }; }
   if (b.offline) { if (!F.has(req.tenant.rec.plan, 'offline')) return res.status(402).json({ error: 'Offline mode needs the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.offline = { enabled: !!b.offline.enabled }; }
+  if (b.onlinePay) { if (!F.has(req.tenant.rec.plan, 'onlinepay')) return res.status(402).json({ error: 'Online payments need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); const p = b.onlinePay.provider === 'paymob' ? 'paymob' : 'sandbox'; if (p === 'sandbox' && b.onlinePay.enabled && !PAY.sandboxAllowed(req.tenant.rec.slug)) return res.status(400).json({ error: 'The test gateway is not allowed on a live venue - connect Paymob' }); if (p === 'paymob' && b.onlinePay.enabled && !(req.tenant.rec.payCfg && req.tenant.rec.payCfg.apiKey && req.tenant.rec.payCfg.hmac && req.tenant.rec.payCfg.integrationId && req.tenant.rec.payCfg.iframeId)) return res.status(400).json({ error: 'Save your Paymob keys first' }); b.onlinePay = { enabled: !!b.onlinePay.enabled, provider: p }; }
   if (b.promo) { if (!F.has(req.tenant.rec.plan, 'coupons')) return res.status(402).json({ error: 'Coupons & offers need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.promo = { enabled: !!b.promo.enabled, stack: !!b.promo.stack }; }
   if ('refreshMin' in b) b.refreshMin = [0, 5, 15, 30, 60, 120, 360].includes(+b.refreshMin) ? +b.refreshMin : 60;
   if (b.ai) { if (!F.has(req.tenant.rec.plan, 'copilot')) return res.status(402).json({ error: 'The AI assistant needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const a = F.aiCfg({ ai: b.ai }); b.ai = { name: a.name, style: a.style, memory: a.memory.map((m) => ({ ...m, id: m.id || Math.random().toString(36).slice(2, 9), at: m.at || Date.now() })) }; }
@@ -732,6 +734,77 @@ async function promoReport(t, from, to) {
   return { by, giftRedeemed: +gift.toFixed(2), coupons: t.db.coupons.map((c) => ({ code: c.code, uses: c.uses || 0, saved: c.saved || 0 })), offers: t.db.offers.map((o) => ({ name: o.name, uses: o.uses || 0, saved: o.saved || 0 })), giftLiability: +Object.values(t.db.gifts).reduce((n, g) => n + g.balance, 0).toFixed(2) };
 }
 A('get', '/promo/report', async (req, res) => { try { res.json(await promoReport(req.tenant, +req.query.from || 0, +req.query.to || Date.now())); } catch (e) { res.status(500).json({ error: e.message }); } });
+// ---- online payments (F2) ----
+const gateP = gate('onlinepay'), payHits = {};
+const payThrottle = (req, res, max) => { const k = String(req.ip) + req.path.slice(0, 20), now = Date.now(); payHits[k] = (payHits[k] || []).filter((x) => now - x < 60000); if (payHits[k].length >= max) { res.status(429).json({ error: 'Too many requests' }); return true; } payHits[k].push(now); return false; };
+const mask = (v) => (v ? '••••' + String(v).slice(-3) : '');
+A('get', '/pay/config', gateP, (req, res) => { const c = req.tenant.rec.payCfg || {}; res.json({ provider: (req.tenant.db.settings.onlinePay || {}).provider, sandboxAllowed: PAY.sandboxAllowed(req.tenant.rec.slug), paymob: { apiKey: mask(c.apiKey), hmac: mask(c.hmac), integrationId: c.integrationId || '', iframeId: c.iframeId || '' }, webhook: '/api/r/' + req.tenant.rec.slug + '/pay/webhook/paymob' }); });
+A('post', '/pay/config', gateP, (req, res) => {   // secrets live on the venue record, never in the public config, never returned
+  const b = req.body || {}; if (String(b.integrationId || '').trim() && !/^\d+$/.test(String(b.integrationId).trim())) return res.status(400).json({ error: 'Integration id is a number' });
+  const c = (req.tenant.rec.payCfg ||= {}), set = (k, v, n) => { v = String(v || '').trim().slice(0, n); if (v && !v.startsWith('••••')) c[k] = v; };
+  set('apiKey', b.apiKey, 600); set('hmac', b.hmac, 200); set('integrationId', b.integrationId, 20); set('iframeId', b.iframeId, 20);
+  persistRec(req.tenant); res.json({ ok: 1 });
+});
+const r2p = (x) => Math.round((+x + Number.EPSILON) * 100) / 100;
+// a guest starts a payment: the amount is worked out HERE from the live bill, never taken from the browser
+app.post(`${R}/pay/intent`, tenantMw, async (req, res, next) => { try {
+  if (payThrottle(req, res, 60)) return;
+  const t = req.tenant, b = req.body || {}, op = t.db.settings.onlinePay || {};
+  if (!op.enabled || !F.has(t.rec.plan, 'onlinepay')) return res.status(402).json({ error: 'Online payment is not switched on here' });
+  const tbl = t.db.tables.find((x) => x.number === +b.tableNumber), s = tbl && t.db.sessions[tbl.id];
+  if (!s || !s.orders.length) return res.status(404).json({ error: 'Nothing to pay yet' });
+  if (t.db.settings.requireKey !== false && !(tbl.key && b.key === tbl.key)) return res.status(403).json({ error: 'Scan the table QR again' });
+  const bl = t.bill(s), gid = String(b.guestId || '').slice(0, 40);
+  let base;
+  if (b.scope === 'mine') { const me = bl.byGuest[gid]; if (!me) return res.status(400).json({ error: 'Guest not at this table' }); const paid = (s.online || []).filter((x) => x.guestId === gid).reduce((n, x) => n + x.amount - (x.tip || 0), 0); base = Math.min(bl.due, Math.max(0, r2p(me.total - paid))); }
+  else if (b.scope === 'custom') base = Math.min(bl.due, Math.max(0, r2p(+b.amount || 0)));
+  else base = bl.due;
+  if (base < 1) return res.status(400).json({ error: 'Nothing left to pay (minimum 1)' });
+  const tip = r2p(base * Math.min(30, Math.max(0, +b.tipPct || 0)) / 100), amount = r2p(base + tip);
+  const id = 'pi_' + require('crypto').randomBytes(12).toString('hex'), rec = t.rec, pays = (rec.pays ||= {});
+  const it = { id, tableId: tbl.id, tableNumber: tbl.number, sessionId: s.id, guestId: gid || null, base, tip, amount, provider: op.provider, status: 'pending', at: Date.now(), ref: '' };
+  if (op.provider === 'paymob') {
+    const c = rec.payCfg || {}; if (!(c.apiKey && c.hmac && c.integrationId && c.iframeId)) return res.status(503).json({ error: 'Payments are not configured' });
+    try { const o = await PAY.paymobCreate(c, { amount, intent: id }); it.ref = o.ref; it.url = o.url; } catch (e) { return res.status(502).json({ error: 'The payment provider is unavailable, please pay at the table' }); }
+  } else {
+    if (!PAY.sandboxAllowed(rec.slug)) return res.status(400).json({ error: 'Test gateway not allowed' });
+    it.url = '/api/r/' + rec.slug + '/pay/sandbox/' + id; it.ref = 'sbx_' + id.slice(3, 11);
+  }
+  pays[id] = it; const ks = Object.keys(pays); if (ks.length > 400) ks.sort((a, c2) => pays[a].at - pays[c2].at).slice(0, ks.length - 300).forEach((x) => delete pays[x]);
+  persistRec(t); res.json({ id, url: it.url, amount, tip, base });
+} catch (e) { next(e); } });
+app.get(`${R}/pay/intent/:id`, tenantMw, (req, res) => { const it = (req.tenant.rec.pays || {})[req.params.id]; res.json(it ? { status: it.status, amount: it.amount } : { status: 'unknown' }); });
+// the one place money is recognised: idempotent, amount-checked, only for an intent we created
+function settleIntent(t, out) {
+  const it = (t.rec.pays || {})[out.intent]; if (!it) return { code: 404, body: { error: 'unknown payment' } };
+  if (it.status === 'paid' || it.status === 'paid_unmatched') return { code: 200, body: { ok: 1, dup: true } };
+  if (!out.paid) { if (out.failed && it.status === 'pending') { it.status = 'failed'; persistRec(t); } return { code: 200, body: { ok: 1, status: it.status } }; }
+  if (Math.abs(out.amount - it.amount) > 0.005 || (out.currency && out.currency !== 'EGP')) { it.status = 'mismatch'; persistRec(t); return { code: 200, body: { ok: 1, status: 'mismatch' } }; }
+  it.paidAt = Date.now(); it.txn = out.id || it.ref;
+  const r = t.applyOnline(it.tableId, { id: it.id, amount: it.amount, tip: it.tip, guestId: it.guestId, ref: it.txn });
+  it.status = r === 'nosession' ? 'paid_unmatched' : 'paid';   // paid_unmatched: the money arrived after the table was cleared - the owner must refund/resolve
+  persistRec(t); t.broadcast(); return { code: 200, body: { ok: 1, status: it.status } };
+}
+app.post(`${R}/pay/webhook/paymob`, tenantMw, (req, res) => {
+  if (payThrottle(req, res, 120)) return;
+  const t = req.tenant, c = t.rec.payCfg || {}, obj = req.body && req.body.obj;
+  if (!obj || !PAY.verifyPaymob(obj, req.query.hmac, c.hmac)) return res.status(401).json({ error: 'bad signature' });
+  if (req.body.type && req.body.type !== 'TRANSACTION') return res.json({ ok: 1, ignored: true });
+  const r = settleIntent(t, PAY.paymobOutcome(obj)); res.status(r.code).json(r.body);
+});
+// built-in test gateway (never reachable on a live venue)
+app.get(`${R}/pay/sandbox/:id`, tenantMw, (req, res) => {
+  const it = (req.tenant.rec.pays || {})[req.params.id]; if (!it || !PAY.sandboxAllowed(req.tenant.rec.slug)) return res.status(404).send('Not found');
+  const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])), back = esc(String(req.query.back || '/').startsWith('/') ? req.query.back : '/');
+  res.type('html').send('<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Test payment</title><body style="font-family:system-ui;max-width:420px;margin:40px auto;padding:0 16px"><h2>Test gateway</h2><p>No money moves. Amount: <b>' + esc(it.amount.toFixed(2)) + ' EGP</b> (table ' + esc(it.tableNumber) + ')</p><p>Test card <code>4242 4242 4242 4242</code></p><button id=ok style="font-size:18px;padding:12px 22px">Pay ' + esc(it.amount.toFixed(2)) + '</button> <button id=no style="font-size:18px;padding:12px 22px">Decline</button><script>const go=async(ok)=>{await fetch(location.pathname+"/complete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ok})});location.href="' + back + '"};ok.onclick=()=>go(true);no.onclick=()=>go(false)</script>');
+});
+app.post(`${R}/pay/sandbox/:id/complete`, tenantMw, (req, res) => {
+  if (payThrottle(req, res, 30)) return;
+  const t = req.tenant, it = (t.rec.pays || {})[req.params.id]; if (!it || it.provider !== 'sandbox' || !PAY.sandboxAllowed(t.rec.slug)) return res.status(404).json({ error: 'not found' });
+  const ok = !!(req.body && req.body.ok);   // test gateway only: no money exists, so there is nothing to sign
+  const r = settleIntent(t, { intent: it.id, amount: it.amount, currency: 'EGP', paid: ok, failed: !ok, id: it.ref }); res.status(r.code).json(r.body);
+});
+A('get', '/pay/intents', gateP, (req, res) => res.json({ intents: Object.values(req.tenant.rec.pays || {}).sort((a, b) => b.at - a.at).slice(0, 100).map(({ url, ...x }) => x) }));
 const aiKey = () => process.env.ANTHROPIC_API_KEY || '';
 async function claude(content, system, max = 2000) {
   const messages = Array.isArray(content) ? content : [{ role: 'user', content }];

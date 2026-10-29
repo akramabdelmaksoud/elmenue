@@ -3,6 +3,7 @@
 (() => {
   const EN = {
     // new screens
+    payOnTitle: 'Pay by card or wallet', payOnMine: 'Pay my share', payOnTable: 'Pay the table', payOnPaid: 'Paid online', payOnErr: 'Could not start the payment - please pay at the table.',
     offlineNote: 'No connection - nothing is sent until you are back online.',
     cpnPh: 'Have a promo code?', cpnApply: 'Apply', cpnRemove: 'Remove', cpnApplied: 'applied',
     upTitle: 'Add something?', upNo: 'No thanks',
@@ -42,6 +43,7 @@
     reviewTitle: 'راجع طلبك', reviewSub: 'اتأكد من كل حاجة قبل ما الطلب يروح للويتر.', addMore: '+ إضافة أصناف أخرى', confirmOrder: 'تأكيد الطلب', checkout: 'تأكيد', backToMenu: 'ارجع للمنيو',
     pendingTitle: 'مستني الويتر', pendingBanner: 'مسموحلك ترجع في كلامك أو تعدّل أي حاجة لحد ما الويتر يدخّل الطلب المطبخ.',
     lockedTitle: 'في المطبخ', lockedBanner: 'الطلب دخل المطبخ، لو محتاج تعدل اطلب الويتر.',
+    payOnTitle: 'ادفع بالكارت أو المحفظة', payOnMine: 'ادفع حصتي', payOnTable: 'ادفع حساب الطاولة', payOnPaid: 'اتدفع أونلاين', payOnErr: 'معرفناش نبدأ الدفع - ادفع على الطاولة.',
     offlineNote: 'مفيش اتصال - مفيش حاجة هتتبعت لحد ما النت يرجع.',
     cpnPh: 'معاك كود خصم؟', cpnApply: 'طبّق', cpnRemove: 'شيل', cpnApplied: 'اتطبّق',
     upTitle: 'تحب تضيف حاجة؟', upNo: 'لا شكراً',
@@ -74,6 +76,7 @@
     reviewTitle: 'Rage3 talabak', reviewSub: 'Et2akked men kol 7aga abl ma el talab yeru7 lel waiter.', addMore: '+ Dif asnaf tanya', confirmOrder: 'Ta2keed el talab', checkout: 'Ta2keed', backToMenu: 'Erga3 lel menu',
     pendingTitle: 'Mestanny el waiter', pendingBanner: "masmo7lk terga3 f kalamk aw te3addel haga lehad mayeb2a in kitchen",
     lockedTitle: 'Fel matba5', lockedBanner: 'El talab da5al el matba5, lw me7tag te3addel oltob el waiter.',
+    payOnTitle: 'Edfa3 bel card aw el mo7fza', payOnMine: 'Edfa3 7essety', payOnTable: 'Edfa3 7esab el tarabeza', payOnPaid: 'Etdafa3 online', payOnErr: 'Ma3rafnash nebda2 el dafa3 - edfa3 3al tarabeza.',
     offlineNote: 'Mafe4 etse2l - ma fe4 7aga hatetba3at l7ad ma el net yrga3.',
     cpnPh: 'M3ak code khasm?', cpnApply: 'Ttbe2', cpnRemove: 'Sheel', cpnApplied: 'ettba2',
     upTitle: 'T7eb tedif 7aga?', upNo: 'La shokran',

@@ -26,6 +26,7 @@ function createTenant(rec, persist, onAlert) {
     // Next-release flags: every new feature starts OFF for existing venues
     const st = db.settings;
     if (!st.fb) { st.fb = { enabled: false, googleUrl: '' }; ch = true; }
+    if (!st.onlinePay) { st.onlinePay = { enabled: false, provider: 'sandbox' }; ch = true; }
     if (!st.offline) { st.offline = { enabled: false }; ch = true; }
     if (!db.idem) { db.idem = {}; ch = true; }
     if (!st.promo) { st.promo = { enabled: false, stack: false }; ch = true; }
@@ -127,7 +128,20 @@ function bill(s) {
   const tot = calc(net);
   let gift = 0, giftCode = '';
   if (s.gift && F.has(rec.plan, 'giftcards') && db.gifts && db.gifts[s.gift]) { const g = db.gifts[s.gift]; if (F.giftBalanceOk(g)) { gift = Math.min(g.balance, tot.total); giftCode = s.gift; } }
-  return { ...tot, sub: gross, gross, discount: disc, net, redeemEgp: red, redeemPts: redPts, promoCoupon: promo.coupon, promoOffer: promo.offer, couponCode, offerName, gift: +gift.toFixed(2), giftCode, due: +(tot.total - gift).toFixed(2), byGuest: by };
+  const onl = +(s.online || []).reduce((n, x) => n + x.amount - (x.tip || 0), 0).toFixed(2);   // food part paid online (tips are separate)
+  return { ...tot, online: Math.min(onl, +(tot.total - gift).toFixed(2)), sub: gross, gross, discount: disc, net, redeemEgp: red, redeemPts: redPts, promoCoupon: promo.coupon, promoOffer: promo.offer, couponCode, offerName, gift: +gift.toFixed(2), giftCode, due: +Math.max(0, tot.total - gift - Math.min(onl, +(tot.total - gift).toFixed(2))).toFixed(2), byGuest: by };
+}
+
+// A verified online payment arrives. Idempotent by intent id. Returns 'applied' | 'dup' | 'nosession'.
+// When the online money covers the whole bill the table closes by itself; otherwise the cashier collects the rest.
+function applyOnline(tableId, p) {
+  const s = db.sessions[tableId]; if (!s) return 'nosession';
+  if ((s.online || []).some((x) => x.id === p.id)) return 'dup';
+  (s.online ||= []).push({ id: p.id, amount: +(+p.amount).toFixed(2), tip: +(+p.tip || 0).toFixed(2), guestId: p.guestId || null, ref: String(p.ref || '').slice(0, 40), at: Date.now() });
+  log(s, 'online', 'Online payment ' + (+p.amount).toFixed(2) + (p.guestId ? ' by a guest' : ''));
+  const b = bill(s);
+  if (b.due <= 0.004 && s.orders.length) { const t = tableOf(tableId); closeSession(t, 'online', 'online', { tip: s.online.reduce((n, x) => n + (x.tip || 0), 0) }); }
+  return 'applied';
 }
 
 // a reservation counts from 45 minutes before until 20 minutes after its time
@@ -163,10 +177,11 @@ function closeSession(t, method, who, pay) {
   }));
   if (upOn() && s.orders.length && method !== 'unpaid') { const d = upDay(); s.orders.forEach((o) => o.items.forEach((i) => { if (i.up) d.revenue[i.itemId] = +((d.revenue[i.itemId] || 0) + i.qty * i.price).toFixed(2); })); }
   if (s.orders.length && method !== 'unpaid') { const k = new Date().toISOString().slice(0, 10), d = ((db.itemDaily ||= {})[k] ||= {}); Object.values(lines).forEach((l) => (d[l.itemId] = (d[l.itemId] || 0) + l.qty)); for (const x of Object.keys(db.itemDaily)) if (x < new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10)) delete db.itemDaily[x]; }
-  const tip = pay && pay.tip !== undefined && pay.tip !== null && pay.tip !== '' ? Math.max(0, +(+pay.tip).toFixed(2)) : Math.round(b.net * (s.check?.tipPct || 0) / 100);
+  const tip = pay && pay.tip !== undefined && pay.tip !== null && pay.tip !== '' ? Math.max(0, +(+pay.tip).toFixed(2)) : Math.max((s.online || []).reduce((n, x) => n + (x.tip || 0), 0), Math.round(b.net * (s.check?.tipPct || 0) / 100));
   const total = +(b.total + tip).toFixed(2), giftUsed = m0 => m0 === 'unpaid' ? 0 : Math.min(b.gift || 0, total);
-  const m = ['cash', 'card', 'mixed', 'unpaid'].includes(method) ? method : (s.check?.method || 'cash');
-  const gUsed = giftUsed(m), payTotal = +(total - gUsed).toFixed(2);
+  const onlineAll = +(s.online || []).reduce((n, x) => n + x.amount, 0).toFixed(2), onlineTips = +(s.online || []).reduce((n, x) => n + (x.tip || 0), 0).toFixed(2);
+  const m = ['cash', 'card', 'mixed', 'unpaid', 'online'].includes(method) ? method : (s.check?.method || 'cash');
+  const gUsed = giftUsed(m), onlineUsed = +Math.min(onlineAll, total - gUsed).toFixed(2), payTotal = +(total - gUsed - onlineUsed).toFixed(2);
   if (m !== 'unpaid' && s.orders.length) {
     if (b.couponCode) { const cp = db.coupons.find((x) => x.code === b.couponCode); if (cp) { cp.uses = (cp.uses || 0) + 1; cp.saved = +((cp.saved || 0) + b.promoCoupon).toFixed(2); } }
     if (b.offerName) { const of = db.offers.find((x) => x.name === b.offerName); if (of) { of.uses = (of.uses || 0) + 1; of.saved = +((of.saved || 0) + b.promoOffer).toFixed(2); } }
@@ -186,7 +201,7 @@ function closeSession(t, method, who, pay) {
       id: id('h'), tableId: t.id, tableNumber: t.number, kind: s.kind || 'table', customer: s.customer || null, startedAt: s.startedAt,
       orderedAt: s.orders[0].at, checkAt: s.check?.at || Date.now(), closedAt: Date.now(),
       guests: s.guests.length || 1, party: s.party || 0, loyalty: loy, items: Object.values(lines), sub: b.gross, discount: b.discount, discountNote: [s.discount ? (s.discount.reason || '') : '', b.couponCode ? 'Coupon ' + b.couponCode : '', b.offerName || ''].filter(Boolean).join(' · '), coupon: b.couponCode || '', offer: b.offerName || '', gift: gUsed, giftCode: gUsed ? b.giftCode : '', service: b.service, tax: b.tax, tip,
-      total, method: m, unpaid: m === 'unpaid', pay: m === 'unpaid' ? { cash: 0, card: 0, tendered: 0, change: 0 } : settle(m, payTotal, pay), split: s.check?.split || 'table', closedBy: who || '', voids: s.voids || [], log: s.log,
+      total, method: payTotal <= 0 && onlineUsed > 0 && m !== 'unpaid' ? 'online' : m, unpaid: m === 'unpaid' && onlineUsed <= 0, online: onlineUsed, onlineRefs: (s.online || []).map((x) => x.ref), pay: m === 'unpaid' ? { cash: 0, card: 0, tendered: 0, change: 0, gift: 0, online: onlineUsed } : { ...settle(m === 'online' ? 'cash' : m, payTotal, pay), gift: gUsed, online: onlineUsed }, split: s.check?.split || 'table', closedBy: who || '', voids: s.voids || [], log: s.log,
     });
   }
   delete db.sessions[t.id];
@@ -605,7 +620,7 @@ function analytics(days = 7) {
   const HD = HB('details');
   const revenue = {
     gross: sum(HD, (h) => h.sub), service: sum(HD, (h) => h.service), tax: sum(HD, (h) => h.tax), tips: sum(HD, (h) => h.tip), total: sum(HD, (h) => h.total),
-    cash: sum(HD, (h) => (h.pay ? h.pay.cash : h.method === 'cash' ? h.total : 0)), card: sum(HD, (h) => (h.pay ? h.pay.card : h.method === 'card' ? h.total : 0)), discounts: sum(HD, (h) => h.discount || 0), sessions: HD.length,
+    online: sum(HD, (h) => (h.pay ? h.pay.online || 0 : 0)), gift: sum(HD, (h) => (h.pay ? h.pay.gift || 0 : 0)), cash: sum(HD, (h) => (h.pay ? h.pay.cash : h.method === 'cash' ? h.total : 0)), card: sum(HD, (h) => (h.pay ? h.pay.card : h.method === 'card' ? h.total : 0)), discounts: sum(HD, (h) => h.discount || 0), sessions: HD.length,
   };
   const itemMap = {}, catMap = {};
   const item = (h, l) => {
@@ -665,6 +680,6 @@ function analytics(days = 7) {
     if (r.action) broadcast(); return r;
   }
   const publicConfig = () => ({ settings: db.settings, categories: db.categories, items: db.items, tables: db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec.plan), plan: F.planOf(rec.plan) });
-  return { notify: alertCaptains, rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
+  return { applyOnline, notify: alertCaptains, rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
 }
 module.exports = { createTenant, freshData, clone };

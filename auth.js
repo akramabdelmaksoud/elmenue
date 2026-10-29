@@ -8,6 +8,7 @@ if (!SECRET) {
 }
 const b64 = (b) => Buffer.from(b).toString('base64url');
 const sig = (p) => crypto.createHmac('sha256', SECRET).update(p).digest('base64url');
+exports.derive = (label) => crypto.createHmac('sha256', SECRET).update(String(label)).digest('hex');   // server-only keys derived from the secret (never sent anywhere)
 exports.sign = (role, slug, days = 14, extra = {}) => { const p = b64(JSON.stringify({ r: role, s: slug, e: Date.now() + days * 864e5, ...extra })); return p + '.' + sig(p); };
 exports.verify = (tok) => {
   if (!tok || typeof tok !== 'string') return null;
