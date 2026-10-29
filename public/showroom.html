@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Live Showroom</title><meta name="theme-color" content="#0d0b08">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Inter:wght@400;600;700&family=Cairo:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root { --bg:#0d0b08; --card:#17130d; --line:#2e2616; --gold:#d9b46a; --gold2:#f1dba6; --text:#f4ecda; --muted:#a39878; }
+* { box-sizing:border-box; } html { -webkit-text-size-adjust:100%; }
+body { margin:0; background:radial-gradient(1200px 700px at 80% -10%,#2a1f0c 0,transparent 60%),radial-gradient(900px 600px at -10% 20%,#1b2a1e 0,transparent 55%),var(--bg); color:var(--text); font:15px/1.5 Inter,'Cairo',system-ui,sans-serif; min-height:100vh; }
+body[dir=rtl] { font-family:'Cairo',Inter,sans-serif; }
+.wrap { max-width:1160px; margin:0 auto; padding:calc(26px + env(safe-area-inset-top)) 20px 60px; }
+.top { display:flex; justify-content:space-between; align-items:center; gap:10px; } .brand { letter-spacing:.3em; font-size:12px; color:var(--gold); font-weight:700; } .brand:before { content:''; display:inline-block; width:34px; height:1px; background:var(--gold); vertical-align:middle; margin-inline-end:12px; }
+button, .btn { font:inherit; cursor:pointer; border:1px solid var(--line); background:transparent; color:var(--text); padding:9px 16px; border-radius:99px; text-decoration:none; display:inline-flex; align-items:center; gap:8px; transition:.2s; } button:hover, .btn:hover { border-color:var(--gold); }
+.gold { background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1b1406; border:0; font-weight:700; }
+h1 { font:700 clamp(34px,6vw,60px)/1.05 'Playfair Display',serif; margin:26px 0 12px; background:linear-gradient(120deg,var(--gold2),var(--gold) 60%,#fff0c8); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.lead { color:var(--muted); font-size:17px; max-width:680px; margin:0 0 8px; } .sync { display:inline-flex; align-items:center; gap:8px; margin-top:6px; color:var(--gold2); font-weight:600; } .sync i { width:9px; height:9px; border-radius:50%; background:#3ddc84; box-shadow:0 0 0 0 #3ddc8488; animation:pl 1.8s infinite; } @keyframes pl { 70% { box-shadow:0 0 0 10px #3ddc8400; } }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:16px; margin-top:30px; }
+.card { background:linear-gradient(180deg,#1c170e,var(--card)); border:1px solid var(--line); border-radius:24px; padding:20px; display:flex; flex-direction:column; gap:10px; position:relative; overflow:hidden; } .card:before { content:''; position:absolute; inset:0 0 auto 0; height:2px; background:linear-gradient(90deg,transparent,var(--gold),transparent); opacity:.7; }
+.ic { font-size:30px; } .card h3 { margin:0; font:700 22px 'Playfair Display',serif; } .dev { color:var(--muted); font-size:13px; margin-top:-6px; } .pin { color:var(--gold2); font-size:12.5px; }
+.qr { background:#fff; border-radius:16px; padding:8px; width:100%; aspect-ratio:1; display:grid; place-items:center; } .qr img { width:100%; height:100%; display:block; border-radius:8px; }
+.row { display:flex; gap:8px; flex-wrap:wrap; } .row > * { flex:1; justify-content:center; font-size:14px; padding:10px 8px; }
+select { font:inherit; background:#100d08; color:var(--text); border:1px solid var(--line); border-radius:12px; padding:9px 12px; width:100%; }
+.steps { margin-top:34px; display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; counter-reset:s; } .st { border:1px dashed var(--line); border-radius:18px; padding:16px 18px 16px 58px; position:relative; color:var(--muted); } [dir=rtl] .st { padding:16px 58px 16px 18px; } .st:before { counter-increment:s; content:counter(s); position:absolute; inset-inline-start:16px; top:14px; width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1b1406; font-weight:700; display:grid; place-items:center; } .st b { color:var(--text); display:block; }
+.foot { margin-top:34px; color:var(--muted); font-size:13px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; } .toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--gold); color:#1b1406; padding:10px 18px; border-radius:99px; font-weight:700; opacity:0; transition:.3s; pointer-events:none; } .toast.on { opacity:1; }
+</style></head>
+<body><div class="wrap">
+<div class="top"><span class="brand">ELMENU · LIVE SHOWROOM</span><button id="lang" onclick="setLang()">عربي</button></div>
+<h1 id="t1">One café. Every device. Live.</h1>
+<p class="lead" id="t2">Open each role on a different device — laptop, iPad, phone. They all share the same live café, so an order placed by a guest appears instantly at the waiter, the kitchen and the cashier.</p>
+<span class="sync"><i></i><span id="t3">Live sync · updates within 2 seconds</span></span>
+<div class="grid" id="grid"></div>
+<div class="steps" id="steps"></div>
+<div class="foot"><span id="t4"></span><span><button onclick="reset()" id="rb">↺ Reset demo data</button></span></div>
+</div><div class="toast" id="toast"></div>
+<script>
+const T = {
+  en: { t1: 'One café. Every device. Live.', t2: 'Open each role on a different device — laptop, iPad, phone. They all share the same live café, so an order placed by a guest appears instantly at the waiter, the kitchen and the cashier.', t3: 'Live sync · updates within 2 seconds', open: 'Open here', copy: 'Copy link', copied: 'Link copied', scan: 'Scan with the device',
+    guest: 'Guest', guestD: 'Phone · scans the table QR', waiter: 'Waiter', waiterD: 'iPad · floor & tables', kitchen: 'Kitchen', kitchenD: 'Laptop / TV · live tickets', cashier: 'Cashier', cashierD: 'Counter PC · till & printer', owner: 'Owner', ownerD: 'Laptop · dashboard & reports', table: 'Table', pinl: 'Auto sign-in · PIN',
+    s: [['Guest orders', 'On the phone, pick table, add dishes with photos and send the order. An estimated ready time appears.'], ['Waiter & kitchen', 'The iPad shows the new order; the kitchen laptop shows the ticket with its target time and progress bar.'], ['Kitchen marks ready', 'Tap “Ready”: the guest’s phone switches to “Served” and the waiter gets an alert.'], ['Cashier collects', 'The table appears at the cashier with the receipt, ready to print and open the drawer.'], ['Owner watches', 'Sales, best sellers and the shift report update live on the owner dashboard.']],
+    foot: 'Everything here is demo data in a sandbox café. Reset any time to start a fresh run.', rb: '↺ Reset demo data', ok: 'Demo reset ✓' },
+  ar: { t1: 'كافيه واحد. كل الأجهزة. لحظياً.', t2: 'افتح كل دور على جهاز مختلف — لابتوب، آيباد، موبايل. كلهم على نفس الكافيه الحي، فأي طلب من الضيف يظهر فوراً عند الويتر والمطبخ والكاشير.', t3: 'مزامنة لحظية · التحديث خلال ثانيتين', open: 'افتح هنا', copy: 'انسخ الرابط', copied: 'اتنسخ الرابط', scan: 'امسح من الجهاز',
+    guest: 'الضيف', guestD: 'موبايل · يمسح QR الطاولة', waiter: 'الويتر', waiterD: 'آيباد · الصالة والطاولات', kitchen: 'المطبخ', kitchenD: 'لابتوب / شاشة · التذاكر لحظياً', cashier: 'الكاشير', cashierD: 'كمبيوتر الكاشير · الخزنة والطابعة', owner: 'المالك', ownerD: 'لابتوب · الداشبورد والتقارير', table: 'طاولة', pinl: 'دخول تلقائي · الرمز',
+    s: [['الضيف يطلب', 'من الموبايل يختار الطاولة ويضيف أطباق بصورها ويبعت الطلب. بيظهر له الوقت المتوقع.'], ['الويتر والمطبخ', 'الآيباد بيعرض الطلب الجديد، وشاشة المطبخ بتعرض التذكرة بالوقت المستهدف وشريط التقدم.'], ['المطبخ يجهّز', 'اضغط «جاهز»: موبايل الضيف يتحول لـ«اتقدم» والويتر ييجيله تنبيه.'], ['الكاشير يحاسب', 'الطاولة بتظهر عند الكاشير بالإيصال جاهز للطباعة وفتح الدرج.'], ['المالك يتابع', 'المبيعات والأكثر مبيعاً وتقرير الوردية بيتحدثوا لحظياً.']],
+    foot: 'كل البيانات هنا تجريبية في كافيه تجربة. اعمل إعادة ضبط في أي وقت لتبدأ من جديد.', rb: '↺ إعادة ضبط البيانات', ok: 'تمت إعادة الضبط ✓' } };
+let lang = (() => { try { return localStorage.getItem('lang') === 'ar' ? 'ar' : 'en'; } catch { return 'en'; } })(), info = null, tbl = null;
+const t = (k) => T[lang][k];
+function toast(m) { const e = document.getElementById('toast'); e.textContent = m; e.classList.add('on'); setTimeout(() => e.classList.remove('on'), 1800); }
+function setLang() { lang = lang === 'ar' ? 'en' : 'ar'; try { localStorage.setItem('lang', lang); } catch {} paint(); }
+const link = (k) => info.origin + (k === 'guest' ? `/r/showroom/t/${tbl}` : `/r/showroom/${{ waiter: 'captain', kitchen: 'kitchen', cashier: 'cashier', owner: 'admin' }[k]}?auto=1`);
+const qr = (u) => `/api/demo/qr.png?u=${encodeURIComponent(u)}`;
+function paint() {
+  document.documentElement.lang = lang; document.body.dir = lang === 'ar' ? 'rtl' : 'ltr'; document.getElementById('lang').textContent = lang === 'ar' ? 'English' : 'عربي';
+  ['t1', 't2', 't3'].forEach((k) => (document.getElementById(k).textContent = t(k))); document.getElementById('t4').textContent = t('foot'); document.getElementById('rb').textContent = t('rb');
+  if (!info) return;
+  const roles = [['guest', '👤'], ['waiter', '🧑‍✈️'], ['kitchen', '👨‍🍳'], ['cashier', '💵'], ['owner', '⚙️']];
+  document.getElementById('grid').innerHTML = roles.map(([k, ic]) => `<div class="card"><div class="ic">${ic}</div><h3>${t(k)}</h3><div class="dev">${t(k + 'D')}</div>
+    ${k === 'guest' ? `<select onchange="tbl=this.value;paint()">${(info.freeTables.length ? info.freeTables : info.tables).map((n) => `<option value="${n}" ${n == tbl ? 'selected' : ''}>${t('table')} ${n}</option>`).join('')}</select>` : `<div class="pin">${t('pinl')} ${info.pins[{ waiter: 'captain', kitchen: 'kitchen', cashier: 'cashier' }[k]] || '—'}</div>`}
+    <div class="qr"><img alt="QR" src="${qr(link(k))}"></div>
+    <div class="row"><a class="btn gold" href="${link(k)}" target="_blank" rel="noopener">${t('open')}</a><button onclick="copy('${k}')">${t('copy')}</button></div></div>`).join('');
+  document.getElementById('steps').innerHTML = t('s').map(([a, b]) => `<div class="st"><b>${a}</b>${b}</div>`).join('');
+}
+async function copy(k) { try { await navigator.clipboard.writeText(link(k)); toast(t('copied')); } catch { prompt('', link(k)); } }
+async function reset() { if (!confirm(lang === 'ar' ? 'تعمل إعادة ضبط لبيانات التجربة؟' : 'Reset the demo data for everyone?')) return; const r = await fetch('/api/demo/reset', { method: 'POST' }); if (r.ok) { toast(t('ok')); load(); } }
+async function load() { try { const r = await fetch('/api/demo/info'); if (!r.ok) throw 0; info = await r.json(); tbl = tbl || (info.freeTables.find((n) => n >= 14) || info.freeTables[0] || info.tables[0]); } catch { document.getElementById('grid').innerHTML = '<p class="lead">The showroom is not available on this server.</p>'; } paint(); }
+paint(); load();
+</script></body></html>

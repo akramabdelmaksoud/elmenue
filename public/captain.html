@@ -78,13 +78,14 @@ h3 { margin:6px 0 10px; }
 <span><i style="background:#8884"></i>Empty</span><span><i style="background:#7c3aed"></i>Reserved</span><span><i style="background:#1f9d55"></i>Seated</span><span><i style="background:#e08a1a"></i>Order in progress</span><span><i style="background:#d62828"></i>Urgent</span><span><i style="background:linear-gradient(135deg,#2563eb,#ffcc33)"></i>Check</span></div>
 <div class="layout"><div class="floorwrap"><div class="fl-stage" id="stage"></div><div class="tickets" id="tickets"></div><div id="chips"></div><div id="inl"></div></div><div class="side" id="side"></div></div>
 <div id="bar"></div><div id="sheet"></div><div id="banners"></div><div id="modal"></div><div id="dlg"></div>
-<script src="/shared.js"></script><script src="/pos.js"></script>
+<script src="/shared.js"></script><script src="/ar-ui.js"></script><script src="/pos.js"></script>
 <script>
 let listView = App.ls('cview') === 'list';
 function toggleView() { listView = !listView; App.ls('cview', listView ? 'list' : 'map'); render(); }
 let S = null, open = null, sound = false, actx = null, sheet = null;
 const NEXT = { received: 'kitchen', kitchen: 'served', served: 'closed' };
-const RQ = { waiter: '🙋 Call waiter', water: '💧 Water/napkins', urgent: '⚡ Speed up', bill: '🧾 Check' };
+const RQ = { waiter: '🛎️ Call waiter', water: '💧 Water', napkins: '🧻 Napkins', cutlery: '🍴 Cutlery & covers', urgent: '⚡ Speed up', bill: '🧾 Check' };
+const STL = { received: 'pending', kitchen: 'in kitchen', served: 'ready', closed: 'closed' }, NXL = { kitchen: '✅ Accept → In kitchen', served: '→ Ready', closed: '→ Close' };
 function beep(kind) {
   if (!sound) return;
   try {
@@ -113,7 +114,7 @@ function start() { document.getElementById('who').textContent = App.who() ? '· 
 App.gate('captain', start);
 
 const hostOf = (s) => s.guests.find((g) => g.id === s.host) || s.guests[0];
-const guestsOf = (s) => { const h = hostOf(s); return h ? `👑${h.name.slice(0, 9)}${s.guests.length > 1 ? ' +' + (s.guests.length - 1) : ''}` : ''; };
+const guestsOf = (s) => { const h = hostOf(s); return h ? `👑${h.name.slice(0, 9)}${s.guests.length > 1 ? ' +' + (s.guests.length - 1) : ''}${s.party ? ' · 👥' + s.party : ''}` : (s.party ? '👥' + s.party : ''); };
 const mins = (ts) => { const m = Math.max(0, Math.round((Date.now() - ts) / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0'); };
 function stageHTML(cfg) {
   const F = App.floor();
@@ -122,7 +123,7 @@ function stageHTML(cfg) {
     const st = S.states[t.id], s = S.sessions[t.id], p = App.tpos(t);
     const rv = st === 'reserved' && (S.config.reservations || []).find((r) => r.tableId === t.id && Date.now() >= r.at - 45 * 60000 && Date.now() <= r.at + 20 * 60000);
     const lab = { empty: 'Empty', reserved: rv ? '📅 ' + new Date(rv.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Reserved', seated: 'Browsing', ordered: 'Ordered', urgent: 'URGENT', check: s && s.check ? `${s.check.method === 'card' ? '💳' : '💵'} ${s.check.split}` : 'Check' }[st];
-    const bd = s ? [s.requests.some((r) => !r.done && r.type === 'waiter') && '🙋', s.requests.some((r) => !r.done && r.type === 'water') && '💧', s.requests.some((r) => !r.done && r.type === 'urgent') && '⚡', s.check && '🧾', s.idle && '💤'].filter(Boolean).join('') : '';
+    const bd = s ? [s.requests.some((r) => !r.done && r.type === 'waiter') && '🙋', s.requests.some((r) => !r.done && r.type === 'water') && '💧', s.requests.some((r) => !r.done && r.type === 'napkins') && '🧻', s.requests.some((r) => !r.done && r.type === 'cutlery') && '🍴', s.requests.some((r) => !r.done && r.type === 'urgent') && '⚡', s.check && '🧾', s.idle && '💤'].filter(Boolean).join('') : '';
     return `<div class="fl-t ${t.shape} ${st}${s && s.orders.some((o) => o.status === 'served') ? ' rdy' : ''}" style="left:${p.fx / F.cols * 100}%;top:${p.fy / F.rows * 100}%;width:${p.fw / F.cols * 100}%;height:${p.fh / F.rows * 100}%;--m:${Math.min(p.fw, p.fh)}" onclick="openT('${t.id}')">${App.chairs(t.shape, t.seats)}<span class="bd">${bd}</span><span class="n">${t.number}</span><span class="av" title="${s && hostOf(s) ? 'Host: ' + App.esc(hostOf(s).name) : ''}">${s ? App.esc(guestsOf(s)) : ''}</span><span class="s">${lab}${s ? ' · ' + mins(s.startedAt) : ' · ' + t.seats + ' seats'}</span><span class="m">${s ? mins(s.startedAt) : ''}</span></div>`;
   }).join('');
   return decor + tables;
@@ -176,9 +177,9 @@ function drawSheet(reqs, orders) {
 function orderCard(s, o, tools) {
   const g = (id) => (s.guests.find((x) => x.id === id) || {}).avatar || '🙂';
   const nxt = NEXT[o.status];
-  return `<div class="ocard"><div class="spread"><b>Table ${s.tableNumber} <span class="muted">· ${s.guests.map((x) => x.avatar).join('')}</span></b><span class="st ${o.status}">${o.status}</span></div>
+  return `<div class="ocard"><div class="spread"><b>Table ${s.tableNumber} <span class="muted">· ${s.guests.map((x) => x.avatar).join('')}</span></b><span class="st ${o.status}">${STL[o.status] || o.status}</span></div>
   ${o.items.map((i) => `<div class="line"><span>${g(i.guestId)} ${i.qty}× ${App.esc(i.name)}${i.note ? `<br><small style="color:var(--accent)">📝 ${App.esc(i.note)}</small>` : ''}</span><span>${App.money(i.qty * i.price)}${tools ? ` <button class="vx" title="Remove item" onclick="PX.voidDlg('${s.tableId}','${i.id}')">✕</button>` : ''}</span></div>`).join('')}
-  <div class="spread" style="margin-top:6px"><span class="muted">${App.ago(o.at)} ago · ${App.money(o.items.reduce((n, i) => n + i.qty * i.price, 0))}</span>${nxt ? `<button class="primary" onclick="App.send({t:'order_status',orderId:'${o.id}',status:'${nxt}'})">→ ${nxt}</button>` : ''}</div></div>`;
+  <div class="spread" style="margin-top:6px"><span class="muted">${App.ago(o.at)} ago · ${App.money(o.items.reduce((n, i) => n + i.qty * i.price, 0))}</span>${nxt ? `<button class="primary" onclick="App.send({t:'order_status',orderId:'${o.id}',status:'${nxt}'})">${NXL[nxt] || '→ ' + nxt}</button>` : ''}</div></div>`;
 }
 function openT(id) { open = id; renderModal(); }
 function closeM() { open = null; document.getElementById('modal').innerHTML = ''; }
@@ -194,7 +195,7 @@ function renderModal() {
     const b = s.bill, tip = Math.round(b.net * (s.check && s.check.tipPct || 0) / 100);
     h = `<div class="spread"><h2>${s.kind ? (s.kind === 'delivery' ? '🛵 ' : '🛍️ ') + App.esc(s.tableNumber) : 'Table ' + t.number} <span class="pill">${App.ago(s.startedAt)}</span></h2><button onclick="closeM()">✕</button></div>
     ${s.customer && (s.customer.name || s.customer.phone || s.customer.address) ? `<p class="muted">👤 ${App.esc(s.customer.name)} ${s.customer.phone ? `· <a href="tel:${App.esc(s.customer.phone)}">${App.esc(s.customer.phone)}</a>` : ''}${s.customer.address ? '<br>📍 ' + App.esc(s.customer.address) : ''}</p>` : ''}
-    ${hostOf(s) ? `<div class="row wrap" style="margin-bottom:6px"><span>👑 Table host: <b>${App.esc(hostOf(s).name)}</b></span>${s.guests.length > 1 ? `<select style="width:auto" onchange="App.send({t:'host_set',tableId:'${t.id}',guestId:this.value})">${s.guests.map((g) => `<option value="${g.id}" ${g.id === hostOf(s).id ? 'selected' : ''}>${App.esc(g.name)}</option>`).join('')}</select>` : ''}</div>` : ''}
+    ${s.party ? `<div style="margin-bottom:6px">👥 Party size: <b>${s.party}</b></div>` : ''}${hostOf(s) ? `<div class="row wrap" style="margin-bottom:6px"><span>👑 Table host: <b>${App.esc(hostOf(s).name)}</b></span>${s.guests.length > 1 ? `<select style="width:auto" onchange="App.send({t:'host_set',tableId:'${t.id}',guestId:this.value})">${s.guests.map((g) => `<option value="${g.id}" ${g.id === hostOf(s).id ? 'selected' : ''}>${App.esc(g.name)}</option>`).join('')}</select>` : ''}</div>` : ''}
     <div class="row wrap">${s.guests.map((g) => `<span class="pill" style="font-size:14px">${g.id === (hostOf(s) || {}).id ? '👑' : ''}${g.avatar} ${App.esc(g.name)} · ${App.money((b.byGuest[g.id] || {}).total || 0)}</span>`).join('') || '<span class="muted">No guests</span>'}</div>
     ${s.requests.filter((r) => !r.done).map((r) => `<div class="ocard spread" style="margin-top:10px"><span>${RQ[r.type]} · ${App.ago(r.at)}</span><button class="primary" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">Done</button></div>`).join('')}
     ${s.cart.length ? `<p class="muted">🛒 In cart (not sent): ${s.cart.map((c) => c.qty + '× ' + App.esc(c.name)).join(', ')}</p>` : ''}

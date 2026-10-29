@@ -11,6 +11,7 @@ let webpush = null; try { webpush = require('web-push'); } catch {}
 const store = require('./store');
 const auth = require('./auth');
 const { createTenant, freshData } = require('./tenant');
+const F = require('./features');
 
 const PORT = process.env.PORT || 3000;
 const PROD = process.env.NODE_ENV === 'production';
@@ -63,9 +64,9 @@ function mount(rec) {
   if (t.ensure()) store.save(rec);
   return t;
 }
-function makeRecord({ name, slug, email, password, plan = 'standard', demo = false }) {
+function makeRecord({ name, slug, email, password, plan = 'operations', demo = false }) {
   return {
-    id: SINGLE ? MAIN : newId('r'), slug, name, plan, status: 'active', createdAt: Date.now(), lastActive: null,
+    id: SINGLE ? MAIN : STATELESS ? 'r_' + slug : newId('r'), slug, name, plan, status: 'active', createdAt: Date.now(), lastActive: null,
     owner: { email: String(email).toLowerCase(), hash: auth.hash(password) }, pin: auth.pin(),
     data: freshData(demo),
   };
@@ -94,8 +95,8 @@ function needAdmin(req, res, next) {
   next();
 }
 // Stateless mode: load the tenant fresh from storage for every request, commit (compare-and-swap) before replying.
-async function loadFresh() {
-  let got = await store.getRec(MAIN);
+async function loadFresh(slug) {
+  let got = await store.getRec(SINGLE ? MAIN : 'r_' + slug);
   if (!got && process.env.OWNER_EMAIL && process.env.OWNER_PASSWORD) {
     const rec = makeRecord({ name: process.env.RESTAURANT_NAME || 'My Restaurant', slug: MAIN, email: process.env.OWNER_EMAIL, password: process.env.OWNER_PASSWORD, demo: !!process.env.DEMO_DATA });
     rec.data.settings.name = rec.name;
@@ -113,7 +114,7 @@ async function createRecord(rec, demo) {
   const hist = rec.data.history; rec.data.history = [];
   const ok = await store.putRec(rec, null);
   if (ok && hist.length) await store.appendHist(rec.id, hist);
-  if (ok && demo) { const g = await store.getRec(MAIN); const t = createTenant(g.rec, () => { t.dirty = true; }); t.seedLive(); await store.putRec(g.rec, g.ver); }
+  if (ok && demo) { const g = await store.getRec(rec.id); const t = createTenant(g.rec, () => { t.dirty = true; }); t.seedLive(); await store.putRec(g.rec, g.ver); }
   return ok;
 }
 async function commit(t) {
@@ -139,8 +140,9 @@ async function tenantMw(req, res, next) {
   try {
     let t;
     if (STATELESS) {
-      if (req.params.slug !== MAIN) return res.status(404).json({ error: 'Unknown restaurant' });
-      t = await loadFresh();
+      if (SINGLE && req.params.slug !== MAIN) return res.status(404).json({ error: 'Unknown restaurant' });
+      if (!SINGLE && !SLUG.test(req.params.slug)) return res.status(404).json({ error: 'Unknown restaurant' });
+      t = await loadFresh(req.params.slug);
       if (!t) return res.status(404).json({ error: 'Not set up yet' });
       flushBeforeReply(req, res, t);
     } else t = tenants.get(req.params.slug);
@@ -164,6 +166,7 @@ if (SINGLE) {
   app.get('/admin', (req, res) => res.redirect('/r/' + MAIN + '/admin'));
   app.get('/captain', (req, res) => res.redirect('/r/' + MAIN + '/captain'));
   app.get('/kitchen', (req, res) => res.redirect('/r/' + MAIN + '/kitchen'));
+  app.get('/cashier', (req, res) => res.redirect('/r/' + MAIN + '/cashier'));
   app.get('/t/:n', (req, res) => res.redirect('/r/' + MAIN + '/t/' + encodeURIComponent(req.params.n) + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')));
   app.get('/index.html', (req, res) => res.redirect('/'));
   app.get('/api/setup/status', async (req, res) => { try { res.json({ setup: await isSetup(), needsKey: !!process.env.SETUP_KEY }); } catch (e) { res.status(500).json({ error: 'Server error' }); } });
@@ -186,12 +189,71 @@ if (SINGLE) {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/vendor/sortable.js', express.static(require.resolve('sortablejs/Sortable.min.js')));
 app.use('/vendor/chart.js', express.static(path.join(__dirname, 'node_modules/chart.js/dist/chart.umd.js')));
+// custom domains: a café's own domain (set in the super admin) opens its landing page at /
+let domCache = { at: 0, map: {} };
+if (!SINGLE) app.get('/', async (req, res, next) => {
+  try {
+    if (Date.now() - domCache.at > 60000) { const recs = STATELESS ? await store.listRecs() : [...tenants.values()].map((t) => t.rec); domCache = { at: Date.now(), map: Object.fromEntries(recs.filter((r) => r.domain).map((r) => [r.domain, r.slug])) }; }
+    const slug = domCache.map[String(req.hostname || '').toLowerCase()]; if (slug) return res.redirect(302, '/r/' + slug);
+  } catch {}
+  next();
+});
 if (!SINGLE) app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'platform.html')));
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 const page = (f) => (req, res) => res.sendFile(path.join(__dirname, 'public', f));
 // the order engine is plain JS, so the in-browser demo can run the exact same code with nothing saved
-app.get('/engine/:f', (req, res, next) => ['tenant.js', 'data.js'].includes(req.params.f) ? res.type('js').sendFile(path.join(__dirname, req.params.f)) : next());
-app.get('/demo', page('demo.html'));
+app.get('/engine/:f', (req, res, next) => ['tenant.js', 'data.js', 'features.js'].includes(req.params.f) ? res.type('js').sendFile(path.join(__dirname, req.params.f)) : next());
+// ---------- Showroom: one shared, server-backed demo café (opens from any browser / device) ----------
+// Owner, waiter, kitchen, cashier and guests all talk to the same live data, so a sales demo can run across a laptop, an iPad and a phone.
+// Only the café flagged rec.showroom can be opened without a password; every other café is untouched.
+const SHOW = 'showroom', SHOW_PINS = { captain: '1111', kitchen: '2222', cashier: '3333' };
+const showOn = () => process.env.SHOWROOM !== 'off' && (!SINGLE || process.env.SHOWROOM === 'on');
+function makeShowRec() {
+  const rec = makeRecord({ name: 'Maison Aurelia', slug: SHOW, email: 'demo@elmenu.app', password: auth.randomPassword(), plan: 'vip', demo: true });
+  rec.data.settings.name = 'Maison Aurelia'; rec.pin = SHOW_PINS.captain; rec.showroom = true; rec.showSeed = Date.now();
+  rec.staff = [['Wael', 'captain'], ['Chef Hany', 'kitchen'], ['Mona', 'cashier']].map(([name, role]) => ({ id: newId('u'), name, role, hash: auth.hash(SHOW_PINS[role]), active: true, createdAt: Date.now() }));
+  return rec;
+}
+async function ensureShowroom(reset) {
+  let t = STATELESS ? await loadFresh(SHOW) : tenants.get(SHOW);
+  if (t && !t.rec.showroom) return null;                                   // never touch a real café that happens to use the slug
+  if (t && (reset || Date.now() - (t.rec.showSeed || 0) > 6 * 3600000)) {
+    if (STATELESS) { await store.remove(t.rec.id); await store.clearHist(t.rec.id); } else { t.clients.forEach((c) => c.ws.close()); tenants.delete(SHOW); await store.remove(t.rec.id); }
+    t = null;
+  }
+  if (!t) {
+    const rec = makeShowRec();
+    if (STATELESS) { if (!(await createRecord(rec, true))) return await loadFresh(SHOW); t = await loadFresh(SHOW); }
+    else { t = mount(rec); t.seedLive(); store.save(rec); }
+  }
+  return t;
+}
+app.get('/api/demo/info', async (req, res, next) => { try {
+  if (!showOn()) return res.status(404).json({ error: 'off' });
+  const t = await ensureShowroom(false); if (!t) return res.status(404).json({ error: 'off' });
+  const free = t.db.tables.filter((x) => !t.db.sessions[x.id]).map((x) => x.number);
+  res.json({ slug: SHOW, name: t.db.settings.name || 'Maison Aurelia', pins: SHOW_PINS, freeTables: free, tables: t.db.tables.map((x) => x.number), origin: origin(req) });
+} catch (e) { next(e); } });
+app.post('/api/demo/login', async (req, res, next) => { try {
+  if (!showOn()) return res.status(404).json({ error: 'off' });
+  const t = await ensureShowroom(false); if (!t) return res.status(404).json({ error: 'off' });
+  const role = String(req.body && req.body.role || ''), names = { captain: 'Wael', kitchen: 'Chef Hany', cashier: 'Mona' };
+  if (role === 'admin') return res.json({ slug: SHOW, token: auth.sign('admin', SHOW, 4) });
+  if (!names[role]) return res.status(400).json({ error: 'bad role' });
+  const who = (t.rec.staff || []).find((x) => x.role === role);
+  res.json({ slug: SHOW, token: auth.sign(role, SHOW, 4, { u: who ? who.id : 'demo', n: names[role] }) });
+} catch (e) { next(e); } });
+app.post('/api/demo/reset', async (req, res, next) => { try {
+  if (!showOn()) return res.status(404).json({ error: 'off' });
+  const t = await ensureShowroom(true); res.json({ ok: !!t });
+} catch (e) { next(e); } });
+app.get('/api/demo/qr.png', async (req, res, next) => { try {
+  if (!showOn()) return res.status(404).end();
+  const u = String(req.query.u || ''); if (!u.startsWith(origin(req)) || u.length > 300) return res.status(400).end();   // only this site's own links
+  res.type('png').set('Cache-Control', 'public, max-age=3600').send(await QRCode.toBuffer(u, { width: 520, margin: 2, color: { dark: '#111111', light: '#ffffff' } }));
+} catch (e) { next(e); } });
+app.get('/demo', page('showroom.html'));
+app.get('/demo-local', page('demo.html'));
 
 if (!SINGLE) app.get('/super', page('super.html'));
 app.get('/r/:slug', page('tenant.html'));
@@ -199,6 +261,7 @@ app.get('/r/:slug/t/:n', page('customer.html'));
 app.get('/r/:slug/captain', page('captain.html'));
 app.get('/r/:slug/admin', page('admin.html'));
 app.get('/r/:slug/kitchen', page('kitchen.html'));
+app.get('/r/:slug/cashier', page('cashier.html'));
 app.get('/health', (req, res) => res.send('ok'));
 
 function lanIP() {
@@ -220,63 +283,75 @@ app.post('/api/super/login', (req, res) => {
 });
 const needSuper = (req, res, next) => { if (SINGLE) return res.status(404).json({}); const d = auth.verify(bearer(req)); if (!d || d.r !== 'super') return res.status(401).json({ error: 'auth' }); next(); };
 const DAY = 86400000;
+// every restaurant as a tenant object; on serverless they are rebuilt from storage (with their history) for each request
+async function allTenants() {
+  if (!STATELESS) return [...tenants.values()];
+  const recs = await store.listRecs();
+  return Promise.all(recs.map(async (rec) => { const t = createTenant(rec, () => {}); t.db.history = await store.getHist(rec.id); return t; }));
+}
+async function oneTenant(slug) { return STATELESS ? loadFresh(slug) : tenants.get(slug); }
+async function saveTenant(t) { if (STATELESS) { t.dirty = true; return commit(t); } store.save(t.rec); return true; }
 function tenantStats(t, days = 30) {
   const since = Date.now() - days * DAY;
   const H = t.db.history.filter((h) => h.closedAt >= since);
   const revenue = H.reduce((n, h) => n + h.total, 0);
   const live = Object.values(t.db.sessions);
   return {
-    id: t.rec.id, slug: t.rec.slug, name: t.rec.name, plan: t.rec.plan, status: t.rec.status, createdAt: t.rec.createdAt, lastActive: t.rec.lastActive,
+    id: t.rec.id, slug: t.rec.slug, name: t.rec.name, plan: F.planOf(t.rec.plan), group: t.rec.group || '', domain: t.rec.domain || '', mrr: t.rec.status === 'active' ? F.monthly(t.rec.plan) : 0, status: t.rec.status, createdAt: t.rec.createdAt, lastActive: t.rec.lastActive,
     email: t.rec.owner.email, items: t.db.items.length, tables: t.db.tables.length,
     revenue, sessions: H.length, avgTicket: H.length ? revenue / H.length : 0, liveTables: live.length, liveRevenue: live.reduce((n, s) => n + t.bill(s).total, 0),
     guestsLive: live.reduce((n, s) => n + s.guests.length, 0), online: t.clients.size, currency: t.db.settings.currency,
   };
 }
-app.get('/api/super/overview', needSuper, (req, res) => {
-  const list = [...tenants.values()].map((t) => tenantStats(t));
+app.get('/api/super/overview', needSuper, async (req, res, next) => { try {
+  const all = await allTenants(), list = all.map((t) => tenantStats(t));
   const daily = {}, hours = Array(24).fill(0), items = {};
-  tenants.forEach((t) => t.db.history.filter((h) => h.closedAt >= Date.now() - 30 * DAY).forEach((h) => {
+  all.forEach((t) => t.db.history.filter((h) => h.closedAt >= Date.now() - 30 * DAY).forEach((h) => {
     const k = new Date(h.closedAt).toISOString().slice(0, 10); daily[k] = (daily[k] || 0) + h.total; hours[new Date(h.startedAt).getHours()]++;
     h.items.forEach((l) => { items[l.name] = (items[l.name] || 0) + l.qty; });
   }));
   const sum = (f) => list.reduce((n, x) => n + f(x), 0);
   res.json({
-    totals: { restaurants: list.length, active: list.filter((x) => x.status === 'active').length, revenue: sum((x) => x.revenue), sessions: sum((x) => x.sessions), liveTables: sum((x) => x.liveTables), guestsLive: sum((x) => x.guestsLive), online: sum((x) => x.online), liveRevenue: sum((x) => x.liveRevenue) },
+    totals: { mrr: sum((x) => x.mrr), plans: ['basic', 'operations', 'vip'].map((p) => ({ plan: p, count: list.filter((x) => x.plan === p && x.status === 'active').length })), restaurants: list.length, active: list.filter((x) => x.status === 'active').length, revenue: sum((x) => x.revenue), sessions: sum((x) => x.sessions), liveTables: sum((x) => x.liveTables), guestsLive: sum((x) => x.guestsLive), online: sum((x) => x.online), liveRevenue: sum((x) => x.liveRevenue) },
     tenants: list.sort((a, b) => b.revenue - a.revenue), daily, hours,
     topItems: Object.entries(items).sort((a, b) => b[1] - a[1]).slice(0, 8),
   });
-});
-app.post('/api/super/tenants', needSuper, (req, res) => {
+} catch (e) { next(e); } });
+app.post('/api/super/tenants', needSuper, async (req, res, next) => { try {
   const b = req.body || {}; const slug = String(b.slug || '').toLowerCase().trim();
   if (!SLUG.test(slug) || ['super', 'api', 'admin', 'vendor', 'uploads'].includes(slug)) return res.status(400).json({ error: 'Slug must be 2–30 chars: a-z, 0-9, dashes' });
-  if (tenants.has(slug)) return res.status(400).json({ error: 'That slug is taken' });
+  if (STATELESS ? !!(await store.getRec('r_' + slug)) : tenants.has(slug)) return res.status(400).json({ error: 'That slug is taken' });
   if (!b.name || !/^\S+@\S+$/.test(b.email || '')) return res.status(400).json({ error: 'Name and valid owner email required' });
   const password = b.password || auth.randomPassword();
-  const rec = makeRecord({ name: b.name, slug, email: b.email, password, plan: b.plan || 'standard', demo: !!b.demo });
-  rec.data.settings.name = b.name;
-  const t = mount(rec); if (b.demo) t.seedLive(); store.save(rec);
+  const rec = makeRecord({ name: b.name, slug, email: b.email, password, plan: F.PLANS[b.plan] ? b.plan : 'operations', demo: !!b.demo });
+  rec.data.settings.name = b.name; if (b.group) rec.group = String(b.group).slice(0, 40); if (b.domain) rec.domain = String(b.domain).toLowerCase().slice(0, 80);
+  if (STATELESS) { if (!(await createRecord(rec, !!b.demo))) return res.status(400).json({ error: 'That slug is taken' }); }
+  else { const t = mount(rec); if (b.demo) t.seedLive(); store.save(rec); }
   res.json({ slug, email: rec.owner.email, password, pin: rec.pin, url: `${origin(req)}/r/${slug}/admin` });
-});
-app.put('/api/super/tenants/:slug', needSuper, (req, res) => {
-  const t = tenants.get(req.params.slug); if (!t) return res.status(404).json({});
-  ['name', 'plan', 'status'].forEach((k) => { if (req.body[k] !== undefined) t.rec[k] = req.body[k]; });
+} catch (e) { next(e); } });
+app.put('/api/super/tenants/:slug', needSuper, async (req, res, next) => { try {
+  const t = await oneTenant(req.params.slug); if (!t) return res.status(404).json({});
+  ['name', 'plan', 'status', 'group', 'domain'].forEach((k) => { if (req.body[k] === undefined) return; if (k === 'plan' && !F.PLANS[req.body[k]]) return; t.rec[k] = req.body[k]; });
+  if (t.rec.domain) t.rec.domain = String(t.rec.domain).toLowerCase().trim().slice(0, 80);
   if (t.rec.status !== 'active') t.clients.forEach((c) => c.ws.close());
-  store.save(t.rec); res.json(tenantStats(t));
-});
-app.post('/api/super/tenants/:slug/reset', needSuper, (req, res) => {
-  const t = tenants.get(req.params.slug); if (!t) return res.status(404).json({});
-  const password = auth.randomPassword(); t.rec.owner.hash = auth.hash(password); t.rec.pin = auth.pin(); store.save(t.rec);
+  if (!(await saveTenant(t))) return res.status(409).json({ error: 'busy, try again' });
+  res.json(tenantStats(t));
+} catch (e) { next(e); } });
+app.post('/api/super/tenants/:slug/reset', needSuper, async (req, res, next) => { try {
+  const t = await oneTenant(req.params.slug); if (!t) return res.status(404).json({});
+  const password = auth.randomPassword(); t.rec.owner.hash = auth.hash(password); t.rec.pin = auth.pin();
+  if (!(await saveTenant(t))) return res.status(409).json({ error: 'busy, try again' });
   res.json({ email: t.rec.owner.email, password, pin: t.rec.pin });
-});
+} catch (e) { next(e); } });
 app.post('/api/super/tenants/:slug/impersonate', needSuper, (req, res) => res.json({ token: auth.sign('admin', req.params.slug, 1) }));
-app.delete('/api/super/tenants/:slug', needSuper, async (req, res) => {
-  const t = tenants.get(req.params.slug); if (!t) return res.status(404).json({});
+app.delete('/api/super/tenants/:slug', needSuper, async (req, res, next) => { try {
+  const t = await oneTenant(req.params.slug); if (!t) return res.status(404).json({});
   t.clients.forEach((c) => c.ws.close()); tenants.delete(t.rec.slug); await store.remove(t.rec.id); res.json({ ok: 1 });
-});
+} catch (e) { next(e); } });
 
 // ----- Per-restaurant public API -----
 const R = '/api/r/:slug';
-app.get(`${R}/config`, tenantMw, (req, res) => { const d = req.tenant.db; res.json({ settings: d.settings, categories: d.categories, items: d.items, tables: d.tables.map(({ key, ...r }) => r) }); });
+app.get(`${R}/config`, tenantMw, (req, res) => res.json(req.tenant.publicConfig()));
 app.get(`${R}/info`, tenantMw, (req, res) => res.json({ base: origin(req) + '/r/' + req.params.slug }));
 app.get(`${R}/qr/:n.png`, tenantMw, needAdmin, async (req, res) => {
   const base = String(req.query.base || origin(req) + '/r/' + req.params.slug).replace(/\/$/, '');
@@ -297,6 +372,12 @@ app.post(`${R}/login`, tenantMw, (req, res) => {
   if (f.n >= 8 && Date.now() - f.t < 10 * 60000) return res.status(429).json({ error: 'Too many attempts, try again in a few minutes' });
   const ok = (token) => { if (fails[key]) { delete fails[key]; persistRec(t); } return res.json({ token }); };
   if (role === 'admin' && String(email).toLowerCase() === t.rec.owner.email && auth.check(password, t.rec.owner.hash)) return ok(auth.sign('admin', t.rec.slug));
+  if (role === 'cashier') {
+    if (!F.has(t.rec.plan, 'cashier')) return res.status(402).json({ error: 'The Cashier role needs the Operations plan', upgrade: F.minPlanFor('cashier') });
+    const p = String(pin || '');
+    const who = (t.rec.staff || []).find((st) => st.active !== false && st.hash && st.role === 'cashier' && auth.check(p, st.hash));
+    if (who) return ok(auth.sign('cashier', t.rec.slug, 2, { u: who.id, n: who.name }));
+  }
   if (role === 'captain' || role === 'kitchen') {
     const p = String(pin || ''); let who = null;
     for (const st of t.rec.staff || []) if (st.active !== false && st.hash && auth.check(p, st.hash)) { who = st; break; }
@@ -315,9 +396,42 @@ app.get(`${R}/me`, tenantMw, (req, res) => {
 function needStaff(req, res, next) {
   const d = auth.verify(bearer(req));
   if (!d) return res.status(401).json({ error: 'auth' });
-  if (d.r !== 'super' && !(d.s === req.params.slug && ['admin', 'captain', 'kitchen'].includes(d.r))) return res.status(403).json({ error: 'forbidden' });
+  if (d.r !== 'super' && !(d.s === req.params.slug && ['admin', 'captain', 'kitchen', 'cashier'].includes(d.r))) return res.status(403).json({ error: 'forbidden' });
   req.claims = d; next();
 }
+// ---- cashier till: shifts, paid in/out, counted-cash variance (Z report) ----
+const needCash = (req, res, next) => needStaff(req, res, () => (['admin', 'cashier', 'super'].includes(req.claims.r) ? next() : res.status(403).json({ error: 'forbidden' })));
+async function shiftView(t, extra) {
+  const sh = (t.rec.shifts ||= { cur: null, list: [] }), hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history;
+  const cur = sh.cur && (() => {
+    const H = hist.filter((h) => h.closedAt >= sh.cur.openedAt && !h.unpaid);
+    const cash = H.reduce((n, h) => n + ((h.pay && h.pay.cash) || 0), 0), card = H.reduce((n, h) => n + ((h.pay && h.pay.card) || 0), 0);
+    const inn = sh.cur.moves.filter((m) => m.kind === 'in').reduce((n, m) => n + m.amount, 0), out = sh.cur.moves.filter((m) => m.kind === 'out').reduce((n, m) => n + m.amount, 0);
+    return { ...sh.cur, sales: H.length, cash: +cash.toFixed(2), card: +card.toFixed(2), tips: +H.reduce((n, h) => n + (h.tip || 0), 0).toFixed(2), discounts: +H.reduce((n, h) => n + (h.discount || 0), 0).toFixed(2), voids: H.reduce((n, h) => n + (h.voids || []).length, 0), total: +H.reduce((n, h) => n + h.total, 0).toFixed(2), paidIn: inn, paidOut: out, expected: +(sh.cur.float + cash + inn - out).toFixed(2) };
+  })();
+  return { cur: cur || null, list: sh.list.slice(-15).reverse(), ...extra };
+}
+app.get(`${R}/shift`, tenantMw, needCash, async (req, res) => { try { res.json(await shiftView(req.tenant)); } catch (e) { res.status(500).json({ error: e.message }); } });
+app.post(`${R}/shift/open`, tenantMw, needCash, async (req, res) => {
+  const t = req.tenant, sh = (t.rec.shifts ||= { cur: null, list: [] }), f = Math.max(0, +req.body.float || 0);
+  if (sh.cur) return res.status(400).json({ error: 'A shift is already open' });
+  sh.cur = { id: newId('sh'), openedAt: Date.now(), by: req.claims.n || 'Owner', float: f, moves: [] }; persistRec(t); res.json(await shiftView(t));
+});
+app.post(`${R}/shift/move`, tenantMw, needCash, async (req, res) => {
+  const t = req.tenant, sh = (t.rec.shifts ||= { cur: null, list: [] }), a = Math.round((+req.body.amount || 0) * 100) / 100;
+  if (!sh.cur) return res.status(400).json({ error: 'Open a shift first' });
+  if (!(a > 0) || !['in', 'out'].includes(req.body.kind)) return res.status(400).json({ error: 'Enter an amount' });
+  sh.cur.moves.push({ at: Date.now(), kind: req.body.kind, amount: a, note: String(req.body.note || '').slice(0, 60), by: req.claims.n || 'Owner' }); persistRec(t); res.json(await shiftView(t));
+});
+app.post(`${R}/shift/close`, tenantMw, needCash, async (req, res) => {
+  const t = req.tenant, sh = (t.rec.shifts ||= { cur: null, list: [] });
+  if (!sh.cur) return res.status(400).json({ error: 'No open shift' });
+  const v = (await shiftView(t)).cur, counted = Math.max(0, +req.body.counted || 0);
+  const z = { ...v, closedAt: Date.now(), closedBy: req.claims.n || 'Owner', counted, variance: +(counted - v.expected).toFixed(2), note: String(req.body.note || '').slice(0, 120) };
+  sh.list.push(z); sh.list = sh.list.slice(-60); sh.cur = null; persistRec(t); res.json({ ...(await shiftView(t)), z });
+});
+app.get(`${R}/shifts`, tenantMw, needAdmin, async (req, res) => res.json(await shiftView(req.tenant)));
+
 // quick "sold out" switch for kitchen, captain and owner
 app.put(`${R}/items/:id/stock`, tenantMw, needStaff, (req, res) => {
   const i = req.tenant.db.items.find((x) => x.id === req.params.id); if (!i) return res.status(404).json({ error: 'not found' });
@@ -348,7 +462,7 @@ app.post(`${R}/feedback`, tenantMw, (req, res) => {
 // ----- Admin API (owner of this restaurant, or superadmin) -----
 const A = (m, p, ...h) => app[m](`${R}${p}`, tenantMw, needAdmin, ...h);
 const bc = (req) => req.tenant.broadcast();
-A('get', '/account', (req, res) => res.json({ name: req.tenant.rec.name, email: req.tenant.rec.owner.email, pin: req.tenant.rec.pin, plan: req.tenant.rec.plan }));
+A('get', '/account', (req, res) => res.json({ name: req.tenant.rec.name, email: req.tenant.rec.owner.email, pin: req.tenant.rec.pin, plan: F.planOf(req.tenant.rec.plan), features: F.featuresOf(req.tenant.rec.plan), group: req.tenant.rec.group || '' }));
 A('post', '/account', (req, res) => {
   const r = req.tenant.rec, b = req.body || {};
   if (b.pin) { if (!/^\d{4,8}$/.test(b.pin)) return res.status(400).json({ error: 'PIN must be 4–8 digits' }); r.pin = b.pin; }
@@ -360,7 +474,8 @@ const pinTaken = (rec, pin, exceptId) => String(rec.pin) === pin || (rec.staff |
 A('post', '/staff', (req, res) => {
   const r = req.tenant.rec, b = req.body || {}, name = String(b.name || '').trim().slice(0, 30), pin = String(b.pin || '');
   if (!name) return res.status(400).json({ error: 'Name required' });
-  if (!['captain', 'kitchen'].includes(b.role)) return res.status(400).json({ error: 'Role must be captain or kitchen' });
+  if (!['captain', 'kitchen', 'cashier'].includes(b.role)) return res.status(400).json({ error: 'Role must be captain, kitchen or cashier' });
+  if (b.role === 'cashier' && !F.has(r.plan, 'cashier')) return res.status(402).json({ error: 'The Cashier role needs the Operations plan', upgrade: F.minPlanFor('cashier') });
   if (!/^\d{4,8}$/.test(pin)) return res.status(400).json({ error: 'PIN must be 4-8 digits' });
   if (pinTaken(r, pin)) return res.status(400).json({ error: 'That PIN is already used - choose another' });
   const st = { id: newId('u'), name, role: b.role, hash: auth.hash(pin), active: true, createdAt: Date.now() };
@@ -370,7 +485,7 @@ A('put', '/staff/:id', (req, res) => {
   const r = req.tenant.rec, st = (r.staff || []).find((x) => x.id === req.params.id), b = req.body || {};
   if (!st) return res.status(404).json({ error: 'not found' });
   if (b.name !== undefined) st.name = String(b.name).trim().slice(0, 30) || st.name;
-  if (['captain', 'kitchen'].includes(b.role)) st.role = b.role;
+  if (['captain', 'kitchen', 'cashier'].includes(b.role)) st.role = b.role;
   if (b.active !== undefined) st.active = !!b.active;
   if (b.pin) { if (!/^\d{4,8}$/.test(String(b.pin))) return res.status(400).json({ error: 'PIN must be 4-8 digits' }); if (pinTaken(r, String(b.pin), st.id)) return res.status(400).json({ error: 'That PIN is already used' }); st.hash = auth.hash(String(b.pin)); }
   bc(req); res.json({ ok: 1 });
@@ -394,7 +509,7 @@ A('get', '/orders', async (req, res) => {
   const [f, t2] = range(req.query), hist = STATELESS ? await store.getHist(req.tenant.rec.id) : req.tenant.db.history;
   res.json({ orders: hist.filter((h) => h.closedAt >= f && h.closedAt <= t2).slice(-400).reverse().map(({ log, ...h }) => h) });
 });
-A('get', '/receipts', async (req, res) => { const hist = STATELESS ? await store.getHist(req.tenant.rec.id) : req.tenant.db.history; res.json({ receipts: hist.slice(-40).reverse().map(({ log, ...h }) => h) }); });
+app.get(`${R}/receipts`, tenantMw, needCash, async (req, res) => { const hist = STATELESS ? await store.getHist(req.tenant.rec.id) : req.tenant.db.history; res.json({ receipts: hist.slice(-40).reverse().map(({ log, ...h }) => h) }); });
 async function reportFor(t, from, to) {
   const hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history;
   const H = hist.filter((h) => h.closedAt >= from && h.closedAt <= to && !h.unpaid);
@@ -441,7 +556,13 @@ A('get', '/export.json', async (req, res) => {
   const out = { exportedAt: new Date().toISOString(), restaurant: { name: rec.name, slug: rec.slug }, settings: t.db.settings, categories: t.db.categories, items: t.db.items.map((i) => ({ ...i, img: i.img && i.img.startsWith('data:') ? '' : i.img })), tables: t.db.tables, staff: (staff || []).map(({ hash, ...x }) => x), reviews: rec.reviews || [], history: STATELESS ? await store.getHist(rec.id) : t.db.history };
   res.setHeader('Content-Disposition', `attachment; filename=backup-${new Date().toISOString().slice(0, 10)}.json`); res.type('json').send(JSON.stringify(out));
 });
-A('post', '/settings', (req, res) => { const d = req.tenant.db; const b = req.body || {}; delete b.presets; Object.assign(d.settings, b); bc(req); res.json(d.settings); });
+A('post', '/settings', (req, res) => {
+  const d = req.tenant.db; const b = req.body || {}; delete b.presets;
+  if (F.PREMIUM_THEMES.includes(b.theme) && !F.has(req.tenant.rec.plan, 'themes')) return res.status(402).json({ error: 'Custom themes need the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' });
+  if (b.loyalty) { if (!F.has(req.tenant.rec.plan, 'loyalty')) return res.status(402).json({ error: 'Loyalty needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const l = b.loyalty; b.loyalty = { enabled: l.enabled !== false, egpPerPoint: Math.max(1, +l.egpPerPoint || 10), pointsPerRedeem: Math.max(1, +l.pointsPerRedeem || 100), redeemValue: Math.max(0, +l.redeemValue || 0) }; }
+  if ('refreshMin' in b) b.refreshMin = [0, 5, 15, 30, 60, 120, 360].includes(+b.refreshMin) ? +b.refreshMin : 60;
+  if (b.ai) { if (!F.has(req.tenant.rec.plan, 'copilot')) return res.status(402).json({ error: 'The AI assistant needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const a = F.aiCfg({ ai: b.ai }); b.ai = { name: a.name, style: a.style, memory: a.memory.map((m) => ({ ...m, id: m.id || Math.random().toString(36).slice(2, 9), at: m.at || Date.now() })) }; }
+  if (b.promos) b.promos = (Array.isArray(b.promos) ? b.promos : []).slice(0, 6).map((p) => ({ title: String(p.title || '').slice(0, 60), title_ar: String(p.title_ar || '').slice(0, 60), text: String(p.text || '').slice(0, 140), text_ar: String(p.text_ar || '').slice(0, 140) })); Object.assign(d.settings, b); bc(req); res.json(d.settings); });
 
 A('post', '/categories', (req, res) => { const d = req.tenant.db; const c = { id: newId('c'), name: req.body.name || 'New', name_ar: req.body.name_ar || '', emoji: req.body.emoji || '🍽️' }; d.categories.push(c); bc(req); res.json(c); });
 A('put', '/categories/order', (req, res) => { const d = req.tenant.db, o = req.body.ids || []; d.categories.sort((a, b) => o.indexOf(a.id) - o.indexOf(b.id)); bc(req); res.json({ ok: 1 }); });
@@ -478,6 +599,59 @@ app.get(`${R}/img/:key`, async (req, res) => {
   if (!m) return res.status(404).end();
   res.set('Cache-Control', 'public, max-age=31536000, immutable').type(m[1]).send(Buffer.from(m[2], 'base64'));
 });
+// ----- Premium (Tier 3) features: loyalty, AI menu digitizer, admin copilot, multi-branch -----
+const gate = (f) => (req, res, next) => F.has(req.tenant.rec.plan, f) ? next() : res.status(402).json({ error: 'This feature needs the ' + F.PLANS[F.minPlanFor(f)].name + ' plan', upgrade: F.minPlanFor(f) });
+const aiKey = () => process.env.ANTHROPIC_API_KEY || '';
+async function claude(content, system, max = 2000) {
+  const messages = Array.isArray(content) ? content : [{ role: 'user', content }];
+  const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01' }, body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5', max_tokens: max, system, messages }) });
+  const j = await r.json(); if (!r.ok) throw new Error((j.error && j.error.message) || 'AI request failed');
+  return (j.content || []).map((x) => x.text || '').join('');
+}
+A('get', '/loyalty', gate('loyalty'), (req, res) => res.json({ ...req.tenant.loyaltyStats(), config: F.loyaltyCfg(req.tenant.db.settings) }));
+A('post', '/loyalty/adjust', gate('loyalty'), (req, res) => {
+  const L = req.tenant.db.loyalty, m = L && L.members[F.cleanPhone(req.body.phone)]; if (!m) return res.status(404).json({ error: 'Member not found' });
+  const d = Math.max(-100000, Math.min(100000, Math.floor(+req.body.delta) || 0)); m.points = Math.max(0, m.points + d); m.log = [{ at: Date.now(), type: d >= 0 ? 'earn' : 'redeem', pts: Math.abs(d), egp: 0, manual: true }, ...(m.log || [])].slice(0, 40);
+  bc(req); res.json({ ok: 1, points: m.points });
+});
+A('get', '/ai', gate('copilot'), (req, res) => res.json({ live: !!aiKey(), ...F.aiCfg(req.tenant.db.settings) }));
+A('post', '/copilot', gate('copilot'), async (req, res) => {
+  const q = String((req.body || {}).q || '').slice(0, 400); if (!q) return res.status(400).json({ error: 'Ask something' });
+  // serverless keeps history in storage: load it just for this answer and never let it be committed back
+  const keep = req.tenant.db.history; if (STATELESS) req.tenant.db.history = await store.getHist(req.tenant.rec.id);
+  let r, ctx = '';
+  try {
+    r = req.tenant.copilotAsk(q);
+    if (r.unknown && aiKey()) { const a = req.tenant.analytics(7), ls = req.tenant.loyaltyStats(); ctx = JSON.stringify({ currency: req.tenant.db.settings.currency, week: { revenue: a.kpi.revenue, paidTables: a.kpi.orders, avgTicket: a.kpi.avg, topItems: a.topItems.slice(0, 5) }, lowStock: a.lowStock, loyalty: { members: ls.members, redeemedToday: ls.redeemedToday, earnedToday: ls.earnedToday } }); }
+  } finally { req.tenant.db.history = keep; }
+  if (ctx) {
+    try {
+      const hist = (Array.isArray((req.body || {}).hist) ? req.body.hist : []).slice(-10).map((h) => ({ role: h.r === 'u' ? 'user' : 'assistant', text: String(h.t || '').slice(0, 600) })).filter((h) => h.text);
+      const msgs = []; hist.forEach((h) => { if (msgs.length && msgs[msgs.length - 1].role === h.role) msgs[msgs.length - 1].content += '\n' + h.text; else msgs.push({ role: h.role, content: h.text }); });
+      while (msgs.length && msgs[0].role !== 'user') msgs.shift();
+      if (msgs.length && msgs[msgs.length - 1].role === 'user') msgs.pop();
+      msgs.push({ role: 'user', content: q });
+      return res.json({ reply: await claude(msgs, F.aiSystemPrompt(req.tenant.db.settings, 'Live numbers (JSON): ' + ctx), 700), ai: true });
+    } catch (e) { /* fall through to the built-in answer */ }
+  }
+  res.json({ reply: r.reply, action: r.action || null });
+});
+// OCR: with ANTHROPIC_API_KEY the photo is read by a vision model; without it the demo returns a sample parse so the flow can be shown offline
+A('post', '/menu/ocr', gate('ocr'), upload.single('image'), async (req, res) => {
+  if (!req.file || !/^image\/(png|jpe?g|webp|gif)$/.test(req.file.mimetype)) return res.status(400).json({ error: 'Upload a PNG, JPG or WebP photo of the menu' });
+  if (!aiKey()) return res.json({ simulated: true, ...F.parseMenuText(F.OCR_SAMPLE) });
+  try {
+    const txt = await claude([{ type: 'image', source: { type: 'base64', media_type: req.file.mimetype, data: req.file.buffer.toString('base64') } }, { type: 'text', text: 'Read this restaurant menu. Return ONLY a JSON array: [{"cat":"category name","name":"item name","name_ar":"Arabic name if shown, else empty","price":number,"desc":"short description or empty"}]. Keep the original language of each name. Prices are plain numbers.' }], 'You digitize restaurant menus. Output valid JSON only.', 4000);
+    const a = txt.indexOf('['), b = txt.lastIndexOf(']'); const items = JSON.parse(txt.slice(a, b + 1)).filter((x) => x && x.name && +x.price >= 0);
+    res.json({ simulated: false, categories: [...new Set(items.map((x) => x.cat || 'Menu'))], items });
+  } catch (e) { res.status(502).json({ error: 'Could not read the photo: ' + e.message }); }
+});
+A('post', '/menu/ocr/import', gate('ocr'), (req, res) => res.json(req.tenant.importParsed((req.body || {}).items)));
+A('get', '/branches', gate('branches'), async (req, res, next) => { try {
+  const g = req.tenant.rec.group, list = (await allTenants()).filter((t) => t.rec.id === req.tenant.rec.id || (g && t.rec.group === g)).map((t) => tenantStats(t, +req.query.days || 30));
+  const sum = (f) => list.reduce((n, x) => n + f(x), 0);
+  res.json({ group: g || '', branches: list.map((x) => ({ slug: x.slug, name: x.name, revenue: x.revenue, sessions: x.sessions, avgTicket: x.avgTicket, liveTables: x.liveTables, guestsLive: x.guestsLive })), totals: { revenue: sum((x) => x.revenue), sessions: sum((x) => x.sessions), liveTables: sum((x) => x.liveTables) }, currency: req.tenant.db.settings.currency });
+} catch (e) { next(e); } });
 A('post', '/menu/import', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
   const d = req.tenant.db;
@@ -538,15 +712,15 @@ app.post(`${R}/rpc`, async (req, res) => {
   const j = req.body || {}, jn = j.join || {};
   try {
     for (let attempt = 0; attempt < 5; attempt++) {
-      const t = STATELESS ? await loadFresh() : tenants.get(req.params.slug);
-      if (!t || (STATELESS && req.params.slug !== MAIN)) return res.status(404).json({ error: 'Unknown restaurant' });
+      const t = STATELESS ? await loadFresh(req.params.slug) : tenants.get(req.params.slug);
+      if (!t || (STATELESS && SINGLE && req.params.slug !== MAIN)) return res.status(404).json({ error: 'Unknown restaurant' });
       if (t.rec.status !== 'active') return res.status(403).json({ error: 'This restaurant is suspended' });
       const out = [];
       const c = { ws: { readyState: 1, send: (d) => out.push(JSON.parse(d)) }, role: null, joined: false, authed: false };
       if (jn.role !== 'customer') {
         const a = auth.verify(jn.token);
         if (!a || !(a.r === 'super' || (a.s === req.params.slug && (a.r === jn.role || a.r === 'admin' || (jn.role === 'kitchen' && a.r === 'captain'))))) return res.status(401).json({ error: 'auth' });
-        c.authed = true; c.staffId = a.u; c.staffName = a.n; c.adm = a.r === 'admin' || a.r === 'super';
+        c.authed = true; c.staffId = a.u; c.staffName = a.n; c.adm = a.r === 'admin' || a.r === 'super'; c.cashier = jn.role === 'cashier';
       }
       if (jn.role === 'customer') {
         const tb = t.db.tables.find((x) => x.number === +jn.tableNumber);
@@ -556,7 +730,7 @@ app.post(`${R}/rpc`, async (req, res) => {
         if (known) { c.role = 'customer'; c.joined = true; c.tableNumber = tb.number; c.guestId = known.id; }
         else if (jn.fresh === false) { c.role = 'customer'; c.joined = true; c.tableNumber = tb.number; }   // session ended while the page was open: show the end screen, do not reopen the table
         else t.handle(c, { t: 'join', role: 'customer', tableNumber: jn.tableNumber, guestId: jn.guestId, name: jn.name, avatar: jn.avatar, key: jn.key });
-      } else t.handle(c, { t: 'join', role: jn.role });
+      } else t.handle(c, { t: 'join', role: jn.role === 'cashier' ? 'captain' : jn.role });
       if (j.msg) t.handle(c, j.msg);
       const er = out.find((m) => m.t === 'error'); if (er) return res.status(403).json({ error: er.msg });
       if (t.dirty && !(await commit(t))) continue;     // conflict -> reload and replay
@@ -565,7 +739,7 @@ app.post(`${R}/rpc`, async (req, res) => {
         if (dead.length) { t.rec.pushSubs = (t.rec.pushSubs || []).filter((x) => !dead.includes(x.sub.endpoint)); t.dirty = true; await commit(t).catch(() => {}); }
       }
       const state = t.snapshotFor(c);
-      const alerts = jn.role === 'captain' && j.since >= 0 ? (t.rec.alerts || []).filter((a) => a.id > j.since) : [];
+      const alerts = (jn.role === 'captain' || jn.role === 'cashier') && j.since >= 0 ? (t.rec.alerts || []).filter((a) => a.id > j.since) : [];
       return res.json({ state, guestId: c.guestId || null, alerts, alertSeq: t.rec.alertSeq || 0, notices: out.filter((m) => m.t === 'notice').map((m) => m.msg) });
     }
     res.status(409).json({ error: 'busy' });
@@ -598,6 +772,7 @@ if (require.main === module && !STATELESS) {
             const ok = a && (a.r === 'super' || (a.s === m.slug && (a.r === m.role || a.r === 'admin' || (m.role === 'kitchen' && a.r === 'captain'))));
             if (!ok) { ws.send(JSON.stringify({ t: 'error', msg: 'auth' })); tenant = null; return ws.close(); }
             c.authed = true; c.staffId = a.u; c.staffName = a.n; c.adm = a.r === 'admin' || a.r === 'super';
+            if (m.role === 'cashier') { c.cashier = true; m.role = 'captain'; }
           }
           tenant.clients.add(c);
         }

@@ -107,6 +107,11 @@ h2, h3, h4 { margin: 0; }
 @keyframes shine2 { to { background-position: -200% 0; } } @keyframes glow { 50% { box-shadow: 0 20px 44px -8px var(--accent); } } .send svg { width: 20px; }
 .note { margin-top: 10px; padding: 11px 14px; border-radius: 14px; font-size: 13px; }
 .order { padding: 16px; border-radius: 24px; margin-bottom: 12px; }
+.othumb { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; vertical-align: middle; margin-inline-end: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+.order .line { align-items: center; }
+.eta { margin: 12px 0 6px; padding: 14px 16px; border-radius: 18px; background: color-mix(in srgb, var(--accent) 12%, var(--card)); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); } .eta.ok { background: color-mix(in srgb, var(--ok) 16%, var(--card)); border-color: var(--ok); }
+.eta .er { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; } .eta .el { font-size: 13px; color: var(--muted); font-weight: 700; } .eta .en { font-size: 17px; } .eta .en i { font-style: normal; font-size: 30px; font-family: var(--serif); color: var(--accent); margin: 0 4px; }
+.eta .eb { height: 7px; border-radius: 7px; background: var(--line); margin: 10px 0 6px; overflow: hidden; } .eta .eb i { display: block; height: 100%; border-radius: 7px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 1s linear; }
 .track { position: relative; display: flex; justify-content: space-between; margin: 14px 4px 6px; } .track::before, .track i.fill { content: ''; position: absolute; top: 9px; inset-inline: 9px; height: 4px; border-radius: 4px; background: var(--card2); } .track i.fill { background: linear-gradient(90deg, var(--accent), var(--accent2)); inset-inline-end: auto; width: calc((100% - 18px) * var(--p)); transition: width 1.2s var(--ease); }
 .track span { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); font-weight: 700; } .track span b { width: 22px; height: 22px; border-radius: 50%; background: var(--card2); border: 2px solid var(--line); display: grid; place-items: center; transition: all .6s var(--spring); } .track span.d { color: var(--text); } .track span.d b { background: var(--accent); border-color: var(--accent); color: var(--on-accent); transform: scale(1.1); } .track span.cur b { animation: ringp 1.6s infinite; } .track svg { width: 12px; }
 .line { display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px; gap: 10px; } .muted { color: var(--muted); } .bigp { font-family: var(--serif); font-size: 26px; font-weight: 700; }
@@ -140,6 +145,29 @@ nav .bdg { position: absolute; top: 2px; inset-inline-start: 56%; min-width: 19p
 .ribbon { position: absolute; top: 18px; inset-inline-start: 18px; z-index: 2; background: #e5484d; color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .06em; padding: 3px 10px; border-radius: 99px; }
 .tgs { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 3px 0; } .tg { font-style: normal; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 99px; background: var(--card2); border: 1px solid var(--line); }
 .tagbar { display: flex; gap: 8px; overflow-x: auto; padding: 0 0 12px; scrollbar-width: none; } .tagbar::-webkit-scrollbar { display: none; } .tagbar button { flex: none; padding: 7px 14px; border-radius: 99px; font-size: 13px; font-weight: 700; background: transparent; border: 1.5px dashed var(--line); } .tagbar button.on { background: color-mix(in srgb, var(--accent) 16%, var(--card)); border: 1.5px solid var(--accent); }
+[hidden] { display: none !important; }
+header { flex-wrap: wrap; row-gap: 0; }
+header .logo { flex: 1 1 0; min-width: 0; } header .logo > div { min-width: 0; overflow: hidden; } header .logo span#bn { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+header .hbtns { flex: none; gap: 6px; } header .ib { width: 36px; height: 36px; } header .ib svg { width: 18px; height: 18px; } header .langb { width: auto; padding: 0 11px; font-size: 12px; }
+.micro { order: 3; flex: 0 0 100%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+.micro button { padding: 5px 2px 5px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 11px; font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.2; color: var(--text); }
+.micro button b { font-size: 17px; line-height: 1.15; } .micro button { font-size: 10.5px; }
+.micro button.sent { background: color-mix(in srgb, #1f9d55 18%, var(--card)); border-color: #1f9d55; }
+.grace, .lockb { margin: 10px 0 6px; padding: 11px 14px; border-radius: 16px; font-size: 13px; line-height: 1.55; font-weight: 600; }
+.grace { background: color-mix(in srgb, #e0a100 16%, var(--card)); border: 1px solid #e0a100; }
+.lockb { background: color-mix(in srgb, var(--accent) 12%, var(--card)); border: 1px solid var(--accent); }
+.cta { margin-top: 14px; font-size: 18px; padding: 17px; }
+.promos { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 2px 2px 8px; margin: 12px -2px 0; }
+.promos > div { flex: 0 0 82%; scroll-snap-align: start; padding: 15px 16px; border-radius: 22px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent2) 30%, var(--card)), var(--card)); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.promos b { display: block; font-size: 16px; margin-bottom: 3px; } .promos span { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.wifi { width: 100%; display: flex; align-items: center; gap: 12px; text-align: start; margin-top: 10px; padding: 13px 16px; border-radius: 22px; font-size: 22px; color: var(--text); }
+.wifi div { flex: 1; font-size: 15px; } .wifi small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; } .wifi code { font-weight: 800; letter-spacing: .04em; color: var(--text); } .wifi > span { font-size: 11px; color: var(--accent); font-weight: 700; }
+.partyseg button { flex: 0 0 calc(25% - 6px); min-width: 0; }
+.loycard { position: relative; margin-top: 14px; padding: 20px; border-radius: 26px; color: #fff; overflow: hidden; background: linear-gradient(135deg, #1b1b2f, #3a2a63 55%, var(--accent2)); box-shadow: var(--shadow); }
+.loycard::after { content: ''; position: absolute; inset: 0; background: radial-gradient(260px 120px at 90% 0, rgba(255,255,255,.25), transparent 70%); pointer-events: none; }
+.loycard .lt { display: flex; justify-content: space-between; font-weight: 700; opacity: .9; } .loycard .lp { font-size: 15px; margin-top: 14px; } .loycard .lp b { font-size: 44px; font-family: var(--serif); letter-spacing: -.02em; }
+.loycard .ls { opacity: .85; font-size: 13px; } .loycard .lf { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 13px; } .loycard .lnk { color: #fff; opacity: .85; } .loycard small { display: block; margin-top: 8px; opacity: .7; font-size: 11.5px; }
+html[data-view="only"] .addb, html[data-view="only"] .addb2, html[data-view="only"] .cream, html[data-view="only"] .stp2, html[data-view="only"] .dish .lnk { display: none !important; }
 .ready-banner { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 120; background: linear-gradient(120deg, #1f9d55, #35d27a); color: #fff; font-weight: 800; padding: 14px 22px; border-radius: 99px; box-shadow: 0 18px 40px -10px rgba(31,157,85,.7); animation: dropIn .7s cubic-bezier(.34,1.56,.64,1), pulseGreen 1.6s 1s 3; white-space: nowrap; }
 @keyframes dropIn { from { transform: translate(-50%, -120px); opacity: 0; } } @keyframes pulseGreen { 50% { box-shadow: 0 0 0 16px rgba(53,210,122,0); } }
 .stars { display: flex; justify-content: center; gap: 6px; margin: 16px 0; } .stars button { font-size: 38px; padding: 4px; background: none; filter: grayscale(1) opacity(.45); transition: transform .3s cubic-bezier(.34,1.56,.64,1), filter .3s; } .stars button.on { filter: none; transform: scale(1.15) rotate(-6deg); } .stars button:hover { transform: scale(1.3); }
@@ -219,13 +247,13 @@ nav .bdg { position: absolute; top: 2px; inset-inline-start: 56%; min-width: 19p
 <body>
 <div class="amb"><i>🌿</i><i>☕</i><i>🍃</i><i>🫘</i></div>
 <div id="app"></div><div id="layer"></div>
-<script src="/shared.js"></script>
+<script src="/shared.js"></script><script src="/i18n.js"></script>
 <script>
 const tableNumber = +location.pathname.split('/').pop();
 const SLUG = App.slug;
 const AV = ['😎','🧑‍🎤','🦊','🐼','🎮','👩‍🎨','🧔','🐱','🦁','🐯','🧑‍🚀','🎧','🐧','🦄','🤖','👽','🌸','🍕'];
 const HUES = [28, 150, 42, 12, 335, 200, 95, 265];
-const TABS = ['menu', 'table', 'bill', 'home', 'profile'];
+const TABS = ['home', 'menu', 'table', 'bill', 'profile'];
 const P = { // icons
   home: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   cup: '<path d="M4 9h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 10h2a2 2 0 0 1 0 4h-2"/><path d="M8 3v3M12 3v3"/>',
@@ -264,7 +292,7 @@ let tagSel = new Set(), lastHad = false, rated = false; const prevSt = {};
 // categories can be limited to hours of the day (e.g. breakfast 07:00-12:00)
 function catOpen(c) { const h = c && c.hours; if (!h || !h.from || !h.to) return true; const d = new Date(), m = d.getHours() * 60 + d.getMinutes(), [a1, a2] = h.from.split(':').map(Number), [b1, b2] = h.to.split(':').map(Number), a = a1 * 60 + a2, b = b1 * 60 + b2; return a <= b ? m >= a && m < b : m >= a || m < b; }
 const itemOpen = (cfg, i) => catOpen(cfg.categories.find((c) => c.id === i.cat));
-let tab = 'menu', prevTab = 'menu', cat = null, q = '', S = null, built = false, dirty = false, animate = true;
+let tab = 'home', prevTab = 'home', cat = null, q = '', S = null, built = false, dirty = false, animate = true;
 let pay = { method: 'cash', split: 'table', tip: 10, custom: {} };
 const prevNum = {};
 const $ = (s) => document.querySelector(s);
@@ -285,7 +313,7 @@ function start() {
 }
 function scanScreen() {
   App.applyTheme(); built = false;
-  root.innerHTML = `<div class="join"><div class="c" style="text-align:center"><div style="font-size:64px;animation:bob 3s infinite">📷</div><h2 class="serif" style="margin:10px 0 6px">${App.tr('scanTitle')}</h2><p class="muted" style="margin:0 0 18px;line-height:1.6">${App.tr('scanSub')}</p><div class="row" style="justify-content:center"><button class="ib langb" onclick="App.toggleLang(event)">${ic('globe')}${App.lang === 'ar' ? 'EN' : 'عربي'}</button><button class="ib" onclick="App.toggleMode(event)"><span class="ico sun">${ic('sun')}</span><span class="ico moon">${ic('moon')}</span></button></div></div></div>`;
+  root.innerHTML = `<div class="join"><div class="c" style="text-align:center"><div style="font-size:64px;animation:bob 3s infinite">📷</div><h2 class="serif" style="margin:10px 0 6px">${App.tr('scanTitle')}</h2><p class="muted" style="margin:0 0 18px;line-height:1.6">${App.tr('scanSub')}</p><div class="row" style="justify-content:center"><button class="ib langb" onclick="App.toggleLang(event)">${ic('globe')}${App.langLabel(App.nextLang())}</button><button class="ib" onclick="App.toggleMode(event)"><span class="ico sun">${ic('sun')}</span><span class="ico moon">${ic('moon')}</span></button></div></div></div>`;
   App.handlers = { render: scanScreen };
 }
 function endedScreen() {
@@ -315,7 +343,7 @@ function joinScreen() {
   <input id="nm" value="${App.esc(me.name || '')}" maxlength="20" placeholder="${App.tr('pickName')}">
   <p class="muted" style="margin:16px 0 4px;font-size:13px">${App.tr('pickAvatar')}</p><div class="avs">${AV.map((a, k) => `<button class="${a === av ? 'on' : ''} pop" style="--i:${k}" data-a="${a}">${a}</button>`).join('')}</div>
   <button class="send rp" id="go">${App.tr('join')}</button>
-  <div class="row" style="justify-content:center;margin-top:16px"><button class="ib langb" onclick="App.toggleLang(event)">${ic('globe')}${App.lang === 'ar' ? 'EN' : 'عربي'}</button><button class="ib" onclick="App.toggleMode(event)"><span class="ico sun">${ic('sun')}</span><span class="ico moon">${ic('moon')}</span></button></div></div></div>`;
+  <div class="row" style="justify-content:center;margin-top:16px"><button class="ib langb" onclick="App.toggleLang(event)">${ic('globe')}${App.langLabel(App.nextLang())}</button><button class="ib" onclick="App.toggleMode(event)"><span class="ico sun">${ic('sun')}</span><span class="ico moon">${ic('moon')}</span></button></div></div></div>`;
   root.querySelectorAll('[data-a]').forEach((b) => (b.onclick = () => { me.avatar = b.dataset.a; root.querySelectorAll('[data-a]').forEach((x) => x.classList.toggle('on', x === b)); }));
   $('#go').onclick = () => { me.name = $('#nm').value.trim() || 'Guest'; App.ls('name', me.name); App.ls('avatar', me.avatar); App.handlers = {}; start(); };
 }
@@ -324,9 +352,9 @@ function joinScreen() {
 function build() {
   const cfg = S.config.settings;
   root.innerHTML = `<div id="shell"><header><div class="logo">${ic('leaf')}<div><span id="bn"></span><small id="bt"></small></div></div>
-   <div class="hbtns"><button class="ib langb rp" id="lb" onclick="App.toggleLang(event)"></button>
+   <div class="hbtns"><button class="ib rp" id="homeb" aria-label="Home" onclick="go('home')" hidden>${ic('home')}</button><button class="ib langb rp" id="lb" onclick="App.toggleLang(event)"></button>
    <button class="ib rp" aria-label="theme" onclick="App.toggleMode(event)"><span class="ico sun">${ic('sun')}</span><span class="ico moon">${ic('moon')}</span></button>
-   <button class="ib bell rp" id="bellb" onclick="openSheet()">${ic('bell')}<i class="dotb" id="bdot" hidden></i></button></div></header>
+   <button class="ib bell rp" id="bellb" onclick="openSheet()">${ic('bell')}<i class="dotb" id="bdot" hidden></i></button></div><div class="micro" id="micro"></div></header>
    <main id="page-wrap"><div id="page"></div></main></div>
    <div id="cartbar" hidden></div>
    <nav id="nav"><i id="ind"></i>${TABS.map((t) => `<button class="rp" data-t="${t}" onclick="go('${t}')">${ic({ home: 'home', menu: 'cup', table: 'users', bill: 'receipt', profile: 'user' }[t])}<span class="lb"></span></button>`).join('')}</nav>`;
@@ -355,10 +383,14 @@ function draw(force) {
   const st = cfg.settings;
   $('#bn').textContent = App.lang === 'ar' && st.name_ar ? st.name_ar : st.name;
   $('#bt').textContent = `${App.tr('table')} ${tableNumber}`;
-  $('#lb').innerHTML = `${ic('globe')}${App.lang === 'ar' ? 'EN' : 'عربي'}`;
+  $('#lb').innerHTML = `${ic('globe')}${App.langLabel(App.nextLang())}`; $('#lb').hidden = App.langs().length < 2;
+  if (!can('ordering') && (tab === 'table' || tab === 'bill')) tab = 'home';
+  document.documentElement.dataset.view = can('ordering') ? '' : 'only';
+  $('#homeb').hidden = tab === 'home'; $('#micro').innerHTML = microHTML(s);
   $('#bdot').hidden = !(s.requests.some((r) => !r.done) || s.check);
   const n = s.cart.reduce((a, l) => a + l.qty, 0);
   document.querySelectorAll('#nav button').forEach((b) => {
+    b.hidden = (b.dataset.t === 'table' || b.dataset.t === 'bill') && !can('ordering');
     b.classList.toggle('on', b.dataset.t === tab); b.querySelector('.lb').textContent = App.tr(LBL[b.dataset.t]);
     const old = b.querySelector('.bdg'); if (old) old.remove();
     if (b.dataset.t === 'table' && n) b.insertAdjacentHTML('beforeend', `<span class="bdg">${n}</span>`);
@@ -379,6 +411,40 @@ function draw(force) {
 window.addEventListener('resize', setInd);
 document.addEventListener('focusout', () => { if (dirty) setTimeout(() => draw(false), 60); });
 
+/* ---------------- spec features: tiers, landing, micro-services, grace window, loyalty ---------------- */
+const can = (k) => { const f = (S && S.config && S.config.features) || (App.config && App.config.features); return !f || f[k] !== false; };
+const LANG_NAMES = { en: 'English', ar: 'عامية مصرية', fr: 'Franco' };
+const MICRO = [['water', '💧', 'water'], ['napkins', '🧻', 'napkins'], ['cutlery', '🍴', 'cutlery'], ['waiter', '🛎️', 'callWaiter']];
+const microHTML = (s) => MICRO.map(([t, e, k]) => `<button class="rp ${s.requests.some((r) => !r.done && r.type === t) ? 'sent' : ''}" onclick="req('${t}')"><b>${e}</b>${App.tr(k)}</button>`).join('');
+function setLang(l, ev) { App.transition(() => { App.ls('lang', l); App.applyTheme(); draw(true); }, ev); }
+function copyWifi() { const p = S.config.settings.wifiPass || ''; try { navigator.clipboard.writeText(p); } catch {} App.toast('📶 ' + App.tr('copied')); }
+function landing(cfg, s) {
+  const st = cfg.settings, ar = App.lang === 'ar', promos = (st.promos || []).filter((p) => p.title || p.text), langs = App.langs(), cur = s.party || 0;
+  return `<button class="send rp rise cta" style="--i:1" onclick="go('menu')">${ic('cup')}${App.tr('showMenu')}</button>
+  ${can('party') ? `<div class="c li rise" style="--i:2"><div class="eyebrow">👥 ${App.tr('partyQ')}</div><p class="muted" style="margin:4px 0 10px;font-size:13px">${App.tr('partySub')}</p><div class="seg partyseg">${[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `<button class="rp ${cur === n ? 'on' : ''}" onclick="App.send({t:'party',n:${n}})">${n}</button>`).join('')}</div>${cur > 8 ? `<p class="muted" style="margin:8px 0 0;text-align:center">${cur} ${App.tr('partyN')}</p>` : ''}</div>` : ''}
+  ${langs.length > 1 ? `<div class="c li rise" style="--i:3"><div class="eyebrow">${App.tr('pickLang')}</div><div class="seg">${langs.map((l) => `<button class="rp ${App.lang === l ? 'on' : ''}" onclick="setLang('${l}',event)">${LANG_NAMES[l]}</button>`).join('')}</div></div>` : ''}
+  ${promos.length ? `<div class="promos rise" style="--i:4">${promos.map((p) => `<div><b>🎁 ${App.esc(ar && p.title_ar ? p.title_ar : p.title)}</b><span>${App.esc(ar && p.text_ar ? p.text_ar : p.text)}</span></div>`).join('')}</div>` : ''}
+  ${st.wifi ? `<button class="c wifi rp rise" style="--i:5" onclick="copyWifi()">📶<div><b>${App.esc(st.wifi)}</b><small>${App.tr('wifiPass')}: <code>${App.esc(st.wifiPass || '—')}</code></small></div><span>${App.tr('tapCopy')}</span></button>` : ''}`;
+}
+const orderBanner = (o) => o.status === 'received' ? `<div class="grace">⏳ ${App.tr('pendingBanner')}</div>` : o.status === 'kitchen' ? `<div class="lockb">🔒 ${App.tr('lockedBanner')}</div>` : '';
+const editBtns = (i) => `<span class="stp2" style="margin-inline-start:6px"><button aria-label="less" onclick="App.send({t:'order_item_qty',id:'${i.id}',d:-1})">−</button><button aria-label="more" onclick="App.send({t:'order_item_qty',id:'${i.id}',d:1})">+</button></span>`;
+const cancelBtn = (o) => o.status === 'received' && o.items.some((i) => i.guestId === me.id) ? `<button class="c note rp" style="width:100%" onclick="cancelOrd('${o.id}')">✕ ${App.tr('cancelOrder')}</button>` : '';
+function cancelOrd(id) { if (confirm(App.tr('cancelAsk'))) App.send({ t: 'order_cancel', id }); }
+const loyaltyCfg = (cfg) => Object.assign({ enabled: true, egpPerPoint: 10, pointsPerRedeem: 100, redeemValue: 50 }, cfg.settings.loyalty || {});
+const loyaltyOn = (cfg) => can('loyalty') && loyaltyCfg(cfg).enabled !== false;
+const loyaltyRules = (lc) => `${App.tr('loyaltyEarn').replace('{n}', App.money(lc.egpPerPoint))} · ${App.tr('loyaltyWorth').replace('{p}', lc.pointsPerRedeem).replace('{v}', App.money(lc.redeemValue))}`;
+function loyaltyCard(cfg, s) {
+  if (!loyaltyOn(cfg)) return '';
+  const lc = loyaltyCfg(cfg), m = s.loyalty, st = cfg.settings;
+  if (m) return `<div class="loycard rise" style="--i:1"><div class="lt"><span>${App.esc(App.lang === 'ar' && st.name_ar ? st.name_ar : st.name)}</span><span>💳</span></div><div class="lp"><b>${m.points}</b> ${App.tr('loyaltyPts')}</div><div class="ls">≈ ${App.money(m.points * lc.redeemValue / lc.pointsPerRedeem)} · ${m.visits} ${App.tr('loyaltyVisits')}</div><div class="lf"><span>${App.esc(m.name || me.name)} · ••••${App.esc(m.phone.slice(-3))}</span><button class="lnk" onclick="App.send({t:'loyalty_leave'})">${App.tr('loyaltyNotMe')}</button></div><small>${loyaltyRules(lc)}</small></div>`;
+  return `<div class="c li rise" style="--i:1"><div class="eyebrow">💳 ${App.tr('loyaltyTitle')}</div><p class="muted" style="margin:4px 0 10px;font-size:13px">${App.tr('loyaltySub')}</p><input id="lph" inputmode="tel" maxlength="14" placeholder="${App.tr('phone')}" style="border-radius:16px;padding:14px;margin-bottom:8px"><button class="send rp" onclick="joinLoyalty()">${App.tr('loyaltyJoin')}</button><p class="muted" style="margin:8px 0 0;font-size:11.5px">${loyaltyRules(lc)}</p></div>`;
+}
+function joinLoyalty() { const v = ($('#lph') || {}).value || '', d = v.replace(/\D/g, ''); if (d.length < 10 || d.length > 14) return App.toast(App.tr('loyaltyBad')); App.send({ t: 'loyalty_join', phone: v, name: me.name }); }
+function loyaltyBill(cfg, s) {
+  const m = s.loyalty, b = s.bill; if (!loyaltyOn(cfg) || !m) return '';
+  return `<div class="c li gold rise"><div class="row2"><b>💳 ${m.points} ${App.tr('loyaltyPts')}</b><span class="muted" style="font-size:12px">${App.tr('loyaltyTitle')}</span></div>${b.redeemPts ? `<div class="line" style="color:var(--ok)"><span>${App.tr('loyaltyApplied')}: ${b.redeemPts} ${App.tr('loyaltyPts')}</span><b>−${App.money(b.redeemEgp)}</b></div><button class="lnk" onclick="App.send({t:'loyalty_redeem',points:0})">${App.tr('loyaltyRemove')}</button>` : m.points > 0 ? `<button class="send rp" style="margin-top:10px" onclick="App.send({t:'loyalty_redeem',points:${m.points}})">${App.tr('loyaltyUse')}</button>` : ''}</div>`;
+}
+
 /* ---------------- tabs ---------------- */
 function homeTab(cfg, s) {
   const st = cfg.settings, its = cfg.items.filter((i) => !i.soldOut && itemOpen(cfg, i));
@@ -389,7 +455,8 @@ function homeTab(cfg, s) {
   const pop = cfg.categories.map((c) => its.find((i) => i.cat === c.id)).filter(Boolean).slice(0, 7);
   const lines = tag.replace(/([,،])\s*/, '$1<br><em>') + '</em>';
   return `<section class="hero rise" style="--i:0"><div><h2>${lines.includes('<em>') ? lines : `<em>${tag}</em>`}</h2><p>${App.esc(sub)}</p></div><div class="mugw">${MUG}</div></section>
-  <p class="muted rise" style="--i:1;margin:4px 0 0">${App.tr('hello')}, <b style="color:var(--text)">${App.esc(me.name)}</b> ${me.avatar}</p>
+  ${landing(cfg, s)}
+  <p class="muted rise" style="--i:1;margin:14px 0 0">${App.tr('hello')}, <b style="color:var(--text)">${App.esc(me.name)}</b> ${me.avatar}</p>
   ${dish ? `<div class="c dish tilt rise" style="--i:2"><div class="t"><div class="eyebrow">${App.tr('dayItem')}</div><h3>${App.esc(App.nm(dish))}</h3><p>${App.esc(dish.desc)}</p><button class="lnk" onclick="add('${dish.id}',this)">${App.tr('viewDetails')} <span class="arr">${ic('arrow').replace('<svg', '<svg width="16" height="16"')}</span></button></div>${artOf(cfg, dish, '', 1)}</div>` : ''}
   <div class="tiles rise" style="--i:3">
    <button class="tile rp" onclick="go('menu')">${ic('cup')}${App.tr('order')}</button>
@@ -479,7 +546,7 @@ function cartBar(s) {
   const ls = myLines(s), n = ls.reduce((a, l) => a + l.qty, 0), tot = ls.reduce((a, l) => a + l.qty * l.price, 0);
   el.hidden = !(tab === 'menu' && n);
   if (el.hidden) return;
-  el.innerHTML = `<button class="cbv rp" onclick="go('table')"><span class="cbn">${n}</span><span><b>${App.tr('viewOrder')}</b><small>${n} ${App.tr('itemsN')}</small></span><span class="cbt">${App.money(tot)}</span></button><button class="cbs rp" onclick="sendMine(this)">${ic('send')}${App.tr('sendNow')}</button>`;
+  el.innerHTML = `<button class="cbv rp" onclick="go('table')"><span class="cbn">${n}</span><span><b>${App.tr('viewOrder')}</b><small>${n} ${App.tr('itemsN')}</small></span><span class="cbt">${App.money(tot)}</span></button><button class="cbs rp" onclick="go('table')">${ic('send')}${App.tr('checkout')}</button>`;
 }
 function tableTab(cfg, s) {
   const mine = s.cart.filter((l) => l.guestId === me.id), others = s.cart.filter((l) => l.guestId !== me.id);
@@ -489,15 +556,18 @@ function tableTab(cfg, s) {
    ${edit ? `<div class="stp"><button onclick="App.send({t:'cart_qty',id:'${l.id}',d:-1})">${ic('minus')}</button><b>${l.qty}</b><button onclick="App.send({t:'cart_qty',id:'${l.id}',d:1})">${ic('plus')}</button></div>` : `<b>×${l.qty}</b>`}</div>
    ${edit ? `<input style="margin-top:10px;border-radius:14px;padding:10px 14px" placeholder="📝 ${App.tr('note')}" value="${App.esc(l.note)}" onchange="App.send({t:'cart_note',id:'${l.id}',note:this.value})">` : (l.note ? `<div class="sub" style="margin-top:6px">📝 ${App.esc(l.note)}</div>` : '')}</div>`; };
   const STEPS = ['received', 'kitchen', 'served'];
+  const etaBox = (o) => { if (o.status === 'closed') return ''; if (o.status === 'served') return `<div class="eta ok"><b>✅ ${App.tr('etaDone')}</b></div>`; const e = o.etaAt || 0; if (!e) return ''; const left = Math.ceil((e - Date.now()) / 60000), tot = Math.max(60000, e - (o.cookAt || o.at)), pct = Math.max(4, Math.min(100, (Date.now() - (o.cookAt || o.at)) / tot * 100)); return `<div class="eta" data-eta="${e}" data-from="${o.cookAt || o.at}"><div class="er"><span class="el">${o.status === 'kitchen' ? '👨‍🍳 ' + App.tr('etaCook') : '⏳ ' + App.tr('etaWait')}</span><b class="en">${left > 1 ? App.tr('etaIn') + ' <i>' + left + '</i> ' + App.tr('etaMin') : left > -1 ? App.tr('etaSoon') : App.tr('etaLate')}</b></div><div class="eb"><i style="width:${pct}%"></i></div><small class="muted">${App.tr('etaQueue')}</small></div>`; };
   const orders = s.orders.slice().reverse().map((o, k) => { const idx = Math.max(0, STEPS.indexOf(o.status)); return `<div class="c order rise" style="--i:${k}"><div class="row2"><b>#${o.id.slice(-4)}</b><span class="muted" style="font-size:12px">${App.ago(o.at)}</span></div>
-   <div class="track" style="--p:${o.status === 'closed' ? 1 : idx / 2}"><i class="fill"></i>${['statusReceived', 'statusKitchen', 'statusServed'].map((kk, j) => `<span class="${j <= idx || o.status === 'closed' ? 'd' : ''} ${j === idx && o.status !== 'closed' ? 'cur' : ''}"><b>${j <= idx ? ic('check') : ''}</b>${App.tr(kk)}</span>`).join('')}</div>
-   ${o.items.map((i) => `<div class="line"><span>${guestOf(s, i.guestId).avatar} ${i.qty}× ${App.esc(App.nm(i))}${i.note ? ` <small class="muted">(${App.esc(i.note)})</small>` : ''}</span><span>${App.money(i.price * i.qty)}${i.guestId === me.id && o.status === 'received' ? ` <button class="ib" style="width:26px;height:26px;display:inline-grid;vertical-align:middle;margin-inline-start:4px" onclick="App.send({t:'order_item_remove',id:'${i.id}'})">${ic('x').replace('<svg', '<svg width="12" height="12"')}</button>` : ''}</span></div>`).join('')}</div>`; }).join('');
+   <div class="track" style="--p:${o.status === 'closed' ? 1 : idx / 2}"><i class="fill"></i>${['statusPending', 'statusInKitchen', 'statusReady'].map((kk, j) => `<span class="${j <= idx || o.status === 'closed' ? 'd' : ''} ${j === idx && o.status !== 'closed' ? 'cur' : ''}"><b>${j <= idx ? ic('check') : ''}</b>${App.tr(kk)}</span>`).join('')}</div>
+   ${etaBox(o)}${orderBanner(o)}
+   ${o.items.map((i) => { const im = (App.config.items.find((x) => x.id === i.itemId) || {}).img; return `<div class="line"><span>${im ? `<img class="othumb" src="${App.esc(im)}" alt="" loading="lazy">` : guestOf(s, i.guestId).avatar} ${i.qty}× ${App.esc(App.nm(i))}${i.note ? ` <small class="muted">(${App.esc(i.note)})</small>` : ''}</span><span>${App.money(i.price * i.qty)}${i.guestId === me.id && o.status === 'received' ? ` ${editBtns(i)}` : ''}</span></div>`; }).join('')}${cancelBtn(o)}</div>`; }).join('');
   const mineTotal = mine.reduce((n, l) => n + l.qty * l.price, 0), othersTotal = others.reduce((n, l) => n + l.qty * l.price, 0);
   return `<h2 class="ptitle rise">${App.tr('tableFor')} ${tableNumber}</h2><div class="people rise" style="--i:1">${s.guests.map((g, k) => `<div class="person ${g.id === me.id ? 'me' : ''}"><div class="av">${g.avatar}${g.id === (hostOf(s) || {}).id ? '<i class="crown">👑</i>' : ''}</div>${App.esc(g.name)}</div>`).join('')}</div>
   ${hostCard(s)}
-  <div class="h3 rise" style="--i:2">${App.tr('yourOrder')}</div>
-  ${mine.length ? mine.map((l, k) => line(l, true, k + 2)).join('') : `<div class="c note rise muted" style="--i:3;text-align:center;padding:26px">${ic('cup').replace('<svg', '<svg width="34" height="34" style="color:var(--accent);margin-bottom:6px"')}<br>${App.tr('cartEmpty')}</div>`}
-  ${mine.length ? `<button class="send rp" onclick="sendMine(this)">${ic('send')}${App.tr('sendFor')} · ${cnt(mineTotal, 'mine')}</button>` : ''}
+  <div class="h3 rise" style="--i:2">${App.tr(mine.length || !s.orders.length ? 'reviewTitle' : 'yourOrder')}</div>${mine.length ? `<p class="muted" style="margin:-4px 0 8px;font-size:13px">${App.tr('reviewSub')}</p>` : ''}
+  ${mine.length ? mine.map((l, k) => line(l, true, k + 2)).join('') : s.orders.length ? '' : `<div class="c note rise muted" style="--i:3;text-align:center;padding:26px">${ic('cup').replace('<svg', '<svg width="34" height="34" style="color:var(--accent);margin-bottom:6px"')}<br>${App.tr('cartEmpty')}</div>`}
+  <button class="c note rp rise" style="width:100%;font-weight:700;color:var(--accent)" onclick="go('menu')">${App.tr('addMore')}</button>
+  ${mine.length ? `<button class="send rp" onclick="sendMine(this)">${ic('send')}${App.tr('confirmOrder')} · ${cnt(mineTotal, 'mine')}</button>` : ''}
   ${others.length ? `<div class="h3">${App.tr('tableOrder')}</div>${others.map((l, k) => line(l, false, k)).join('')}<button class="c note rp" style="width:100%" onclick="sendAll(this)">${ic('users').replace('<svg', '<svg width="18" height="18" style="vertical-align:-4px"')} ${App.tr('sendAll')} (${App.money(othersTotal)})</button>` : ''}
   ${s.orders.length ? `<div class="h3">${App.tr('orders')}</div>${orders}` : ''}`;
 }
@@ -529,8 +599,9 @@ function billTab(cfg, s) {
   return `<h2 class="ptitle rise">${App.tr('sessionTotal')}</h2>
   ${G.map((g, k) => { const x = b.byGuest[g.id] || { sub: 0, service: 0, tax: 0, total: 0, items: [] }; return `<div class="c li guestbill rise" style="--i:${k + 1}"><div class="row2"><b style="font-size:16px"><span style="font-size:22px">${g.avatar}</span> ${App.esc(g.name)}${g.id === me.id ? ' · ' + App.tr('youLabel') : ''}</b><b class="serif" style="font-size:19px">${App.money(x.total)}</b></div>
    ${x.items.map((i) => `<div class="line muted"><span>${i.qty}× ${App.esc(App.nm(i))}</span><span>${App.money(i.price * i.qty)}</span></div>`).join('')}</div>`; }).join('')}
-  <div class="c li rise" style="--i:5"><div class="line"><span>${App.tr('subtotal')}</span><span>${App.money(b.sub)}</span></div>${b.discount ? `<div class="line" style="color:var(--ok)"><span>${App.tr('discount')}</span><span>−${App.money(b.discount)}</span></div>` : ''}<div class="line"><span>${App.tr('service')} (${st.service}%)</span><span>${App.money(b.service)}</span></div><div class="line"><span>${App.tr('tax')} (${st.tax}%)</span><span>${App.money(b.tax)}</span></div>
+  <div class="c li rise" style="--i:5"><div class="line"><span>${App.tr('subtotal')}</span><span>${App.money(b.sub)}</span></div>${b.discount - (b.redeemEgp || 0) > 0.001 ? `<div class="line" style="color:var(--ok)"><span>${App.tr('discount')}</span><span>−${App.money(b.discount - (b.redeemEgp || 0))}</span></div>` : ''}${b.redeemEgp ? `<div class="line" style="color:var(--ok)"><span>💳 ${App.tr('loyaltyApplied')}</span><span>−${App.money(b.redeemEgp)}</span></div>` : ''}<div class="line"><span>${App.tr('service')} (${st.service}%)</span><span>${App.money(b.service)}</span></div><div class="line"><span>${App.tr('tax')} (${st.tax}%)</span><span>${App.money(b.tax)}</span></div>
   <div class="line"><span>${App.tr('tip')} (${pay.tip}%)</span><span>${App.money(tipOf(b.net))}</span></div><div class="line" style="border-top:1px dashed var(--line);margin-top:6px;padding-top:10px"><b>${App.tr('total')}</b><b class="bigp">${cnt(withTip, 'tot')}</b></div></div>
+  ${loyaltyBill(cfg, s)}
   <div class="h3">${App.tr('tip')}</div><div class="seg">${[0, 5, 10, 15, 20].map((p) => `<button class="rp ${pay.tip === p ? 'on' : ''}" onclick="pay.tip=${p};draw(true)">${p}%</button>`).join('')}</div>
   <div class="h3">${App.tr('bill')}</div><div class="seg"><button class="rp ${pay.split === 'self' ? 'on' : ''}" onclick="pay.split='self';draw(true)">👤 ${App.tr('payMine')}</button><button class="rp ${pay.split === 'table' ? 'on' : ''}" onclick="pay.split='table';draw(true)">👥 ${App.tr('payTable')}</button><button class="rp ${pay.split === 'custom' ? 'on' : ''}" onclick="pay.split='custom';draw(true)">✂️ ${App.tr('payCustom')}</button></div>
   ${pay.split === 'custom' ? `<div class="c li" style="margin-top:12px"><p class="muted" style="margin:0 0 8px">${App.tr('assign')}</p>${G.map((g) => `<div class="row" style="margin-bottom:8px;gap:10px"><span style="font-size:22px">${g.avatar}</span><span style="flex:1">${App.esc(g.name)}</span><input type="number" style="width:120px;border-radius:14px" value="${pay.custom[g.id] ?? ''}" placeholder="${Math.round(withTip / G.length)}" onchange="pay.custom['${g.id}']=this.value;draw(true)"></div>`).join('')}
@@ -546,7 +617,8 @@ function profileTab(cfg, s) {
   <div class="c li rise" style="--i:1"><input id="pn" value="${App.esc(me.name)}" maxlength="20" style="border-radius:16px;padding:14px" placeholder="${App.tr('pickName')}">
    <div class="avs" style="margin-bottom:6px">${AV.map((a) => `<button class="rp ${a === me.avatar ? 'on' : ''}" data-a="${a}" onclick="pickAv('${a}')">${a}</button>`).join('')}</div>
    <button class="send rp" onclick="saveProfile()">${ic('check')}${App.tr('save')}</button></div>
-  <div class="h3 rise" style="--i:2">${App.tr('language')}</div><div class="seg rise" style="--i:3"><button class="rp ${App.lang === 'en' ? 'on' : ''}" onclick="if(App.lang!=='en')App.toggleLang(event)">English</button><button class="rp ${App.lang === 'ar' ? 'on' : ''}" onclick="if(App.lang!=='ar')App.toggleLang(event)">العربية</button></div>
+  ${loyaltyCard(cfg, s)}
+  <div class="h3 rise" style="--i:2">${App.tr('language')}</div><div class="seg rise" style="--i:3">${App.langs().map((l) => `<button class="rp ${App.lang === l ? 'on' : ''}" onclick="if(App.lang!=='${l}')setLang('${l}',event)">${LANG_NAMES[l]}</button>`).join('')}</div>
   <div class="h3 rise" style="--i:4">${App.tr('theme')}</div><div class="seg rise" style="--i:5"><button class="rp ${!App.isDark() ? 'on' : ''}" onclick="if(App.isDark())App.toggleMode(event)">☀️ ${App.tr('light')}</button><button class="rp ${App.isDark() ? 'on' : ''}" onclick="if(!App.isDark())App.toggleMode(event)">🌙 ${App.tr('dark')}</button></div>
   <div class="seg rise" style="--i:6;margin-top:8px">${[['default', '🎨 ' + (App.lang === 'ar' ? 'مظهر المطعم' : 'House')], ['maison-dark', 'Maison 🌙'], ['maison-light', 'Maison ☀️']].map(([k, l]) => `<button class="rp ${App.skinChoice() === k ? 'on' : ''}" onclick="App.setSkin('${k}',event)">${l}</button>`).join('')}</div>`;
 }
@@ -554,13 +626,13 @@ function pickAv(a) { me.avatar = a; $('#mav').textContent = a; document.querySel
 function saveProfile() { me.name = $('#pn').value.trim() || me.name; App.ls('name', me.name); App.ls('avatar', me.avatar); App.send({ t: 'profile', name: me.name, avatar: me.avatar }); App.toast('✓ ' + App.tr('save')); }
 
 /* ---------------- actions & effects ---------------- */
-function add(id, el) { const it = S.config.items.find((x) => x.id === id); if (it && it.soldOut) return App.toast(App.tr('soldSorry')); App.send({ t: 'cart_add', itemId: id }); App.toast(App.tr('addToCart')); if (it) fly(el, it.emoji); }
+function add(id, el) { if (!can('ordering')) return App.toast(App.tr('viewOnly')); const it = S.config.items.find((x) => x.id === id); if (it && it.soldOut) return App.toast(App.tr('soldSorry')); App.send({ t: 'cart_add', itemId: id }); App.toast(App.tr('addToCart')); if (it) fly(el, it.emoji); }
 function req(type) { App.send({ t: 'request', type }); App.toast(App.tr('requestSent')); const b = $('#bellb'); b.classList.remove('ring'); void b.offsetWidth; b.classList.add('ring'); closeSheet(); }
 function sendMine(el) { burstAt(el); App.send({ t: 'send_order' }); App.toast(App.tr('orderSent')); }
 function sendAll(el) { burstAt(el); App.send({ t: 'send_order', scope: 'all' }); App.toast(App.tr('orderSent')); }
 function openSheet() {
   $('#layer').innerHTML = `<div class="sheetbg" onclick="closeSheet()"></div><div class="sheet"><div class="grab"></div><h3 class="serif" style="font-size:24px">${App.tr('quickAct')}</h3>
-  <div class="acts"><button class="act rp" onclick="req('waiter')">${ic('bell')}${App.tr('callWaiter')}</button><button class="act rp" onclick="req('water')">${ic('water')}${App.tr('water')}</button>
+  <div class="acts"><button class="act rp" onclick="req('waiter')">${ic('bell')}${App.tr('callWaiter')}</button><button class="act rp" onclick="req('water')">💧 ${App.tr('water')}</button><button class="act rp" onclick="req('napkins')">🧻 ${App.tr('napkins')}</button><button class="act rp" onclick="req('cutlery')">🍴 ${App.tr('cutlery')}</button>
   <button class="act rp urg" onclick="req('urgent')">${ic('bolt')}${App.tr('urgent')}</button><button class="act rp" onclick="closeSheet();go('bill')">${ic('receipt')}${App.tr('reqBill')}</button></div></div>`;
 }
 function closeSheet() { const l = $('#layer'); const sh = l.querySelector('.sheet'); if (!sh) return; sh.style.transition = 'transform .35s'; sh.style.transform = 'translate(-50%,100%)'; setTimeout(() => (l.innerHTML = ''), 320); }
@@ -602,6 +674,10 @@ document.addEventListener('pointermove', (e) => {
 document.addEventListener('pointerout', (e) => { const t = e.target.closest && e.target.closest('.tilt'); if (t && !t.contains(e.relatedTarget)) { t.style.setProperty('--rx', '0deg'); t.style.setProperty('--ry', '0deg'); } });
 
 /* ---------------- go ---------------- */
+App.i18nApply();
 App.handlers = { render: joinScreen };
 fetch('/api/config').then((r) => r.json()).then((c) => { App.config = c; App.applyTheme(); if (me.name) start(); else joinScreen(); });
+
+// live ETA countdown between server updates
+setInterval(() => document.querySelectorAll('.eta[data-eta]').forEach((el) => { const e = +el.dataset.eta, f = +el.dataset.from, left = Math.ceil((e - Date.now()) / 60000), n = el.querySelector('.en'), b = el.querySelector('.eb i'); if (n) n.innerHTML = left > 1 ? App.tr('etaIn') + ' <i>' + left + '</i> ' + App.tr('etaMin') : left > -1 ? App.tr('etaSoon') : App.tr('etaLate'); if (b) b.style.width = Math.max(4, Math.min(100, (Date.now() - f) / Math.max(60000, e - f) * 100)) + '%'; }), 15000);
 </script></body></html>

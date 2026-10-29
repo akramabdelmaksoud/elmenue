@@ -1,8 +1,11 @@
 const seed = require('./data');
+const F = require('./features');
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 function freshData(demo) {
-  return { settings: clone(seed.settings), categories: clone(seed.categories), items: clone(seed.items), tables: clone(seed.tables), sessions: {}, history: demo ? seed.buildHistory() : [] };
+  // demo cafés get the photographed showroom menu (showroom.js); real customers start from the plain seed menu
+  const sh = demo ? require('./showroom') : null;
+  return { settings: { ...clone(seed.settings), ...(sh ? clone(sh.settings) : {}) }, categories: clone(sh ? sh.categories : seed.categories), items: clone(sh ? sh.items : seed.items), tables: clone(seed.tables), sessions: {}, history: demo ? seed.buildHistory(sh.items) : [] };
 }
 
 // A tenant = one restaurant with its own menu, tables, sessions, history, websocket clients.
@@ -85,6 +88,11 @@ function bill(s) {
   let disc = 0;
   if (s.discount && gross > 0) disc = s.discount.type === 'pct' ? gross * Math.min(100, Math.max(0, +s.discount.value || 0)) / 100 : Math.min(gross, Math.max(0, +s.discount.value || 0));
   disc = +disc.toFixed(2);
+  let red = 0, redPts = 0;   // loyalty points the guest chose to redeem (capped by what is left to pay)
+  if (s.redeem && s.redeem.points > 0 && gross - disc > 0) {
+    const lc = F.loyaltyCfg(st); red = Math.min(+(gross - disc).toFixed(2), F.pointsToEgp(lc, s.redeem.points));
+    redPts = lc.redeemValue > 0 ? Math.min(s.redeem.points, Math.ceil(red * lc.pointsPerRedeem / lc.redeemValue)) : 0; red = +red.toFixed(2); disc = +(disc + red).toFixed(2);
+  }
   const net = +(gross - disc).toFixed(2), k = gross ? net / gross : 1;
   const calc = (x) => {
     const service = +(x * st.service / 100).toFixed(2);
@@ -92,7 +100,7 @@ function bill(s) {
     return { sub: x, service, tax, total: +(x + service + tax).toFixed(2) };
   };
   Object.keys(by).forEach((g) => { by[g].gross = by[g].sub; Object.assign(by[g], calc(+(by[g].sub * k).toFixed(2))); });
-  return { ...calc(net), sub: gross, gross, discount: disc, net, byGuest: by };
+  return { ...calc(net), sub: gross, gross, discount: disc, net, redeemEgp: red, redeemPts: redPts, byGuest: by };
 }
 
 // a reservation counts from 45 minutes before until 20 minutes after its time
@@ -130,11 +138,19 @@ function closeSession(t, method, who, pay) {
   const total = +(b.total + tip).toFixed(2);
   const m = ['cash', 'card', 'mixed', 'unpaid'].includes(method) ? method : (s.check?.method || 'cash');
   log(s, 'closed', 'Table paid and cleared' + (who ? ' by ' + who : ''));
+  let loy = null;
+  const mem = s.loyaltyPhone && db.loyalty && db.loyalty.members[s.loyaltyPhone];
+  if (mem && m !== 'unpaid' && F.has(rec.plan, 'loyalty') && s.orders.length) {
+    const lc = F.loyaltyCfg(db.settings), earned = lc.enabled ? F.earnPoints(lc, b.net) : 0, at = Date.now();
+    mem.points = Math.max(0, mem.points - b.redeemPts) + earned; mem.earned += earned; mem.redeemed += b.redeemPts; mem.visits++; mem.last = at;
+    mem.log = [...(b.redeemPts ? [{ at, type: 'redeem', pts: b.redeemPts, egp: b.redeemEgp }] : []), ...(earned ? [{ at, type: 'earn', pts: earned }] : []), ...(mem.log || [])].slice(0, 40);
+    loy = { phone: mem.phone, earned, redeemed: b.redeemPts, egp: b.redeemEgp };
+  }
   if (s.orders.length) {
     db.history.push({
       id: id('h'), tableId: t.id, tableNumber: t.number, kind: s.kind || 'table', customer: s.customer || null, startedAt: s.startedAt,
       orderedAt: s.orders[0].at, checkAt: s.check?.at || Date.now(), closedAt: Date.now(),
-      guests: s.guests.length || 1, items: Object.values(lines), sub: b.gross, discount: b.discount, discountNote: s.discount ? (s.discount.reason || '') : '', service: b.service, tax: b.tax, tip,
+      guests: s.guests.length || 1, party: s.party || 0, loyalty: loy, items: Object.values(lines), sub: b.gross, discount: b.discount, discountNote: s.discount ? (s.discount.reason || '') : '', service: b.service, tax: b.tax, tip,
       total, method: m, unpaid: m === 'unpaid', pay: m === 'unpaid' ? { cash: 0, card: 0, tendered: 0, change: 0 } : settle(m, total, pay), split: s.check?.split || 'table', closedBy: who || '', voids: s.voids || [], log: s.log,
     });
   }
@@ -159,7 +175,7 @@ function seedLiveSessions() {
         const it = seed.pick(db.items);
         items.push({ id: id('l'), guestId: s.guests[i % g].id, itemId: it.id, name: it.name, name_ar: it.name_ar, emoji: it.emoji, price: it.price, qty: seed.rnd(1, 2), note: '' });
       }
-      s.orders.push({ id: id('o'), at: Date.now() - 20 * 60000, status: st === 'check' ? 'served' : seed.pick(['received', 'kitchen', 'kitchen', 'served']), items });
+      { const o = { id: id('o'), at: Date.now() - 20 * 60000, status: st === 'check' ? 'served' : seed.pick(['received', 'kitchen', 'kitchen', 'served']), items }; stampEta(o); if (o.status === 'kitchen') { o.cookAt = Date.now() - seed.rnd(1, 6) * 60000; o.etaAt = o.cookAt + o.prep * 60000; } o.at = Date.now() - seed.rnd(4, 14) * 60000; s.orders.push(o); }
       log(s, 'ordered', 'First order sent to kitchen');
     }
     if (st === 'urgent') { s.requests.push({ id: id('r'), type: 'urgent', at: Date.now() - 60000, done: false }); log(s, 'request', 'Speed up order'); }
@@ -172,12 +188,34 @@ function seedLiveSessions() {
 }
 
 if (typeof needSeed !== 'undefined') seedLiveSessions();
+function seedLoyalty() {
+  if (db.loyalty) return; const now = Date.now(), L = (db.loyalty = { members: {} });
+  [['01012345678', 'Ahmed', 420, 6], ['01123456789', 'Sara', 215, 3], ['01234567890', 'Omar', 80, 2], ['01098765432', 'Mona', 960, 11]].forEach(([phone, name, points, visits], i) => {
+    L.members[phone] = { phone, name, points, earned: points + 100, redeemed: 100, visits, at: now - (20 + i * 9) * 86400000, last: now - i * 86400000, log: [{ at: now - 3600000 * (i + 1), type: 'earn', pts: 24 + i * 7 }, ...(i % 2 ? [{ at: now - 7200000, type: 'redeem', pts: 100, egp: 50 }] : [])] };
+  });
+}
+
+// ---------- Prep times & ETA ----------
+// item.prep = minutes of cooking. An order is ready after its slowest dish, plus the queue ahead of it:
+// 1 extra minute for every (stations x 5) prep-minutes still on the board (cooking orders count half).
+const prepOf = (l) => { const it = db.items.find((x) => x.id === l.itemId); return it && +it.prep > 0 ? +it.prep : 6; };
+function stampEta(o) {
+  const stations = Math.max(1, Math.min(12, +db.settings.kitchenStations || 3));
+  const longest = Math.max(3, ...o.items.map(prepOf));
+  let ahead = 0;
+  Object.values(db.sessions).forEach((s) => s.orders.forEach((x) => { if (x !== o && (x.status === 'received' || x.status === 'kitchen') && x.at <= o.at) ahead += x.items.reduce((n, l) => n + prepOf(l) * l.qty, 0) * (x.status === 'kitchen' ? 0.5 : 1); }));
+  o.prep = longest; o.etaMin = Math.min(75, Math.round(longest + ahead / (stations * 5))); o.etaAt = o.at + o.etaMin * 60000;
+  return o;
+}
 
 // ---------- Snapshots & broadcast ----------
 const clients = new Set();
-const view = (s) => ({ ...s, bill: bill(s) });
+const view = (s) => {
+  const mem = s.loyaltyPhone && db.loyalty && db.loyalty.members[s.loyaltyPhone];
+  return { ...s, bill: bill(s), loyalty: mem ? { phone: mem.phone, name: mem.name, points: mem.points, visits: mem.visits } : null };
+};
 function snapshotFor(c) {
-  const config = { settings: db.settings, categories: db.categories, items: db.items, tables: c.role === 'admin' ? db.tables : db.tables.map(({ key, ...r }) => r) };
+  const config = { settings: db.settings, categories: db.categories, items: db.items, tables: c.role === 'admin' ? db.tables : db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec.plan), plan: F.planOf(rec.plan) };
   if (c.role !== 'customer') config.reservations = (db.reservations || []).filter((r) => r.at > Date.now() - 3 * 3600000);
   if (c.role === 'customer') {
     const t = db.tables.find((x) => x.number === c.tableNumber);
@@ -210,6 +248,7 @@ function handle(c, m) {
   if (m.t === 'join') {
     if (c.joined) return;
     if (m.role !== 'customer' && !c.authed) return;
+    if (m.role === 'kitchen' && !F.has(rec.plan, 'kds')) return c.ws.send(JSON.stringify({ t: 'error', msg: 'The Kitchen Display needs the Operations plan' }));
     c.joined = true;
     c.role = m.role;
     if (m.role === 'customer') {
@@ -232,7 +271,38 @@ function handle(c, m) {
     const s = t && db.sessions[t.id];
     if (!s) return;
     s.lastAt = Date.now(); s.idle = false;
+    // Tier 1 (Basic QR Menu) is a scan-only menu: no ordering from the phone
+    if (['cart_add', 'cart_qty', 'cart_note', 'send_order', 'order_item_remove', 'order_item_qty', 'order_cancel'].includes(m.t) && !F.has(rec.plan, 'ordering')) return;
     switch (m.t) {
+      case 'party': { const n = Math.floor(+m.n); if (F.has(rec.plan, 'party') && n >= 1 && n <= 40 && s.party !== n) { s.party = n; log(s, 'party', `Party of ${n}`); } break; }
+      case 'loyalty_join': {
+        const lc = F.loyaltyCfg(db.settings), ph = F.cleanPhone(m.phone); if (!F.has(rec.plan, 'loyalty') || !lc.enabled || !ph) break;
+        const L = (db.loyalty ||= { members: {} }); let mem = L.members[ph];
+        if (!mem) mem = L.members[ph] = { phone: ph, name: String(m.name || '').slice(0, 24), points: 0, earned: 0, redeemed: 0, visits: 0, at: Date.now(), log: [] };
+        else if (m.name && !mem.name) mem.name = String(m.name).slice(0, 24);
+        s.loyaltyPhone = ph; s.redeem = null; log(s, 'loyalty', `${mem.name || 'Guest'} joined the loyalty card`); break;
+      }
+      case 'loyalty_leave': s.loyaltyPhone = null; s.redeem = null; break;
+      case 'loyalty_redeem': {
+        const mem = s.loyaltyPhone && db.loyalty && db.loyalty.members[s.loyaltyPhone]; if (!mem) break;
+        const pts = Math.max(0, Math.min(mem.points, Math.floor(+m.points) || 0)); s.redeem = pts ? { points: pts } : null; break;
+      }
+      case 'order_item_qty': {   // grace window: change an amount until the waiter sends the order to the kitchen
+        for (const o of s.orders) {
+          const l = o.items.find((x) => x.id === m.id && x.guestId === c.guestId); if (!l) continue;
+          if (o.status !== 'received') break;
+          if (m.d > 0) { if (l.qty < 20 && takeStock([{ itemId: l.itemId, qty: 1 }]).length) l.qty++; }
+          else { putStock(l.itemId, 1, 'return', 'guest changed'); l.qty--; if (l.qty <= 0) { o.items.splice(o.items.indexOf(l), 1); if (!o.items.length) s.orders = s.orders.filter((x) => x !== o); } }
+          log(s, 'ordered', 'Guest changed an item while the order was pending'); break;
+        }
+        break;
+      }
+      case 'order_cancel': {   // grace window: withdraw all of my items from a pending order
+        const o = s.orders.find((x) => x.id === m.id && x.status === 'received'); if (!o) break;
+        o.items.filter((x) => x.guestId === c.guestId).forEach((l) => putStock(l.itemId, l.qty, 'return', 'guest cancelled'));
+        o.items = o.items.filter((x) => x.guestId !== c.guestId); if (!o.items.length) s.orders = s.orders.filter((x) => x !== o);
+        log(s, 'ordered', 'Guest cancelled a pending order'); break;
+      }
       case 'host_set': {   // the table host (first to sit down) can hand the role to anyone at the table
         const cur = s.guests.some((x) => x.id === s.host) ? s.host : (s.guests[0] || {}).id, to = s.guests.find((x) => x.id === m.guestId);
         if (to && c.guestId === cur && to.id !== cur) { s.host = to.id; log(s, 'host', `${to.avatar} ${to.name} is now the table host`); }
@@ -259,7 +329,7 @@ function handle(c, m) {
         s.cart = s.cart.filter((l) => !want.includes(l));
         const mine = takeStock(want);
         if (!mine.length) break;
-        s.orders.push({ id: id('o'), at: Date.now(), status: 'received', items: mine, by: c.guestId });
+        s.orders.push(stampEta({ id: id('o'), at: Date.now(), status: 'received', items: mine, by: c.guestId }));
         s.check = null; s.requests = s.requests.filter((r) => r.type !== 'bill' || r.done);
         const g = s.guests.find((x) => x.id === c.guestId);
         log(s, 'ordered', `${g ? g.avatar + ' ' + g.name : 'Guest'} added ${mine.reduce((n, l) => n + l.qty, 0)} item(s)` + (first ? ' (first order)' : ''));
@@ -275,12 +345,12 @@ function handle(c, m) {
         break;
       }
       case 'request': {
-        const labels = { waiter: 'Call waiter', water: 'Water / napkins', urgent: 'Speed up order' };
+        const labels = { waiter: 'Call waiter', water: 'Water', napkins: 'Napkins', cutlery: 'Cutlery & covers', urgent: 'Speed up order' };
         if (!labels[m.type] || s.requests.some((r) => r.type === m.type && !r.done)) break;
         const gq = s.guests.find((x) => x.id === c.guestId); if (gq) { gq.cd ||= {}; if (Date.now() - (gq.cd[m.type] || 0) < 45000) break; gq.cd[m.type] = Date.now(); }
         s.requests.push({ id: id('r'), type: m.type, at: Date.now(), done: false, by: c.guestId });
         log(s, 'request', labels[m.type]);
-        alertCaptains(m.type === 'urgent' ? 'urgent' : 'request', t.number, `Table ${t.number}: ${labels[m.type]}`);
+        alertCaptains(m.type === 'urgent' || m.type === 'waiter' ? 'urgent' : 'request', t.number, `Table ${t.number}: ${labels[m.type]}`);
         break;
       }
       case 'check': {
@@ -319,6 +389,7 @@ function handle(c, m) {
         db.sessions[m.tid] = s; log(s, 'seated', `${m.kind} ticket ${s.tableNumber} opened` + (c.staffName ? ' by ' + c.staffName : '')); break;
       }
       case 'staff_order': {
+        if (!F.has(rec.plan, 'ordering')) break;
         const t = db.tables.find((x) => x.id === m.tableId); let s = db.sessions[m.tableId];
         if (!s && t) s = openSession(t); if (!s) break;
         const want = [];
@@ -332,7 +403,7 @@ function handle(c, m) {
         if (!g) { g = { id: 'staff', name: 'Staff', avatar: '🧑‍🍳' }; s.guests.push(g); }
         const lines = takeStock(want, c.staffName); if (!lines.length) break;
         lines.forEach((l) => (l.guestId = g.id));
-        s.orders.push({ id: id('o'), at: Date.now(), status: 'received', items: lines, by: 'staff', staff: c.staffName || '' });
+        s.orders.push(stampEta({ id: id('o'), at: Date.now(), status: 'received', items: lines, by: 'staff', staff: c.staffName || '' }));
         s.check = null; s.requests = s.requests.filter((r) => r.type !== 'bill' || r.done); s.lastAt = Date.now(); s.idle = false;
         log(s, 'ordered', `${c.staffName || 'Staff'} took an order (${lines.reduce((n, l) => n + l.qty, 0)} item(s))`); bump(c, 'taken'); break;
       }
@@ -395,7 +466,8 @@ function setStatus(c, m) {
     const o = s.orders.find((x) => x.id === m.orderId); if (!o) continue;
     if (!['received', 'kitchen', 'served', 'closed'].includes(m.status)) return;
     o.status = m.status; log(s, 'status', `Order ${m.status}` + (c.staffName ? ' by ' + c.staffName : ''));
-    if (m.status === 'kitchen') bump(c, 'started');
+    if (m.status === 'kitchen') { bump(c, 'started'); o.cookAt = Date.now(); o.etaAt = o.cookAt + (o.prep || 6) * 60000; o.etaMin = Math.max(1, Math.round((o.etaAt - o.at) / 60000)); }   // the clock restarts when the kitchen actually starts
+    if (m.status === 'served') o.readyAt = Date.now();
     if (m.status === 'served') { bump(c, 'served'); alertCaptains('ready', s.tableNumber, `Table ${s.tableNumber}: order is ready`); }
     return;
   }
@@ -417,7 +489,7 @@ function tick() {
     if (!s.orders.length || r < 0.45) {
       const items = []; const n = seed.rnd(1, 3);
       for (let i = 0; i < n; i++) { const it = seed.pick(db.items); items.push({ id: id('l'), guestId: seed.pick(s.guests).id, itemId: it.id, name: it.name, name_ar: it.name_ar, emoji: it.emoji, price: it.price, qty: 1, note: seed.pick(['', '', 'No sugar', 'Extra hot', 'Less ice']) }); }
-      s.orders.push({ id: id('o'), at: Date.now(), status: 'received', items }); s.check = null;
+      s.orders.push(stampEta({ id: id('o'), at: Date.now(), status: 'received', items })); s.check = null;
       log(s, 'ordered', 'Order sent to kitchen'); alertCaptains('order', t.number, `New order from table ${t.number}`);
     } else if (r < 0.65) {
       const type = seed.pick(['waiter', 'water', 'urgent']);
@@ -481,7 +553,30 @@ function analytics(days = 7) {
   };
 }
 
-  function seedLive() { seedLiveSessions(); }
-  return { rec, db, clients, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
+  function seedLive() { seedLiveSessions(); seedLoyalty(); }
+  // OCR import: [{cat, name, name_ar, price, desc}] -> categories + items (categories are matched by name)
+  function importParsed(list) {
+    let nc = 0, ni = 0;
+    (Array.isArray(list) ? list : []).slice(0, 300).forEach((x) => {
+      const name = String(x.name || '').trim().slice(0, 60), price = +x.price; if (!name || !(price >= 0)) return;
+      const cn = String(x.cat || 'Menu').trim().slice(0, 40) || 'Menu';
+      let c = db.categories.find((k) => k.name.toLowerCase() === cn.toLowerCase());
+      if (!c) { c = { id: id('c'), name: cn, name_ar: String(x.cat_ar || '').slice(0, 40), emoji: '🍽️' }; db.categories.push(c); nc++; }
+      db.items.push({ id: id('i'), cat: c.id, name, name_ar: String(x.name_ar || '').slice(0, 60), price, cost: 0, emoji: c.emoji || '🍽️', desc: String(x.desc || '').slice(0, 140), img: '' }); ni++;
+    });
+    broadcast(); return { categories: nc, items: ni };
+  }
+  function loyaltyStats() {
+    const mem = Object.values((db.loyalty && db.loyalty.members) || {}), d0 = new Date().setHours(0, 0, 0, 0);
+    let earnedToday = 0, redeemedToday = 0, redeemedEgpToday = 0, outstanding = 0;
+    mem.forEach((m) => { outstanding += m.points; (m.log || []).forEach((e) => { if (e.at >= d0) { if (e.type === 'earn') earnedToday += e.pts; else { redeemedToday += e.pts; redeemedEgpToday += e.egp || 0; } } }); });
+    return { members: mem.length, outstanding, earnedToday, redeemedToday, redeemedEgpToday, top: mem.slice().sort((a, b) => b.earned - a.earned).slice(0, 12).map(({ log, ...x }) => x) };
+  }
+  function copilotAsk(q) {
+    const r = F.copilot(q, { db, analytics, loyaltyStats, setLang: (l) => (db.settings.lang = l) });
+    if (r.action) broadcast(); return r;
+  }
+  const publicConfig = () => ({ settings: db.settings, categories: db.categories, items: db.items, tables: db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec.plan), plan: F.planOf(rec.plan) });
+  return { rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
 }
 module.exports = { createTenant, freshData, clone };

@@ -1,8 +1,8 @@
 // Luxury auth UI: Auth.show({ kind: 'admin'|'pin'|'super', brand, submit }) -> Promise resolved after the success animation
 const Auth = (() => {
   const T = {
-    en: { welcome: 'Welcome back', admin: 'Owner sign-in', pin: 'Staff access', super: 'Platform control', email: 'Email address', password: 'Password', pinLabel: 'Enter your captain PIN', signin: 'Sign in', enter: 'Unlock', caps: 'Caps Lock is on', secure: 'Encrypted session', ok: 'Welcome', h1a: 'Hospitality,', h1b: 'perfected.', sub: 'The quiet luxury of a floor that runs itself. Every table, every guest, every order - in one calm, living view.', f1: 'Live tables', f2: 'Group ordering', f3: 'Split bills', failed: 'Something went wrong', show: 'Show', hide: 'Hide' },
-    ar: { welcome: 'أهلاً بعودتك', admin: 'دخول المالك', pin: 'دخول الطاقم', super: 'لوحة المنصة', email: 'البريد الإلكتروني', password: 'كلمة المرور', pinLabel: 'أدخل رمز الكابتن', signin: 'تسجيل الدخول', enter: 'فتح', caps: 'زر Caps Lock مفعّل', secure: 'جلسة مشفّرة', ok: 'أهلاً بك', h1a: 'الضيافة،', h1b: 'في أبهى صورها.', sub: 'رفاهية هادئة لصالة تُدار بنفسها. كل طاولة وكل ضيف وكل طلب في شاشة واحدة حيّة.', f1: 'طاولات حيّة', f2: 'طلب جماعي', f3: 'تقسيم الحساب', failed: 'حدث خطأ ما', show: 'إظهار', hide: 'إخفاء' },
+    en: { welcome: 'Welcome back', admin: 'Owner sign-in', pin: 'Staff access', super: 'Platform control', email: 'Email address', password: 'Password', pinLabel: 'Enter your PIN', signin: 'Sign in', enter: 'Unlock', caps: 'Caps Lock is on', secure: 'Encrypted session', ok: 'Welcome', h1a: 'Hospitality,', h1b: 'perfected.', sub: 'The quiet luxury of a floor that runs itself. Every table, every guest, every order - in one calm, living view.', f1: 'Live tables', f2: 'Group ordering', f3: 'Split bills', failed: 'Something went wrong', show: 'Show', hide: 'Hide' },
+    ar: { welcome: 'أهلاً بعودتك', admin: 'دخول المالك', pin: 'دخول الطاقم', super: 'لوحة المنصة', email: 'البريد الإلكتروني', password: 'كلمة المرور', pinLabel: 'أدخل الرمز السري', signin: 'تسجيل الدخول', enter: 'فتح', caps: 'زر Caps Lock مفعّل', secure: 'جلسة مشفّرة', ok: 'أهلاً بك', h1a: 'الضيافة،', h1b: 'في أبهى صورها.', sub: 'رفاهية هادئة لصالة تُدار بنفسها. كل طاولة وكل ضيف وكل طلب في شاشة واحدة حيّة.', f1: 'طاولات حيّة', f2: 'طلب جماعي', f3: 'تقسيم الحساب', failed: 'حدث خطأ ما', show: 'إظهار', hide: 'إخفاء' },
   };
   const t = (k) => (T[App.lang] || T.en)[k] || T.en[k] || k;
   const I = {
@@ -36,7 +36,7 @@ const Auth = (() => {
     refreshTop(el);
     return el;
   }
-  function refreshTop(el) { const l = el.querySelector('#a-lang'); if (l) l.textContent = App.lang === 'ar' ? 'EN' : 'ع'; }
+  function refreshTop(el) { const l = el.querySelector('#a-lang'); if (l) l.textContent = App.langLabel(App.nextLang()); }
   const emblem = () => `<div class="emblem"><svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47"/></svg><svg class="leaf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${I.leaf}</svg></div>`;
   const hero = () => `<div class="auth-hero"><div class="kick">${'ELMENU'}</div><h1><span class="foil">${t('h1a')}</span><span>${t('h1b')}</span></h1><p>${t('sub')}</p>
     <div class="minifloor">${Array.from({ length: 10 }, (_, i) => `<i style="--dl:${(-i * 0.9).toFixed(1)}s"></i>`).join('')}</div>

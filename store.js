@@ -32,6 +32,12 @@ async function init() {
     console.log('  storage: Postgres');
   } else { fs.mkdirSync(DIR, { recursive: true }); console.log('  storage: local files (data/tenants) — not suitable for hosting'); }
 }
+// stateless multi-tenant: restaurant records only (ids start with r_), never the aux rows
+async function listRecs() {
+  if (sb) return ((await rest('GET', '?select=doc&id=like.r_*')) || []).map((r) => r.doc);
+  if (pool) return (await pool.query("select doc from tenants where id like 'r\\_%'")).rows.map((r) => r.doc);
+  try { return fs.readdirSync(DIR).filter((f) => /^r_.*\.json$/.test(f)).map((f) => { try { return JSON.parse(fs.readFileSync(path.join(DIR, f), 'utf8')); } catch { return null; } }).filter(Boolean); } catch { return []; }
+}
 async function loadAll() {
   if (sb) return ((await rest('GET', '?select=doc')) || []).map((r) => r.doc);
   if (pool) return (await pool.query('select doc from tenants')).rows.map((r) => r.doc);
@@ -82,7 +88,8 @@ async function putAux(key, doc) {
   fs.mkdirSync(AUX, { recursive: true }); fs.writeFileSync(path.join(AUX, safe(key) + '.json'), JSON.stringify(doc));
 }
 async function getHist(id) { const d = await getAux('hist-' + id); return (d && d.rows) || []; }
+async function clearHist(id) { await putAux('hist-' + id, { rows: [] }); }
 async function appendHist(id, rows) { if (!rows.length) return; const cur = await getHist(id); await putAux('hist-' + id, { rows: cur.concat(rows).slice(-5000) }); }
 async function putBlob(key, dataUrl) { await putAux('blob-' + key, { d: dataUrl }); }
 async function getBlob(key) { const d = await getAux('blob-' + key); return d ? d.d : null; }
-module.exports = { init, loadAll, save, remove, getRec, putRec, getHist, appendHist, putBlob, getBlob };
+module.exports = { init, listRecs, loadAll, save, remove, getRec, putRec, getHist, clearHist, appendHist, putBlob, getBlob };

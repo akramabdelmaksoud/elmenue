@@ -19,33 +19,179 @@ table { width:100%; border-collapse:collapse; } td, th { padding:6px; text-align
 .sw { width:44px; height:44px; padding:0; border:0; background:none; } .row2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; margin-top:14px; }
 @media (max-width:800px) { main { padding:14px; } aside button { white-space:nowrap; } .row2 { grid-template-columns:1fr !important; } .card { overflow-x:auto; } h1 { font-size:24px; } input[type=checkbox] { width:22px; height:22px; } }
 @media print { aside, .noprint, .shell > main > h1 { display:none!important } .shell { display:block } body { background:#fff; color:#000 } .qr { color:#000 } .card { border:1px solid #ccc; background:#fff } }
+.mainwrap { min-width: 0; }
+#rfbar { position: sticky; top: 0; z-index: 25; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 8px 20px; font-size: 13px; background: color-mix(in srgb, var(--bg) 88%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+#rfbar .rfb { padding: 7px 14px; font-weight: 700; background: var(--accent); color: var(--on-accent); border-radius: 10px; } #rfbar .rfb.spin { opacity: .6; pointer-events: none; }
+#rfbar select { width: auto; padding: 6px 10px; font-size: 13px; } #rfbar .rft { color: var(--muted); } #rfbar small { color: var(--muted); margin-inline-start: auto; }
+@media print { #rfbar { display: none } }
+#copset { position: absolute; inset: 0; z-index: 3; background: var(--card); border-radius: inherit; display: flex; flex-direction: column; }
+#copset .ch { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); font-weight: 800; }
+#copset .cbody { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; } #copset textarea { resize: vertical; }
+#copset .mem { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; padding: 8px 10px; margin-bottom: 6px; background: var(--card2); border-radius: 10px; font-size: 13px; } #copset .mem button { padding: 2px 8px; flex: none; }
+aside button[data-locked="true"]::after { content: ' 🔒'; opacity: .7; }
+#cop { position: fixed; right: 16px; bottom: 16px; width: min(380px, calc(100vw - 32px)); height: min(520px, calc(100vh - 32px)); z-index: 90; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 24px 70px -20px rgba(0,0,0,.55); overflow: hidden; }
+#cop .ch { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); font-weight: 800; }
+#cop .cm { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+#cop .b { max-width: 88%; padding: 9px 13px; border-radius: 16px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; } #cop .b.u { align-self: flex-end; background: var(--accent); color: var(--on-accent, #fff); } #cop .b.a { align-self: flex-start; background: var(--card2); }
+#cop .cs { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 12px 8px; } #cop .cs button { font-size: 12px; padding: 6px 10px; border-radius: 99px; }
+#cop .ci { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); } #cop .ci input { flex: 1; }
+.bar { height: 10px; border-radius: 99px; background: var(--card2); overflow: hidden; } .bar i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; } .kpis div { background: var(--card2); border-radius: 14px; padding: 12px; } .kpis b { display: block; font-size: 26px; }
 .sbar { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; } .sbar small { font-size: 11px; } .sb { padding: 4px 10px; font-size: 12px; border-radius: 99px; } @media print { .noprint { display: none !important; } }
 </style></head>
 <body><div class="shell"><aside>
 <h2>⚙️ Admin</h2>
-<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="inventory">📦 Inventory</button><button data-t="floor">🪑 Floor plan</button><button data-t="staff">👥 Staff</button><button data-t="orders">🧾 Orders</button><button data-t="reports">📈 Reports</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button>
+<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="inventory">📦 Inventory</button><button data-t="floor">🪑 Floor plan</button><button data-t="staff" data-lock="staff">👥 Staff</button><button data-t="orders">🧾 Orders</button><button data-t="reports">📈 Reports</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button><button data-t="loyalty" data-lock="loyalty">💳 Loyalty</button><button data-t="ocr" data-lock="ocr">📷 AI menu scan</button><button data-t="branches" data-lock="branches">🏢 Branches</button><button onclick="copilotToggle()" data-lock="copilot">🤖 AI Copilot</button>
 <span style="flex:1"></span><button onclick="App.toggleLang()">🌐 EN / عربي</button><button onclick="App.roleMenu(event)">⇄ Switch role</button><button onclick="App.skinMenu(event)">🎨 Look (Maison)</button><button onclick="App.toggleMode(event)">◐ Light / Dark</button><button onclick="App.logout()">⏻ Sign out</button></aside>
-<main id="main"></main></div>
-<script src="/vendor/sortable.js"></script><script src="/vendor/chart.js"></script><script src="/shared.js"></script>
+<div class="mainwrap"><div id="rfbar"></div><main id="main"></main></div></div>
+<script src="/vendor/sortable.js"></script><script src="/vendor/chart.js"></script><script src="/shared.js"></script><script src="/ar-ui.js"></script>
 <script>
 let tab = App.ls('admintab') || 'analytics', cfgKey = '', actCat = null, days = 7, charts = [], A = null;
-const api = (m, u, b) => fetch(u, { method: m, headers: { 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined }).then(r => r.json());
+const api = (m, u, b) => fetch(u, { method: m, headers: { 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined }).then(r => r.json()).then((r) => { if (m !== 'GET' && !/\/copilot/.test(u) && !(r && r.error)) setTimeout(afterWrite, 0); return r; });
 const $ = (s) => document.querySelector(s);
+/* ---------------- premium tiers: loyalty, AI menu scan, branches, copilot, welcome screen ---------------- */
+const FEAT = () => (App.config && App.config.features) || {};
+const PLAN_NAME = { basic: 'Basic', operations: 'Operations', vip: 'VIP' };
+const lockedCard = (title, feat) => { const need = { staff: 'Operations' }[feat] || 'VIP'; $('#main').innerHTML = `<h1>${title}</h1><div class="card" style="text-align:center;padding:44px 20px"><div style="font-size:54px">🔒</div><h3>${need} plan</h3><p class="muted">This feature is part of the ${need} tier. Ask your account manager to upgrade your subscription.</p></div>`; };
+async function loyaltyTab() {
+  if (!FEAT().loyalty) return lockedCard('💳 Loyalty program', 'loyalty');
+  const d = await api('GET', '/api/loyalty'), c = d.config, cur = App.esc(App.config.settings.currency);
+  $('#main').innerHTML = `<h1>💳 Loyalty program</h1><div class="row2">
+   <div class="card"><h3>Earning & redemption ratios</h3>
+    <label class="row" style="gap:10px;margin:8px 0"><input type="checkbox" style="width:22px;height:22px;flex:none" ${c.enabled ? 'checked' : ''} onchange="saveLoy({enabled:this.checked})"><b>Program enabled</b></label>
+    <label class="muted">Earning: spend this much (${cur}) for 1 point</label><input type="number" min="1" value="${c.egpPerPoint}" onchange="saveLoy({egpPerPoint:+this.value})">
+    <div class="grid" style="margin-top:8px"><div><label class="muted">Redemption: points…</label><input type="number" min="1" value="${c.pointsPerRedeem}" onchange="saveLoy({pointsPerRedeem:+this.value})"></div><div><label class="muted">…are worth (${cur} off the bill)</label><input type="number" min="0" value="${c.redeemValue}" onchange="saveLoy({redeemValue:+this.value})"></div></div>
+    <p class="muted" style="margin-top:12px">Every <b>${c.egpPerPoint} ${cur}</b> spent = <b>1 point</b> · <b>${c.pointsPerRedeem} points</b> = <b>${c.redeemValue} ${cur}</b> discount. Guests join with their phone number from the Profile tab.</p></div>
+   <div class="card"><h3>Today</h3><div class="kpis"><div><b>${d.members}</b><span class="muted">members</span></div><div><b>${d.outstanding}</b><span class="muted">points outstanding</span></div><div><b>${d.earnedToday}</b><span class="muted">earned today</span></div><div><b>${d.redeemedToday}</b><span class="muted">redeemed today (${Math.round(d.redeemedEgpToday)} ${cur})</span></div></div></div></div>
+   <div class="card" style="margin-top:14px"><h3>Top members</h3>${d.top.length ? `<table><tr><th>Name</th><th>Phone</th><th>Points</th><th>Visits</th><th></th></tr>${d.top.map((m) => `<tr><td>${App.esc(m.name || '—')}</td><td>${App.esc(m.phone)}</td><td><b>${m.points}</b></td><td>${m.visits}</td><td><button onclick="adjPts('${m.phone}')">± points</button></td></tr>`).join('')}</table>` : '<p class="muted">No members yet - guests join from the Profile tab of the menu.</p>'}</div>`;
+}
+async function saveLoy(p) { const r = await api('POST', '/api/settings', { loyalty: { ...(App.config.settings.loyalty || {}), ...p } }); if (r.error) App.toast(r.error); }
+async function adjPts(phone) { const v = prompt('Add or remove points (e.g. 50 or -20)'); if (!v) return; const r = await api('POST', '/api/loyalty/adjust', { phone, delta: +v }); App.toast(r.error || 'Updated'); cfgKey = ''; render(App.state, true); }
+let OCR = [];
+function ocrTab() {
+  if (!FEAT().ocr) return lockedCard('📷 AI menu digitizer', 'ocr');
+  $('#main').innerHTML = `<h1>📷 AI Photo OCR Menu Digitizer</h1><div class="card"><p class="muted">Upload a photo of an old paper menu, or a screenshot of any QR menu. The AI reads categories, item names, descriptions and prices into editable rows - review them, then import.</p>
+   <input type="file" id="ocrf" accept="image/*" style="display:none" onchange="runOcr(this.files[0])"><button class="primary" onclick="$('#ocrf').click()">📸 Take / choose a photo</button></div><div id="ocrout"></div>`;
+}
+async function runOcr(f) {
+  if (!f) return; const out = $('#ocrout'); out.innerHTML = '<div class="card" style="margin-top:14px">⏳ Reading the menu…</div>';
+  const fd = new FormData(); fd.append('image', f);
+  const r = await fetch('/api/menu/ocr', { method: 'POST', body: fd }).then((x) => x.json()).catch(() => ({ error: 'Upload failed' }));
+  if (r.error) return (out.innerHTML = `<div class="card" style="margin-top:14px">⚠️ ${App.esc(r.error)}</div>`);
+  OCR = r.items; drawOcr(r.simulated);
+}
+function drawOcr(sim) {
+  const E = App.esc, inp = (i, k, w) => `<td><input style="min-width:${w || 90}px" value="${E(OCR[i][k] ?? '')}" onchange="OCR[${i}].${k}=this.value"></td>`;
+  $('#ocrout').innerHTML = `<div class="card" style="margin-top:14px">${sim ? '<p class="muted">🧪 Sample reading: no AI key is set on this server (ANTHROPIC_API_KEY), so this shows the flow with a demo menu.</p>' : ''}
+   <table><tr><th>Category</th><th>Name</th><th>الاسم (AR)</th><th>Price</th><th>Description</th><th></th></tr>${OCR.map((x, i) => `<tr>${inp(i, 'cat')}${inp(i, 'name', 130)}${inp(i, 'name_ar')}<td><input type="number" style="width:80px" value="${+x.price || 0}" onchange="OCR[${i}].price=+this.value"></td>${inp(i, 'desc', 150)}<td><button onclick="OCR.splice(${i},1);drawOcr(${!!sim})">✕</button></td></tr>`).join('')}</table>
+   <div class="row" style="margin-top:12px"><button class="primary" onclick="importOcr()">✅ Import ${OCR.length} items to my menu</button></div></div>`;
+}
+async function importOcr() { const r = await api('POST', '/api/menu/ocr/import', { items: OCR }); App.toast(r.error || `Imported ${r.items} items (${r.categories} new categories)`); OCR = []; $('#ocrout').innerHTML = ''; }
+async function branchesTab() {
+  if (!FEAT().branches) return lockedCard('🏢 Multi-branch analytics', 'branches');
+  const d = await api('GET', '/api/branches'), cur = App.esc(d.currency || ''), max = Math.max(1, ...d.branches.map((b) => b.revenue));
+  $('#main').innerHTML = `<h1>🏢 Multi-branch analytics</h1><div class="card"><div class="kpis"><div><b>${Math.round(d.totals.revenue).toLocaleString('en-US')}</b><span class="muted">revenue, last 30 days (${cur})</span></div><div><b>${d.totals.sessions}</b><span class="muted">paid tables</span></div></div></div>
+   <div class="card" style="margin-top:14px"><h3>By branch${d.group ? ' · ' + App.esc(d.group) : ''}</h3>${d.branches.map((b) => `<div style="margin:12px 0"><div class="spread"><b>${App.esc(b.name)}</b><span>${Math.round(b.revenue).toLocaleString('en-US')} ${cur} · ${b.sessions} tables · avg ${Math.round(b.avgTicket)} · live ${b.liveTables}</span></div><div class="bar"><i style="width:${b.revenue / max * 100}%"></i></div></div>`).join('')}
+   ${d.branches.length < 2 ? '<p class="muted">Only this branch is in your group. Ask the platform owner to add your other branches to the same group.</p>' : ''}</div>`;
+}
+// AI copilot side panel: chat + a settings view (name, how to talk, remembered notes). Conversation is kept per cafe in this browser; notes live on the server.
+const COP_Q = ['How many points were redeemed today?', 'Which item is selling best?', 'What is today\'s revenue?', 'Switch default language to Egyptian Ammiya'];
+let COP_H = (() => { try { return JSON.parse(localStorage.getItem('cop:' + App.slug) || '[]'); } catch { return []; } })();
+const copSave = () => { try { localStorage.setItem('cop:' + App.slug, JSON.stringify(COP_H.slice(-40))); } catch {} };
+const copAI = () => { const a = (App.config && App.config.settings && App.config.settings.ai) || {}; return { name: a.name || '', style: a.style || '', memory: a.memory || [] }; };
+function copilotToggle() {
+  if (!FEAT().copilot) return App.toast('🔒 AI Copilot is part of the VIP plan');
+  const old = $('#cop'); if (old) return old.remove();
+  const p = document.createElement('div'); p.id = 'cop';
+  const bubbles = COP_H.slice(-30).map((h) => `<div class="b ${h.r === 'u' ? 'u' : 'a'}">${App.esc(h.t)}</div>`).join('');
+  p.innerHTML = `<div class="ch"><span>🤖 ${App.esc(copAI().name || 'AI Copilot')}</span><span><button onclick="copSettings()" title="AI settings">⚙️</button> <button onclick="$('#cop').remove()">✕</button></span></div>
+   <div class="cm" id="copm"><div class="b a">Hi! Ask me about sales, loyalty points or stock - or tell me to change a setting. I also remember things you tell me: say "Remember that ...".</div>${bubbles}</div>
+   <div class="cs">${COP_Q.map((q) => `<button onclick="copAsk(this.textContent)">${App.esc(q)}</button>`).join('')}</div>
+   <form class="ci" onsubmit="event.preventDefault();copAsk(this.q.value);this.q.value=''"><input name="q" placeholder="Ask anything…" autocomplete="off"><button class="primary">Send</button></form>`;
+  document.body.appendChild(p); const m = $('#copm'); m.scrollTop = m.scrollHeight;
+}
+async function copAsk(q) {
+  q = String(q || '').trim(); if (!q) return; const m = $('#copm'); if (!m) return;
+  m.insertAdjacentHTML('beforeend', `<div class="b u">${App.esc(q)}</div>`); m.scrollTop = m.scrollHeight;
+  const hist = COP_H.slice(-10);
+  const r = await api('POST', '/api/copilot', { q, hist, lang: App.lang }).catch(() => ({ error: 'Could not reach the server' }));
+  const txt = r.reply || r.error || '…';
+  m.insertAdjacentHTML('beforeend', `<div class="b a">${App.esc(txt)}</div>`); m.scrollTop = m.scrollHeight;
+  if (r.reply) { COP_H.push({ r: 'u', t: q }, { r: 'a', t: txt }); copSave(); }
+  if (r.action) afterWrite();
+}
+async function copSettings() {
+  const p = $('#cop'); if (!p) return; let box = $('#copset'); if (box) { box.remove(); return; }
+  const live = await api('GET', '/api/ai').catch(() => ({})); const a = copAI();
+  box = document.createElement('div'); box.id = 'copset';
+  box.innerHTML = `<div class="ch"><span>⚙️ AI settings</span><button onclick="$('#copset').remove()">✕</button></div>
+   <div class="cbody">
+    <p class="muted">${live.live ? '🟢 Free conversation is ON - I can chat about anything.' : '🟠 Free conversation is OFF (no AI key on this server). I still understand sales, stock and settings questions, and I keep your notes.'}</p>
+    <label class="muted">Assistant name</label><input id="aiName" value="${App.esc(a.name)}" placeholder="e.g. Layla">
+    <label class="muted">How should I talk to you?</label><textarea id="aiStyle" rows="4" placeholder="e.g. Talk to me in friendly Egyptian Arabic, keep answers short, call me Chef.">${App.esc(a.style)}</textarea>
+    <button class="primary" onclick="copSaveCfg()">Save</button>
+    <h4 style="margin:16px 0 6px">What I remember about you</h4>
+    <div id="aiMem">${a.memory.length ? a.memory.map((x) => `<div class="mem"><span>${App.esc(x.text)}</span><button onclick="copDelMem('${x.id}')">✕</button></div>`).join('') : '<p class="muted">Nothing yet.</p>'}</div>
+    <div class="row"><input id="aiNew" placeholder="Add a note I should remember…"><button onclick="copAddMem()">Add</button></div>
+   </div>`;
+  p.appendChild(box);
+}
+async function copPush(ai) { const r = await api('POST', '/api/settings', { ai }); if (r.error) return App.toast(r.error); await afterWrite(); const b = $('#copset'); if (b) { b.remove(); copSettings(); } }
+function copSaveCfg() { const a = copAI(); copPush({ name: $('#aiName').value, style: $('#aiStyle').value, memory: a.memory }).then(() => App.toast('✓ Saved')); }
+function copDelMem(id) { const a = copAI(); copPush({ name: a.name, style: a.style, memory: a.memory.filter((x) => x.id !== id) }); }
+function copAddMem() { const v = $('#aiNew').value.trim(); if (!v) return; const a = copAI(); copPush({ name: a.name, style: a.style, memory: a.memory.concat([{ id: '', text: v, at: Date.now() }]) }); }
+const FLAVORS = [['neon', '🌌 Dark Neon Glass'], ['luxury', '🤍 Minimalist Luxury'], ['vibrant', '🏺 Vibrant Egyptian Café']];
+const SIGS = [['aurum', '🏆 Aurum - Black & Gold', 'Brushed-gold cards and numbers'], ['ember', '🔥 Ember - Charcoal & Orange', 'Flat, tight, executive'], ['sunset', '🌅 Sunset Glow', 'Vivid orange, dashed grid, pills'], ['platinum', '🪙 Platinum', 'Gunmetal and polished silver'], ['rosegold', '🌹 Rose Gold Noir', 'Copper-pink metal on black'], ['sapphire', '💠 Sapphire', 'Midnight navy, electric blue'], ['jade', '🟢 Jade', 'Luminous emerald on black'], ['amethyst', '🔮 Amethyst', 'Ultraviolet to magenta']];
+const PROS = [['slate', '🏢 Corporate Slate', 'Hotels, clubs, chains - crisp and neutral'], ['nordic', '🌿 Nordic Minimal', 'Air, oak and sage'], ['bistro', '🥖 Parisian Bistro', 'Cream paper, oxblood, menu-card rules'], ['zen', '🍣 Zen Sushi', 'Washi white, sumi black, one red seal'], ['trattoria', '🍝 Trattoria', 'Terracotta, olive, gingham'], ['roast', '☕ Specialty Roaster', 'Kraft paper, mono prices'], ['steakhouse', '🥩 Charcoal Steakhouse', 'Slate black, ember orange'], ['rooftop', '🌃 Rooftop Lounge', 'Night indigo, frosted glass']];
+const LUXES = [['onyx', '🖤 Onyx & Gold', 'Black lacquer, gold leaf'], ['ivory', '🤍 Ivory Gallery', 'Pure white, ink-black lines'], ['noir', '⚫ Noir', 'Absolute black, silver'], ['champagne', '🥂 Champagne Salon', 'Warm cream and bronze'], ['emerald', '💚 Emerald Club', 'Deep green and brass'], ['bordeaux', '🍷 Bordeaux & Rose Gold', 'Velvet burgundy'], ['marble', '🏛️ Carrara Marble', 'White stone, gold thread'], ['royal', '👑 Royal Navy & Gold', 'Midnight blue, antique gold']];
+function setTheme(k) { if ((['neon', 'luxury', 'vibrant'].includes(k) || LUXES.some((x) => x[0] === k) || PROS.some((x) => x[0] === k) || SIGS.some((x) => x[0] === k)) && !FEAT().themes) return App.toast('🔒 Premium themes are part of the VIP plan'); api('POST', '/api/settings', { theme: k }).then((r) => r.error && App.toast(r.error)); }
+function welcomeCard() {
+  const s = App.config.settings, P = (s.promos || []).concat([{}, {}, {}]).slice(0, 3), el = document.createElement('div'); el.className = 'card'; el.style.marginTop = '14px';
+  el.innerHTML = `<h3>👋 Guest home screen</h3><p class="muted">Guests land here after scanning the QR code, before they open the menu.</p>
+   <div class="grid"><div><label class="muted">Wi-Fi name</label><input value="${App.esc(s.wifi || '')}" onchange="api('POST','/api/settings',{wifi:this.value})"></div><div><label class="muted">Wi-Fi password</label><input value="${App.esc(s.wifiPass || '')}" onchange="api('POST','/api/settings',{wifiPass:this.value})"></div></div>
+   <p class="muted" style="margin-top:12px">Promotions (up to 3)</p>${P.map((p, i) => `<div class="grid" style="margin-bottom:8px"><input placeholder="Title (EN)" value="${App.esc(p.title || '')}" onchange="savePromo(${i},'title',this.value)"><input placeholder="Text (EN)" value="${App.esc(p.text || '')}" onchange="savePromo(${i},'text',this.value)"><input dir="rtl" placeholder="العنوان" value="${App.esc(p.title_ar || '')}" onchange="savePromo(${i},'title_ar',this.value)"><input dir="rtl" placeholder="النص" value="${App.esc(p.text_ar || '')}" onchange="savePromo(${i},'text_ar',this.value)"></div>`).join('')}`;
+  $('#main').appendChild(el);
+}
+function savePromo(i, k, v) { const P = (App.config.settings.promos || []).concat([{}, {}, {}]).slice(0, 3).map((p) => ({ ...p })); P[i][k] = v; api('POST', '/api/settings', { promos: P.filter((p) => p.title || p.text || p.title_ar || p.text_ar) }); }
+
 document.querySelectorAll('aside [data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; App.ls('admintab', tab); cfgKey = ''; render(App.state, true); });
-App.gate('admin', () => App.connect({ t: 'join', role: 'admin' }, { render(m) { render(m); } }));
+/* ---------------- refresh control: the dashboard redraws only when the owner asks, or on the schedule they chose (default: hourly) ---------------- */
+const RF_OPTS = [[0, 'Manual only'], [5, 'Every 5 minutes'], [15, 'Every 15 minutes'], [30, 'Every 30 minutes'], [60, 'Every hour'], [120, 'Every 2 hours'], [360, 'Every 6 hours']];
+let rfLast = 0, rfTimer = null, rfBusy = false, rfFirst = true;
+const rfMin = () => { const v = App.config && App.config.settings && App.config.settings.refreshMin; return v === undefined || v === null ? 60 : +v; };
+const rfClock = (d) => new Date(d).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+function rfDraw() {
+  const el = $('#rfbar'); if (!el) return; const mn = rfMin();
+  el.innerHTML = `<button class="rfb${rfBusy ? ' spin' : ''}" onclick="rfNow()">↻ Refresh now</button><span class="rft">Updated ${rfLast ? rfClock(rfLast) : '--:--'}</span><select onchange="rfSet(this.value)" aria-label="Auto-refresh">${RF_OPTS.map(([v, l]) => `<option value="${v}" ${v === mn ? 'selected' : ''}>${l}</option>`).join('')}</select><small>${mn ? 'Next: ' + rfClock(rfLast + mn * 60000) : 'Auto-refresh off'}</small>`;
+}
+async function rfNow() {
+  if (rfBusy) return; rfBusy = true; rfDraw();
+  try { if (App.poll) await App.poll.call(null); } catch {}
+  rfBusy = false; rfLast = Date.now(); cfgKey = ''; render(App.state, true); rfSchedule(); rfDraw();
+}
+function rfSchedule() { clearTimeout(rfTimer); const mn = rfMin(); if (mn > 0) rfTimer = setTimeout(rfNow, mn * 60000); }
+function rfSet(v) { api('POST', '/api/settings', { refreshMin: +v }).then(() => { rfSchedule(); rfDraw(); }); }
+// after the owner's own change: pick up the new state and redraw (never clobbers a field being typed in)
+async function afterWrite() { try { if (App.poll) await App.poll.call(null); } catch {} render(App.state); rfDraw(); }
+App.gate('admin', () => App.connect({ t: 'join', role: 'admin' }, { render(m) {
+  if (!m) return render(App.state, true);                 // language / theme switches redraw straight away
+  if (rfFirst) { rfFirst = false; rfLast = Date.now(); render(m); rfSchedule(); rfDraw(); }
+  /* later live pushes are held back until the next refresh */
+} }));
 function render(m, force) {
   if (!App.config) return;
+  document.querySelector('aside h2').textContent = '⚙️ Admin · ' + (PLAN_NAME[App.config.plan] || '');
+  document.querySelectorAll('aside [data-lock]').forEach(b => { b.dataset.locked = FEAT()[b.dataset.lock] === false ? 'true' : 'false'; });
   if (tab === 'floor' && (FP.dirty || FP.drag)) return;   // never rebuild the editor mid-edit
   document.querySelectorAll('aside [data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
   const key = JSON.stringify(App.config) + App.lang + document.documentElement.dataset.dark + tab;
   if (key === cfgKey && !force) { if (tab === 'analytics') {} return; }   // ignore live-session noise
   cfgKey = key;
   const focus = document.activeElement; if (focus && focus.closest('#main') && focus.tagName === 'INPUT' && !force) return;  // don't clobber typing
-  ({ analytics, menu, inventory: inventoryTab, orders: ordersTab, floor: floorTab, staff: staffTab, reports: reportsTab, theme, qr, audit })[tab]();
+  ({ analytics, menu, inventory: inventoryTab, orders: ordersTab, floor: floorTab, staff: () => (FEAT().staff === false ? lockedCard('👥 Staff', 'staff') : staffTab()), reports: reportsTab, theme, qr, audit, loyalty: loyaltyTab, ocr: ocrTab, branches: branchesTab })[tab]();
 }
 App.handlers.render = (m) => render(m, true);
 
-setInterval(() => { if (tab === 'analytics' || tab === 'audit') { cfgKey = ''; render(App.state, true); } }, 20000);
 /* ---------------- Floor plan editor ---------------- */
 let FP = { L: null, sel: null, dirty: false, drag: null, timer: null, v: 0 };
 const DEC = { bar: ['🍸', 'Bar', 6, 2], kitchen: ['🍳', 'Kitchen', 4, 4], wall: ['🧱', 'Wall', 6, 1], plant: ['🪴', 'Plant', 2, 2], door: ['🚪', 'Door', 2, 2] };
@@ -128,18 +274,24 @@ function fpArrange() {
 
 /* ---------------- Staff ---------------- */
 async function staffTab() {
-  const d = await api('GET', '/api/staff'), roles = { captain: '🧑‍✈️ Captain / floor', kitchen: '👨‍🍳 Kitchen' };
+  const d = await api('GET', '/api/staff'), roles = { captain: '🧑‍✈️ Captain / floor', kitchen: '👨‍🍳 Kitchen', cashier: '💵 Cashier' };
   const fmt = (x) => x.handled ? Math.round(x.respMs / x.handled / 1000) + 's' : '-';
   $('#main').innerHTML = `<h1>👥 Staff</h1><p class="muted" style="margin-top:-8px">Each person gets their own PIN, so every action is logged under their name and you can see who is fast.</p>
   <div class="row2" style="grid-template-columns:minmax(300px,1.2fr) minmax(260px,1fr);align-items:start">
   <div class="card" style="overflow:auto"><h3>Team</h3>
    <table><tr><th>Name</th><th>Role</th><th>New PIN</th><th>Active</th><th></th></tr>
-   ${d.staff.map((x) => `<tr><td><input value="${App.esc(x.name)}" style="min-width:110px" onchange="stf('${x.id}',{name:this.value})"></td><td><select onchange="stf('${x.id}',{role:this.value})"><option value="captain" ${x.role === 'captain' ? 'selected' : ''}>${roles.captain}</option><option value="kitchen" ${x.role === 'kitchen' ? 'selected' : ''}>${roles.kitchen}</option></select></td>
+   ${d.staff.map((x) => `<tr><td><input value="${App.esc(x.name)}" style="min-width:110px" onchange="stf('${x.id}',{name:this.value})"></td><td><select onchange="stf('${x.id}',{role:this.value})"><option value="captain" ${x.role === 'captain' ? 'selected' : ''}>${roles.captain}</option><option value="kitchen" ${x.role === 'kitchen' ? 'selected' : ''}>${roles.kitchen}</option><option value="cashier" ${x.role === 'cashier' ? 'selected' : ''}>${roles.cashier}</option></select></td>
     <td><input placeholder="••••" inputmode="numeric" maxlength="8" style="width:90px" onchange="if(this.value)stf('${x.id}',{pin:this.value}).then(()=>this.value='')"></td><td><input type="checkbox" style="width:22px;height:22px" ${x.active === false ? '' : 'checked'} onchange="stf('${x.id}',{active:this.checked})"></td><td><button class="ghost" onclick="if(confirm('Remove ${App.esc(x.name)}?'))api('DELETE','/api/staff/${x.id}').then(()=>{cfgKey='';render(App.state,true)})">🗑</button></td></tr>`).join('') || '<tr><td colspan="5" class="muted">No staff accounts yet - add the first one below.</td></tr>'}</table>
-   <h3 style="margin-top:18px">Add a team member</h3><div class="row wrap"><input id="sn" placeholder="Name" style="max-width:170px"><select id="sr" style="max-width:190px"><option value="captain">${roles.captain}</option><option value="kitchen">${roles.kitchen}</option></select><input id="sp" placeholder="PIN (4-8 digits)" inputmode="numeric" maxlength="8" style="max-width:150px"><button class="ghost" onclick="$('#sp').value=String(Math.floor(1000+Math.random()*9000))">🎲</button><button class="primary" onclick="addStaff()">Add</button></div>
-   <p class="muted" style="font-size:12.5px;margin-top:12px">Captains sign in at <b>/captain</b>, kitchen staff at <b>/kitchen</b>. The old shared PIN (${App.esc(d.legacyPin)}) still works as "Captain" - change it under Theme & settings or stop using it once everyone has their own.</p></div>
+   <h3 style="margin-top:18px">Add a team member</h3><div class="row wrap"><input id="sn" placeholder="Name" style="max-width:170px"><select id="sr" style="max-width:190px"><option value="captain">${roles.captain}</option><option value="kitchen">${roles.kitchen}</option><option value="cashier">${roles.cashier}</option></select><input id="sp" placeholder="PIN (4-8 digits)" inputmode="numeric" maxlength="8" style="max-width:150px"><button class="ghost" onclick="$('#sp').value=String(Math.floor(1000+Math.random()*9000))">🎲</button><button class="primary" onclick="addStaff()">Add</button></div>
+   <p class="muted" style="font-size:12.5px;margin-top:12px">Captains sign in at <b>/captain</b>, kitchen staff at <b>/kitchen</b>, cashiers at <b>/cashier</b>. The old shared PIN (${App.esc(d.legacyPin)}) still works as "Captain" - change it under Theme & settings or stop using it once everyone has their own.</p></div>
   <div class="card" style="overflow:auto"><h3>Performance</h3><table><tr><th>Name</th><th>Requests</th><th>Avg reply</th><th>Started</th><th>Served</th><th>Closed</th></tr>
-   ${Object.values(d.stats).map((x) => `<tr><td><b>${App.esc(x.name)}</b></td><td>${x.handled || 0}</td><td>${fmt(x)}</td><td>${x.started || 0}</td><td>${x.served || 0}</td><td>${x.closed || 0}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Numbers appear once staff start handling tables.</td></tr>'}</table></div></div>`;
+   ${Object.values(d.stats).map((x) => `<tr><td><b>${App.esc(x.name)}</b></td><td>${x.handled || 0}</td><td>${fmt(x)}</td><td>${x.started || 0}</td><td>${x.served || 0}</td><td>${x.closed || 0}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Numbers appear once staff start handling tables.</td></tr>'}</table></div></div><div class="card" id="shifts" style="overflow:auto;margin-top:14px"></div>`;
+  shiftsCard();
+}
+async function shiftsCard() {
+  const j = await api('GET', '/api/shifts'); if (j.error || !$('#shifts')) return;
+  const m = (n) => App.money(n), t = (x) => new Date(x).toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  $('#shifts').innerHTML = `<h3>💵 Cashier shifts</h3>${j.cur ? `<div class="card" style="margin:8px 0"><b>🟢 Open now</b> · ${App.esc(j.cur.by)} · since ${t(j.cur.openedAt)}<br>Sales ${m(j.cur.total)} (${j.cur.sales}) · Cash in drawer should be <b>${m(j.cur.expected)}</b></div>` : '<p class="muted">No shift is open.</p>'}<table><tr><th>Shift</th><th>By</th><th>Sales</th><th>Expected</th><th>Counted</th><th>Variance</th></tr>${(j.list || []).map((z) => `<tr><td>${t(z.openedAt)}</td><td>${App.esc(z.by)}</td><td>${m(z.total)}</td><td>${m(z.expected)}</td><td>${m(z.counted)}</td><td style="color:${z.variance ? 'var(--bad)' : 'var(--ok)'};font-weight:700">${z.variance > 0 ? '+' : ''}${m(z.variance)}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Closed shifts and cash variances appear here.</td></tr>'}</table>`;
 }
 async function stf(id, body) { const r = await api('PUT', '/api/staff/' + id, body); App.toast(r.error || 'Saved'); return r; }
 async function addStaff() { const r = await api('POST', '/api/staff', { name: $('#sn').value, role: $('#sr').value, pin: $('#sp').value }); if (r.error) return App.toast(r.error); App.toast('Added ' + r.name); cfgKey = ''; render(App.state, true); }
@@ -298,9 +450,13 @@ function theme() {
   const sw = (k, label) => `<label style="text-align:center;font-size:12px" class="muted"><input class="sw" type="color" value="${p[k]}" onchange="setPal('${k}',this.value)"><br>${label}</label>`;
   $('#main').innerHTML = `<h1>🎨 Theme & settings</h1><div class="row2">
   <div class="card"><h3>Theme (applies live to every screen)</h3><div class="row wrap">
-   ${[['bloom', '🌿 Bean & Bloom'], ['espresso', '☕ Espresso'], ['pink', '🌸 Modern pink'], ['white', '⬜ Minimal white'], ['custom', '🎨 Custom']].map(([k, l]) => `<button class="${s.theme === k ? 'sel' : ''}" onclick="api('POST','/api/settings',{theme:'${k}'})">${l}</button>`).join('')}</div>
+   ${[['bloom', '🌿 Bean & Bloom'], ['espresso', '☕ Espresso'], ['pink', '🌸 Modern pink'], ['white', '⬜ Minimal white'], ['custom', '🎨 Custom']].map(([k, l]) => `<button class="${s.theme === k ? 'sel' : ''}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div>
+   <p class="muted">Fasheekh luxury themes ${FEAT().themes ? '' : '🔒 VIP'}</p><div class="row wrap">${FLAVORS.map(([k, l]) => `<button class="${s.theme === k ? 'sel' : ''}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div>
+   <p class="muted" style="margin-top:14px">Maison de Luxe collection - for high-end venues ${FEAT().themes ? '' : '🔒 VIP'}</p><div class="row wrap">${LUXES.map(([k, l, d]) => `<button class="${s.theme === k ? 'sel' : ''}" title="${d}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div>
+   <p class="muted" style="margin-top:14px">Pro Studio collection - designed per venue type ${FEAT().themes ? '' : '🔒 VIP'}</p><div class="row wrap">${PROS.map(([k, l, d]) => `<button class="${s.theme === k ? 'sel' : ''}" title="${d}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div>
+   <p class="muted" style="margin-top:14px">Signature Dark collection - dashboard-grade premium ${FEAT().themes ? '' : '🔒 VIP'}</p><div class="row wrap">${SIGS.map(([k, l, d]) => `<button class="${s.theme === k ? 'sel' : ''}" title="${d}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div>
    <p class="muted">Custom palette</p><div class="row wrap">${sw('accent', 'Accent')}${sw('accent2', 'Accent 2')}${sw('bg', 'Background')}${sw('card', 'Cards')}${sw('text', 'Text')}</div>
-   <p class="muted">Default language</p><div class="row"><button class="${s.lang === 'en' ? 'sel' : ''}" onclick="api('POST','/api/settings',{lang:'en'});App.ls('lang','en')">English (LTR)</button><button class="${s.lang === 'ar' ? 'sel' : ''}" onclick="api('POST','/api/settings',{lang:'ar'});App.ls('lang','ar')">العربية (RTL)</button></div>
+   <p class="muted">Default language</p><div class="row wrap">${[['ar', 'عامية مصرية (Ammiya, RTL)'], ['en', 'English (LTR)'], ['fr', 'Franco-Arabic (LTR)']].map(([k, l]) => `<button class="${s.lang === k ? 'sel' : ''}" onclick="api('POST','/api/settings',{lang:'${k}'});App.ls('lang','${k}')">${l}</button>`).join('')}</div>
    <p class="muted" style="font-size:12px">Guests and staff can also toggle light/dark and language on their own device.</p></div>
   <div class="card"><h3>Business</h3>
    <label class="muted">Name (EN)</label><input value="${App.esc(s.name)}" onchange="api('POST','/api/settings',{name:this.value})">
@@ -308,7 +464,7 @@ function theme() {
    <label class="muted">شعار الصفحة الرئيسية (AR)</label><input dir="rtl" value="${App.esc(s.tagline_ar || '')}" onchange="api('POST','/api/settings',{tagline_ar:this.value})">
    <label class="muted">الاسم (AR)</label><input dir="rtl" value="${App.esc(s.name_ar)}" onchange="api('POST','/api/settings',{name_ar:this.value})">
    <div class="grid" style="margin-top:8px"><div><label class="muted">Tax %</label><input type="number" value="${s.tax}" onchange="api('POST','/api/settings',{tax:+this.value})"></div><div><label class="muted">Service %</label><input type="number" value="${s.service}" onchange="api('POST','/api/settings',{service:+this.value})"></div><div><label class="muted">Currency</label><input value="${App.esc(s.currency)}" onchange="api('POST','/api/settings',{currency:this.value})"></div></div></div></div>`;
-  accountCard(); securityCard(); receiptCard(); lookCard();
+  welcomeCard(); accountCard(); securityCard(); receiptCard(); lookCard();
 }
 function securityCard() {
   const s = App.config.settings, el = document.createElement('div'); el.className = 'card'; el.style.marginTop = '14px';
@@ -336,7 +492,7 @@ async function qr() {
   const T = App.config.tables;
   $('#main').innerHTML = `<h1>🔳 Table QR codes</h1><div class="card noprint spread wrap" style="margin-bottom:14px"><div style="flex:1;min-width:260px"><label class="muted">Public base URL (use your LAN IP so phones can reach it, or your deployed domain)</label><input id="qrbase" value="${App.esc(base)}"></div>
   <div class="row"><button class="primary" onclick="App.ls('qrbase',$('#qrbase').value);cfgKey='';render(App.state,true)">Apply</button><button class="primary" onclick="window.print()">🖨 Print / Save as PDF</button><button class="ghost" onclick="api('POST','/api/tables')">+ Table</button><button class="ghost" title="Old printed QR codes stop working" onclick="if(confirm('Create brand-new keys for ALL tables? Every printed QR code must then be reprinted.'))api('POST','/api/tables-rekey').then(()=>App.toast('New keys created - reprint your QR codes'))">🔑 New keys</button></div></div>
-  <div class="grid">${T.map(t => `<div class="card qr"><img src="/api/r/${App.slug}/qr/${t.number}.png?base=${encodeURIComponent(base)}&token=${App.tok('admin')}" alt="QR ${t.number}"><h3>${App.tr('table')} ${t.number}</h3><div style="font-weight:700">Scan to order · امسح للطلب</div><div class="muted" style="font-size:12px">${App.esc(App.config.settings.name)}</div>
+  <div class="grid">${T.map(t => `<div class="card qr"><img src="/api/r/${App.slug}/qr/${t.number}.png?base=${encodeURIComponent(base)}&token=${App.tok('admin')}" alt="QR ${t.number}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'muted',style:'padding:30px 10px;text-align:center',textContent:'QR codes are generated by the live server - open /demo for the live showroom'}))"><h3>${App.tr('table')} ${t.number}</h3><div style="font-weight:700">Scan to order · امسح للطلب</div><div class="muted" style="font-size:12px">${App.esc(App.config.settings.name)}</div>
    <div class="row noprint" style="justify-content:center;margin-top:8px"><a href="/api/r/${App.slug}/qr/${t.number}.png?base=${encodeURIComponent(base)}&token=${App.tok('admin')}" download="table-${t.number}-qr.png"><button class="ghost">⬇ PNG</button></a><a href="/r/${App.slug}/t/${t.number}?k=${t.key || ''}" target="_blank"><button class="ghost">Open</button></a><button class="ghost" onclick="if(confirm('Remove table ${t.number}?'))api('DELETE','/api/tables/${t.id}')">🗑</button></div></div>`).join('')}</div>`;
 }
 

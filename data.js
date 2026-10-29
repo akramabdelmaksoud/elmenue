@@ -6,6 +6,14 @@ const settings = {
   name: 'Elmenu Café', name_ar: 'كافيه المنيو',
   theme: 'bloom', lang: 'en', tagline: 'Brew Happy, Live Bold', tagline_ar: 'اشرب بسعادة، عش بجرأة', tagline_sub: 'Good food. Great people. Better every day.', tagline_sub_ar: 'طعام لذيذ. أجواء رائعة. وأفضل كل يوم.',
   tax: 14, service: 12, currency: 'EGP',
+  wifi: 'Elmenu_Guest', wifiPass: 'coffee2026',
+  promos: [
+    { title: 'Happy hour 4-6 PM', title_ar: 'الهابي أوور من 4 لـ 6', text: 'Buy one iced drink, get the second at half price.', text_ar: 'اشتري مشروب بارد والتاني بنص السعر.' },
+    { title: 'Join our loyalty card', title_ar: 'اعمل كارت الولاء', text: 'Every 10 EGP you spend = 1 point. Spend points on your bill.', text_ar: 'كل 10 جنيه = نقطة. واستخدم نقطك في الحساب.' },
+  ],
+  loyalty: { enabled: true, egpPerPoint: 10, pointsPerRedeem: 100, redeemValue: 50 },
+  refreshMin: 60,
+  ai: { name: '', style: '', memory: [] },
   palette: { accent: '#1f4a35', accent2: '#b98a3e', bg: '#f2ebe0', card: '#fbf8f2', text: '#2a2b25' },
 };
 
@@ -72,7 +80,7 @@ settings.floor = { cols: 24, rows: 16, decor: [
   { id: 'd3', type: 'plant', fx: 0, fy: 12, fw: 2, fh: 3, label: '' }, { id: 'd4', type: 'door', fx: 14, fy: 13, fw: 2, fh: 3, label: 'Door' },
 ] };
 
-function buildHistory() {
+function buildHistory(menu = items) {
   const hist = [];
   const now = Date.now();
   const weights = { 10: 1, 11: 2, 12: 4, 13: 6, 14: 5, 15: 3, 16: 3, 17: 4, 18: 5, 19: 7, 20: 8, 21: 7, 22: 4, 23: 2 };
@@ -94,7 +102,7 @@ function buildHistory() {
         const lines = [];
         const picks = rnd(Math.max(2, guests), guests * 3 + 1);
         for (let p = 0; p < picks; p++) {
-          const it = pick(items);
+          const it = pick(menu);
           const ex = lines.find((l) => l.itemId === it.id);
           if (ex) ex.qty++; else lines.push({ itemId: it.id, cat: it.cat, name: it.name, qty: 1, price: it.price, cost: it.cost });
         }

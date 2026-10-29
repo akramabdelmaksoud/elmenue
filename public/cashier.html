@@ -1,0 +1,178 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cashier — Till</title><link rel="stylesheet" href="/shared.css"><link rel="stylesheet" href="/floor.css">
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#14110d"><link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+body { min-height:100vh; display:flex; flex-direction:column; }
+header { display:flex; justify-content:space-between; align-items:center; padding:10px 18px; border-bottom:1px solid var(--line); gap:10px; position:sticky; top:0; z-index:30; background:color-mix(in srgb,var(--bg) 88%,transparent); backdrop-filter:blur(14px); flex-wrap:wrap; }
+header h1 { margin:0; font-size:20px; display:flex; align-items:center; gap:8px; white-space:nowrap; } #clock { color:var(--muted); font-weight:500; font-size:.8em; }
+.hb { display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; } .hb button { display:flex; align-items:center; gap:6px; }
+.kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; padding:12px 18px 0; }
+.kpi { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:10px 14px; } .kpi small { color:var(--muted); display:block; font-size:12px; } .kpi b { font-size:21px; }
+.tabs { display:flex; gap:8px; padding:12px 18px 0; } .tabs button { padding:9px 18px; border-radius:99px; font-weight:700; }
+.layout { flex:1; display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:0; min-height:0; }
+.listw { padding:12px 18px 24px; min-width:0; } .side { border-inline-start:1px solid var(--line); padding:16px; overflow:auto; max-height:calc(100vh - 150px); position:sticky; top:130px; }
+.sec { margin:14px 0 8px; font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); display:flex; align-items:center; gap:8px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(168px,1fr)); gap:10px; }
+.tbl { text-align:start; background:var(--card); border:2px solid var(--line); border-radius:18px; padding:12px 14px; display:flex; flex-direction:column; gap:3px; min-height:112px; position:relative; transition:transform .15s; }
+.tbl:hover { transform:translateY(-2px); } .tbl.sel { border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent); }
+.tbl.check { border-color:var(--gold); animation:pulseG 1.6s infinite; } .tbl.rdy { border-color:#3b82f6; }
+.tbl .n { font-size:26px; font-weight:800; line-height:1; } .tbl .am { font-size:18px; font-weight:800; margin-top:auto; } .tbl .sm { font-size:12px; color:var(--muted); }
+.pill { display:inline-block; font-size:11px; padding:2px 9px; border-radius:99px; background:var(--gold); color:#222; font-weight:800; }
+@keyframes pulseG { 50% { box-shadow:0 0 0 6px color-mix(in srgb,var(--gold) 30%,transparent); } }
+.rc { background:#fffdf7; color:#1b1710; border-radius:6px; padding:16px 16px 14px; font:13px/1.45 ui-monospace,Menlo,Consolas,monospace; box-shadow:0 8px 28px rgba(0,0,0,.25); position:relative; }
+.rc:after { content:""; position:absolute; left:0; right:0; bottom:-8px; height:8px; background:linear-gradient(-45deg,transparent 6px,#fffdf7 0) 0 0/12px 8px, linear-gradient(45deg,transparent 6px,#fffdf7 0) 0 0/12px 8px; }
+.rc .c { text-align:center; } .rc hr { border:0; border-top:1px dashed #8a7f6a; margin:8px 0; } .rc .l { display:flex; justify-content:space-between; gap:8px; } .rc .tot { font-size:19px; font-weight:800; }
+.acts { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:16px; } .acts .big { grid-column:1/-1; padding:15px; font-size:17px; }
+.modal { position:fixed; inset:0; background:rgba(0,0,0,.55); display:grid; place-items:center; z-index:80; backdrop-filter:blur(4px); } .modal > .card { width:min(560px,94vw); max-height:90vh; overflow:auto; }
+#dlg .modal { z-index:95; } .spread { display:flex; justify-content:space-between; align-items:center; gap:8px; } .wrap { flex-wrap:wrap; } .muted { color:var(--muted); }
+.line { display:flex; justify-content:space-between; padding:2px 0; font-size:14px; gap:8px; }
+.posgrid { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:14px; } .pcart { border-inline-start:1px solid var(--line); padding-inline-start:14px; } @media (max-width:760px) { .posgrid { grid-template-columns:1fr; } .pcart { border-inline-start:0; padding-inline-start:0; } }
+.pitems { display:grid; grid-template-columns:repeat(auto-fill,minmax(122px,1fr)); gap:8px; max-height:46vh; overflow:auto; padding:2px; }
+.pit { position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:10px; border-radius:14px; background:var(--card); border:1px solid var(--line); text-align:start; min-height:78px; }
+.pit .bd { position:absolute; top:6px; inset-inline-end:6px; background:var(--accent); color:var(--on-accent); border-radius:99px; min-width:22px; height:22px; display:grid; place-items:center; font-style:normal; font-size:12px; font-weight:800; }
+.pchips { display:flex; gap:6px; overflow-x:auto; padding:8px 0; scrollbar-width:none; } .pchips button { flex:none; padding:6px 12px; border-radius:99px; font-size:13px; }
+.pcl { padding:8px 0; border-bottom:1px dashed var(--line); display:flex; flex-direction:column; gap:6px; } .pcl input { padding:6px 10px; font-size:13px; } .step { display:flex; align-items:center; gap:8px; } .step button { width:32px; height:32px; padding:0; border-radius:50%; }
+.fgrid2 { display:grid; grid-template-columns:1fr 1fr; gap:0 10px; } .field { margin-bottom:8px; } .field label { font-size:12px; color:var(--muted); display:block; margin-bottom:3px; }
+.vx { background:transparent; padding:0 6px; color:var(--bad); font-weight:800; }
+#banners { position:fixed; top:70px; inset-inline-end:16px; display:flex; flex-direction:column; gap:8px; z-index:90; } .banner { background:var(--gold); color:#222; padding:12px 18px; border-radius:14px; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.4); }
+table.t { width:100%; border-collapse:collapse; font-size:14px; } table.t th, table.t td { padding:8px 10px; border-bottom:1px solid var(--line); text-align:start; } table.t tr.click { cursor:pointer; } table.t tr.click:hover { background:color-mix(in srgb,var(--accent) 10%,transparent); }
+.warn { background:color-mix(in srgb,var(--gold) 20%,var(--card)); border:1px solid var(--gold); border-radius:14px; padding:12px 14px; }
+@media (max-width:1000px) { .layout { grid-template-columns:1fr; } .side { position:static; max-height:none; border-inline-start:0; border-top:1px solid var(--line); } .lbl { display:none; } header h1 { font-size:17px; } }
+</style></head>
+<body>
+<header><h1>💵 <span class="ttl">Cashier</span> <span id="clock"></span> <span id="who" class="muted" style="font-size:.7em;font-weight:600"></span></h1>
+<div class="hb">
+ <button class="ghost" onclick="PX.newTicket('takeaway')" title="Counter / takeaway sale"><span>🛍️</span><b class="lbl">New sale</b></button>
+ <button class="ghost" id="shb" onclick="shiftDlg()"><span>🕒</span><b class="lbl" id="shl">Shift</b></button>
+ <button class="ghost" id="prb" onclick="printerDlg()"><span>🖨️</span><b class="lbl" id="prl">Printer</b></button>
+ <button class="ghost" onclick="popDrawer()"><span>🗄️</span><b class="lbl">Open drawer</b></button>
+ <button class="ghost" id="snd" onclick="toggleSound()"><span id="sndi">🔕</span></button>
+ <button class="ghost" onclick="App.toggleLang(event)"><span>🌐</span><b class="lbl">EN/ع</b></button>
+ <button class="ghost" onclick="App.roleMenu(event)" title="Switch role"><span>⇄</span><b class="lbl">Switch role</b></button>
+ <button class="ghost" onclick="App.skinMenu(event)" title="Look"><span>🎨</span></button>
+ <button class="ghost" onclick="App.toggleMode(event)"><span>◐</span></button>
+ <button class="ghost" onclick="App.logout()"><span>⏻</span><b class="lbl">Sign out</b></button></div></header>
+<div class="kpis" id="kpis"></div>
+<div class="tabs"><button id="tb-tables" onclick="tab('tables')">🧾 Tables</button><button id="tb-rec" onclick="tab('rec')">📜 Receipts</button></div>
+<div class="layout"><div class="listw" id="list"></div><div class="side" id="side"></div></div>
+<div id="banners"></div><div id="dlg"></div>
+<script src="/shared.js"></script><script src="/ar-ui.js"></script><script src="/pos.js"></script><script src="/escpos.js"></script>
+<script>
+let S = null, sel = null, TAB = 'tables', SH = null, REC = [], sound = false, actx = null;
+const E = (s) => App.esc(s), $ = (id) => document.getElementById(id), M = (n) => App.money(n);
+function closeM() {}   // pos.js calls this after paying; the cashier has no table modal
+function beep() { if (!sound) return; try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); [660, 880, 1100].forEach((f, i) => { const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = f; o.connect(g); g.connect(actx.destination); const t = actx.currentTime + i * 0.15; g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.14); o.start(t); o.stop(t + 0.15); }); } catch {} }
+function toggleSound() { sound = !sound; $('sndi').textContent = sound ? '🔔' : '🔕'; $('snd').classList.toggle('sel', sound); if (sound) beep(); }
+setInterval(() => ($('clock').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })), 1000);
+
+/* ---- hardware glue: receipts go to the thermal printer; cash sales pop the drawer ---- */
+let lastR = null; const _rh = App.receiptHTML.bind(App), _ph = App.printHTML.bind(App);
+App.receiptHTML = (r) => { lastR = r; return _rh(r); };
+App.printHTML = (html) => { const r = lastR; if (r && ESCPOS.linked) ESCPOS.print(r, { kick: false }).catch((e) => { App.toast('Printer: ' + e.message); _ph(html); }); else _ph(html); };
+const _send = App.send.bind(App);
+App.send = (o) => { if (o && o.t === 'close_table' && !o.unpaid && o.method !== 'card' && ESCPOS.linked) ESCPOS.kick().catch(() => {}); return _send(o); };
+async function popDrawer() { try { await ESCPOS.kick(); App.toast('Drawer opened'); } catch (e) { App.toast(ESCPOS.linked ? 'Drawer: ' + e.message : 'Connect the printer first (🖨️) - the drawer plugs into it'); if (!ESCPOS.linked) printerDlg(); } }
+function printerDlg() {
+  $('dlg').innerHTML = `<div class="modal" onclick="if(event.target===this)this.remove()"><div class="card"><div class="spread"><h2>🖨️ Printer & cash drawer</h2><button onclick="this.closest('.modal').remove()">✕</button></div>
+   <p class="muted">Status: <b id="pst">${ESCPOS.linked ? '✅ ' + E(ESCPOS.linked) : '⚪ not connected - receipts use the normal print dialog'}</b></p>
+   <div class="row wrap"><button class="primary" onclick="pairP('usb')">🔌 Connect USB printer</button><button class="ghost" onclick="pairP('serial')">📡 Serial / Bluetooth</button></div>
+   <div class="row wrap" style="margin-top:10px"><button class="ghost" onclick="ESCPOS.test().then(r=>App.toast(r==='printer'?'Test sent ✓':'Opened print dialog')).catch(e=>App.toast(e.message))">🧾 Print test receipt</button><button class="ghost" onclick="popDrawer()">🗄️ Test drawer</button></div>
+   <p class="muted" style="font-size:12.5px;margin-top:14px">Works with any 80mm ESC/POS thermal printer (Epson, Xprinter, Rongta, Sunmi, etc.) in Chrome or Edge. Plug the cash drawer into the printer's RJ11 port: it pops automatically on every cash payment. Arabic prints correctly. Without a printer the browser's print dialog is used (set paper to 80mm).</p></div></div>`;
+}
+async function pairP(k) { try { const l = await ESCPOS.pair(k); App.toast('Connected: ' + l.name); $('pst').textContent = '✅ ' + l.name; paintHdr(); } catch (e) { App.toast(e.message || 'Cancelled'); } }
+function paintHdr() { $('prl').textContent = ESCPOS.linked ? '🟢 ' + ESCPOS.linked.slice(0, 14) : 'Printer'; }
+
+/* ---- shift / till ---- */
+const tk = () => App.tok('cashier');
+async function sapi(m, p, b) { try { const r = await fetch(`/api/r/${App.slug}/${p}`, { method: m, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk() }, body: b ? JSON.stringify(b) : undefined }); const j = await r.json().catch(() => ({})); return r.ok ? j : { error: j.error || 'Failed' }; } catch (e) { return { error: e.message }; } }
+async function loadShift() { const j = await sapi('GET', 'shift'); if (!j.error) SH = j; paintShift(); return j; }
+function paintShift() { $('shl').textContent = SH && SH.cur ? '🟢 Shift open' : 'Open shift'; $('shb').classList.toggle('sel', !!(SH && SH.cur)); }
+async function shiftDlg() {
+  const j = await loadShift(); const c = SH && SH.cur;
+  if (j.error) return App.toast(j.error);
+  const body = !c ? `<p class="muted">Count the cash in the drawer and enter it as the opening float.</p><div class="field"><label>Opening float</label><input id="shf" type="number" min="0" step="any" value="500"></div><button class="primary" style="width:100%" onclick="shiftDo('open')">▶ Open shift</button>` :
+   `<div class="card" style="margin:8px 0"><div class="line"><span>Opened</span><span>${new Date(c.openedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${E(c.by)}</span></div><div class="line"><span>Opening float</span><span>${M(c.float)}</span></div>
+    <div class="line"><span>Sales (${c.sales})</span><b>${M(c.total)}</b></div><div class="line"><span>Cash sales</span><span>${M(c.cash)}</span></div><div class="line"><span>Card sales</span><span>${M(c.card)}</span></div><div class="line"><span>Tips</span><span>${M(c.tips)}</span></div>
+    <div class="line"><span>Discounts</span><span>${M(c.discounts)}</span></div><div class="line"><span>Paid in / out</span><span>+${M(c.paidIn)} / −${M(c.paidOut)}</span></div><hr style="border:0;border-top:1px dashed var(--line)"><div class="line"><b>Cash that should be in the drawer</b><b>${M(c.expected)}</b></div></div>
+    <h3>Paid in / out</h3><div class="row wrap"><select id="smk" style="width:auto"><option value="out">➖ Paid out</option><option value="in">➕ Paid in</option></select><input id="sma" type="number" min="0" step="any" placeholder="Amount" style="width:100px"><input id="smn" placeholder="Note (ice, supplier…)" style="flex:1;min-width:120px"><button class="ghost" onclick="shiftMove()">Add</button></div>
+    ${c.moves.length ? `<div class="muted" style="font-size:12.5px;margin-top:6px">${c.moves.map((m) => `${m.kind === 'in' ? '+' : '−'}${M(m.amount)} ${E(m.note)}`).join(' · ')}</div>` : ''}
+    <h3 style="margin-top:16px">Close shift</h3><div class="field"><label>Cash counted in the drawer</label><input id="shc" type="number" min="0" step="any" placeholder="${c.expected}"></div><div class="field"><label>Note</label><input id="shn" placeholder="optional"></div><button class="primary" style="width:100%" onclick="shiftDo('close')">⏹ Close shift & print Z report</button>`;
+  const past = (SH.list || []).map((z) => `<tr><td>${new Date(z.closedAt).toLocaleDateString([], { day: '2-digit', month: 'short' })} ${new Date(z.openedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}–${new Date(z.closedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td><td>${E(z.by)}</td><td>${M(z.total)}</td><td style="color:${z.variance ? 'var(--bad)' : 'var(--ok)'}">${z.variance > 0 ? '+' : ''}${M(z.variance)}</td></tr>`).join('');
+  $('dlg').innerHTML = `<div class="modal" onclick="if(event.target===this)this.remove()"><div class="card"><div class="spread"><h2>🕒 Shift & cash drawer</h2><button onclick="this.closest('.modal').remove()">✕</button></div>${body}${past ? `<h3 style="margin-top:18px">Previous shifts</h3><table class="t"><tr><th>When</th><th>By</th><th>Sales</th><th>Variance</th></tr>${past}</table>` : ''}</div></div>`;
+}
+async function shiftDo(k) {
+  const j = k === 'open' ? await sapi('POST', 'shift/open', { float: +$('shf').value || 0 }) : await sapi('POST', 'shift/close', { counted: +$('shc').value || 0, note: $('shn').value });
+  if (j.error) return App.toast(j.error);
+  SH = j; paintShift(); document.querySelector('#dlg .modal') && document.querySelector('#dlg .modal').remove();
+  if (k === 'open') { ESCPOS.linked && ESCPOS.kick().catch(() => {}); return App.toast('Shift open ✓'); }
+  zReport(j.z);
+}
+async function shiftMove() { const j = await sapi('POST', 'shift/move', { kind: $('smk').value, amount: +$('sma').value, note: $('smn').value }); if (j.error) return App.toast(j.error); SH = j; shiftDlg(); }
+function zReport(z) {
+  const cfg = (App.config && App.config.settings) || {}, m = (n) => Number(n || 0).toFixed(2);
+  const rows = [['Opened', new Date(z.openedAt).toLocaleString('en-GB') + ' · ' + z.by], ['Closed', new Date(z.closedAt).toLocaleString('en-GB') + ' · ' + z.closedBy], ['Sales', z.sales], ['Total', m(z.total)], ['Cash sales', m(z.cash)], ['Card sales', m(z.card)], ['Tips', m(z.tips)], ['Discounts', m(z.discounts)], ['Voids', z.voids], ['Opening float', m(z.float)], ['Paid in', m(z.paidIn)], ['Paid out', m(z.paidOut)], ['Expected cash', m(z.expected)], ['Counted cash', m(z.counted)], ['Variance', (z.variance > 0 ? '+' : '') + m(z.variance)]];
+  const html = `<!doctype html><meta charset="utf-8"><title>Z report</title><style>@page{size:80mm auto;margin:4mm}body{font:12px/1.4 monospace;width:72mm;margin:0}table{width:100%;border-collapse:collapse}.r{text-align:right}hr{border:0;border-top:1px dashed #000}.c{text-align:center}</style><div class="c"><b style="font-size:16px">${E(cfg.name || '')}</b><br><b>Z REPORT · SHIFT CLOSE</b></div><hr><table>${rows.map(([a, b]) => `<tr><td>${a}</td><td class="r">${E(b)}</td></tr>`).join('')}</table><hr><div class="c">${E(z.note || '')}</div>`;
+  if (ESCPOS.linked) ESCPOS.print({ label: 'Z REPORT', kind: 'shift', at: z.closedAt, items: rows.map(([a, b]) => ({ name: a + ': ' + b, qty: 1, price: 0 })), gross: z.total, service: 0, tax: 0, total: z.total, method: 'shift', pay: {}, pre: true }, { kick: false }).catch(() => App.printHTML(html)); else App.printHTML(html);
+}
+
+/* ---- tables ---- */
+const hostName = (s) => { const h = s.guests.find((g) => g.id === s.host) || s.guests[0]; return h ? h.name : ''; };
+const mins = (ts) => { const m = Math.max(0, Math.round((Date.now() - ts) / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0'); };
+const sessions = () => Object.values(S.sessions).filter((s) => s.orders.length).sort((a, b) => (b.check ? 1 : 0) - (a.check ? 1 : 0) || a.startedAt - b.startedAt);
+function tab(t) { TAB = t; if (t === 'rec') loadRec(); render(); }
+async function loadRec() { const j = await sapi('GET', 'receipts'); if (j.receipts) { REC = j.receipts; } render(); }
+function render(m) {
+  if (m) S = m; if (!S) return; paintShift(); paintHdr();
+  ['tables', 'rec'].forEach((k) => $('tb-' + k).className = TAB === k ? 'primary' : 'ghost');
+  const all = sessions(), due = all.reduce((n, s) => n + s.bill.total, 0), waiting = all.filter((s) => s.check).length;
+  const c = SH && SH.cur;
+  $('kpis').innerHTML = `<div class="kpi"><small>Open checks</small><b>${all.length}</b></div><div class="kpi"><small>Asking for the bill</small><b style="color:${waiting ? 'var(--gold)' : 'inherit'}">${waiting}</b></div><div class="kpi"><small>Outstanding</small><b>${M(due)}</b></div><div class="kpi"><small>${c ? 'Cash that should be in the drawer' : 'Shift'}</small><b>${c ? M(c.expected) : 'closed'}</b></div>`;
+  if (TAB === 'rec') {
+    $('list').innerHTML = `<h3>Recent receipts</h3><div class="card" style="overflow:auto"><table class="t"><tr><th>Time</th><th>Table</th><th>Method</th><th>Total</th><th></th></tr>${REC.map((h, i) => `<tr><td>${new Date(h.closedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td><td>${h.kind && h.kind !== 'table' ? E(h.kind) + ' ' : ''}${E(h.tableNumber)}</td><td>${h.unpaid ? 'unpaid' : E(h.method)}</td><td><b>${M(h.total)}</b></td><td><button class="ghost" onclick="reprint(${i})">🖨️ Reprint</button></td></tr>`).join('') || '<tr><td colspan="5" class="muted">No receipts yet.</td></tr>'}</table></div>`;
+    $('side').innerHTML = '<p class="muted">Pick a table from the Tables tab to take payment.</p>';
+    return;
+  }
+  const grp = (title, list) => list.length ? `<div class="sec">${title} <span class="pill" style="background:var(--line);color:var(--text)">${list.length}</span></div><div class="grid">${list.map(card).join('')}</div>` : '';
+  const ready = all.filter((s) => !s.check);
+  $('list').innerHTML = (all.length ? grp('🧾 Asking for the bill', all.filter((s) => s.check)) + grp('🍽️ Open checks', ready) : '<div class="card" style="text-align:center;padding:40px"><div style="font-size:42px">✨</div><h3>No open checks</h3><p class="muted">When a table orders it appears here with its receipt, ready to charge.</p></div>');
+  if (sel && !S.sessions[sel]) sel = null; if (!sel && all.length) sel = (all.find((s) => s.check) || all[0]).tableId;
+  side(); PX.refresh();
+}
+function card(s) {
+  const rdy = s.orders.some((o) => o.status === 'served'), paid = s.check ? `${s.check.method === 'card' ? '💳' : '💵'} ${s.check.tipPct ? '+' + s.check.tipPct + '% tip' : 'bill requested'}` : '';
+  return `<button class="tbl${s.check ? ' check' : rdy ? ' rdy' : ''}${sel === s.tableId ? ' sel' : ''}" onclick="pick('${s.tableId}')"><span class="n">${s.kind ? (s.kind === 'delivery' ? '🛵' : '🛍️') : ''}${E(s.tableNumber)}</span><span class="sm">${E(hostName(s))}${s.guests.length > 1 ? ' +' + (s.guests.length - 1) : ''} · ${mins(s.startedAt)}</span>${s.check ? `<span class="pill">${paid}</span>` : `<span class="sm">${s.orders.reduce((n, o) => n + o.items.reduce((x, i) => x + i.qty, 0), 0)} items</span>`}<span class="am">${M(s.bill.total)}</span></button>`;
+}
+function pick(id) { sel = id; render(); if (innerWidth <= 1000) $('side').scrollIntoView({ behavior: 'smooth' }); }
+function rcptOf(s, pre) {
+  const m = {}; s.orders.forEach((o) => o.items.forEach((i) => { (m[i.name + '|' + i.price] ||= { name: i.name, qty: 0, price: i.price }).qty += i.qty; }));
+  const b = s.bill; return { label: s.tableNumber, kind: s.kind || 'table', customer: s.customer, at: Date.now(), items: Object.values(m), gross: b.gross, discount: b.discount, discountNote: s.discount && s.discount.reason || '', service: b.service, tax: b.tax, tip: 0, total: b.total, method: pre ? '' : '', pay: {}, pre: !!pre, by: App.who() };
+}
+function side() {
+  const s = sel && S.sessions[sel]; if (!s) { $('side').innerHTML = '<p class="muted">Select a table to see its receipt.</p>'; return; }
+  const r = rcptOf(s, true), cfg = S.config.settings, b = s.bill;
+  const voidable = s.orders.flatMap((o) => o.items);
+  $('side').innerHTML = `<div class="rc"><div class="c"><b style="font-size:16px">${E(cfg.name || '')}</b><br>${new Date().toLocaleString('en-GB')}<br>${r.kind !== 'table' ? E(r.kind) + ' ' : 'Table '}<b>${E(s.tableNumber)}</b> · ${s.guests.length} guest${s.guests.length > 1 ? 's' : ''}</div><hr>
+   ${voidable.map((i) => `<div class="l"><span>${i.qty} × ${E(App.lang === 'ar' && i.name_ar ? i.name_ar : i.name)}</span><span>${(i.qty * i.price).toFixed(2)} <button class="vx" onclick="PX.voidDlg('${s.tableId}','${i.id}')" title="void" style="color:#a33">✕</button></span></div>`).join('')}<hr>
+   <div class="l"><span>Subtotal</span><span>${b.gross.toFixed(2)}</span></div>${b.discount ? `<div class="l"><span>Discount${s.discount && s.discount.reason ? ' (' + E(s.discount.reason) + ')' : ''}</span><span>−${b.discount.toFixed(2)}</span></div>` : ''}<div class="l"><span>Service</span><span>${b.service.toFixed(2)}</span></div><div class="l"><span>Tax</span><span>${b.tax.toFixed(2)}</span></div>
+   <div class="l tot"><span>TOTAL</span><span>${b.total.toFixed(2)}</span></div></div>
+   ${s.check ? `<div class="warn" style="margin-top:14px">🧾 Guest asked to pay by <b>${s.check.method === 'card' ? 'card' : 'cash'}</b>${s.check.tipPct ? ` · tip ${s.check.tipPct}%` : ''}</div>` : ''}
+   <div class="acts"><button class="primary big" onclick="PX.openPay('${s.tableId}')">💳 Charge ${M(b.total)}</button><button class="ghost" onclick="printBill('${s.tableId}')">🖨️ Print bill</button><button class="ghost" onclick="PX.openPOS('${s.tableId}')">➕ Add items</button></div>`;
+}
+async function printBill(tid) { const s = S.sessions[tid]; if (!s) return; try { const how = await ESCPOS.print(rcptOf(s, true), { kick: false }); App.toast(how === 'printer' ? 'Bill printed ✓' : 'Print dialog opened'); } catch (e) { App.toast(e.message); } }
+async function reprint(i) {
+  const h = REC[i]; if (!h) return;
+  const r = { label: h.tableNumber, kind: h.kind, customer: h.customer, at: h.closedAt, items: h.items, gross: h.sub, discount: h.discount, discountNote: h.discountNote, service: h.service, tax: h.tax, tip: h.tip, total: h.total, method: h.unpaid ? 'unpaid' : h.method, pay: h.pay, by: h.closedBy };
+  try { const how = await ESCPOS.print(r, { kick: false }); App.toast(how === 'printer' ? 'Receipt reprinted ✓' : 'Print dialog opened'); } catch (e) { App.toast(e.message); }
+}
+
+function start() {
+  $('who').textContent = App.who() ? '· ' + App.who() : ''; ESCPOS.auto().then(paintHdr); loadShift();
+  App.connect({ t: 'join', role: 'cashier' }, {
+    render(m) { const first = !S; render(m); if (first) loadShift(); },
+    alert(m) { if (m.kind === 'check' || m.kind === 'ready') { beep(); const b = document.createElement('div'); b.className = 'banner'; b.textContent = (m.kind === 'check' ? '🧾 ' : '✅ ') + m.text; $('banners').appendChild(b); setTimeout(() => b.remove(), 6500); } },
+  });
+}
+App.gate('cashier', start);
+setInterval(() => S && TAB === 'tables' && render(), 30000);
+</script></body></html>

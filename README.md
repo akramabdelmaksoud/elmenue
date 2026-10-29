@@ -17,7 +17,10 @@ Docker: `docker build -t qrmenu . && docker run -p 3000:3000 -v qrdata:/app/data
 ### B) Many restaurants on one server (SaaS)
 Leave `SINGLE_RESTAURANT` unset. `/super` is the platform owner console; each restaurant lives at `/r/<slug>/…`.
 
-### C) Vercel (serverless, no websockets)
+### B2) Many restaurants on Vercel (SaaS, free demo hosting)
+Leave `SINGLE_RESTAURANT` unset and set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SECRET`, `SUPER_EMAIL`, `SUPER_PASSWORD`. `/super` creates cafés (each is a Supabase row `r_<slug>`), assigns tiers (Basic / Operations / VIP), branch groups and custom domains. Optional: `ANTHROPIC_API_KEY` for real photo-OCR and a smarter admin copilot. See `docs/SPEC_COVERAGE.md`.
+
+### C) Vercel, one restaurant (serverless, no websockets)
 Phones poll every ~2.5s instead of using websockets; all state lives in Supabase. The frontend picks polling automatically
 when websockets are unavailable. In Vercel set: `SINGLE_RESTAURANT=1`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SECRET` (long random),
 `OWNER_EMAIL`, `OWNER_PASSWORD`, `RESTAURANT_NAME` (optional `SETUP_KEY`, `DEMO_DATA=1`).

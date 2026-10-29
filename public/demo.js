@@ -22,7 +22,7 @@
   }
   App.demoReady = async () => {
     if (T) return;
-    await load('data.js'); await load('tenant.js');
+    await load('data.js'); await load('features.js'); await load('tenant.js');
     let saved = null; try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch {}
     if (saved && saved.rec && saved.rec.data) { ver = saved.ver || 0; loading = true; build(saved.rec); loading = false; } else fresh();
     window.addEventListener('storage', (e) => {
@@ -35,9 +35,11 @@
   const clients = () => { T.clients.forEach((c) => c.ws.send(JSON.stringify(T.snapshotFor(c)))); };
   function banner() {
     const b = document.createElement('div');
-    b.style.cssText = 'position:fixed;left:50%;bottom:10px;transform:translateX(-50%);z-index:300;background:#111c;color:#fff;backdrop-filter:blur(8px);padding:7px 8px 7px 14px;border-radius:99px;font:600 12.5px system-ui;display:flex;gap:10px;align-items:center;box-shadow:0 8px 30px #0006;max-width:94vw';
-    b.innerHTML = '🎭 Demo — sample data, nothing is saved <button style="background:#ffffff26;color:#fff;border:0;border-radius:99px;padding:5px 12px;cursor:pointer" id="dmx">Menu</button><button style="background:#ffffff26;color:#fff;border:0;border-radius:99px;padding:5px 12px;cursor:pointer" id="dmr">Reset</button>';
+    b.style.cssText = 'position:fixed;right:8px;bottom:86px;z-index:300;background:#111d;color:#fff;backdrop-filter:blur(8px);padding:5px;border-radius:22px;font:600 12px system-ui;display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end;box-shadow:0 8px 30px #0006;max-width:min(300px,86vw);white-space:nowrap';
+    b.innerHTML = '<button style="background:none;color:#fff;border:0;padding:4px 8px;cursor:pointer;font:inherit" id="dmt" title="Sample data - nothing is saved">🎭 Demo ▾</button><span id="dmw" style="display:none;gap:6px;flex-wrap:wrap;justify-content:flex-end"><select id="dmp" style="background:#ffffff26;color:#fff;border:0;border-radius:99px;padding:5px 8px"><option value="basic">Tier 1 · Basic</option><option value="operations">Tier 2 · Operations</option><option value="vip">Tier 3 · VIP</option></select> <button style="background:#ffffff26;color:#fff;border:0;border-radius:99px;padding:5px 12px;cursor:pointer" id="dmx">Menu</button><button style="background:#ffffff26;color:#fff;border:0;border-radius:99px;padding:5px 12px;cursor:pointer" id="dmr">Reset</button></span>';
     document.body.appendChild(b);
+    b.querySelector('#dmt').onclick = () => { const w = b.querySelector('#dmw'); w.style.display = w.style.display === 'none' ? 'flex' : 'none'; };
+    const sel = b.querySelector('#dmp'); sel.value = mods.features.planOf(T.rec.plan); sel.onchange = () => { T.rec.plan = sel.value; T.broadcast(); setTimeout(() => location.reload(), 60); };
     b.querySelector('#dmx').onclick = () => { sessionStorage.removeItem('demo'); location.href = '/demo'; };
     b.querySelector('#dmr').onclick = () => { localStorage.removeItem(KEY); location.reload(); };
   }
@@ -53,7 +55,7 @@
     client = c; App.demoAlert = (a) => handlers.alert && handlers.alert({ t: 'alert', ...a });
     T.clients.add(c);
     App.demoSend = (o) => { T.handle(c, o); };
-    T.handle(c, { ...joinMsg, t: 'join' });
+    T.handle(c, { ...joinMsg, t: 'join', role: joinMsg.role === 'cashier' ? 'captain' : joinMsg.role });
     if (joinMsg.role === 'customer') { const s = T.db.sessions[(T.db.tables.find((x) => x.number === +joinMsg.tableNumber) || {}).id]; const g = s && s.guests.find((x) => x.id === c.guestId); if (g) onMsg({ t: 'you', guestId: g.id }); }
   };
 
@@ -77,7 +79,9 @@
     const done = (x) => { T.broadcast(); return J(x); };
     let r;
     if (m === 'GET') {
-      if (p === '/api/config') return J({ settings: d.settings, categories: d.categories, items: d.items, tables: d.tables.map(({ key, ...x }) => x) });
+      if (p === '/api/config') return J(T.publicConfig());
+      if (p === '/api/loyalty') return J({ ...T.loyaltyStats(), config: mods.features.loyaltyCfg(d.settings) });
+      if (p === '/api/branches') { const a = T.analytics(30), mk = (slug, name, k) => ({ slug, name, revenue: Math.round(a.kpi.revenue * k), sessions: Math.round(a.kpi.orders * k), avgTicket: a.kpi.avg, liveTables: Math.round(5 * k), guestsLive: Math.round(9 * k) }), b = [mk('maadi', 'Maadi (this branch)', 1), mk('zamalek', 'Zamalek', .72), mk('newcairo', 'New Cairo', 1.18)]; return J({ group: 'demo-group', branches: b, totals: { revenue: b.reduce((n, x) => n + x.revenue, 0), sessions: b.reduce((n, x) => n + x.sessions, 0), liveTables: b.reduce((n, x) => n + x.liveTables, 0) }, currency: d.settings.currency }); }
       if (p === '/api/analytics') return J(T.analytics(+q.get('days') || 7));
       if (p === '/api/report') return J(report(+q.get('from') || Date.now() - 864e5, +q.get('to') || Date.now()));
       if (p === '/api/orders') return J({ orders: d.history.filter((h) => h.closedAt >= +q.get('from') && h.closedAt <= +q.get('to')).slice(-400).reverse().map(({ log, ...h }) => h) });
@@ -85,7 +89,7 @@
       if (p === '/api/stock-log') return J({ log: T.rec.stockLog || [] });
       if (p === '/api/feedback') return J({ reviews: T.rec.reviews || [] });
       if (p === '/api/staff') return J({ staff: [], stats: (T.rec.stats || {}).staff || {}, legacyPin: '1234' });
-      if (p === '/api/account') return J({ name: 'Demo Café', email: 'owner@demo.test', pin: '1234', plan: 'demo' });
+      if (p === '/api/account') return J({ name: 'Demo Café', email: 'owner@demo.test', pin: '1234', plan: mods.features.planOf(T.rec.plan), features: mods.features.featuresOf(T.rec.plan) });
       if (p === '/api/me') return J({ ok: 1, name: 'Demo Café', who: 'Demo' });
       if (p === '/api/push/key') return J({ key: '' });
       return J({ error: 'Not available in the demo' }, 404);
@@ -95,6 +99,11 @@
       if (m === 'DELETE') i.img = ''; else { const f = o.body && o.body.get && o.body.get('image'); if (!f) return J({ error: 'bad request' }, 400); i.img = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(f); }); }
       return done({ ok: 1 });
     }
+    if (p === '/api/copilot') return J(T.copilotAsk(String(body.q || '')));
+    if (p === '/api/ai' && m === 'GET') return J({ live: false, ...(d.settings.ai || {}) });
+    if (p === '/api/menu/ocr') return J({ simulated: true, ...mods.features.parseMenuText(mods.features.OCR_SAMPLE) });
+    if (p === '/api/menu/ocr/import') return J(T.importParsed(body.items));
+    if (p === '/api/loyalty/adjust') { const m = d.loyalty && d.loyalty.members[mods.features.cleanPhone(body.phone)]; if (m) m.points = Math.max(0, m.points + (Math.floor(+body.delta) || 0)); return done({ ok: 1 }); }
     if (p === '/api/stats/clear') { const k = String(body.key || ''); d.statsReset ||= {}; if (body.restore) { if (k === 'all') d.statsReset = {}; else delete d.statsReset[k]; } else d.statsReset[k] = Date.now(); return done({ ok: 1 }); }
     if ((r = p.match(/^\/api\/categories\/([^/]+)\/image$/)) || p === '/api/hero-image') {
       const tgt = r ? d.categories.find((x) => x.id === r[1]) : d.settings; if (!tgt) return J({ error: 'not found' }, 404);

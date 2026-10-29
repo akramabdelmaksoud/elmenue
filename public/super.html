@@ -18,6 +18,7 @@ const api = async (m, u, b) => {
   if (r.status === 401 && u !== '/api/super/login') { App.ls('tok:_:super', ''); login(); throw new Error('auth'); }
   const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Error'); return j;
 };
+const TIERS = [['basic', 'Tier 1 · Basic QR Menu · 350-500 EGP'], ['operations', 'Tier 2 · Operations & POS · 850-1,000 EGP'], ['vip', 'Tier 3 · Enterprise VIP & AI · 1,450+ EGP']];
 const money = (n, c) => Math.round(n).toLocaleString() + ' ' + (c || '');
 const ago = (t) => (t ? App.ago(t) + ' ago' : 'never');
 async function login() {
@@ -35,18 +36,20 @@ function draw() {
   const t = O.totals;
   const k = (l, v) => `<div class="card kpi"><span>${l}</span><b>${v}</b></div>`;
   $('#app').innerHTML = `<main><div class="spread"><h1>👑 Platform control</h1><div class="row"><button class="ghost" onclick="App.toggleMode()">◐</button><button class="ghost" onclick="App.ls('tok:_:super','');location.reload()">Sign out</button></div></div>
-  <div class="grid">${k('Restaurants', `${t.active} / ${t.restaurants}`)}${k('Revenue (30d, all)', money(t.revenue))}${k('Table sessions (30d)', t.sessions.toLocaleString())}${k('Live tables now', t.liveTables)}${k('Guests seated now', t.guestsLive)}${k('Connected devices', t.online)}${k('Live open bills', money(t.liveRevenue))}</div>
+  <div class="grid">${k('Restaurants', `${t.active} / ${t.restaurants}`)}${k('Revenue (30d, all)', money(t.revenue))}${k('Table sessions (30d)', t.sessions.toLocaleString())}${k('Live tables now', t.liveTables)}${k('Guests seated now', t.guestsLive)}${k('Connected devices', t.online)}${k('Live open bills', money(t.liveRevenue))}${k('Subscription revenue / month', money(t.mrr, 'EGP'))}${(t.plans || []).map(p => k((TIERS.find(x => x[0] === p.plan) || [p.plan, p.plan])[1].split(' · ')[1] + ' cafés', p.count)).join('')}</div>
   <div class="row2"><div class="card"><h3>Platform revenue per day</h3><canvas id="c1"></canvas></div><div class="card"><h3>Revenue by restaurant (30d)</h3><canvas id="c2"></canvas></div>
   <div class="card"><h3>Rush hours across platform</h3><canvas id="c3"></canvas></div><div class="card"><h3>Top items platform-wide</h3><canvas id="c4"></canvas></div></div>
   <div class="card" style="margin-top:14px"><h3>➕ Add a restaurant (sell an admin page)</h3><form class="f" id="create">
    <div><label class="muted">Restaurant name</label><input name="name" required></div><div><label class="muted">URL slug</label><input name="slug" placeholder="my-cafe" required pattern="[a-z0-9][a-z0-9\\-]{1,29}"></div>
    <div><label class="muted">Owner email</label><input name="email" type="email" required></div><div><label class="muted">Password (blank = generate)</label><input name="password"></div>
-   <div><label class="muted">Plan</label><select name="plan"><option>standard</option><option>pro</option><option>enterprise</option></select></div>
+   <div><label class="muted">Subscription tier</label><select name="plan">${TIERS.map(([v, l]) => `<option value="${v}" ${v === 'operations' ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+   <div><label class="muted">Branch group (optional)</label><input name="group" placeholder="e.g. cilantro-group"></div><div><label class="muted">Custom domain (optional)</label><input name="domain" placeholder="menu.mycafe.com"></div>
    <label class="row"><input type="checkbox" name="demo" style="width:auto"> demo data</label><button class="primary">Create</button></form>
    ${newCred ? `<pre>✅ Send these to the owner:\nAdmin URL  : ${newCred.url}\nEmail      : ${newCred.email}\nPassword   : ${newCred.password}\nCaptain PIN: ${newCred.pin}   (captain URL: ${newCred.url.replace('/admin', '/captain')})</pre>` : ''}</div>
-  <div class="card scroll" style="margin-top:14px"><h3>Restaurants</h3><table><tr><th>Restaurant</th><th>Status</th><th>Plan</th><th>Revenue 30d</th><th>Sessions</th><th>Avg ticket</th><th>Live now</th><th>Menu / Tables</th><th>Last active</th><th>Actions</th></tr>
+  <div class="card scroll" style="margin-top:14px"><h3>Restaurants</h3><table><tr><th>Restaurant</th><th>Status</th><th>Tier</th><th>Group / domain</th><th>Revenue 30d</th><th>Sessions</th><th>Avg ticket</th><th>Live now</th><th>Menu / Tables</th><th>Last active</th><th>Actions</th></tr>
   ${O.tenants.map(x => `<tr><td><b>${App.esc(x.name)}</b><br><small class="muted">/r/${x.slug} · ${App.esc(x.email)}</small></td><td><span class="st ${x.status}">${x.status}</span></td>
-   <td><select onchange="act('${x.slug}',{plan:this.value})">${['standard', 'pro', 'enterprise'].map(p => `<option ${p === x.plan ? 'selected' : ''}>${p}</option>`).join('')}</select></td>
+   <td><select onchange="act('${x.slug}',{plan:this.value})">${TIERS.map(([v, l]) => `<option value="${v}" ${v === x.plan ? 'selected' : ''}>${l.split(' · ').slice(0, 2).join(' · ')}</option>`).join('')}</select></td>
+   <td><input style="min-width:110px" placeholder="group" value="${App.esc(x.group || '')}" onchange="act('${x.slug}',{group:this.value})"><br><input style="min-width:110px;margin-top:4px" placeholder="domain" value="${App.esc(x.domain || '')}" onchange="act('${x.slug}',{domain:this.value})"></td>
    <td>${money(x.revenue, x.currency)}</td><td>${x.sessions}</td><td>${money(x.avgTicket, x.currency)}</td><td><span class="dot ${x.online ? '' : 'off'}"></span>${x.liveTables} tables · ${x.guestsLive} guests</td><td>${x.items} / ${x.tables}</td><td>${ago(x.lastActive)}</td>
    <td><button class="ghost" onclick="openAdmin('${x.slug}')">Open admin</button> <button class="ghost" onclick="act('${x.slug}',{status:'${x.status === 'active' ? 'suspended' : 'active'}'})">${x.status === 'active' ? 'Suspend' : 'Activate'}</button> <button class="ghost" onclick="reset('${x.slug}')">Reset login</button> <button class="ghost" onclick="del('${x.slug}')">🗑</button></td></tr>`).join('')}</table></div></main>`;
   $('#create').onsubmit = async (e) => { e.preventDefault(); const b = Object.fromEntries(new FormData(e.target)); b.demo = !!b.demo; try { newCred = await api('POST', '/api/super/tenants', b); load(); } catch (er) { alert(er.message); } };

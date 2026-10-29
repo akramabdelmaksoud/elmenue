@@ -80,16 +80,56 @@ const App = {
     espresso: { light: { bg: '#f4ece4', card: '#fffaf5', text: '#2b1d14', accent: '#6b3f23', accent2: '#d08a3c' }, dark: { bg: '#14110f', card: '#1f1b18', text: '#f4ede4', accent: '#e8a64a', accent2: '#ff7b54' } },
     pink: { light: { bg: '#fff0f6', card: '#ffffff', text: '#3a1428', accent: '#e0357f', accent2: '#8e4bff' }, dark: { bg: '#1a0f16', card: '#26151f', text: '#fbe9f1', accent: '#ff5d9e', accent2: '#b98aff' } },
     white: { light: { bg: '#fafafa', card: '#ffffff', text: '#111111', accent: '#111111', accent2: '#6b7280' }, dark: { bg: '#0c0c0d', card: '#161618', text: '#f5f5f5', accent: '#f5f5f5', accent2: '#9ca3af' } },
+    // VIP "Fasheekh" looks - surface styling in fasheekh.css
+    neon: { light: { bg: '#eef1ff', card: '#ffffff', text: '#12163a', accent: '#5b3df5', accent2: '#00b8d9' }, dark: { bg: '#070914', card: '#101531', text: '#e8ecff', accent: '#00e5ff', accent2: '#ff2bd6' } },
+    luxury: { light: { bg: '#f7f4ee', card: '#ffffff', text: '#1c1a17', accent: '#1c1a17', accent2: '#b08d57' }, dark: { bg: '#0e0d0b', card: '#191714', text: '#f3eee4', accent: '#d6b46f', accent2: '#f3eee4' } },
+    vibrant: { light: { bg: '#fff4e0', card: '#fffaf0', text: '#2d1606', accent: '#d62828', accent2: '#f4a300' }, dark: { bg: '#1b0f08', card: '#2a1810', text: '#fff1da', accent: '#ff5a3c', accent2: '#2ec4b6' } },
+    // Maison de Luxe collection (VIP) - typography/ornament in luxe.css; fixed palettes (see LUXMODE)
+    onyx: { light: { bg: '#060606', card: '#0f0f0f', text: '#f1ead9', accent: '#c9a45c', accent2: '#e2c98e' }, dark: { bg: '#060606', card: '#0f0f0f', text: '#f1ead9', accent: '#c9a45c', accent2: '#e2c98e' } },
+    ivory: { light: { bg: '#ffffff', card: '#ffffff', text: '#0b0b0b', accent: '#0b0b0b', accent2: '#a88b4f' }, dark: { bg: '#ffffff', card: '#ffffff', text: '#0b0b0b', accent: '#0b0b0b', accent2: '#a88b4f' } },
+    noir: { light: { bg: '#000000', card: '#050505', text: '#ececec', accent: '#e9e9e9', accent2: '#9a9a9a' }, dark: { bg: '#000000', card: '#050505', text: '#ececec', accent: '#e9e9e9', accent2: '#9a9a9a' } },
+    champagne: { light: { bg: '#f6efe3', card: '#fffaf1', text: '#2a2118', accent: '#7a5b2e', accent2: '#c8a96a' }, dark: { bg: '#15110b', card: '#1f1912', text: '#f3ead8', accent: '#d8b676', accent2: '#a98650' } },
+    emerald: { light: { bg: '#06140f', card: '#0c211a', text: '#efe9d6', accent: '#c8a85a', accent2: '#3f8f6e' }, dark: { bg: '#06140f', card: '#0c211a', text: '#efe9d6', accent: '#c8a85a', accent2: '#3f8f6e' } },
+    bordeaux: { light: { bg: '#14070b', card: '#200c12', text: '#f6e8e4', accent: '#d9a38f', accent2: '#9c2a45' }, dark: { bg: '#14070b', card: '#200c12', text: '#f6e8e4', accent: '#d9a38f', accent2: '#9c2a45' } },
+    marble: { light: { bg: '#f6f6f4', card: '#ffffff', text: '#1b1b1b', accent: '#1b1b1b', accent2: '#b49a62' }, dark: { bg: '#f6f6f4', card: '#ffffff', text: '#1b1b1b', accent: '#1b1b1b', accent2: '#b49a62' } },
+    royal: { light: { bg: '#050b1a', card: '#0b1630', text: '#f2ead3', accent: '#d4af37', accent2: '#7f9cd6' }, dark: { bg: '#050b1a', card: '#0b1630', text: '#f2ead3', accent: '#d4af37', accent2: '#7f9cd6' } },
+    // Pro Studio collection (VIP) - venue-type design systems, see pro.css
+    slate: { light: { bg: '#f8fafc', card: '#ffffff', text: '#0f172a', accent: '#2563eb', accent2: '#64748b' }, dark: { bg: '#0b1120', card: '#111a2e', text: '#e2e8f0', accent: '#60a5fa', accent2: '#94a3b8' } },
+    nordic: { light: { bg: '#f5f2ec', card: '#fbf9f5', text: '#2b2a27', accent: '#5f7a62', accent2: '#b89a73' }, dark: { bg: '#141613', card: '#1d201c', text: '#ece8df', accent: '#9bb99e', accent2: '#c9ab84' } },
+    bistro: { light: { bg: '#f6ecd9', card: '#fffdf6', text: '#2b1a14', accent: '#8b1e2d', accent2: '#b8893a' }, dark: { bg: '#f6ecd9', card: '#fffdf6', text: '#2b1a14', accent: '#8b1e2d', accent2: '#b8893a' } },
+    zen: { light: { bg: '#f7f5f0', card: '#f7f5f0', text: '#1a1a1a', accent: '#c8341f', accent2: '#6b6b6b' }, dark: { bg: '#f7f5f0', card: '#f7f5f0', text: '#1a1a1a', accent: '#c8341f', accent2: '#6b6b6b' } },
+    trattoria: { light: { bg: '#f8ecd2', card: '#fffaf0', text: '#2f1d12', accent: '#b24a2b', accent2: '#6b7a3a' }, dark: { bg: '#f8ecd2', card: '#fffaf0', text: '#2f1d12', accent: '#b24a2b', accent2: '#6b7a3a' } },
+    roast: { light: { bg: '#e9dcc3', card: '#f3e9d4', text: '#2a1a0e', accent: '#c4551a', accent2: '#5a3a1e' }, dark: { bg: '#17110c', card: '#231a12', text: '#f1e4cc', accent: '#f08a3c', accent2: '#c9a679' } },
+    steakhouse: { light: { bg: '#0f0f10', card: '#1b1b1d', text: '#f1ede6', accent: '#e25822', accent2: '#a8a29a' }, dark: { bg: '#0f0f10', card: '#1b1b1d', text: '#f1ede6', accent: '#e25822', accent2: '#a8a29a' } },
+    rooftop: { light: { bg: '#070718', card: '#121232', text: '#ece9ff', accent: '#a78bfa', accent2: '#38bdf8' }, dark: { bg: '#070718', card: '#121232', text: '#ece9ff', accent: '#a78bfa', accent2: '#38bdf8' } },
+    // Signature Dark collection (VIP) - dashboard-grade dark systems, see sig.css
+    aurum: { light: { bg: '#0a0a0a', card: '#141414', text: '#f4eee2', accent: '#d8b673', accent2: '#a8803a' }, dark: { bg: '#0a0a0a', card: '#141414', text: '#f4eee2', accent: '#d8b673', accent2: '#a8803a' } },
+    ember: { light: { bg: '#0a0a0a', card: '#111111', text: '#f5f5f5', accent: '#ff5a1f', accent2: '#ffa24d' }, dark: { bg: '#0a0a0a', card: '#111111', text: '#f5f5f5', accent: '#ff5a1f', accent2: '#ffa24d' } },
+    sunset: { light: { bg: '#0f0b0a', card: '#181210', text: '#fbf1e8', accent: '#ff6a00', accent2: '#a86aa0' }, dark: { bg: '#0f0b0a', card: '#181210', text: '#fbf1e8', accent: '#ff6a00', accent2: '#a86aa0' } },
+    platinum: { light: { bg: '#08090b', card: '#121418', text: '#eef2f7', accent: '#cfd8e4', accent2: '#8d98a6' }, dark: { bg: '#08090b', card: '#121418', text: '#eef2f7', accent: '#cfd8e4', accent2: '#8d98a6' } },
+    rosegold: { light: { bg: '#0c0809', card: '#171011', text: '#f8ebe6', accent: '#ecb7a8', accent2: '#b66f7c' }, dark: { bg: '#0c0809', card: '#171011', text: '#f8ebe6', accent: '#ecb7a8', accent2: '#b66f7c' } },
+    sapphire: { light: { bg: '#050a18', card: '#0c1428', text: '#e6eeff', accent: '#4f8cff', accent2: '#22d3ee' }, dark: { bg: '#050a18', card: '#0c1428', text: '#e6eeff', accent: '#4f8cff', accent2: '#22d3ee' } },
+    jade: { light: { bg: '#040b09', card: '#0a1512', text: '#e6f6ef', accent: '#34d399', accent2: '#059669' }, dark: { bg: '#040b09', card: '#0a1512', text: '#e6f6ef', accent: '#34d399', accent2: '#059669' } },
+    amethyst: { light: { bg: '#08050f', card: '#130d20', text: '#f1e9ff', accent: '#a78bfa', accent2: '#e879f9' }, dark: { bg: '#08050f', card: '#130d20', text: '#f1e9ff', accent: '#a78bfa', accent2: '#e879f9' } },
   },
+  SIG: ['aurum', 'ember', 'sunset', 'platinum', 'rosegold', 'sapphire', 'jade', 'amethyst'],
+  PRO: ['slate', 'nordic', 'bistro', 'zen', 'trattoria', 'roast', 'steakhouse', 'rooftop'],
+  LUX: ['onyx', 'ivory', 'noir', 'champagne', 'emerald', 'bordeaux', 'marble', 'royal'],
+  LUXMODE: { onyx: 'dark', ivory: 'light', noir: 'dark', emerald: 'dark', bordeaux: 'dark', marble: 'light', royal: 'dark', bistro: 'light', zen: 'light', trattoria: 'light', steakhouse: 'dark', rooftop: 'dark', aurum: 'dark', ember: 'dark', sunset: 'dark', platinum: 'dark', rosegold: 'dark', sapphire: 'dark', jade: 'dark', amethyst: 'dark' },   // champagne follows the day/night switch
   isDark() { return document.documentElement.dataset.dark === '1'; },
   applyTheme() {
     const s = (App.config && App.config.settings) || { theme: 'bloom', lang: 'en' };
     App.lang = App.ls('lang') || s.lang || 'en';
+    if (App.langs && !App.langs().includes(App.lang)) App.lang = App.langs()[0];
     let mode = App.ls('mode');
     if (mode !== 'light' && mode !== 'dark') mode = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     const skin = App.skinChoice(), maison = skin !== 'default';
+    const _n = s.theme === 'dark' ? 'espresso' : s.theme, lux = App.LUX.concat(App.PRO, App.SIG).includes(_n) && !(App.config && App.config.features && App.config.features.themes === false) && !maison;
+    if (lux && App.LUXMODE[_n]) mode = App.LUXMODE[_n];
     if (maison) mode = skin === 'maison-light' ? 'light' : 'dark';
-    const name = s.theme === 'dark' ? 'espresso' : s.theme;
+    let name = s.theme === 'dark' ? 'espresso' : s.theme;
+    const FLV = ['neon', 'luxury', 'vibrant'].concat(App.LUX, App.PRO, App.SIG);
+    if (FLV.includes(name) && App.config && App.config.features && App.config.features.themes === false) name = 'bloom';   // premium looks need the VIP tier
     const lum = (h) => { const n = parseInt(h.slice(1), 16); return ((n >> 16) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114) / 255; };
     let p;
     if (name === 'custom' && s.palette) {
@@ -111,6 +151,7 @@ const App = {
       set('--shadow', dark ? '0 14px 40px -14px rgba(0,0,0,.7)' : '0 14px 40px -16px rgba(60,45,20,.35)');
     }
     r.dataset.dark = dark ? '1' : '0';
+    if (FLV.includes(name) && !maison) { r.dataset.flavor = name; const isL = App.LUX.includes(name), isP = App.PRO.includes(name), isS = App.SIG.includes(name), fid = isL ? 'lux-css' : isP ? 'pro-css' : isS ? 'sig-css' : 'flv-css'; if (isS) r.dataset.sig = '1'; else delete r.dataset.sig; if (isL) r.dataset.lux = '1'; else delete r.dataset.lux; if (isP) r.dataset.pro = '1'; else delete r.dataset.pro; if (App.LUXMODE[name]) r.dataset.luxLock = '1'; else delete r.dataset.luxLock; if (!document.getElementById(fid)) { const l = document.createElement('link'); l.id = fid; l.rel = 'stylesheet'; l.href = isL ? '/luxe.css' : isP ? '/pro.css' : isS ? '/sig.css' : '/fasheekh.css'; document.head.appendChild(l); } } else { delete r.dataset.flavor; delete r.dataset.lux; delete r.dataset.pro; delete r.dataset.sig; delete r.dataset.luxLock; }
     r.lang = App.lang; r.dir = App.lang === 'ar' ? 'rtl' : 'ltr';
     document.querySelectorAll('[data-i]').forEach((el) => (el.textContent = App.tr(el.dataset.i)));
   },
@@ -147,10 +188,14 @@ const App = {
     });
   },
   toggleMode(ev) { const sk = App.skinChoice(); if (sk !== 'default') return App.setSkin(sk === 'maison-dark' ? 'maison-light' : 'maison-dark', ev); App.transition(() => { App.ls('mode', App.isDark() ? 'light' : 'dark'); App.applyTheme(); App.handlers.render && App.handlers.render(); }, ev); },
-  toggleLang(ev) { App.transition(() => { App.ls('lang', App.lang === 'ar' ? 'en' : 'ar'); App.applyTheme(); App.handlers.render && App.handlers.render(); }, ev); },
+  // en -> Egyptian Ammiya (ar) -> Franco (fr); the Basic plan has a single language (the café's default)
+  langs() { const f = App.config && App.config.features, def = (App.config && App.config.settings.lang) || 'en'; return f && f.trilingual === false ? [def] : ['en', 'ar', 'fr']; },
+  nextLang() { const l = App.langs(), i = l.indexOf(App.lang); return l[(i + 1) % l.length]; },
+  langLabel(code) { return { en: 'EN', ar: 'عربي', fr: 'Franco' }[code] || code; },
+  toggleLang(ev) { if (App.langs().length < 2) return; App.transition(() => { App.ls('lang', App.nextLang()); App.applyTheme(); App.handlers.render && App.handlers.render(); }, ev); },
 
   // the owner's token also opens the captain and kitchen screens; a captain/kitchen token only opens its own
-  tok(role) { const r = role || App.authRole, k = (x) => `tok:${App.slug || '_'}:${x}`; return App.ls(k(r)) || (r === 'captain' || r === 'kitchen' ? App.ls(k('admin')) : null); },
+  tok(role) { const r = role || App.authRole, k = (x) => `tok:${App.slug || '_'}:${x}`; return App.ls(k(r)) || (r === 'captain' || r === 'kitchen' || r === 'cashier' ? App.ls(k('admin')) : null); },
   logout() { const k = (x) => `tok:${App.slug || '_'}:${x}`; App.ls(k(App.authRole), ''); if (App.authRole !== 'admin' && App.authRole !== 'super') App.ls(k('admin'), ''); location.reload(); },
   // switch between the role screens of this restaurant without typing addresses
   roleMenu(ev) {
@@ -159,7 +204,7 @@ const App = {
     const b = ev && ev.currentTarget ? ev.currentTarget.getBoundingClientRect() : { right: innerWidth - 10, bottom: 56, left: 10 }, base = App.slug ? '/r/' + App.slug : '';
     const m = document.createElement('div'); m.id = 'rolemenu';
     m.style.cssText = `position:fixed;z-index:200;top:${Math.min(b.bottom + 6, innerHeight - 220)}px;${document.dir === 'rtl' || b.left > innerWidth / 2 ? `right:${Math.max(8, innerWidth - b.right)}px` : `left:${Math.max(8, b.left)}px`};min-width:210px;padding:8px;border-radius:16px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:4px`;
-    m.innerHTML = [['admin', '⚙️ Owner / admin'], ['captain', '🧑‍✈️ Captain'], ['kitchen', '🍳 Kitchen']].map(([k, l]) => `<a href="${base}/${k}" style="text-decoration:none;color:inherit;padding:10px 12px;border-radius:12px;background:var(--card2);${App.authRole === k ? 'outline:2px solid var(--accent)' : ''}">${l}${App.authRole === k ? ' ✓' : ''}</a>`).join('');
+    m.innerHTML = [['admin', '⚙️ Owner / admin'], ['captain', '🧑‍✈️ Captain'], ['kitchen', '🍳 Kitchen'], ['cashier', '💵 Cashier']].map(([k, l]) => `<a href="${base}/${k}" style="text-decoration:none;color:inherit;padding:10px 12px;border-radius:12px;background:var(--card2);${App.authRole === k ? 'outline:2px solid var(--accent)' : ''}">${l}${App.authRole === k ? ' ✓' : ''}</a>`).join('');
     document.body.appendChild(m); setTimeout(() => document.addEventListener('click', () => m.remove(), { once: true }), 0);
   },
   loadAuth() {
@@ -173,6 +218,8 @@ const App = {
   async gate(role, go) {
     App.authRole = role;
     if (App.demo) { await App.loadDemo(); return go(); }
+    // the shared showroom café opens without a password when reached from the /demo launcher (?auto=1)
+    if (!App.tok(role) && App.slug === 'showroom' && /[?&]auto=1/.test(location.search)) { try { const r = await fetch(location.origin + '/api/demo/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role }) }); if (r.ok) App.ls('tok:showroom:' + role, (await r.json()).token); } catch {} }
     const t = App.tok(role);
     if (t) { const r = await fetch(`/api/r/${App.slug}/me?role=${role}`); if (r.ok) return go(); if (r.status === 404 || r.status === 403) { document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif">This restaurant is unavailable.</div>'; return; } }
     await App.loadAuth();
@@ -219,7 +266,7 @@ const App = {
   startPolling(joinMsg, handlers, onMsg) {
     const P = (App.poll = { since: -1, chain: Promise.resolve(), timer: null });
     document.body.classList.remove('offline');
-    const every = joinMsg.role === 'captain' ? 2000 : joinMsg.role === 'admin' ? 5000 : 2500;
+    const every = joinMsg.role === 'captain' || joinMsg.role === 'cashier' ? 2000 : joinMsg.role === 'admin' ? 0 : 2500;   // admin: on demand only (see the refresh bar)
     P.call = (msg) => (P.chain = P.chain.then(async () => {   // serialised so actions keep their order
       try {
         const r = await fetch(`/api/r/${App.slug}/rpc`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ join: joinMsg, msg, since: P.since }) });
@@ -235,11 +282,11 @@ const App = {
         const sig = JSON.stringify(j.state);
         App.state = j.state; App.config = j.state.config;
         if (joinMsg.role === 'customer' && j.state.session) joinMsg.fresh = false;
-        if (sig !== P.sig || Date.now() - (P.lastRender || 0) > (joinMsg.role === 'captain' ? 60000 : Infinity)) { P.sig = sig; P.lastRender = Date.now(); onMsg(j.state); }
+        if (sig !== P.sig || Date.now() - (P.lastRender || 0) > (joinMsg.role === 'captain' || joinMsg.role === 'cashier' ? 60000 : Infinity)) { P.sig = sig; P.lastRender = Date.now(); onMsg(j.state); }
       } catch { document.body.classList.add('offline'); }
     }));
-    const tick = () => { clearTimeout(P.timer); if (!document.hidden) P.call(null); P.timer = setTimeout(tick, every); };
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+    const tick = () => { clearTimeout(P.timer); if (!document.hidden) P.call(null); P.timer = every ? setTimeout(tick, every) : null; };
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && every) tick(); });
     tick();
   },
   // who is signed in (from the token) - used to greet staff and label their actions
