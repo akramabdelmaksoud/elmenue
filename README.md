@@ -56,3 +56,7 @@ On iPhone the staff page must be added to the Home Screen first (iOS 16.4+).
 `SUPER_EMAIL` / `SUPER_PASSWORD` (multi-restaurant mode only).
 
 Needs a long-running Node host (WebSockets) — not serverless platforms like Vercel.
+
+## Next release (branch `release/next`)
+
+Eight opt-in features, all off by default and tier-gated: upsell, online payments (Paymob), ETA e-receipts (pre-production only), feedback + Google reviews, coupons / offers / gift cards, plan limits, offline queue for staff apps, shifts + Z-report. Run `npm test` (31 checks, both run modes). See `docs/RELEASE_VERIFICATION.md` for what is proven and `docs/NEEDS_FROM_OWNER.md` for what is waiting on you.

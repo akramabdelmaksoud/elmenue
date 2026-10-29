@@ -55,3 +55,7 @@ Higher tiers include the lower ones. Old plan names still work: `standard→oper
 * Multi-branch groups are linked by a shared group name set by the platform owner; there is no cross-branch menu sync.
 * Waiter "accept / reject guest modification" is covered by the pending-edit window + the Accept button; there is no per-change approval queue.
 * `favicon.ico` is missing (404 in the console, harmless).
+
+## Next release (8 features) — coverage
+
+F1 upsell, F2 online payments (sandbox + Paymob adapter), F3 ETA e-receipts (mock + pre-production; production refused), F4 feedback + Google reviews, F5 coupons / timed offers / gift cards, F6 plan limits, F7 offline queue for staff apps, F8 shifts + Z-report are built, flagged, tier-gated and tested in both run modes. Items not built or not provable without the owner or a device are listed per test id in `RELEASE_VERIFICATION.md` and `NEEDS_FROM_OWNER.md`.

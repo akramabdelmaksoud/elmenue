@@ -119,3 +119,21 @@ Message in (`handle(c, m)`), state out (`snapshotFor`). Roles: `customer`, `capt
 - Rotate the Supabase secret key and any access tokens that were shared in chats.
 - Change the live owner password and the captain PIN; keep secrets only in Vercel env vars.
 - Live QR links need the table key (`?k=`).
+
+## Next-release features (branch `release/next`)
+
+Each is behind a per-venue switch that is OFF by default and gated by tier on the server (`402` + upgrade). Details: `RELEASE_AUDIT.md`, `RELEASE_VERIFICATION.md`, `NEEDS_FROM_OWNER.md`.
+
+| Feature | Switch | Tier | Where |
+|---|---|---|---|
+| Upsell "Add something?" | `settings.upsell.enabled` | Operations | Admin → Reports; guest cart |
+| Online payments | `settings.onlinePay` (`sandbox` / `paymob`) | Operations | `payments.js`, `/pay/*` routes, guest Bill tab |
+| ETA e-receipts (test / pre-production only) | `settings.eta` | Operations | `eta.js`, `/eta/*` routes |
+| Feedback + Google reviews | `settings.fb.enabled` | Operations | Admin → Reports |
+| Coupons, timed offers | `settings.promo` | Operations | Admin → Offers & gift cards |
+| Gift cards | (inside promo) | VIP | cashier sells, Admin lists |
+| Plan limits | always on | all | `features.limitsOf` |
+| Offline queue (staff apps) | `settings.offline.enabled` | Operations | `shared.js` (`App.oq`), `sw.js` |
+| Shifts + Z-report | always on for cashiers | all | cashier app, `/shift*` routes |
+
+Run the tests with `npm test` (starts the real server on a random port twice per feature: WebSocket mode and stateless mode). Test output goes to `A:\Apps and Compilers\_work\tmp`.

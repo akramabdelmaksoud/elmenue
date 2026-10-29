@@ -359,9 +359,8 @@ footer .brand{font-family:var(--display);font-size:2rem;color:var(--gold-hi);dis
     <li>Multi-branch analytics by group</li><li>Member list, manual point adjustments, daily loyalty figures</li>
   </ul></div>
   <div class="panel" id="p4" hidden><ul class="feat">
-    <li class="plan">ETA e-receipts<span class="tag">compliance gate</span></li><li class="plan">Shift close, cash-up and Z-report<span class="tag">partly built, being completed</span></li>
-    <li class="plan">Offline order queue with sync</li><li class="plan">Online card payments</li>
-    <li class="plan">WhatsApp receipts and order sharing</li><li class="plan">Guest feedback, rating dashboard and Google reviews<span class="tag">partly built</span></li>
+    <li class="plan">ETA live (production) submission<span class="tag">needs ETA registration</span></li><li class="plan">First real Paymob payment<span class="tag">needs Paymob account</span></li>
+        <li class="plan">WhatsApp receipts and order sharing</li>
     <li class="plan">Recipe costing and supplier orders</li><li class="plan">Cross-branch menu sync</li>
     <li class="plan">SMS verification for loyalty</li><li class="plan">Automatic kitchen printing</li>
   </ul></div>
@@ -631,20 +630,28 @@ footer .brand{font-family:var(--display);font-size:2rem;color:var(--gold-hi);dis
   <h3 style="margin-bottom:14px">Next release: eight additions</h3>
   <div class="tw"><table>
     <tr><th>Feature</th><th>Tier</th><th>Build effort</th><th>Needs from you</th><th>Status</th></tr>
-    <tr><td>Plan limits on tables, staff, branches</td><td>All</td><td>2–3 days</td><td>Nothing</td><td><span class="pill med">Planned</span></td></tr>
-    <tr><td>Shift close and Z-report</td><td>All with POS</td><td>3–5 days (part exists)</td><td>A real 80 mm printer to test</td><td><span class="pill med">Planned</span></td></tr>
-    <tr><td>Guest feedback and Google reviews</td><td>Operations+</td><td>2–3 days (part exists)</td><td>Each venue’s Google review link</td><td><span class="pill med">Planned</span></td></tr>
-    <tr><td>Upsell suggestions</td><td>Operations+</td><td>3–4 days</td><td>Nothing</td><td><span class="pill med">Planned</span></td></tr>
-    <tr><td>Coupons, timed offers, gift cards</td><td>Operations+ / gift cards VIP</td><td>6–8 days</td><td>Gift card amounts, stacking rules</td><td><span class="pill med">Planned</span></td></tr>
-    <tr><td>Offline order queue for staff</td><td>Operations+</td><td>5–7 days</td><td>Phones and tablet for testing</td><td><span class="pill med">Planned</span></td></tr>
-    <tr><td>Card and wallet payment at the table</td><td>Operations+</td><td>7–10 days</td><td>Paymob account, sandbox and live keys</td><td><span class="pill med">Planned</span></td></tr>
-    <tr><td>ETA e-receipts</td><td>Operations+</td><td>15–25 days</td><td>ETA registration and credentials</td><td><span class="pill med">Planned</span></td></tr>
+    <tr><td>Plan limits on tables, staff, branches</td><td>All</td><td>2–3 days</td><td>Nothing</td><td><span class="pill low">Built</span></td></tr>
+    <tr><td>Shift close and Z-report</td><td>All with POS</td><td>3–5 days (part exists)</td><td>A real 80 mm printer to test</td><td><span class="pill low">Built</span></td></tr>
+    <tr><td>Guest feedback and Google reviews</td><td>Operations+</td><td>2–3 days (part exists)</td><td>Each venue’s Google review link</td><td><span class="pill low">Built</span></td></tr>
+    <tr><td>Upsell suggestions</td><td>Operations+</td><td>3–4 days</td><td>Nothing</td><td><span class="pill low">Built</span></td></tr>
+    <tr><td>Coupons, timed offers, gift cards</td><td>Operations+ / gift cards VIP</td><td>6–8 days</td><td>Gift card amounts, stacking rules</td><td><span class="pill low">Built</span></td></tr>
+    <tr><td>Offline order queue for staff</td><td>Operations+</td><td>5–7 days</td><td>Phones and tablet for testing</td><td><span class="pill low">Built</span></td></tr>
+    <tr><td>Card and wallet payment at the table</td><td>Operations+</td><td>7–10 days</td><td>Paymob account, sandbox and live keys</td><td><span class="pill low">Built · live payment blocked</span></td></tr>
+    <tr><td>ETA e-receipts</td><td>Operations+</td><td>15–25 days</td><td>ETA registration and credentials</td><td><span class="pill low">Built · pre-production blocked</span></td></tr>
   </table></div>
   <p class="muted" style="font-size:.88rem;margin-top:12px">Effort is my estimate of working days with Claude Code and testing, not a promise. WhatsApp features are deliberately left out of this release. Every feature ships switched off for existing venues and is enabled one pilot at a time.</p>
 
   <h3 style="margin:48px 0 14px">Release log</h3>
   <div class="tw"><table>
     <tr><th>Date</th><th>Feature</th><th>Tier</th><th>Status</th><th>What changed</th><th>Tests passed</th></tr>
+    <tr><td>29 Oct 2026</td><td>F6 Plan limits</td><td>All</td><td><span class="pill low">Built</span></td><td>Tables, staff and branches limits per tier, super override, usage bars; existing venues over a limit keep working</td><td>3 checks, both run modes</td></tr>
+    <tr><td>29 Oct 2026</td><td>F8 Shift close and Z-report</td><td>All with POS</td><td><span class="pill low">Built</span></td><td>Open with float, paid in/out, X and Z reports, variance, sequential Z numbers, CSV</td><td>2 checks, both run modes</td></tr>
+    <tr><td>29 Oct 2026</td><td>F4 Feedback and Google reviews</td><td>Operations</td><td><span class="pill low">Built</span></td><td>One rating per guest per visit, Google link for 4-5 stars, private alerts for 1-3, dashboard, CSV</td><td>2 checks, both run modes</td></tr>
+    <tr><td>29 Oct 2026</td><td>F1 Upsell suggestions</td><td>Operations</td><td><span class="pill low">Built</span></td><td>Owner pairings then best sellers, metrics, CSV, non-destructive clear</td><td>2 checks, both run modes</td></tr>
+    <tr><td>29 Oct 2026</td><td>F5 Coupons, timed offers, gift cards</td><td>Operations / VIP</td><td><span class="pill low">Built</span></td><td>Codes, happy-hour offers, gift cards, stacking switch, liability report; per-phone and item scope not built</td><td>3 checks, both run modes</td></tr>
+    <tr><td>29 Oct 2026</td><td>F7 Offline order queue</td><td>Operations</td><td><span class="pill low">Built</span></td><td>Staff actions saved on the device and replayed once; payments never queued; browser queue still needs a device test</td><td>3 checks, both run modes</td></tr>
+    <tr><td>29 Oct 2026</td><td>F2 Online card and wallet payments</td><td>Operations</td><td><span class="pill low">Built</span></td><td>Sandbox gateway and Paymob adapter, signed idempotent webhook, split bills; real payment blocked on a Paymob account</td><td>4 checks, both run modes</td></tr>
+    <tr><td>29 Oct 2026</td><td>F3 ETA e-receipts</td><td>Operations</td><td><span class="pill low">Built</span></td><td>Receipt builder, UUID chain, durable retry queue, export, QR; pre-production and production blocked on registration</td><td>4 checks, both run modes</td></tr>
     <tr><td>29 Oct 2026</td><td>Release prompt and test plan</td><td>–</td><td><span class="pill low">Ready</span></td><td>Build prompt, 90+ test cases and the PDF rebuild script written; nothing built yet</td><td>–</td></tr>
   </table></div>
 </div></section>
@@ -765,8 +772,8 @@ footer .brand{font-family:var(--display);font-size:2rem;color:var(--gold-hi);dis
   draw('month');
   // plan banners
   var F_BASIC=['Digital menu with six layouts and category photos','Table QR codes with a secret table key','Printable QR table stands','Instant micro-services: water, napkins, cutlery, call waiter','Sound alert with the exact table number','Menu admin: categories, items, photos, sold-out in one tap','Dietary tags and timed categories','Excel menu import and bulk photo upload','Home screen: branding, promotions, Wi-Fi tap-to-copy','Default language of your choice','Basic analytics','Daily off-site backups'];
-  var F_OPS=['Guest ordering with a shared table cart','Review screen and “add more items” loop','Pending window, then server-enforced kitchen lock','Party size and table host','Waiter app: floor map, zone list, tickets','Push alerts and installable app','Kitchen display by station with timers','Ready alerts to waiter and guest','Staff POS ordering at any table','Takeaway and delivery tickets','Discounts with a captain cap, voids with a reason','Cash, card or mixed payment, tips, change','80 mm receipt print and reprint','Split bill: self, table or custom','Move and merge tables, reservations','Floor-plan editor with zones','Inventory: counts, low-stock, waste, movement log','English, Egyptian Ammiya and Franco','Staff PIN accounts and roles','Full analytics with CSV export per block','Excel reports, order history, sales by staff, profit estimate','Audit trail and full backup export'];
-  var F_VIP=['Loyalty card by phone number','EGP-to-points and redemption ratios you set','Member list and manual point adjustments','AI photo menu scan','Admin AI copilot','27 premium themes incl. Dark Neon Glass and Minimalist Luxury','Multi-branch analytics by group','Custom domain for the venue','Priority WhatsApp support','Monthly owner report (planned)'];
+  var F_OPS=['Guest ordering with a shared table cart','Review screen and “add more items” loop','Pending window, then server-enforced kitchen lock','Party size and table host','Waiter app: floor map, zone list, tickets','Push alerts and installable app','Kitchen display by station with timers','Ready alerts to waiter and guest','Staff POS ordering at any table','Takeaway and delivery tickets','Discounts with a captain cap, voids with a reason','Cash, card or mixed payment, tips, change','80 mm receipt print and reprint','Split bill: self, table or custom','Move and merge tables, reservations','Floor-plan editor with zones','Inventory: counts, low-stock, waste, movement log','English, Egyptian Ammiya and Franco','Staff PIN accounts and roles','Full analytics with CSV export per block','Excel reports, order history, sales by staff, profit estimate','Audit trail and full backup export','Upsell suggestions in the guest cart','Guest feedback with Google review link','Coupons and timed offers','Online card / wallet payment (Paymob)','ETA e-receipts (test and pre-production)','Shift close, X and Z reports','Offline order queue for staff apps','Plan limits per tier'];
+  var F_VIP=['Loyalty card by phone number','EGP-to-points and redemption ratios you set','Member list and manual point adjustments','AI photo menu scan','Admin AI copilot','27 premium themes incl. Dark Neon Glass and Minimalist Luxury','Multi-branch analytics by group','Custom domain for the venue','Priority WhatsApp support','Gift cards','Monthly owner report (planned)'];
   var BN=[
     {c:'basic',t:'Tier one',n:'Basic QR Menu',f:'A beautiful scan-only menu that also calls the waiter. For kiosks, takeaways and small cafés.',p:'450',q:'405',y:'360',lim:'Proposed limits: 1 branch · up to 10 tables · 1 owner login. Guests cannot order in this tier.',own:F_BASIC,inh:[]},
     {c:'ops',t:'Tier two',n:'Operations',f:'The full café floor: guests order, waiters accept, the kitchen cooks, the till closes. For cafés and restaurants of 10–30 tables.',p:'950',q:'855',y:'760',lim:'Proposed limits: 1 branch · up to 30 tables · 10 staff accounts.',own:F_OPS,inh:F_BASIC,rib:'Core plan'},
