@@ -1,5 +1,5 @@
 // Persistence: Supabase REST (SUPABASE_URL + SUPABASE_SECRET_KEY), Postgres (DATABASE_URL), or local JSON files.
-// One JSON document per tenant.
+// One JSON document per tenant. Rows whose id starts with "aux:" hold history and image blobs (never tenants).
 const fs = require('fs');
 const path = require('path');
 const DIR = path.join(process.env.DATA_DIR || path.join(__dirname, 'data'), 'tenants');
@@ -27,8 +27,12 @@ async function init() {
     console.log('  storage: Supabase');
   } else if (process.env.DATABASE_URL) {
     const { Pool } = require('pg');
-    pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.PGSSL === 'off' ? false : { rejectUnauthorized: false } });
-    await pool.query('create table if not exists tenants (id text primary key, doc jsonb not null, updated_at timestamptz default now())');
+    // PGSSL=off (local/dev) | PGSSL=verify (verify the server certificate) | default: encrypted, certificate not verified (works with Supabase poolers)
+    const ssl = process.env.PGSSL === 'off' ? false : { rejectUnauthorized: process.env.PGSSL === 'verify' };
+    pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl, max: +process.env.PG_POOL_MAX || 8, idleTimeoutMillis: 30000, connectionTimeoutMillis: 10000 });
+    pool.on('error', (e) => console.error('pg pool error', e.message));   // an idle connection dropping must not crash the process
+    await pool.query('create table if not exists tenants (id text primary key, doc jsonb not null, ver bigint not null default 0, updated_at timestamptz default now())');
+    await pool.query('alter table tenants add column if not exists ver bigint not null default 0');
     console.log('  storage: Postgres');
   } else { fs.mkdirSync(DIR, { recursive: true }); console.log('  storage: local files (data/tenants) — not suitable for hosting'); }
 }
@@ -39,20 +43,47 @@ async function listRecs() {
   try { return fs.readdirSync(DIR).filter((f) => /^r_.*\.json$/.test(f)).map((f) => { try { return JSON.parse(fs.readFileSync(path.join(DIR, f), 'utf8')); } catch { return null; } }).filter(Boolean); } catch { return []; }
 }
 async function loadAll() {
-  if (sb) return ((await rest('GET', '?select=doc')) || []).map((r) => r.doc);
-  if (pool) return (await pool.query('select doc from tenants')).rows.map((r) => r.doc);
+  if (sb) return ((await rest('GET', '?select=doc&id=not.like.aux:*')) || []).map((r) => r.doc);
+  if (pool) return (await pool.query("select doc from tenants where id not like 'aux:%'")).rows.map((r) => r.doc);
   return fs.readdirSync(DIR).filter((f) => f.endsWith('.json')).map((f) => { try { return JSON.parse(fs.readFileSync(path.join(DIR, f), 'utf8')); } catch { return null; } }).filter(Boolean);
 }
-const timers = {};
-function save(rec) {
-  clearTimeout(timers[rec.id]);
-  timers[rec.id] = setTimeout(() => {
-    if (sb) rest('POST', '', { id: rec.id, doc: rec, updated_at: new Date().toISOString() }, { Prefer: 'resolution=merge-duplicates,return=minimal' }).catch((e) => console.error('save failed', e.message));
-    else if (pool) pool.query('insert into tenants (id, doc, updated_at) values ($1,$2,now()) on conflict (id) do update set doc=$2, updated_at=now()', [rec.id, JSON.stringify(rec)]).catch((e) => console.error('save failed', e.message));
-    else fs.writeFile(path.join(DIR, rec.id + '.json'), JSON.stringify(rec), () => {});
-  }, 1500);
+
+// Saves are debounced per tenant, written one at a time per tenant (an older write can never land after a newer one),
+// retried on failure, and flush() lets a shutdown wait until everything is on disk / in the database.
+const timers = {}, queued = {}, chain = {};
+const SAVE_MS = +process.env.SAVE_DEBOUNCE_MS || 1500;
+async function write(rec) {
+  if (sb) return rest('POST', '', { id: rec.id, doc: rec, updated_at: new Date().toISOString() }, { Prefer: 'resolution=merge-duplicates,return=minimal' });
+  if (pool) return pool.query('insert into tenants (id, doc, updated_at) values ($1,$2,now()) on conflict (id) do update set doc=$2, updated_at=now()', [rec.id, JSON.stringify(rec)]);
+  const f = path.join(DIR, rec.id + '.json'); await fs.promises.writeFile(f + '.tmp', JSON.stringify(rec)); await fs.promises.rename(f + '.tmp', f);
 }
+function run(id) {
+  const rec = queued[id]; if (!rec) return chain[id] || Promise.resolve();
+  delete queued[id]; clearTimeout(timers[id]); delete timers[id];
+  return (chain[id] = (chain[id] || Promise.resolve()).then(async () => {
+    for (let i = 0; ; i++) {
+      try { return await write(rec); }
+      catch (e) {
+        console.error('save failed', rec.id, e.message);
+        if (i >= 3) { if (!queued[id]) { queued[id] = rec; timers[id] = setTimeout(() => run(id), 15000); } return; }   // keep it queued, try again in 15 s
+        await new Promise((r) => setTimeout(r, 500 * 2 ** i));
+      }
+    }
+  }));
+}
+function save(rec) {
+  queued[rec.id] = rec; clearTimeout(timers[rec.id]);
+  timers[rec.id] = setTimeout(() => run(rec.id), SAVE_MS);
+}
+async function flush() { await Promise.all(Object.keys(queued).map(run)); await Promise.all(Object.values(chain)); }
+async function ping() {
+  if (sb) await rest('GET', '?select=id&limit=1'); else if (pool) await pool.query('select 1'); else fs.accessSync(DIR, fs.constants.W_OK);
+}
+const mode = () => (sb ? 'supabase' : pool ? 'postgres' : 'files');
+async function close() { await flush(); if (pool) await pool.end().catch(() => {}); }
+
 async function remove(id) {
+  clearTimeout(timers[id]); delete timers[id]; delete queued[id];
   if (sb) return rest('DELETE', `?id=eq.${encodeURIComponent(id)}`, null, { Prefer: 'return=minimal' });
   if (pool) await pool.query('delete from tenants where id=$1', [id]);
   else fs.rmSync(path.join(DIR, id + '.json'), { force: true });
@@ -63,6 +94,7 @@ const AUX = path.join(process.env.DATA_DIR || path.join(__dirname, 'data'), 'aux
 const safe = (k) => String(k).replace(/[^a-zA-Z0-9._-]/g, '_');
 async function getRec(id) {
   if (sb) { const r = await rest('GET', `?id=eq.${encodeURIComponent(id)}&select=doc,ver`); return r && r[0] ? { rec: r[0].doc, ver: Number(r[0].ver) || 0 } : null; }
+  if (pool) { const r = (await pool.query('select doc, ver from tenants where id=$1', [id])).rows[0]; return r ? { rec: r.doc, ver: Number(r.ver) || 0 } : null; }
   try { const d = JSON.parse(fs.readFileSync(path.join(DIR, safe(id) + '.json'), 'utf8')); return { rec: d, ver: d._ver || 0 }; } catch { return null; }
 }
 // ver === null creates; otherwise compare-and-swap. Returns false on conflict.
@@ -71,6 +103,10 @@ async function putRec(rec, ver) {
     if (ver === null) { const r = await rest('POST', '', { id: rec.id, doc: rec, ver: 1 }, { Prefer: 'resolution=ignore-duplicates,return=representation' }); return !!(r && r.length); }
     const r = await rest('PATCH', `?id=eq.${encodeURIComponent(rec.id)}&ver=eq.${ver}`, { doc: rec, ver: ver + 1, updated_at: new Date().toISOString() }, { Prefer: 'return=representation' });
     return !!(r && r.length);
+  }
+  if (pool) {
+    if (ver === null) return (await pool.query('insert into tenants (id, doc, ver) values ($1,$2,1) on conflict (id) do nothing', [rec.id, JSON.stringify(rec)])).rowCount > 0;
+    return (await pool.query('update tenants set doc=$2, ver=ver+1, updated_at=now() where id=$1 and ver=$3', [rec.id, JSON.stringify(rec), ver])).rowCount > 0;
   }
   fs.mkdirSync(DIR, { recursive: true });
   const f = path.join(DIR, safe(rec.id) + '.json');
@@ -81,10 +117,12 @@ async function putRec(rec, ver) {
 }
 async function getAux(key) {
   if (sb) { const r = await rest('GET', `?id=eq.${encodeURIComponent('aux:' + key)}&select=doc`); return r && r[0] ? r[0].doc : null; }
+  if (pool) { const r = (await pool.query('select doc from tenants where id=$1', ['aux:' + key])).rows[0]; return r ? r.doc : null; }
   try { return JSON.parse(fs.readFileSync(path.join(AUX, safe(key) + '.json'), 'utf8')); } catch { return null; }
 }
 async function putAux(key, doc) {
   if (sb) return rest('POST', '', { id: 'aux:' + key, doc }, { Prefer: 'resolution=merge-duplicates,return=minimal' });
+  if (pool) { await pool.query('insert into tenants (id, doc, updated_at) values ($1,$2,now()) on conflict (id) do update set doc=$2, updated_at=now()', ['aux:' + key, JSON.stringify(doc)]); return; }
   fs.mkdirSync(AUX, { recursive: true }); fs.writeFileSync(path.join(AUX, safe(key) + '.json'), JSON.stringify(doc));
 }
 async function getHist(id) { const d = await getAux('hist-' + id); return (d && d.rows) || []; }
@@ -92,4 +130,4 @@ async function clearHist(id) { await putAux('hist-' + id, { rows: [] }); }
 async function appendHist(id, rows) { if (!rows.length) return; const cur = await getHist(id); await putAux('hist-' + id, { rows: cur.concat(rows).slice(-5000) }); }
 async function putBlob(key, dataUrl) { await putAux('blob-' + key, { d: dataUrl }); }
 async function getBlob(key) { const d = await getAux('blob-' + key); return d ? d.d : null; }
-module.exports = { init, listRecs, loadAll, save, remove, getRec, putRec, getHist, clearHist, appendHist, putBlob, getBlob };
+module.exports = { init, flush, ping, mode, close, listRecs, loadAll, save, remove, getRec, putRec, getHist, clearHist, appendHist, putBlob, getBlob };

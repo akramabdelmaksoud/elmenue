@@ -77,10 +77,12 @@ const OQ = {
   },
   start(j) { OQ.role = j.role; OQ.join = { role: j.role, token: j.token }; if (OQ.on !== undefined && (j.role === 'captain' || j.role === 'cashier') && !OQ.t) { OQ.t = setInterval(() => { OQ.flush(); OQ.bar(); }, 4000); addEventListener('online', () => OQ.flush()); addEventListener('offline', OQ.bar); OQ.flush(); } },
 };
+// set by the server when the page is served on <slug>.domain or a custom domain (no /r/<slug> prefix in the URL)
+const HOSTSLUG = (() => { const m = document.querySelector('meta[name="elm-slug"]'); return m ? m.content : null; })();
 const App = {
   demo: DEMO,
   loadDemo() { return (App._dl ||= new Promise((res) => { const s = document.createElement('script'); s.src = '/demo.js'; s.onload = () => App.demoReady().then(res); s.onerror = res; document.head.appendChild(s); })); },
-  slug: (location.pathname.match(/^\/r\/([^/]+)/) || [])[1] || null, authRole: null,
+  slug: (location.pathname.match(/^\/r\/([^/]+)/) || [])[1] || HOSTSLUG || null, base: HOSTSLUG ? '' : null, authRole: null,
   config: null, ws: null, lang: null, mode: null, handlers: {},
   tr(k) { return (DICT[App.lang] && DICT[App.lang][k]) || DICT.en[k] || k; },
   nm(o) { return App.lang === 'ar' && o.name_ar ? o.name_ar : o.name; },
@@ -242,7 +244,7 @@ const App = {
   roleMenu(ev) {
     ev && ev.stopPropagation && ev.stopPropagation();
     const old = document.getElementById('rolemenu'); if (old) return old.remove();
-    const b = ev && ev.currentTarget ? ev.currentTarget.getBoundingClientRect() : { right: innerWidth - 10, bottom: 56, left: 10 }, base = App.slug ? '/r/' + App.slug : '';
+    const b = ev && ev.currentTarget ? ev.currentTarget.getBoundingClientRect() : { right: innerWidth - 10, bottom: 56, left: 10 }, base = App.slug ? (App.base === '' ? '' : '/r/' + App.slug) : '';
     const m = document.createElement('div'); m.id = 'rolemenu';
     m.style.cssText = `position:fixed;z-index:200;top:${Math.min(b.bottom + 6, innerHeight - 220)}px;${document.dir === 'rtl' || b.left > innerWidth / 2 ? `right:${Math.max(8, innerWidth - b.right)}px` : `left:${Math.max(8, b.left)}px`};min-width:210px;padding:8px;border-radius:16px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:4px`;
     m.innerHTML = [['admin', '⚙️ Owner / admin'], ['captain', '🧑‍✈️ Captain'], ['kitchen', '🍳 Kitchen'], ['cashier', '💵 Cashier']].map(([k, l]) => `<a href="${base}/${k}" style="text-decoration:none;color:inherit;padding:10px 12px;border-radius:12px;background:var(--card2);${App.authRole === k ? 'outline:2px solid var(--accent)' : ''}">${l}${App.authRole === k ? ' ✓' : ''}</a>`).join('');

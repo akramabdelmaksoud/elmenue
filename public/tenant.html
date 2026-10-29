@@ -7,6 +7,6 @@
 <script>
 fetch('/api/config').then(r => r.ok ? r.json() : Promise.reject()).then(c => {
   App.config = c; App.applyTheme(); document.getElementById('n').textContent = c.settings.name; document.title = c.settings.name;
-  document.getElementById('cap').href = '/r/' + App.slug + '/captain'; document.getElementById('adm').href = '/r/' + App.slug + '/admin'; document.getElementById('kit').href = '/r/' + App.slug + '/kitchen';
+  const B = App.base === '' ? '' : '/r/' + App.slug; document.getElementById('cap').href = B + '/captain'; document.getElementById('adm').href = B + '/admin'; document.getElementById('kit').href = B + '/kitchen';
 }).catch(() => { document.querySelector('.c').innerHTML = '<h2>Restaurant not found or suspended</h2>'; });
 </script></body></html>
