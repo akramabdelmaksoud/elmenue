@@ -1,0 +1,840 @@
+<title>elmenue Master Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&family=Amiri:wght@400;700&display=swap">
+<style>
+/* Layout: dark editorial brochure. Cover with thesis, sticky chapter nav, alternating full-width bands, gold hairlines, interactive tier tabs, pricing toggle and a break-even calculator. */
+:root{
+  --ink:#0c0f0d; --panel:#131814; --panel2:#18201b; --line:rgba(201,169,106,.28); --line-soft:rgba(239,233,220,.10);
+  --gold:#c9a96a; --gold-hi:#ecd7a6; --ivory:#efe9dc; --muted:#a29f90; --emerald:#2f6b57; --ok:#7fb69a; --warn:#d9a35b; --bad:#d27a6a;
+  --display:'Cormorant Garamond','Times New Roman',serif; --body:'Jost','Helvetica Neue',Arial,sans-serif; --arabic:'Amiri','Times New Roman',serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--ink);color:var(--ivory);font-family:var(--body);font-weight:300;font-size:17px;line-height:1.65;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:var(--ink)}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);font-weight:500;line-height:1.08;margin:0;text-wrap:balance}
+h2{font-size:clamp(2.1rem,5vw,3.4rem);letter-spacing:-.005em}
+h3{font-size:1.55rem;color:var(--gold-hi)}
+p{margin:0 0 1em;max-width:68ch}
+a{color:var(--gold-hi)}
+.eyebrow{font-size:.74rem;letter-spacing:.28em;text-transform:uppercase;color:var(--gold);font-weight:500;margin-bottom:14px;display:block}
+.lede{font-family:var(--display);font-size:clamp(1.3rem,2.4vw,1.75rem);line-height:1.4;color:var(--ivory);font-weight:400;max-width:44ch}
+.gold{color:var(--gold-hi)} .muted{color:var(--muted)} .ar{font-family:var(--arabic)}
+:focus-visible{outline:2px solid var(--gold-hi);outline-offset:3px}
+
+/* nav */
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;background:rgba(12,15,13,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line-soft)}
+nav .wrap{display:flex;align-items:center;gap:22px;height:56px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+nav .brand{font-family:var(--display);font-size:1.45rem;color:var(--gold-hi);letter-spacing:.02em;flex:none}
+nav a{font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);text-decoration:none;flex:none;padding:6px 0;border-bottom:1px solid transparent}
+nav a:hover{color:var(--ivory);border-color:var(--gold)}
+
+/* cover */
+.cover{position:relative;padding-block:clamp(56px,9vw,120px) clamp(48px,7vw,90px);background:
+  radial-gradient(900px 420px at 85% -10%,rgba(47,107,87,.32),transparent 60%),
+  radial-gradient(700px 360px at 0% 100%,rgba(201,169,106,.10),transparent 60%),var(--ink);border-bottom:1px solid var(--line)}
+.cover h1{font-size:clamp(3rem,9.5vw,7.4rem);font-weight:400;letter-spacing:-.02em;margin-bottom:22px}
+.cover h1 em{color:var(--gold-hi);font-style:italic}
+.cover .ar{font-size:clamp(1.6rem,4vw,2.4rem);color:var(--gold);margin:0 0 26px;direction:rtl}
+.meta{display:flex;flex-wrap:wrap;gap:12px 36px;margin-top:38px;padding-top:22px;border-top:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.meta b{display:block;color:var(--ivory);font-weight:500;letter-spacing:.06em;font-size:.95rem;text-transform:none;margin-top:3px}
+
+section{padding-block:clamp(56px,8vw,104px);border-bottom:1px solid var(--line-soft)}
+section.alt{background:var(--panel)}
+.head{display:grid;gap:14px;margin-bottom:44px}
+.chap{font-family:var(--display);font-style:italic;color:var(--gold);font-size:1.15rem}
+
+.grid{display:grid;gap:22px}
+.g3{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.card{background:var(--panel2);border:1px solid var(--line-soft);padding:28px;min-width:0}
+section.alt .card{background:var(--ink)}
+.card.gilt{border-color:var(--line);box-shadow:inset 0 0 0 1px rgba(201,169,106,.06)}
+.card h3{margin-bottom:10px}
+.card p:last-child{margin-bottom:0}
+.big{font-family:var(--display);font-size:clamp(2.6rem,6vw,4.2rem);line-height:1;color:var(--gold-hi);font-weight:500}
+.cap{font-size:.74rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-top:8px}
+
+/* tables */
+.tw{overflow-x:auto;border:1px solid var(--line-soft);background:var(--panel2)}
+section.alt .tw{background:var(--ink)}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:.93rem}
+th{font-weight:500;text-align:left;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);padding:14px 18px;border-bottom:1px solid var(--line)}
+td{padding:14px 18px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td:first-child{color:var(--ivory);font-weight:400}
+td{color:#d6d1c3}
+.y{color:var(--ok)} .n{color:#66665c}
+.pill{display:inline-block;font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;padding:3px 10px;border:1px solid currentColor;border-radius:99px;white-space:nowrap}
+.low{color:var(--ok)} .med{color:var(--warn)} .high{color:var(--bad)}
+
+/* tabs */
+.tabs{display:flex;flex-wrap:wrap;gap:0;border-bottom:1px solid var(--line);margin-bottom:28px}
+.tab{appearance:none;background:none;border:0;color:var(--muted);font:500 .78rem var(--body);letter-spacing:.2em;text-transform:uppercase;padding:14px 22px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab[aria-selected=true]{color:var(--gold-hi);border-color:var(--gold-hi)}
+.tab:hover{color:var(--ivory)}
+.panel[hidden]{display:none}
+.feat{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:2px 36px}
+.feat li{padding:11px 0 11px 26px;border-bottom:1px solid var(--line-soft);position:relative}
+.feat li::before{content:"";position:absolute;left:2px;top:21px;width:9px;height:9px;transform:rotate(45deg);background:var(--gold)}
+.feat li.plan::before{background:none;border:1px solid var(--muted)}
+.tag{margin-left:8px;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+/* price */
+.toggle{display:inline-flex;border:1px solid var(--line);margin-bottom:30px}
+.toggle button{appearance:none;background:none;border:0;color:var(--muted);font:500 .76rem var(--body);letter-spacing:.2em;text-transform:uppercase;padding:13px 24px;cursor:pointer}
+.toggle button[aria-pressed=true]{background:var(--gold);color:#17130a}
+.price{font-family:var(--display);font-size:3rem;color:var(--gold-hi);line-height:1;margin:14px 0 4px}
+.price small{font-family:var(--body);font-size:.8rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-left:6px}
+.plist{list-style:none;padding:0;margin:18px 0 0;font-size:.93rem;color:#d6d1c3}
+.plist li{padding:7px 0;border-top:1px solid var(--line-soft)}
+
+/* calculator */
+.calc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;border:1px solid var(--line);background:var(--ink)}
+.calc>div{padding:30px;min-width:0}
+.calc .out{background:var(--panel2);border-left:1px solid var(--line)}
+@media(max-width:760px){.calc{grid-template-columns:1fr}.calc .out{border-left:0;border-top:1px solid var(--line)}}
+label{display:block;font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin:0 0 10px}
+input[type=range]{width:100%;accent-color:var(--gold)}
+select{width:100%;background:var(--panel2);color:var(--ivory);border:1px solid var(--line);padding:12px;font:300 1rem var(--body)}
+.row{display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid var(--line-soft);font-size:.95rem}
+.row b{font-weight:500;font-variant-numeric:tabular-nums}
+.row.total{border-bottom:0;font-size:1.15rem;color:var(--gold-hi)}
+.row.total b{font-family:var(--display);font-size:1.9rem;font-weight:500}
+.bar{height:8px;background:var(--line-soft);margin-top:14px;position:relative}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--gold);transition:width .3s}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+
+/* plan banners */
+.banner{position:relative;display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);border:1px solid var(--line);background:var(--ink);margin-bottom:28px;overflow:hidden}
+.banner .bl{padding:40px 34px;border-right:1px solid var(--line);background:linear-gradient(160deg,rgba(201,169,106,.10),rgba(201,169,106,0) 60%)}
+.banner.vip{border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,169,106,.25),0 30px 80px -40px rgba(201,169,106,.45)}
+.banner.vip .bl{background:linear-gradient(160deg,rgba(47,107,87,.45),rgba(201,169,106,.10) 70%)}
+.banner.ops .bl{background:linear-gradient(160deg,rgba(47,107,87,.28),rgba(201,169,106,.06) 70%)}
+.banner .tier{font-size:.72rem;letter-spacing:.28em;text-transform:uppercase;color:var(--gold)}
+.banner h3{font-size:clamp(2rem,4vw,2.8rem);color:var(--ivory);margin:8px 0 6px}
+.banner .for{color:var(--muted);font-size:.95rem;margin-bottom:22px}
+.banner .pr{font-family:var(--display);font-size:clamp(3rem,6vw,4.4rem);line-height:1;color:var(--gold-hi)}
+.banner .pr small{font-family:var(--body);font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-left:8px}
+.banner .alt-pr{margin:14px 0 0;padding:0;list-style:none;font-size:.9rem;color:#d6d1c3}
+.banner .alt-pr li{padding:6px 0;border-top:1px solid var(--line-soft);display:flex;justify-content:space-between;gap:12px}
+.banner .alt-pr b{font-weight:500;color:var(--gold-hi);font-variant-numeric:tabular-nums}
+.banner .lim{margin-top:18px;font-size:.82rem;color:var(--muted);line-height:1.5}
+.banner .br{padding:34px 36px;min-width:0}
+.banner .br h4{margin:0 0 4px;font:500 .72rem var(--body);letter-spacing:.24em;text-transform:uppercase;color:var(--gold)}
+.banner .cols{list-style:none;margin:14px 0 0;padding:0;columns:2;column-gap:36px}
+.banner .cols li{break-inside:avoid;padding:8px 0 8px 24px;position:relative;font-size:.93rem;border-bottom:1px solid var(--line-soft);color:var(--ivory)}
+.banner .cols li::before{content:"";position:absolute;left:2px;top:16px;width:8px;height:8px;transform:rotate(45deg);background:var(--gold)}
+.banner .cols li.inh{color:#9c9a8c}
+.banner .cols li.inh::before{background:none;border:1px solid #6d6c60}
+.banner .ribbon{position:absolute;top:18px;right:-44px;transform:rotate(35deg);background:var(--gold);color:#17130a;font:600 .66rem var(--body);letter-spacing:.2em;text-transform:uppercase;padding:6px 52px}
+@media(max-width:860px){.banner{grid-template-columns:1fr}.banner .bl{border-right:0;border-bottom:1px solid var(--line)}.banner .cols{columns:1}.banner .br{padding:26px 22px}}
+.legend{display:flex;flex-wrap:wrap;gap:8px 26px;font-size:.82rem;color:var(--muted);margin:0 0 22px}
+.legend i{display:inline-block;width:8px;height:8px;transform:rotate(45deg);background:var(--gold);margin-right:8px}
+.legend i.h{background:none;border:1px solid #6d6c60}
+
+/* model */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:2px;background:var(--line-soft);border:1px solid var(--line-soft);margin:0 0 30px}
+.kpis>div{background:var(--panel2);padding:22px}
+section.alt .kpis>div{background:var(--ink)}
+.kpis .v{font-family:var(--display);font-size:2.3rem;line-height:1;color:var(--gold-hi);font-variant-numeric:tabular-nums}
+.kpis .k{font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-top:8px}
+.kpis .b{font-size:.8rem;color:var(--muted);margin-top:6px}
+.ctrl{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:26px;margin-bottom:30px}
+.ctrl b{color:var(--gold-hi);font-weight:500}
+.svgbox{border:1px solid var(--line-soft);background:var(--panel2);padding:18px;margin-bottom:10px}
+section.alt .svgbox{background:var(--ink)}
+.svgbox svg{width:100%;height:auto;display:block}
+.ax{fill:var(--muted);font:11px var(--body)}
+.cb{fill:var(--gold)}
+.cl{fill:none;stroke:var(--ivory);stroke-width:2}
+.cd{fill:var(--ivory)}
+.cz{stroke:var(--gold);stroke-dasharray:4 4;stroke-width:1}
+.gl{stroke:var(--line-soft);stroke-width:1}
+.sw{display:inline-block;width:12px;height:12px;margin-right:8px;vertical-align:-1px}
+.sw.g{background:var(--gold)} .sw.i{background:var(--ivory);height:2px;vertical-align:4px}
+.pb{display:grid;grid-template-columns:200px minmax(0,1fr) 70px;gap:14px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line-soft);font-size:.92rem}
+.pb .tr{height:8px;background:var(--line-soft);position:relative}
+.pb .tr i{position:absolute;left:0;top:0;bottom:0;background:var(--gold)}
+.pb b{text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+@media(max-width:600px){.pb{grid-template-columns:1fr 60px}.pb .tr{display:none}}
+
+/* journey */
+.journey{counter-reset:s;display:grid;gap:0;border-left:1px solid var(--line);margin-left:10px}
+.step{position:relative;padding:0 0 34px 38px}
+.step::before{content:"";position:absolute;left:-6px;top:8px;width:11px;height:11px;transform:rotate(45deg);background:var(--gold);box-shadow:0 0 0 5px var(--ink)}
+section.alt .step::before{box-shadow:0 0 0 5px var(--panel)}
+.step .wk{font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold)}
+.step h3{font-size:1.5rem;margin:2px 0 6px}
+.step p{margin:0;color:#d6d1c3}
+.step.safe .wk::after{content:"  ·  old process still running";color:var(--ok)}
+
+/* roadmap */
+.rm{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:2px;background:var(--line-soft);border:1px solid var(--line-soft)}
+.rm>div{background:var(--panel2);padding:22px}
+section.alt .rm>div{background:var(--ink)}
+.rm h4{margin:0 0 4px;font-family:var(--display);font-size:1.45rem;font-weight:500;color:var(--gold-hi)}
+.rm .when{font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;display:block}
+.rm ul{margin:0;padding-left:18px;font-size:.9rem;color:#d6d1c3}
+.rm .gate{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:.78rem;color:var(--gold);letter-spacing:.04em}
+
+.callout{border:1px solid var(--line);padding:30px 34px;background:linear-gradient(135deg,rgba(47,107,87,.22),rgba(201,169,106,.05))}
+.callout .lede{max-width:56ch}
+footer{padding-block:60px;text-align:center;color:var(--muted);font-size:.82rem;letter-spacing:.08em}
+footer .brand{font-family:var(--display);font-size:2rem;color:var(--gold-hi);display:block;margin-bottom:6px;letter-spacing:.02em}
+
+@media print{
+  nav,body::before,.toggle,.tabs,.calc input,.calc select{display:none!important}
+  .panel[hidden]{display:block!important}
+  section,.card,.tw,.step,.rm>div{break-inside:avoid}
+  html{scroll-behavior:auto}
+}
+</style>
+
+<nav><div class="wrap">
+  <span class="brand">elmenue</span>
+  <a href="#summary">Summary</a><a href="#market">Market</a><a href="#product">Product</a><a href="#plans">Plans</a><a href="#pricing">Pricing</a><a href="#model">Model</a><a href="#sales">Sales</a><a href="#rollout">Rollout</a><a href="#migration">Migration</a><a href="#study">Study guide</a><a href="#release">Releases</a><a href="#audit">Audit</a><a href="#roadmap">Roadmap</a><a href="#risks">Risks</a>
+</div></nav>
+
+<header class="cover"><div class="wrap">
+  <span class="eyebrow">Business &amp; Development Master Plan</span>
+  <p class="ar">منيو يليق بمكانك</p>
+  <h1>The café, run <em>beautifully.</em></h1>
+  <p class="lede">One system for the menu, the waiter, the kitchen, the till and the numbers. Sold on a monthly plan. Introduced without interrupting a single service.</p>
+  <div class="meta">
+    <div>Prepared<b>29 October 2026</b></div>
+    <div>Market<b>Egypt · cafés &amp; restaurants</b></div>
+    <div>Currency<b>EGP, estimates</b></div>
+    <div>Lead model<b>Monthly subscription</b></div>
+  </div>
+</div></header>
+
+<section id="summary"><div class="wrap">
+  <div class="head"><span class="chap">Chapter one</span><h2>Executive summary</h2></div>
+  <div class="grid g3" style="margin-bottom:34px">
+    <div class="card gilt"><div class="big">350</div><div class="cap">EGP / month · entry QR menu</div></div>
+    <div class="card gilt"><div class="big">3</div><div class="cap">Venues to break even</div></div>
+    <div class="card gilt"><div class="big">0</div><div class="cap">Hardware the venue must buy</div></div>
+  </div>
+  <p class="lede" style="margin-bottom:30px">elmenue is already built. The work now is to sell it, price it clearly and switch each venue over without ever stopping service.</p>
+  <div class="grid g3">
+    <div class="card"><h3>1 · Pricing</h3><p>Lead with a monthly plan from 350 to 1,450 EGP. Keep a one-time licence of 20,000 to 80,000 EGP, plus 12% yearly support, for owners who refuse a subscription.</p></div>
+    <div class="card"><h3>2 · Safety</h3><p>Every venue goes live shadow-first. The old way of working stays beside elmenue until the owner has watched it succeed and signed the handover.</p></div>
+    <div class="card"><h3>3 · Compliance gate</h3><p>Ask each prospect on day one whether they must issue ETA e-receipts. Sell to those who do not, and build or partner for ETA as the first paid feature.</p></div>
+  </div>
+</div></section>
+
+<section id="market" class="alt"><div class="wrap">
+  <div class="head"><span class="chap">Chapter two</span><h2>Market &amp; competitors</h2>
+  <p class="muted">Venues in Egypt already pay monthly for QR menus, cloud POS and online ordering. You are selling into a paid habit. Prices come from vendor pages in your market study and are indicative.</p></div>
+  <h3 style="margin-bottom:14px">Who buys</h3>
+  <div class="tw" style="margin-bottom:40px"><table>
+    <tr><th>Segment</th><th>Size</th><th>Pain</th><th>Best tier</th></tr>
+    <tr><td>Kiosk, takeaway, small café</td><td>up to ~10 tables</td><td>Printed menus, no budget for POS hardware</td><td>Basic</td></tr>
+    <tr><td>Café or casual restaurant</td><td>~10–30 tables</td><td>Overloaded waiters, lost orders, no sales data</td><td>Operations · core target</td></tr>
+    <tr><td>Lounge, large restaurant, small chain</td><td>30+ tables, zones</td><td>Control, loyalty, branch reporting</td><td>VIP</td></tr>
+    <tr><td>Hotels, clubs, food courts</td><td>multi-outlet</td><td>Brand look, reporting</td><td>VIP, custom</td></tr>
+  </table></div>
+  <h3 style="margin-bottom:14px">Competitors &amp; your edge</h3>
+  <div class="tw"><table>
+    <tr><th>Competitor type</th><th>Price seen</th><th>Your edge</th></tr>
+    <tr><td>QR menu only · OrOMenu, Orders Egypt</td><td>100–200 EGP / month</td><td>You add ordering, kitchen, bill split and POS</td></tr>
+    <tr><td>Cloud POS · Foodics, Geidea, Odoo, local</td><td>1,000–5,000 EGP / month + 7,500–22,000 hardware</td><td>Browser only, runs on tablets they own, Arabic first</td></tr>
+    <tr><td>Online ordering · Ordable-type</td><td>28,000–45,000 EGP / year</td><td>They do delivery, you do dine-in</td></tr>
+    <tr><td>Per-order QR · Queno</td><td>Flat fee per order</td><td>Fixed price, no fee growing with sales</td></tr>
+    <tr><td>Dgtera · VeraKit360</td><td>Not published; trial or sales call</td><td>Built for larger operators; you win on price and simplicity for independent cafés</td></tr>
+    <tr><td>Zlenu</td><td>Free plan, paid amounts not shown</td><td>Closest rival: QR menu and ordering beside the cashier. You win on POS, inventory, Franco and the one-time option</td></tr>
+    <tr><td>Besalla</td><td>$50–$150 / month</td><td>Branded app and delivery focus; you do dine-in</td></tr>
+    <tr><td>BIM POS Egypt · contactless menu</td><td>Not public; hotline only</td><td>Menu tied to their POS. Yours works on its own and on any device</td></tr>
+  </table></div>
+  <div class="callout" style="margin-top:28px"><span class="eyebrow">Research result · from their own websites, 29 Oct 2026</span>
+  <p style="margin:0">All five vendors are real and sell in Egypt. Only Foodics, Besalla and Ordable publish prices. Dgtera and VeraKit360 hide prices behind a trial or a sales call, and Zlenu shows plan limits and discounts but not amounts on its site. Where a price is missing it says so below; get a quote as a customer to fill the gap.</p></div>
+
+  <h3 style="margin:48px 0 16px">Competitor teardown</h3>
+  <div class="tw"><table>
+    <tr><th>Vendor</th><th>What it is</th><th>Published price</th><th>How bundles are cut</th></tr>
+    <tr><td>Foodics</td><td>Cloud POS and restaurant management. Egypt phone 15796. Paymob card terminals through Banque Misr.</td><td>Basic 2,848.95–3,019.89 EGP / month<br>Advanced 3,733.67–3,957.69 EGP / month<br>(billed annually; page does not say which figure is which)</td><td>Basic: POS, menu, customers, dashboards, reports, inventory, tables, coupons, promotions. Advanced adds loyalty, API, online ordering website, delivery aggregators, BI. Extras sold as paid add-ons: web cashier, digital receipts, cloud kitchen. Hardware and add-on prices are not shown.</td></tr>
+    <tr><td>Zlenu</td><td>QR menu, table ordering, captain, kitchen display, loyalty, AI menu reading. Not a POS; runs beside the existing cashier. WhatsApp +20 114 388 7000.</td><td>Amounts not shown on the site. Free, Menu, Pro, Premium plans. Quarterly billing 11% off, yearly 22% off. 14-day trial on paid plans.</td><td>Same features on every plan. Plans differ only by limits: Free = 1 branch, 1 user, 20 dishes, 5 tables. Menu = 2 branches, 5 users. Pro = 3 branches, 20 users. Premium = unlimited. Pays by card, wallet or Fawry.</td></tr>
+    <tr><td>Dgtera</td><td>Saudi company, POS, accounting, kiosk, online menu, call centre. Lists Fawry and Geidea integrations; claims 700+ customers.</td><td>Not published. Plans Basic, Advanced, Enterprise; 14-day free trial.</td><td>Website shows an identical 16-feature list for all three plans, so the real difference is likely branches, devices or support. Ask in a demo.</td></tr>
+    <tr><td>VeraKit360</td><td>Full restaurant operating platform by Veragates: POS, KDS, inventory, procurement, food cost, finance, HR, payroll, delivery, loyalty, apps.</td><td>Not published. 15-day free trial.</td><td>Sold by footprint: single branch, 2–5 branches, enterprise, cloud kitchen. No Egypt mention on the site.</td></tr>
+    <tr><td>Besalla</td><td>Branded mobile app, online ordering, self-order, cashier, WhatsApp AI ordering assistant. Based in Riyadh, with Egyptian phone numbers. No commissions.</td><td>Basic $50, Advanced $100, Comprehensive $150 per month (USD).</td><td>Basic: app, ordering, one payment option. Advanced: more payment options, wallets, notifications, basic analytics, loyalty. Comprehensive: advanced analytics, marketing notifications, multi-branch, CRM and API, priority support.</td></tr>
+    <tr><td>Ordable</td><td>Online ordering website and delivery.</td><td>Launch 28,000 EGP / year (2 branches). Scale 45,000 EGP / year (5 branches). No commission.</td><td>Scale adds loyalty, abandoned-cart recovery, popup banners, account manager.</td></tr>
+  </table></div>
+
+  <h3 style="margin:48px 0 16px">How they price, and what to copy</h3>
+  <div class="grid g3">
+    <div class="card gilt"><h3>Foodics anchors the top</h3><p>About 2,850–3,960 EGP a month for the cloud POS, with extras on top. Your Operations tier at 850–1,000 EGP is roughly a quarter to a third of that. Say it as a saving: “about 25,000–35,000 EGP less per year”. Do not claim to replace its POS or tax features.</p></div>
+    <div class="card gilt"><h3>Zlenu is your closest rival</h3><p>It does what you do beside the cashier: QR menu, table ordering, captain, kitchen, loyalty, AI menu scan. It has a free plan, 14-day trials, discounts of 11% and 22% for longer billing, and gates plans by limits, not features. Your Basic tier at 350 EGP must beat a free plan limited to 20 dishes and 5 tables.</p></div>
+    <div class="card gilt"><h3>Everyone else sells to chains</h3><p>Dgtera and VeraKit360 hide prices and sell demos to larger operators. Besalla and Ordable sell branded apps and websites for delivery. A small independent café is least served, and that is where Basic and Operations fit.</p></div>
+  </div>
+
+  <h3 style="margin:48px 0 16px">What this changes in your offer</h3>
+  <div class="tw"><table>
+    <tr><th>Observation</th><th>Change to make</th></tr>
+    <tr><td>Every rival offers a 14 or 15-day free trial</td><td>Match it: 14 days free on a real table, in place of the one-table-only week</td></tr>
+    <tr><td>Zlenu gates by limits (branches, users, dishes, tables)</td><td>Add limits to your tiers too, so a 5-table café fits Basic and a 30-table one needs Operations</td></tr>
+    <tr><td>Zlenu discounts 11% quarterly and 22% yearly</td><td>Offer 10% quarterly and 20% yearly in place of “two months free”, so the comparison looks equal</td></tr>
+    <tr><td>Zlenu has a free plan</td><td>Consider a free tier limited to a few tables and dishes, or keep Basic at 350 EGP and win on ordering, kitchen and Ammiya/Franco</td></tr>
+    <tr><td>Nobody lists a one-time price</td><td>Your one-time licence is a real difference; lead with it only for owners who dislike subscriptions</td></tr>
+    <tr><td>Foodics sells loyalty, API and online ordering only in the Advanced bundle</td><td>Your VIP tier already bundles loyalty, AI scan and copilot at 1,450 EGP; present it as “Foodics Advanced features at less than half the price”, but only for the features you really have</td></tr>
+    <tr><td>Besalla and Ordable charge no commission</td><td>State “no commission, ever” in your pitch</td></tr>
+    <tr><td>Zlenu accepts card, wallet and Fawry for its own subscription</td><td>Offer Fawry, InstaPay and wallet payment for your subscription</td></tr>
+    <tr><td>Foodics and Dgtera integrate Paymob, Fawry, Geidea</td><td>Plan card payments through one of these; it is the most asked-for gap</td></tr>
+  </table></div>
+  <p class="muted" style="margin-top:18px;font-size:.88rem">Sources: <a href="https://www.foodics.com/foodics-pricing-egypt/">Foodics Egypt pricing</a> · <a href="https://zlenu.com">Zlenu</a> · <a href="https://www.dgtera.com">Dgtera</a> · <a href="https://www.dgtera.com/packages">Dgtera packages</a> · <a href="https://verakit360.com">VeraKit360</a> · <a href="https://besalla.com">Besalla</a> · <a href="https://www.itsordable.com/en/egypt/pricing">Ordable Egypt pricing</a>. Prices copied from the vendors’ own pages on 29 Oct 2026 and may change. Foodics prices are quoted as two figures because the page does not label which applies to which billing period.</p>
+  <div class="tw" style="margin-top:28px"><table>
+    <tr><th>Reference price seen</th><th>Figure</th><th>Source status</th></tr>
+    <tr><td>Orders Egypt QR menu</td><td>200 EGP / month · 900 / 6 months · 1,500 / year</td><td>Vendor page</td></tr>
+    <tr><td>Queno</td><td>No subscription, flat fee per completed order</td><td>Vendor page, amount not shown</td></tr>
+    <tr><td>QR plus POS, general estimate</td><td>300–1,500 EGP / month</td><td>Comparison blog</td></tr>
+    <tr><td>Foodics Egypt</td><td>2,849–3,020 EGP / month Basic · 3,734–3,958 EGP / month Advanced</td><td>Vendor page</td></tr>
+  </table></div>
+  <div class="callout" style="margin-top:40px"><span class="eyebrow">Positioning</span>
+  <p class="lede" style="margin:0">Your menu, your waiter, your kitchen screen and your reports, on the phones you already own, in the Arabic your guests speak.</p></div>
+
+  <h3 style="margin:56px 0 14px">The Egyptian market at a glance</h3>
+  <div class="tw"><table>
+    <tr><th>Measure</th><th>Figure</th><th>Source and caution</th></tr>
+    <tr><td>Foodservice market, 2025</td><td>USD 10.4 bn (Mordor) to 12.4 bn (IMARC)</td><td><a href="https://www.mordorintelligence.kr/industry-reports/egypt-foodservice-market">Mordor</a> · <a href="https://www.imarcgroup.com/egypt-foodservice-market">IMARC</a>. The two sources differ by about 20%</td></tr>
+    <tr><td>Growth forecast</td><td>About 15% a year, 2026–2031 (Mordor); USD 11.9 bn in 2026</td><td>Forecast, not actual</td></tr>
+    <tr><td>Coffee shops, 2025</td><td>USD 1.8 bn, about 4.6% a year to 2034. Independent cafés are the largest format</td><td><a href="https://deepmarketinsights.com/vista/insights/coffee-shops-market/egypt">Deep Market Insights</a>. Independents are your target</td></tr>
+    <tr><td>Cloud kitchens</td><td>USD 487 m in 2025, about double by 2031</td><td><a href="https://www.kenresearch.com/egypt-cloud-kitchens-and-virtual-restaurants-market.md">Ken Research</a>. A later upsell, not today’s product</td></tr>
+    <tr><td>Number of outlets</td><td>No reliable current count found. About 18,300 institutions cited for 2022</td><td><a href="https://agriexchange.apeda.gov.in/MarketReport/Reports/Food%20Service%20-%20Hotel%20Restaurant%20Institutional%20Annual_Cairo_Egypt_EG2024-0031.pdf">USDA report</a>, dated. Buy the Euromonitor unit counts or ask CAPMAS</td></tr>
+    <tr><td>Your reachable pool</td><td>20,000 venues with 5+ tables in Cairo, Giza and Alexandria</td><td>Planning assumption, not a statistic. 25 venues is 0.1% of it</td></tr>
+  </table></div>
+
+  <h3 style="margin:48px 0 14px">What is changing in the market</h3>
+  <div class="grid g3">
+    <div class="card"><h3>New entrants</h3><p>Qatar’s DineNORDER announced its Egypt launch in August 2026 with ordering, POS, reservations and inventory. <a href="https://www.wamda.com/index.php/2026/08/qatar-dinenorder-expands-egypt">Wamda</a>. Foreign and Saudi vendors are moving in; being local, Arabic first and fast to support is your defence.</p></div>
+    <div class="card"><h3>Payments are bundled</h3><p>Foodics partnered with Paymob for card terminals in Egypt, GrubTech enrols its venues with Paymob automatically, and Simple Touch added Fawry. <a href="https://www.foodics.com/press/foodics-paymob-partner/">Foodics</a>. Leaders earn from payments, not only software. Plan a gateway partnership.</p></div>
+    <div class="card"><h3>E-receipts</h3><p>The tax authority rolls out electronic receipts by named taxpayer, in waves, and sources disagree on dates. A venue can check whether its registration number is on the authority’s e-receipt inquiry page. <a href="https://invoicedataextraction.com/blog/egypt-e-receipt-requirements">Guide</a>. Check each prospect before you promise anything.</p></div>
+  </div>
+
+  <h3 style="margin:48px 0 14px">How the best operators do it</h3>
+  <div class="tw"><table>
+    <tr><th>Practice</th><th>Who does it</th><th>What you do</th></tr>
+    <tr><td>Core bundle, paid add-ons</td><td>Foodics</td><td>Keep three clean tiers; sell printer setup, cards and design as add-ons</td></tr>
+    <tr><td>Same features, different limits</td><td>Zlenu</td><td>Add table, staff and branch limits so the price follows the venue’s size</td></tr>
+    <tr><td>Free entry plan and 14-day trials</td><td>Zlenu, Dgtera, VeraKit360</td><td>14 days free on a real table; a tiny free tier only if it feeds paid upgrades</td></tr>
+    <tr><td>Discount for paying longer</td><td>Zlenu 11% quarterly, 22% yearly</td><td>10% quarterly, 20% yearly. Cash earlier, churn lower</td></tr>
+    <tr><td>No commission on orders</td><td>Ordable, Besalla</td><td>Say it in every pitch</td></tr>
+    <tr><td>Local payment methods for their own subscription</td><td>Zlenu: card, wallet, Fawry</td><td>Accept Fawry, InstaPay and wallets from day one</td></tr>
+    <tr><td>Named account manager on the top plan</td><td>Ordable Scale</td><td>Priority WhatsApp support on VIP</td></tr>
+    <tr><td>Compliance first</td><td>Foodics, Odoo partners</td><td>ETA e-receipts as your first paid module</td></tr>
+  </table></div>
+</div></section>
+
+<section id="product"><div class="wrap">
+  <div class="head"><span class="chap">Chapter three</span><h2>The product, tier by tier</h2>
+  <p class="muted">Three tiers are enforced in code. Each higher tier includes everything below it. Hollow markers are planned, not built.</p></div>
+  <div class="tabs" role="tablist" id="ptabs">
+    <button class="tab" role="tab" aria-selected="true" data-p="p1">Basic QR Menu</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="p2">Operations</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="p3">VIP · Enterprise &amp; AI</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="p4">Planned</button>
+  </div>
+  <div class="panel" id="p1"><ul class="feat">
+    <li>Digital menu with six layouts and category photos</li><li>Table QR codes carrying a secret table key</li>
+    <li>Instant micro-services: water, napkins, cutlery, call waiter</li><li>Sound alert with the exact table number</li>
+    <li>Menu admin: categories, items, photos, sold-out in one tap</li><li>Dietary tags and timed categories</li>
+    <li>Home screen with branding, promotions and Wi-Fi tap-to-copy</li><li>Guests cannot order in this tier</li>
+  </ul></div>
+  <div class="panel" id="p2" hidden><ul class="feat">
+    <li>Everything in Basic</li><li>Guest ordering with a shared table cart</li>
+    <li>Review screen, then “add more items” loop</li><li>Pending window to edit, then kitchen lock enforced by the server</li>
+    <li>Waiter app: floor map, tickets, accept orders, push alerts</li><li>Kitchen display by station with timers</li>
+    <li>Party size, table host, reservations, move and merge tables</li><li>Staff POS: takeaway and delivery tickets</li>
+    <li>Discounts with a captain cap, voids with a reason</li><li>Cash, card or mixed payment, tips, 80 mm receipt</li>
+    <li>Split the bill: self, table or custom</li><li>Inventory: stock counts, low-stock alerts, waste log</li>
+    <li>English, Egyptian Ammiya and Franco</li><li>Staff PIN accounts, audit trail, Excel and CSV reports</li>
+  </ul></div>
+  <div class="panel" id="p3" hidden><ul class="feat">
+    <li>Everything in Operations</li><li>Loyalty card by phone number</li>
+    <li>EGP-to-points and points-to-EGP ratios you set</li><li>AI photo menu scan: paper menu to digital menu</li>
+    <li>Admin AI copilot: “what sold best this week?”</li><li>Premium themes: Dark Neon Glass, Minimalist Luxury, Vibrant Egyptian Café, and 24 more</li>
+    <li>Multi-branch analytics by group</li><li>Member list, manual point adjustments, daily loyalty figures</li>
+  </ul></div>
+  <div class="panel" id="p4" hidden><ul class="feat">
+    <li class="plan">ETA live (production) submission<span class="tag">needs ETA registration</span></li><li class="plan">First real Paymob payment<span class="tag">needs Paymob account</span></li>
+        <li class="plan">WhatsApp receipts and order sharing</li>
+    <li class="plan">Recipe costing and supplier orders</li><li class="plan">Cross-branch menu sync</li>
+    <li class="plan">SMS verification for loyalty</li><li class="plan">Automatic kitchen printing</li>
+  </ul></div>
+
+  <div class="grid g2" style="margin-top:56px">
+    <div class="card"><h3>Pages, by who sees them</h3>
+      <p><b class="gold">Guest</b> · Home, Menu, My order and Review, Bill, Profile, Loyalty card.</p>
+      <p><b class="gold">Waiter</b> · Floor map or zone list, table dialog, tickets, reservations, POS, pay dialog.</p>
+      <p><b class="gold">Kitchen</b> · Ticket board with timers, ready button, sold-out.</p>
+      <p><b class="gold">Owner</b> · Analytics, Menu builder, Inventory, Orders, Floor editor, Staff, Reports, Theme, QR codes, Audit, Loyalty, AI scan, Copilot, Branches.</p>
+      <p><b class="gold">You</b> · Platform console: tenants, tiers, suspension, domains, monthly revenue.</p></div>
+    <div class="card"><h3>Statistics &amp; reports</h3>
+      <p><b class="gold">Statistics</b> · Revenue and profit against last period, revenue by day and hour, sales by category, best sellers, rush hours, table usage, low stock, loyalty points earned and redeemed, branch revenue. Each block exports to CSV and can be cleared without deleting a single sale.</p>
+      <p><b class="gold">Reports</b> · Daily sales, orders with receipt reprint, discounts and voids, sales by staff and order type, estimated profit, stock movements, full backup, audit trail.</p></div>
+  </div>
+</div></section>
+
+<section id="plans" class="alt"><div class="wrap">
+  <div class="head"><span class="chap">Chapter four</span><h2>The three subscriptions</h2>
+  <p class="muted">Each banner lists every feature the venue gets in that tier, including everything inherited from the tier below. Prices are monthly list prices; yearly billing is the effective monthly price.</p></div>
+  <div class="legend"><span><i></i>Added in this tier</span><span><i class="h"></i>Inherited from a lower tier</span></div>
+  <div id="banners"></div>
+  <p class="muted" style="font-size:.88rem">Limits are proposed, following how Zlenu separates its plans. The code does not enforce them yet; tier features are enforced today. Hollow “planned” items are marked in the text.</p>
+</div></section>
+
+<section id="pricing"><div class="wrap">
+  <div class="head"><span class="chap">Chapter five</span><h2>Pricing &amp; the numbers</h2>
+  <p class="muted">Monthly leads. The one-time licence is the answer for owners who refuse a subscription. Quotes expire in 7 to 14 days because the pound moves.</p></div>
+  <div class="toggle" id="ptoggle"><button aria-pressed="true" data-m="month">Monthly plan</button><button aria-pressed="false" data-m="once">One-time licence</button></div>
+  <div class="grid g3" id="pcards"></div>
+  <p class="muted" id="pnote" style="margin-top:22px"></p>
+
+    <div class="grid g2" style="margin-top:44px">
+    <div class="card"><h3>Add-ons</h3><p>Printer and cash drawer setup 1,500–3,000 EGP. Card payments 3,000–8,000 EGP once built. Custom work 500–1,000 EGP an hour. QR table stands 100–250 EGP each. Hardware at cost plus 10–15%.</p></div>
+    <div class="card"><h3>Pricing rules</h3><p>Never below 15,000 EGP once or 350 EGP a month. Discounts only for pilots, annual prepay and extra branches. Confirm VAT, company form and your own e-invoicing duty with an accountant before the first invoice.</p></div>
+  </div>
+</div></section>
+
+<section id="model" class="alt"><div class="wrap">
+  <div class="head"><span class="chap">Chapter six</span><h2>The business model</h2>
+  <p class="muted">How you earn, what it costs you, and the ratios an investor or a banker would ask for. All figures are EGP and come from your Egypt market study unless marked as an assumption. Move the three sliders to see the effect.</p></div>
+
+  <h3 style="margin-bottom:14px">How you earn money</h3>
+  <div class="tw"><table>
+    <tr><th>Stream</th><th>What you charge</th><th>Cost to you</th><th>Role in the business</th></tr>
+    <tr><td>Subscriptions</td><td>450 / 950 / 1,450 per month</td><td>About 150 per venue a month to host and run</td><td>The engine. About 84% cash margin and the number that makes the company worth something</td></tr>
+    <tr><td>Setup and onboarding fee</td><td>1,500 / 4,000 / 6,500 (blended 3,500)</td><td>About 1,500 cash plus 12–20 hours of your time</td><td>Pays for winning the venue, so growth does not drain cash</td></tr>
+    <tr><td>One-time licence plus 12% yearly support</td><td>20,000 / 40,000 / 80,000, then 2,400–9,600 a year</td><td>Same setup cost, plus hosting for years</td><td>For owners who refuse a subscription. Include one year of hosting, then charge</td></tr>
+    <tr><td>Hardware resale</td><td>Cost plus 10–15%</td><td>Pass-through</td><td>Convenience, not profit. Order only after payment</td></tr>
+    <tr><td>QR table stands and printing</td><td>About 1.5 × cost (cost 100–250 each) [assumption]</td><td>Material and printing</td><td>Small margin, big visibility</td></tr>
+    <tr><td>Add-ons</td><td>Printer and drawer setup 1,500–3,000. Card payments 3,000–8,000 once built. Custom work 500–1,000 an hour</td><td>Your time</td><td>Fills quiet weeks</td></tr>
+    <tr><td>Menu entry, photography, design</td><td>1,000–5,000 per venue [assumption]</td><td>Your time or a freelancer</td><td>Removes the owner’s biggest barrier</td></tr>
+    <tr><td>Partner commission (future)</td><td>Share of payment-processing fees from a gateway such as Paymob or Fawry</td><td>Integration work</td><td>Not agreed with anyone. Ask for it when you negotiate the integration</td></tr>
+  </table></div>
+
+  <h3 style="margin:52px 0 14px">What it costs you to run</h3>
+  <div class="tw"><table>
+    <tr><th>Fixed yearly cost</th><th>EGP</th><th>Note</th></tr>
+    <tr><td>Hosting</td><td>12,000</td><td>About 1,000 a month; one server serves many venues</td></tr>
+    <tr><td>Domain and monitoring</td><td>4,000</td><td></td></tr>
+    <tr><td>Off-site backups</td><td>3,000</td><td>Non-negotiable</td></tr>
+    <tr><td>Registration, licences, legal review</td><td>10,000</td><td>Sole proprietorship or small company</td></tr>
+    <tr><td>Accountant</td><td>24,000</td><td>About 2,000 a month</td></tr>
+    <tr><td>Marketing</td><td>20,000</td><td>Demo videos, printed cards, photography</td></tr>
+    <tr><td>Contingency</td><td>10,000</td><td>Spares, refunds, tools</td></tr>
+    <tr><td><b class="gold">Total fixed</b></td><td><b class="gold">83,000</b></td><td>About 6,900 a month</td></tr>
+  </table></div>
+  <p class="muted" style="margin-top:14px">Variable: about 150 a month per venue for hosting share, AI usage, SMS and tools [assumption]. About 1,500 cash to win each venue. Venues pay their own card fees to their gateway (about 2.75% + 3 EGP per card payment, unconfirmed). Tax is not included: corporate tax is 22.5% in general and a simplified small-business regime may apply; VAT needs an accountant’s answer.</p>
+
+  <h3 style="margin:56px 0 18px">The live model</h3>
+  <div class="ctrl">
+    <div><label for="mn">New paying venues a month: <b id="mnv">2</b></label><input id="mn" type="range" min="1" max="6" step="1" value="2"></div>
+    <div><label for="ma">Average revenue per venue (EGP / month): <b id="mav">950</b></label><input id="ma" type="range" min="450" max="1450" step="50" value="950"></div>
+    <div><label for="mc">Monthly churn, venues leaving: <b id="mcv">3.0</b>%</label><input id="mc" type="range" min="1" max="8" step="0.5" value="3"></div>
+  </div>
+
+  <div class="kpis" aria-live="polite">
+    <div><div class="v" id="kmrr">–</div><div class="k">Monthly recurring revenue, month 12</div><div class="b">EGP</div></div>
+    <div><div class="v" id="karr">–</div><div class="k">Annual run-rate</div><div class="b">EGP, MRR × 12</div></div>
+    <div><div class="v" id="krev">–</div><div class="k">Year-one revenue</div><div class="b">subscriptions plus setup fees</div></div>
+    <div><div class="v" id="knet">–</div><div class="k">Year-one profit</div><div class="b">before tax and your time</div></div>
+    <div><div class="v" id="kbe">–</div><div class="k">Cash break-even</div><div class="b">cumulative cash reaches zero</div></div>
+  </div>
+
+  <div class="svgbox"><div id="mchart"></div></div>
+  <p class="muted" style="font-size:.85rem;margin-bottom:34px"><span class="sw g"></span>Monthly recurring revenue &nbsp; <span class="sw i"></span>Cumulative cash after all costs &nbsp; dashed line = zero. Months 1–12 along the bottom.</p>
+
+  <div class="grid g2">
+    <div>
+      <h3 style="margin-bottom:12px">Unit economics, per venue</h3>
+      <div class="kpis" style="margin:0">
+        <div><div class="v" id="kgm">–</div><div class="k">Cash gross margin</div><div class="b">before your time</div></div>
+        <div><div class="v" id="kgl">–</div><div class="k">Fully loaded margin</div><div class="b">with 1.5 h support a month at 300 EGP / h</div></div>
+        <div><div class="v" id="kcac">–</div><div class="k">Cost to win a venue</div><div class="b">EGP: marketing share + 1,500 cash + 15 h of your time</div></div>
+        <div><div class="v" id="kltv">–</div><div class="k">Lifetime gross profit</div><div class="b">EGP over an expected <span id="klife">–</span> months</div></div>
+        <div><div class="v" id="kratio">–</div><div class="k">Lifetime value to cost</div><div class="b">published target: 3 : 1 or better</div></div>
+        <div><div class="v" id="kpay">–</div><div class="k">Payback, months</div><div class="b">after the setup fee; target 6–12</div></div>
+      </div>
+    </div>
+    <div>
+      <h3 style="margin-bottom:12px">Where each 100 EGP of revenue goes</h3>
+      <div id="mflow"></div>
+    </div>
+  </div>
+
+  <h3 style="margin:56px 0 14px">Three scenarios from the same assumptions</h3>
+  <div class="tw"><table>
+    <tr><th>Pace</th><th>Venues signed</th><th>Active, month 12</th><th>MRR, month 12</th><th>Year-one revenue</th><th>Year-one profit</th><th>Cash break-even</th></tr>
+    <tbody id="mscen"></tbody>
+  </table></div>
+
+  <h3 style="margin:56px 0 14px">How to read it, as a business</h3>
+  <div class="grid g3">
+    <div class="card"><h3>Setup fees fund growth</h3><p>A blended 3,500 setup fee covers the 1,500 cash cost of each new venue and part of your time. That is why growth does not drain your cash in year one.</p></div>
+    <div class="card"><h3>Churn is the lever</h3><p>Monthly churn of 3% means a venue stays 33 months. At 6% it stays 17 and lifetime value halves. The monthly owner report, WhatsApp support and a loyalty feature the owner depends on keep churn low.</p></div>
+    <div class="card"><h3>Your time is the real cost</h3><p>Cash margin looks like 84%. Count 1.5 support hours a month and it is about 37%. Training videos, a printed card and a clean handover are what make the second hundred venues cheaper than the first ten.</p></div>
+  </div>
+
+  <div class="tw" style="margin-top:34px"><table>
+    <tr><th>Benchmark</th><th>Published guide</th><th>Source</th></tr>
+    <tr><td>Lifetime value to acquisition cost</td><td>3 : 1 to 4 : 1 for small-restaurant software; early MENA stage 2 : 1</td><td><a href="https://saashero.net/customer-retention/restaurant-tech-customer-acquisition-2026/">SaaS Hero</a> · <a href="https://upgrowth.in/calculator/mena-saas-unit-economics-calculator/">upGrowth</a></td></tr>
+    <tr><td>Payback</td><td>Early 12–18 months, growth 6–12, scale under 6</td><td>upGrowth</td></tr>
+    <tr><td>Monthly churn</td><td>1.5–2.5% best in class in MENA; under 5% healthy for vertical software</td><td>upGrowth · <a href="https://kolonell.com/en/blog/vertical-saas-pricing-freemium-tiers-strategy-amsterdam-2026">Kolonell</a></td></tr>
+    <tr><td>Gross margin</td><td>60%+ early, 70%+ growth, 75%+ scale</td><td>upGrowth</td></tr>
+  </table></div>
+  <p class="muted" style="font-size:.85rem;margin-top:12px">These are vendor and consultancy benchmarks, not audited market data. No restaurant-specific Egyptian churn or acquisition figures were found; replace the assumptions here with your own after the pilots.</p>
+</div></section>
+
+<section id="sales"><div class="wrap">
+  <div class="head"><span class="chap">Chapter seven</span><h2>What you can sell</h2>
+  <p class="muted">Sell the owner’s worry, then prove the answer on their own phone with the live demo.</p></div>
+  <div class="tw"><table>
+    <tr><th>Owner worry</th><th>What elmenue does</th><th>Show them</th></tr>
+    <tr><td>Waiters are overloaded</td><td>Guests order and call for water or napkins from the phone</td><td>Micro-service alert with table number</td></tr>
+    <tr><td>Wrong or lost orders</td><td>Orders reach the kitchen screen with a timer</td><td>Kitchen display</td></tr>
+    <tr><td>Staff leakage</td><td>Voids need a reason, discounts are capped, every action is logged</td><td>Audit and voids report</td></tr>
+    <tr><td>“I don’t know my real profit”</td><td>Revenue, cost, profit, best sellers and rush hours</td><td>Analytics page</td></tr>
+    <tr><td>Slow table turnover</td><td>Split the bill and request it from the phone</td><td>Bill tab</td></tr>
+    <tr><td>Guests don’t return</td><td>Loyalty card by phone number</td><td>VIP card demo</td></tr>
+    <tr><td>Reprinting menus costs money</td><td>Edit a price once, live everywhere</td><td>Menu builder</td></tr>
+    <tr><td>Tourists and youth</td><td>Ammiya, English and Franco</td><td>Language switch</td></tr>
+    <tr><td>No budget for hardware</td><td>Runs on phones and tablets they own</td><td>Cost comparison</td></tr>
+    <tr><td>Typing a menu is painful</td><td>Photo scan and Excel import</td><td>AI scan</td></tr>
+  </table></div>
+  <div class="grid g3" style="margin-top:44px">
+    <div class="card"><span class="eyebrow">Funnel</span><p>Walk-in visits, Arabic demo clips, WhatsApp Business, referrals. First meeting in 15 minutes: ask about e-receipts and their POS, then show the demo. A free one-table QR trial for a week. Proposal within 24 hours.</p></div>
+    <div class="card"><span class="eyebrow">Objections</span><p><b class="gold">Internet drops?</b> The old process stays beside you at first. <b class="gold">Will it stop my work?</b> No, shadow mode comes first. <b class="gold">Foodics is bigger?</b> It costs more and needs hardware.</p></div>
+    <div class="card"><span class="eyebrow">Retention</span><p>A one-page monthly report on WhatsApp, a quarterly menu refresh, loyalty campaign templates, and upgrade prompts when a Basic venue asks about ordering.</p></div>
+  </div>
+</div></section>
+
+<section id="rollout" class="alt"><div class="wrap">
+  <div class="head"><span class="chap">Chapter eight</span><h2>Zero-downtime rollout</h2>
+  <p class="muted">Agile development with DevOps habits, introduced by pilot and then in phases, with payments run in parallel. A venue never depends on elmenue until it has proven itself beside the old process.</p></div>
+  <div class="journey">
+    <div class="step safe"><span class="wk">Week 0</span><h3>Prepare offline</h3><p>Import the menu, photos, tables and staff into a private copy. The owner checks every price. Guests see nothing.</p></div>
+    <div class="step safe"><span class="wk">Week 1</span><h3>QR-only trial</h3><p>One QR on one or two tables, ordering switched off. If anything fails, remove the stand and service is unchanged.</p></div>
+    <div class="step safe"><span class="wk">Week 2</span><h3>Shadow mode</h3><p>Guests order on the phone while staff also run the old way. Compare totals at close; every difference becomes a bug.</p></div>
+    <div class="step safe"><span class="wk">Week 3</span><h3>Quiet hours live</h3><p>Mornings and weekday afternoons run on elmenue. The old process waits on the counter.</p></div>
+    <div class="step safe"><span class="wk">Week 4</span><h3>Payments in parallel</h3><p>Cash and card are recorded in both systems for five to seven days until daily totals match to the pound.</p></div>
+    <div class="step safe"><span class="wk">Week 5 onward</span><h3>Peak hours</h3><p>Only after a quiet week with zero blocking bugs and an experienced person on every shift. Paper chits stay in a drawer for 30 days.</p></div>
+    <div class="step"><span class="wk">Day 30</span><h3>Retire the old process</h3><p>Only when the owner signs the handover record.</p></div>
+  </div>
+
+  <h3 style="margin:30px 0 16px">Go / no-go gates</h3>
+  <div class="tw"><table>
+    <tr><th>Gate</th><th>Passes when</th></tr>
+    <tr><td>Data</td><td>Owner verified menu, prices, tax and service charge</td></tr>
+    <tr><td>Devices</td><td>Tested on the venue’s own phones, tablet and printer for a full shift</td></tr>
+    <tr><td>Staff</td><td>Every waiter and kitchen user finished a 20-minute drill</td></tr>
+    <tr><td>Money</td><td>Parallel totals matched for five days in a row</td></tr>
+    <tr><td>Rescue</td><td>One-page “if the app is down” card at the counter with your WhatsApp number</td></tr>
+    <tr><td>Backup</td><td>Last backup restored successfully on a test copy</td></tr>
+  </table></div>
+
+  <div class="grid g2" style="margin-top:44px">
+    <div class="card gilt"><h3>Technical safety net</h3><p>Separate production, staging and preview environments. Deploys only outside service hours, one change at a time, each tagged so rollback takes under five minutes. New modules ship switched off and are enabled per venue. Every data change must tolerate old data. Nightly off-site backups with a weekly restore test. Automated tests for billing, order lock, loyalty and tenant isolation run before every release. Uptime and error alerts go to your phone.</p></div>
+    <div class="card gilt"><h3>First sprint: hardening</h3><p>Rotate the Supabase key and every token ever shared in chat. Change the live owner password and captain PIN. Rate-limit logins. Confirm every route checks the venue. Move off the Vercel free plan, which is non-commercial, before the first paid venue. Add SMS verification before storing real customer phone numbers. Have a lawyer review the contract and privacy clause.</p></div>
+  </div>
+</div></section>
+
+<section id="migration"><div class="wrap">
+  <div class="head"><span class="chap">Chapter nine</span><h2>Migration, venue by venue</h2>
+  <p class="muted">Every path ends with the same promise: the old process stays usable until the owner signs.</p></div>
+  <div class="tw"><table>
+    <tr><th>Venue starts with</th><th>Risk</th><th>Path</th><th>Rollback</th></tr>
+    <tr><td>Paper menu, no POS</td><td><span class="pill low">Low</span></td><td>QR trial, shadow, quiet hours, peak</td><td>Keep paper chits</td></tr>
+    <tr><td>Another QR menu</td><td><span class="pill low">Low</span></td><td>Run both stands for two weeks, then remove theirs</td><td>Their stand stays until stable</td></tr>
+    <tr><td>Existing POS</td><td><span class="pill high">High</span></td><td>elmenue does guest ordering and kitchen; their POS stays cashier and tax system</td><td>Switch the guest QR off</td></tr>
+    <tr><td>Covered by ETA e-receipts</td><td><span class="pill high">High</span></td><td>Never replace the cashier until ETA is built</td><td>Nothing to roll back</td></tr>
+    <tr><td>Multi-branch group</td><td><span class="pill med">Medium</span></td><td>Pilot one branch, copy the setup to the rest</td><td>Per branch</td></tr>
+    <tr><td>Hotel, club, food court</td><td><span class="pill med">Medium</span></td><td>One outlet at a time, away from event days</td><td>Per outlet</td></tr>
+  </table></div>
+  <div class="grid g3" style="margin-top:44px">
+    <div class="card"><h3>Data checklist</h3><p>Menu, prices, photos, tables and zones, staff, tax and service charge, hours. Import into a private copy. Owner signs a printed price sheet. Print and test every QR on two phone types. Change all default logins.</p></div>
+    <div class="card"><h3>Training</h3><p><b class="gold">Owner</b> 60 minutes. <b class="gold">Waiters</b> a 20-minute drill. <b class="gold">Kitchen</b> 15 minutes. Everyone gets a printed Arabic card for when the screen or internet fails.</p></div>
+    <div class="card"><h3>Never during service</h3><p>Changing prices, taxes or table numbers. Deploying a new version. Resetting statistics. Moving a venue to another tier without telling the staff.</p></div>
+  </div>
+  <div class="callout" style="margin-top:34px"><span class="eyebrow">Handover record</span><p style="margin:0">What was installed and which tier. Who holds which login. Backup schedule and last restore test. Support hours and WhatsApp number. Known limits, such as no ETA and no offline mode. The date the old process may be retired. Signed by the owner and by you.</p></div>
+</div></section>
+
+<section id="study" class="alt"><div class="wrap">
+  <div class="head"><span class="chap">Chapter ten</span><h2>The sales study guide</h2>
+  <p class="muted">Everything to learn before you walk into an owner’s café. Read it twice, then rehearse the demo on your own phone.</p></div>
+
+  <div class="grid g3">
+    <div class="card gilt"><span class="eyebrow">The one-line pitch</span><p class="lede" style="font-size:1.3rem">“Your guests order from their phones, your kitchen sees it at once, and you see every pound, for less than one waiter’s daily wage.”</p></div>
+    <div class="card gilt"><span class="eyebrow">Arabic opener</span><p class="lede ar" style="direction:rtl;font-size:1.5rem">“عايز أوريك في ١٠ دقايق إزاي تقلل ضغط الويترز وتشوف مبيعاتك لحظة بلحظة.”</p><p class="muted" style="font-size:.85rem">Have a native speaker polish the wording before you print it.</p></div>
+    <div class="card gilt"><span class="eyebrow">Your three proofs</span><p>Live demo on their phone. A free one-table QR trial for a week. Your written promise that the old process stays until they sign.</p></div>
+  </div>
+
+  <h3 style="margin:56px 0 16px">The 10-minute demo, in order</h3>
+  <div class="journey">
+    <div class="step"><span class="wk">Minutes 0–1</span><h3>Their phone scans a QR</h3><p>Open the demo, scan, land on the Home screen with their name and colours. They see themselves first.</p></div>
+    <div class="step"><span class="wk">Minutes 1–3</span><h3>Order and watch the kitchen</h3><p>Order two drinks from the phone. Show the kitchen screen ringing. Press the water button and show the alert with the table number.</p></div>
+    <div class="step"><span class="wk">Minutes 3–5</span><h3>The waiter and the bill</h3><p>Accept the order, mark it ready, split the bill, pay in cash. Show the receipt.</p></div>
+    <div class="step"><span class="wk">Minutes 5–8</span><h3>The owner’s screen</h3><p>Open Analytics: today’s revenue, best sellers, rush hours. Say: “this is what you do not know today.”</p></div>
+    <div class="step"><span class="wk">Minutes 8–10</span><h3>Switch tier and close</h3><p>Use the tier switcher to show Basic, Operations and VIP. Ask: “which of these hurts most today?”</p></div>
+  </div>
+
+  <h3 style="margin:40px 0 16px">Questions to ask the owner</h3>
+  <div class="grid g2">
+    <div class="card"><ul class="plist" style="margin:0"><li>How many tables, how many waiters per shift?</li><li>When is your rush, and what goes wrong in it?</li><li>What do you use today: paper, a POS, another QR menu?</li><li>Are you already registered for e-receipts?</li><li>Who owns the decision: you, a partner, a manager?</li></ul></div>
+    <div class="card"><ul class="plist" style="margin:0"><li>What do you pay monthly for software today?</li><li>How often do prices change, and what does reprinting cost?</li><li>Do you know your best-selling item and your profit this week?</li><li>Do guests ask for water, napkins or the bill repeatedly?</li><li>Do you have more than one branch or plan to?</li></ul></div>
+  </div>
+
+  <h3 style="margin:48px 0 16px">Objections and answers</h3>
+  <div class="tw"><table>
+    <tr><th>The owner says</th><th>You answer</th></tr>
+    <tr><td>“It is too expensive.”</td><td>Compare with a cloud POS at 1,500–3,000 EGP a month plus 7,500–22,000 EGP of hardware. Offer the entry tier at 350 EGP and upgrade later.</td></tr>
+    <tr><td>“Our guests won’t scan.”</td><td>Start with one table for a week. Count scans. Staff hand the QR card to the first table of every shift.</td></tr>
+    <tr><td>“What if the internet stops?”</td><td>The old process stays on the counter. An offline queue is on the roadmap; say so plainly.</td></tr>
+    <tr><td>“I am happy with my POS.”</td><td>Keep it. elmenue handles guest ordering and the kitchen beside it.</td></tr>
+    <tr><td>“Do you handle e-receipts?”</td><td>Not yet. If you must issue them today, keep your current cashier; we add the menu on top and bring ETA support on the roadmap.</td></tr>
+    <tr><td>“My cousin built me a menu for free.”</td><td>Ask whether it takes orders, rings the kitchen, tracks stock and reports profit.</td></tr>
+    <tr><td>“Let me think about it.”</td><td>Offer the free one-table trial now, with a fixed date to review the numbers together.</td></tr>
+  </table></div>
+
+  <h3 style="margin:48px 0 16px">Negotiation rules</h3>
+  <div class="grid g3">
+    <div class="card"><h3>Give</h3><p>A longer free trial, 20% off yearly, 10% off quarterly, a discount for being a pilot, the setup fee waived for a referral.</p></div>
+    <div class="card"><h3>Trade</h3><p>Every discount is traded for something: a testimonial, photos, a referral, a signed date. Never a bare price cut.</p></div>
+    <div class="card"><h3>Hold</h3><p>The monthly floor of 350 EGP, the one-time floor of 15,000 EGP, and the written handover before the old process is retired.</p></div>
+  </div>
+
+  <h3 style="margin:56px 0 16px">How to make it go boom in Egypt</h3>
+  <div class="tw"><table>
+    <tr><th>Lever</th><th>What to do</th><th>First step this month</th></tr>
+    <tr><td>Proof</td><td>One pilot café that loves it beats a hundred pitches. Film their numbers with permission.</td><td>Pick two pilots in one neighbourhood</td></tr>
+    <tr><td>Clustering</td><td>Sell street by street. Owners watch each other; a second café down the road closes faster.</td><td>Choose one area and visit every venue</td></tr>
+    <tr><td>Referrals</td><td>One free month for the owner who refers a paying venue.</td><td>Write the offer on a card</td></tr>
+    <tr><td>Content</td><td>Short Arabic clips: “this café saved 40 waiter calls a night.” Post on Instagram and Facebook; use WhatsApp for follow-up.</td><td>Record a 60-second demo</td></tr>
+    <tr><td>Partners</td><td>Menu printers, signage shops, coffee-machine and POS hardware dealers see owners daily. Pay them a commission per venue.</td><td>Visit three suppliers</td></tr>
+    <tr><td>Bundles</td><td>QR table stands, photography and menu design as one starter package.</td><td>Price the starter bundle</td></tr>
+    <tr><td>Upgrade path</td><td>Start at Basic, show ordering questions in the monthly report, upgrade within six months.</td><td>Draft the monthly report page</td></tr>
+    <tr><td>Trust</td><td>A contract, a tax invoice, a handover record, a WhatsApp number that answers.</td><td>Finish the contract templates</td></tr>
+  </table></div>
+
+  <div class="callout" style="margin-top:40px"><span class="eyebrow">Study checklist</span>
+  <p style="margin:0">Know the three tiers and their prices by heart. Practice the 10-minute demo until you can do it without looking. Memorise the six objection answers. Know your floors. Know the e-receipt question and your honest answer. Carry the contract, the handover record and a printed QR table card.</p></div>
+</div></section>
+
+<section id="release"><div class="wrap">
+  <div class="head"><span class="chap">Chapter eleven</span><h2>Release log &amp; next release</h2>
+  <p class="muted">This chapter is updated after every verified addition. A code check on 29 October found that shift routes, a cashier screen with a Z-report and a feedback endpoint already exist in the code, so the next release completes and tests those rather than starting them again.</p></div>
+
+  <h3 style="margin-bottom:14px">Next release: eight additions</h3>
+  <div class="tw"><table>
+    <tr><th>Feature</th><th>Tier</th><th>Build effort</th><th>Needs from you</th><th>Status</th></tr>
+    <tr><td>Plan limits on tables, staff, branches</td><td>All</td><td>2–3 days</td><td>Nothing</td><td><span class="pill low">Built</span></td></tr>
+    <tr><td>Shift close and Z-report</td><td>All with POS</td><td>3–5 days (part exists)</td><td>A real 80 mm printer to test</td><td><span class="pill low">Built</span></td></tr>
+    <tr><td>Guest feedback and Google reviews</td><td>Operations+</td><td>2–3 days (part exists)</td><td>Each venue’s Google review link</td><td><span class="pill low">Built</span></td></tr>
+    <tr><td>Upsell suggestions</td><td>Operations+</td><td>3–4 days</td><td>Nothing</td><td><span class="pill low">Built</span></td></tr>
+    <tr><td>Coupons, timed offers, gift cards</td><td>Operations+ / gift cards VIP</td><td>6–8 days</td><td>Gift card amounts, stacking rules</td><td><span class="pill low">Built</span></td></tr>
+    <tr><td>Offline order queue for staff</td><td>Operations+</td><td>5–7 days</td><td>Phones and tablet for testing</td><td><span class="pill low">Built</span></td></tr>
+    <tr><td>Card and wallet payment at the table</td><td>Operations+</td><td>7–10 days</td><td>Paymob account, sandbox and live keys</td><td><span class="pill low">Built · live payment blocked</span></td></tr>
+    <tr><td>ETA e-receipts</td><td>Operations+</td><td>15–25 days</td><td>ETA registration and credentials</td><td><span class="pill low">Built · pre-production blocked</span></td></tr>
+  </table></div>
+  <p class="muted" style="font-size:.88rem;margin-top:12px">Effort is my estimate of working days with Claude Code and testing, not a promise. WhatsApp features are deliberately left out of this release. Every feature ships switched off for existing venues and is enabled one pilot at a time.</p>
+
+  <h3 style="margin:48px 0 14px">Release log</h3>
+  <div class="tw"><table>
+    <tr><th>Date</th><th>Feature</th><th>Tier</th><th>Status</th><th>What changed</th><th>Tests passed</th></tr>
+    <tr><td>29 Oct 2026</td><td>F6 Plan limits</td><td>All</td><td><span class="pill low">Built</span></td><td>Tables, staff and branches limits per tier, super override, usage bars; existing venues over a limit keep working</td><td>3 checks, both run modes</td></tr>
+    <tr><td>29 Oct 2026</td><td>F8 Shift close and Z-report</td><td>All with POS</td><td><span class="pill low">Built</span></td><td>Open with float, paid in/out, X and Z reports, variance, sequential Z numbers, CSV</td><td>2 checks, both run modes</td></tr>
+    <tr><td>29 Oct 2026</td><td>F4 Feedback and Google reviews</td><td>Operations</td><td><span class="pill low">Built</span></td><td>One rating per guest per visit, Google link for 4-5 stars, private alerts for 1-3, dashboard, CSV</td><td>2 checks, both run modes</td></tr>
+    <tr><td>29 Oct 2026</td><td>F1 Upsell suggestions</td><td>Operations</td><td><span class="pill low">Built</span></td><td>Owner pairings then best sellers, metrics, CSV, non-destructive clear</td><td>2 checks, both run modes</td></tr>
+    <tr><td>29 Oct 2026</td><td>F5 Coupons, timed offers, gift cards</td><td>Operations / VIP</td><td><span class="pill low">Built</span></td><td>Codes, happy-hour offers, gift cards, stacking switch, liability report; per-phone and item scope not built</td><td>3 checks, both run modes</td></tr>
+    <tr><td>29 Oct 2026</td><td>F7 Offline order queue</td><td>Operations</td><td><span class="pill low">Built</span></td><td>Staff actions saved on the device and replayed once; payments never queued; browser queue still needs a device test</td><td>3 checks, both run modes</td></tr>
+    <tr><td>29 Oct 2026</td><td>F2 Online card and wallet payments</td><td>Operations</td><td><span class="pill low">Built</span></td><td>Sandbox gateway and Paymob adapter, signed idempotent webhook, split bills; real payment blocked on a Paymob account</td><td>4 checks, both run modes</td></tr>
+    <tr><td>29 Oct 2026</td><td>F3 ETA e-receipts</td><td>Operations</td><td><span class="pill low">Built</span></td><td>Receipt builder, UUID chain, durable retry queue, export, QR; pre-production and production blocked on registration</td><td>4 checks, both run modes</td></tr>
+    <tr><td>29 Oct 2026</td><td>Release prompt and test plan</td><td>–</td><td><span class="pill low">Ready</span></td><td>Build prompt, 90+ test cases and the PDF rebuild script written; nothing built yet</td><td>–</td></tr>
+  </table></div>
+</div></section>
+
+<section id="audit" class="alt"><div class="wrap">
+  <div class="head"><span class="chap">Chapter twelve</span><h2>Product audit &amp; top 20 to build</h2>
+  <p class="muted">Based on the code in the repository on 29 October 2026, including the uncommitted work on the <code>release/next</code> branch, plus the tests it contains. I read the code and did not run the tests. Competitor columns come from general market knowledge and the research earlier in this plan; verify before quoting them to an owner.</p></div>
+
+  <div class="legend"><span><span class="pill low">Exists</span> in the main code</span><span><span class="pill med">On branch</span> built on the branch, tests written, not run by me</span><span><span class="pill med">Partial</span> partly there</span><span><span class="pill high">Missing</span> not found in code, docs or UI</span></div>
+
+  <h3 style="margin:30px 0 14px">Score against the market</h3>
+  <div class="tw"><table><tr><th>Area</th><th>Score out of 10</th><th>Why</th></tr><tr><td>Product quality</td><td>7</td><td>Broad and mostly tested on the branch; stale docs, tracked backup and error files, no automatic test run on main</td></tr><tr><td>UX</td><td>7.5</td><td>Luxury look, six layouts, three languages; not yet tested with real owners</td></tr><tr><td>Restaurant features</td><td>6.5</td><td>Strong dine-in; missing modifiers, payments, ETA and pickup</td></tr><tr><td>Scalability</td><td>5</td><td>Whole venue stored as one document with polling every 2.5 seconds; fine for tens of venues, unproven for hundreds</td></tr><tr><td>AI readiness</td><td>5</td><td>Menu scan, rule-based copilot and upsell; model use needs an API key</td></tr><tr><td>Admin tools</td><td>7.5</td><td>Rich tabs, exports, audit; no restore or two-factor</td></tr><tr><td>Customer experience</td><td>7</td><td>Fast and polished; no pickup, no allergen info, no payment at table</td></tr></table></div>
+
+  <h3 style="margin:48px 0 14px">What exists today</h3>
+  <div class="tw"><table><tr><th>Group</th><th>Status</th><th>What I found</th><th>Evidence</th></tr><tr><td>Menu management</td><td><span class="pill low">Exists</span></td><td>Categories, items, photos (single and bulk), sold-out, dietary tags, timed categories, six layouts, drag ordering, Excel import and template, hero image</td><td>server.js item and category routes; admin Menu tab</td></tr><tr><td>Menu management</td><td><span class="pill med">Partial</span></td><td>AI photo menu scan. Real reading needs an Anthropic key; without it the demo returns a sample menu</td><td>server.js /menu/ocr</td></tr><tr><td>Menu management</td><td><span class="pill high">Missing</span></td><td>Item modifiers and options (size, sugar level, extra shot, add-ons). No code for it</td><td>no modifier or variant fields anywhere</td></tr><tr><td>Menu management</td><td><span class="pill high">Missing</span></td><td>Allergens, calories, spice level</td><td>only dietary tags exist</td></tr><tr><td>Ordering and QR</td><td><span class="pill low">Exists</span></td><td>Table QR with secret key, shared table cart, review screen, pending window then server-enforced kitchen lock, party size, table host</td><td>tenant.js send_order, order_item_qty, order_cancel, host_set</td></tr><tr><td>Ordering and QR</td><td><span class="pill high">Missing</span></td><td>Guest pickup, takeaway or pre-order from a link without a table. Takeaway and delivery exist only as staff tickets</td><td>tenant.js open_ticket (staff only)</td></tr><tr><td>Ordering and QR</td><td><span class="pill med">Partial</span></td><td>Upsell suggestions in the cart with metrics and CSV export</td><td>tenant.js upsell_shown; /upsell routes; tests/f1_upsell.test.js (branch)</td></tr><tr><td>Customer experience</td><td><span class="pill low">Exists</span></td><td>Home screen, Wi-Fi copy, promotions, language switch (English, Ammiya, Franco), light and dark, profile, avatars, bill split self/table/custom, tip</td><td>customer.html, i18n.js</td></tr><tr><td>Customer experience</td><td><span class="pill med">Partial</span></td><td>Feedback and ratings after paying, with summary, CSV and handling. Google review link logic is in the engine; not confirmed end to end</td><td>server.js /feedback; tests/f4 (branch)</td></tr><tr><td>Restaurant website</td><td><span class="pill high">Missing</span></td><td>A real venue web page (menu, hours, map, social, reviews). The tenant page only shows staff links</td><td>public/tenant.html</td></tr><tr><td>POS and cashier</td><td><span class="pill low">Exists</span></td><td>Staff ordering, takeaway and delivery tickets, discounts with captain cap, voids with reason, cash/card/mixed, change, tips, 80 mm receipt reprint, move and merge tables, reservations (staff side)</td><td>pos.js, cashier.html, captain.html</td></tr><tr><td>POS and cashier</td><td><span class="pill med">On branch</span></td><td>Shifts: open with float, cash movements, X report, Z report with sequence number, exports</td><td>server.js /shift routes; tests/f8 (branch)</td></tr><tr><td>Kitchen</td><td><span class="pill low">Exists</span></td><td>Station boards (kitchen and bar), timers, ready alerts to waiter and guest, one-tap sold-out</td><td>kitchen.html</td></tr><tr><td>Kitchen</td><td><span class="pill med">Partial</span></td><td>Automatic kitchen ticket printing. Receipt printing helper exists; ticket routing to printers does not</td><td>public/escpos.js</td></tr><tr><td>Waiter tools</td><td><span class="pill low">Exists</span></td><td>Floor map and zone list, micro-service alerts with sound, push alerts, installable app, move/merge, host reassign</td><td>captain.html, sw.js</td></tr><tr><td>Inventory</td><td><span class="pill low">Exists</span></td><td>Stock counts per item, low-stock alerts, waste, movement log</td><td>server.js /stock-log</td></tr><tr><td>Inventory</td><td><span class="pill high">Missing</span></td><td>Recipe costing, supplier purchase orders, automatic deduction by recipe</td><td>no code</td></tr><tr><td>Payments</td><td><span class="pill high">Missing</span></td><td>Online card and wallet payment (Paymob, Fawry, InstaPay). Cash and card recording only</td><td>no payment provider code</td></tr><tr><td>Payments</td><td><span class="pill high">Missing</span></td><td>ETA e-receipts (Egyptian tax authority)</td><td>no integration</td></tr><tr><td>Loyalty</td><td><span class="pill low">Exists</span></td><td>Phone-number card, EGP-to-points and redemption ratios, members list, manual adjust (VIP)</td><td>features.js, /loyalty</td></tr><tr><td>Loyalty</td><td><span class="pill high">Missing</span></td><td>Phone verification (SMS or other) and consent. Anyone who knows a number can see its points</td><td>SPEC_COVERAGE.md known limit</td></tr><tr><td>Marketing</td><td><span class="pill med">On branch</span></td><td>Coupons, timed offers (happy hour), gift cards with ledger, promo report</td><td>server.js /coupons /offers /gifts /promo/report; tests/f5 (branch)</td></tr><tr><td>CRM and marketing</td><td><span class="pill high">Missing</span></td><td>Customer database with segments, campaigns, birthday offers</td><td>only loyalty members list</td></tr><tr><td>Analytics</td><td><span class="pill low">Exists</span></td><td>Revenue and profit vs previous period, by day and hour, by category, best sellers, rush hours, table usage, per-block CSV export and non-destructive clear</td><td>admin Analytics, /analytics</td></tr><tr><td>Reports</td><td><span class="pill low">Exists</span></td><td>Excel and CSV reports, orders with reprint, discounts, voids, sales by staff, full JSON backup, audit trail</td><td>server.js /report /export.json</td></tr><tr><td>Mobile</td><td><span class="pill low">Exists</span></td><td>Responsive guest app, installable staff PWA, push notifications (real phone delivery untested)</td><td>manifest.webmanifest, sw.js</td></tr><tr><td>Multi-branch</td><td><span class="pill med">Partial</span></td><td>Branch groups with revenue per branch for VIP. No central menu, no cross-branch sync</td><td>admin Branches tab</td></tr><tr><td>Offline</td><td><span class="pill med">On branch</span></td><td>Staff offline action queue with idempotency keys and replay</td><td>tenant.js and shared.js idempotency; tests/f7 (branch)</td></tr><tr><td>Plans and limits</td><td><span class="pill med">On branch</span></td><td>Per-plan limits on branches, tables and staff, enforced on creation only, with override</td><td>features.js limits; tests/f6 (branch)</td></tr><tr><td>Platform</td><td><span class="pill low">Exists</span></td><td>Super admin: tenants, tiers, suspension, custom domain, branch group, subscription revenue; demo showroom with tier switcher</td><td>super.html, showroom</td></tr><tr><td>AI</td><td><span class="pill med">Partial</span></td><td>Admin copilot is keyword-based; a model answers the rest only if an API key is set</td><td>features.js copilot</td></tr><tr><td>Enterprise</td><td><span class="pill high">Missing</span></td><td>Public API, webhooks, integrations with accounting or delivery apps</td><td>no code</td></tr><tr><td>Security</td><td><span class="pill med">Partial</span></td><td>Hashed passwords and PINs, signed tokens, tenant checks, rate-limited feedback. No two-factor login for the owner, no self-service backup restore</td><td>auth.js, server.js</td></tr></table></div>
+
+  <h3 style="margin:48px 0 14px">How it compares</h3>
+  <div class="tw"><table><tr><th>Feature</th><th>elmenue</th><th>Typical market</th><th>Market leader</th></tr><tr><td>Menu look and themes</td><td>Strong: 6 layouts, 27 themes</td><td>Standard template</td><td>FineDine, MenuTiger (rich visual menus)</td></tr><tr><td>Guest ordering with bill split</td><td>Strong, Arabic-first</td><td>Ordering, rarely split</td><td>Toast, Square (pay at table)</td></tr><tr><td>Item modifiers and options</td><td>Missing</td><td>Yes</td><td>Toast, Square, Foodics, Lightspeed</td></tr><tr><td>Pickup and online ordering</td><td>Missing</td><td>Yes</td><td>GloriaFood (free), Toast, Foodics</td></tr><tr><td>POS and table management</td><td>Good</td><td>Yes</td><td>Toast, Oracle Micros, TouchBistro</td></tr><tr><td>Kitchen display</td><td>Good</td><td>Yes</td><td>Toast, Micros</td></tr><tr><td>Inventory</td><td>Counts and waste</td><td>Counts</td><td>Micros, Toast, Foodics (recipes, suppliers)</td></tr><tr><td>Integrated payments</td><td>Missing</td><td>Yes</td><td>Toast, Square, Foodics with Paymob</td></tr><tr><td>Loyalty</td><td>Phone points, VIP only</td><td>Paid add-on</td><td>Toast, Square, Foodics</td></tr><tr><td>CRM and campaigns</td><td>Missing</td><td>Basic email or SMS</td><td>Toast, Square</td></tr><tr><td>Analytics</td><td>Good for a small venue</td><td>Basic</td><td>Foodics BI, Toast, Micros</td></tr><tr><td>Multi-branch</td><td>Partial</td><td>Central menu</td><td>Foodics, Micros, Lightspeed</td></tr><tr><td>Offline mode</td><td>Staff queue on branch</td><td>Partial</td><td>Toast, Square, Micros</td></tr><tr><td>Local tax compliance (ETA)</td><td>Missing</td><td>Varies</td><td>Foodics and Odoo partners advertise it</td></tr><tr><td>AI features</td><td>Menu scan, copilot, upsell</td><td>Rare</td><td>Toast (ToastIQ)</td></tr><tr><td>Price for a small venue</td><td>450–1,450 EGP a month</td><td>200–1,500 EGP a month</td><td>Loyverse and GloriaFood have free plans</td></tr></table></div>
+
+  <h3 style="margin:48px 0 14px">Missing features, rated</h3>
+  <div class="tw"><table><tr><th>Feature</th><th>Business impact</th><th>Difficulty</th><th>Build time</th><th>Revenue</th><th>Retention</th><th>Build?</th><th>Reason</th></tr><tr><td>Item modifiers and options</td><td>High</td><td>Medium</td><td>1–2 weeks</td><td>High</td><td>High</td><td>Yes</td><td>Coffee, burgers, shisha and desserts all need size, sugar and extras. Without it many cafés cannot use you.</td></tr><tr><td>Card and wallet payment (Paymob)</td><td>High</td><td>Hard</td><td>2–3 weeks plus account setup</td><td>High</td><td>High</td><td>Yes</td><td>Revenue share and stickiness; every serious rival has it.</td></tr><tr><td>ETA e-receipts</td><td>High</td><td>Very hard</td><td>3–6 weeks plus registration</td><td>High</td><td>High</td><td>Yes</td><td>Decides whether covered venues can buy at all.</td></tr><tr><td>Guest pickup and pre-order link</td><td>High</td><td>Medium</td><td>1–2 weeks</td><td>High</td><td>Medium</td><td>Yes</td><td>Opens takeaway without a table; a standard feature in the market.</td></tr><tr><td>Venue mini-website</td><td>High</td><td>Easy</td><td>3–5 days</td><td>Medium</td><td>Medium</td><td>Yes</td><td>Gives every venue a link for Instagram and Google. Today it is a staff link page.</td></tr><tr><td>Allergens, calories, spice</td><td>Medium</td><td>Easy</td><td>1–2 days</td><td>Low</td><td>Medium</td><td>Yes</td><td>Trust for tourists and families; trivial to add.</td></tr><tr><td>Loyalty phone verification and consent</td><td>Medium</td><td>Medium</td><td>3–5 days plus SMS provider</td><td>Medium</td><td>Medium</td><td>Yes</td><td>Needed before real customer data.</td></tr><tr><td>Customer CRM and segments</td><td>Medium</td><td>Medium</td><td>1–2 weeks</td><td>High</td><td>High</td><td>Yes</td><td>Turns loyalty data into repeat visits.</td></tr><tr><td>Guest reservations and waitlist</td><td>Medium</td><td>Medium</td><td>1–2 weeks</td><td>Medium</td><td>Medium</td><td>Later</td><td>Staff side exists; guest booking is the gap.</td></tr><tr><td>Central menu across branches</td><td>Medium</td><td>Medium</td><td>1–2 weeks</td><td>Medium</td><td>High</td><td>Later</td><td>Needed to sell to chains.</td></tr><tr><td>Automatic kitchen ticket printing</td><td>Medium</td><td>Medium</td><td>1 week</td><td>Low</td><td>Medium</td><td>Later</td><td>Many kitchens still want paper.</td></tr><tr><td>Recipe costing and supplier orders</td><td>Medium</td><td>Hard</td><td>4–6 weeks</td><td>Medium</td><td>High</td><td>Later</td><td>Valuable for bigger venues.</td></tr><tr><td>Public API and webhooks</td><td>Low</td><td>Medium</td><td>1–2 weeks</td><td>Low</td><td>Medium</td><td>Later</td><td>Partners and chains only.</td></tr><tr><td>Owner two-factor login</td><td>Medium</td><td>Easy</td><td>2–3 days</td><td>Low</td><td>Medium</td><td>Yes</td><td>A stolen owner password exposes every sale.</td></tr><tr><td>Self-service backup restore</td><td>Medium</td><td>Medium</td><td>3–5 days</td><td>Low</td><td>Medium</td><td>Yes</td><td>You can export but not restore.</td></tr><tr><td>Shared guest loyalty wallet across venues</td><td>High</td><td>Hard</td><td>4–6 weeks</td><td>High</td><td>High</td><td>Later</td><td>Strongest moat; needs consent, a privacy review and 20+ venues.</td></tr><tr><td>Benchmark report vs similar venues</td><td>High</td><td>Medium</td><td>2 weeks once 20+ venues</td><td>Medium</td><td>High</td><td>Later</td><td>Only a multi-venue platform can offer it.</td></tr><tr><td>Delivery driver tracking and aggregator links</td><td>Medium</td><td>Very hard</td><td>Months</td><td>Medium</td><td>Low</td><td>No</td><td>Partner APIs and delivery operations; far from dine-in focus.</td></tr><tr><td>Accounting, HR and payroll</td><td>Low</td><td>Very hard</td><td>Months</td><td>Low</td><td>Low</td><td>No</td><td>Not your fight; integrate instead.</td></tr></table></div>
+
+  <h3 style="margin:48px 0 14px">Quick wins, best return first</h3>
+  <div class="tw"><table><tr><th>Feature</th><th>Effort</th><th>Value</th><th>Priority</th></tr><tr><td>Allergens, calories, spice level</td><td>1–2 days</td><td>Medium</td><td>1</td></tr><tr><td>Owner two-factor login</td><td>2–3 days</td><td>Medium</td><td>2</td></tr><tr><td>Go-live checklist inside admin (follows your rollout plan)</td><td>2–3 days</td><td>High: cuts your support time</td><td>3</td></tr><tr><td>Shareable receipt page and link</td><td>2–3 days</td><td>Medium</td><td>4</td></tr><tr><td>Venue mini-website with hours, map, social, Google link</td><td>3–5 days</td><td>High</td><td>5</td></tr><tr><td>Counter or kiosk mode (guest app on a counter tablet)</td><td>2–4 days</td><td>High for takeaway cafés</td><td>6</td></tr><tr><td>AI review summary of feedback comments</td><td>2–3 days</td><td>Medium</td><td>7</td></tr><tr><td>Slow-hour offer suggestions from analytics</td><td>3–4 days</td><td>Medium</td><td>8</td></tr><tr><td>Finish and verify the eight features on the release branch</td><td>1–2 weeks</td><td>High</td><td>9</td></tr></table></div>
+
+  <h3 style="margin:48px 0 14px">What to build, and when</h3>
+  <div class="tw"><table><tr><th>Horizon</th><th>Build</th></tr><tr><td>Immediate (1–2 weeks)</td><td>Verify the release branch with the full test run. Start ETA and Paymob paperwork now because approvals take longest. Allergens, owner two-factor, go-live checklist, receipt link. Clean the repo: remove tracked backup and error files, refresh the docs.</td></tr><tr><td>Short term (1–2 months)</td><td>Item modifiers. Paymob payment. Guest pickup link. Venue mini-website. Loyalty phone verification. Counter mode. Customer export.</td></tr><tr><td>Mid term (3–6 months)</td><td>ETA e-receipts live. Guest reservations. Central menu. CRM segments. Benchmark report. AI review and offer suggestions. Printer routing.</td></tr><tr><td>Long term (6+ months)</td><td>Shared guest loyalty wallet. Recipe costing and suppliers. Public API. Demand forecasting. Delivery partner integrations if chains demand it.</td></tr></table></div>
+
+  <h3 style="margin:48px 0 14px">Never build</h3>
+  <div class="tw"><table><tr><th>Feature</th><th>Why not</th><th>Do instead</th></tr><tr><td>Own payment gateway or wallet</td><td>Needs a central bank licence and heavy compliance</td><td>Integrate Paymob and Fawry instead</td></tr><tr><td>Delivery driver app and GPS tracking</td><td>A second business with its own operations</td><td>Link to existing delivery apps later</td></tr><tr><td>Full accounting, HR and payroll</td><td>Huge scope, entrenched rivals</td><td>Export to the accountant</td></tr><tr><td>Branded native iOS and Android apps per venue</td><td>Store review, cost per venue</td><td>The web app and installable PWA already do the job</td></tr><tr><td>Self-service kiosk hardware</td><td>Hardware, repairs, logistics</td><td>Offer counter mode on a tablet the venue owns</td></tr><tr><td>Consumer marketplace app like a food-discovery site</td><td>Needs millions of users and ad spend</td><td>Own the venue side only</td></tr><tr><td>Multi-currency and global tax engines</td><td>Not your market</td><td>Stay Egypt-first</td></tr><tr><td>Sending orders by WhatsApp in this release</td><td>You decided to leave it out</td><td>Revisit after payments and ETA</td></tr></table></div>
+
+  <h3 style="margin:48px 0 14px">AI opportunities</h3>
+  <div class="tw"><table><tr><th>Idea</th><th>Difficulty</th><th>Cost</th><th>Revenue potential</th><th>Do first?</th></tr><tr><td>Smart upselling</td><td>Easy</td><td>Low: rules exist, a model is optional</td><td>Medium</td><td>Yes. Already on branch; improve with sales data</td></tr><tr><td>AI review analysis</td><td>Easy</td><td>Low per summary</td><td>Medium</td><td>Yes</td></tr><tr><td>AI offer suggestions for slow hours</td><td>Easy</td><td>Low</td><td>Medium</td><td>Yes, as rules first</td></tr><tr><td>AI customer segmentation</td><td>Medium</td><td>Low</td><td>Medium</td><td>After CRM exists</td></tr><tr><td>AI marketing copy and campaigns</td><td>Medium</td><td>Low</td><td>Medium</td><td>After CRM exists</td></tr><tr><td>Personalised menu ordering</td><td>Hard</td><td>Medium</td><td>Medium</td><td>No: needs far more guest data</td></tr><tr><td>Demand forecasting</td><td>Hard</td><td>Medium</td><td>Medium</td><td>No: needs months of history</td></tr><tr><td>AI recommendations per guest</td><td>Hard</td><td>Medium</td><td>Medium</td><td>Later with the shared wallet</td></tr><tr><td>Guest-facing AI chatbot</td><td>Medium</td><td>Medium</td><td>Low</td><td>No: adds support risk</td></tr></table></div>
+
+  <h3 style="margin:48px 0 14px">WhatsApp opportunities</h3>
+  <div class="tw"><table><tr><th>Idea</th><th>Difficulty</th><th>Business value</th><th>Recommendation</th></tr><tr><td>WhatsApp ordering</td><td>Hard</td><td>High in Egypt</td><td>Defer, after payments</td></tr><tr><td>WhatsApp waiter call</td><td>Medium</td><td>Low: the QR button is faster</td><td>Skip</td></tr><tr><td>WhatsApp reservation</td><td>Medium</td><td>Medium</td><td>Defer</td></tr><tr><td>WhatsApp loyalty</td><td>Medium</td><td>High</td><td>Defer; pairs with phone verification</td></tr><tr><td>WhatsApp promotions</td><td>Medium</td><td>High</td><td>Defer; rules on templates and opt-in apply</td></tr><tr><td>WhatsApp feedback collection</td><td>Easy to medium</td><td>Medium</td><td>Defer; the in-app form already collects it</td></tr></table></div>
+  <p class="muted" style="font-size:.9rem;margin-top:12px">You asked to leave WhatsApp out of the release. A plain click-to-chat link on the venue page costs almost nothing and needs no business API, so it is the one exception worth taking.</p>
+
+  <h3 style="margin:48px 0 14px">Technical debt and risks</h3>
+  <div class="card"><ul class="plist" style="margin:0"><li>Whole venue is one JSON document saved with compare-and-swap. Busy venues will see more save retries as order volume grows.</li><li>Guests and staff poll the server every 2.5 seconds on Vercel. Cost and delay grow with venues; plan a real-time server for larger tenants.</li><li>Large single-file pages (customer, admin, captain) with inline script. Fast to build, harder to maintain and test.</li><li>.old_server.js.bak and .local.err are tracked in git.</li><li>Docs (SPEC_COVERAGE, PROJECT_GUIDE) no longer match the code: shifts, feedback, coupons and limits are not described.</li><li>Eight features exist only on the release/next branch; I have not run its tests.</li><li>Loyalty identifies people by phone number only, with no verification.</li><li>Copilot is keyword-based; real answers depend on an optional API key and its cost.</li><li>Secrets were shared in chats earlier (your own security to-do): rotate them.</li></ul></div>
+
+  <h3 style="margin:48px 0 14px">Top 20 features to build next</h3>
+  <div class="tw"><table><tr><th>#</th><th>Feature</th><th>Why it matters</th><th>Difficulty</th><th>Revenue impact</th><th>Priority</th></tr><tr><td>1</td><td>Item modifiers and options</td><td>Cafés cannot take real orders without size, sugar and extras</td><td>Medium</td><td>High</td><td>Now</td></tr><tr><td>2</td><td>Card and wallet payment (Paymob)</td><td>Revenue share, stickiness, closes the biggest gap</td><td>Hard</td><td>High</td><td>Now</td></tr><tr><td>3</td><td>ETA e-receipts</td><td>Unlocks venues that are legally covered</td><td>Very hard</td><td>High</td><td>Start paperwork now</td></tr><tr><td>4</td><td>Guest pickup and pre-order link</td><td>Takeaway without staff tickets; standard in the market</td><td>Medium</td><td>High</td><td>Next</td></tr><tr><td>5</td><td>Venue mini-website</td><td>A link for Instagram and Google; helps you sell</td><td>Easy</td><td>Medium</td><td>Next</td></tr><tr><td>6</td><td>Go-live checklist in admin</td><td>Cuts your onboarding and support hours</td><td>Easy</td><td>High (saves cost)</td><td>Now</td></tr><tr><td>7</td><td>Owner two-factor login and restore</td><td>Protects every venue and your reputation</td><td>Easy to medium</td><td>Medium</td><td>Now</td></tr><tr><td>8</td><td>Loyalty phone verification and consent</td><td>Required before real customer data</td><td>Medium</td><td>Medium</td><td>Next</td></tr><tr><td>9</td><td>Customer CRM and segments</td><td>Turns data into repeat visits and VIP upgrades</td><td>Medium</td><td>High</td><td>Mid</td></tr><tr><td>10</td><td>Counter or kiosk mode</td><td>Fits takeaway cafés with one tablet</td><td>Easy</td><td>Medium</td><td>Next</td></tr><tr><td>11</td><td>Allergens, calories, spice</td><td>Trust, tourists and families</td><td>Easy</td><td>Low</td><td>Now</td></tr><tr><td>12</td><td>Shareable receipt link</td><td>Digital receipts without paper; ties to ETA</td><td>Easy</td><td>Low</td><td>Next</td></tr><tr><td>13</td><td>Guest reservations and waitlist</td><td>Fills quiet hours</td><td>Medium</td><td>Medium</td><td>Mid</td></tr><tr><td>14</td><td>AI review summary</td><td>Owners read one paragraph, not 200 comments</td><td>Easy</td><td>Medium</td><td>Next</td></tr><tr><td>15</td><td>AI slow-hour offers</td><td>Suggests happy hours from your own data</td><td>Easy</td><td>Medium</td><td>Mid</td></tr><tr><td>16</td><td>Benchmark report vs similar venues</td><td>A reason to stay subscribed</td><td>Medium</td><td>High (retention)</td><td>Mid</td></tr><tr><td>17</td><td>Central menu across branches</td><td>Needed to sell to chains</td><td>Medium</td><td>Medium</td><td>Mid</td></tr><tr><td>18</td><td>Public API and webhooks</td><td>Partners and integrations</td><td>Medium</td><td>Low</td><td>Later</td></tr><tr><td>19</td><td>Shared guest loyalty wallet</td><td>Your strongest moat; grows with each venue</td><td>Hard</td><td>High</td><td>Later</td></tr><tr><td>20</td><td>Recipe costing and supplier orders</td><td>Value for bigger venues</td><td>Hard</td><td>Medium</td><td>Later</td></tr></table></div>
+  <p class="muted" style="font-size:.88rem;margin-top:12px">Ranking is my judgement of return against effort for an Egyptian independent café, not a measurement. Re-rank after the first three pilots tell you what owners actually ask for.</p>
+</div></section>
+
+<section id="roadmap"><div class="wrap">
+  <div class="head"><span class="chap">Chapter thirteen</span><h2>Twelve-month roadmap</h2></div>
+  <div class="rm">
+    <div><span class="when">Days 1–14</span><h4>Foundations</h4><ul><li>Register business and tax card</li><li>Rotate keys, leave Vercel free</li><li>Backups and staging</li></ul><div class="gate">Gate · backup restores cleanly</div></div>
+    <div><span class="when">Days 15–30</span><h4>Readiness</h4><ul><li>Contract, invoice, handover</li><li>Automated tests, rollback drill</li><li>Arabic demo video</li></ul><div class="gate">Gate · rollback under 5 minutes</div></div>
+    <div><span class="when">Days 31–60</span><h4>Pilots</h4><ul><li>2–3 venues at 30–40% off</li><li>Fix pilot bugs</li><li>Shift close and Z-report</li></ul><div class="gate">Gate · totals match 5 days</div></div>
+    <div><span class="when">Days 61–90</span><h4>First sales</h4><ul><li>Arabic landing page</li><li>First full-price venues</li><li>Decide ETA: build or partner</li></ul><div class="gate">Gate · 3 paying venues</div></div>
+    <div><span class="when">Months 4–6</span><h4>Reliability</h4><ul><li>10 venues, referral offer</li><li>ETA e-receipts</li><li>Offline queue, loyalty SMS check</li></ul><div class="gate">Gate · 30 days, no blocking bug</div></div>
+    <div><span class="when">Months 7–9</span><h4>Revenue depth</h4><ul><li>VIP upsells and chains</li><li>Card payments</li><li>WhatsApp and feedback</li></ul><div class="gate">Gate · card flow tested</div></div>
+    <div><span class="when">Months 10–12</span><h4>Scale</h4><ul><li>25 venues, first support hire</li><li>Recipes and purchasing</li><li>Cross-branch menu sync</li></ul><div class="gate">Gate · under 6 support hours per venue</div></div>
+  </div>
+  <h3 style="margin:56px 0 16px">What success looks like</h3>
+  <div class="tw"><table>
+    <tr><th>Measure</th><th>Target</th></tr>
+    <tr><td>Pilot to paid</td><td>2 of 3</td></tr>
+    <tr><td>Signing to go-live</td><td>Under 5 weeks</td></tr>
+    <tr><td>Uptime of guest and staff pages</td><td>99.5% or better</td></tr>
+    <tr><td>Support tickets per venue per month</td><td>Under 4 after month two</td></tr>
+    <tr><td>Monthly churn</td><td>Under 3%</td></tr>
+    <tr><td>Basic to Operations upgrades</td><td>25% within six months</td></tr>
+    <tr><td>Monthly recurring revenue</td><td>10,000 EGP by month six, 30,000 by month twelve</td></tr>
+  </table></div>
+</div></section>
+
+<section id="risks" class="alt"><div class="wrap">
+  <div class="head"><span class="chap">Chapter fourteen</span><h2>Risks &amp; open questions</h2></div>
+  <div class="tw"><table>
+    <tr><th>Risk</th><th>Impact</th><th>Response</th></tr>
+    <tr><td>Venue must issue ETA e-receipts</td><td>Cannot sell to them</td><td>Ask at first meeting; build or partner early</td></tr>
+    <tr><td>Outage during rush</td><td>Lost trust</td><td>Shadow-first rollout, paper backup card, off-hours releases, rollback</td></tr>
+    <tr><td>Wi-Fi or internet failure</td><td>Orders stall</td><td>Router advice now, offline queue on the roadmap</td></tr>
+    <tr><td>Data loss or breach</td><td>Could end the business</td><td>Off-site backups, tenant isolation tests, rotated secrets</td></tr>
+    <tr><td>Loyalty phone numbers exposed</td><td>Privacy claim</td><td>SMS verification and a privacy clause before real data</td></tr>
+    <tr><td>Support drains your time</td><td>No growth</td><td>One free month, written response times, training video</td></tr>
+    <tr><td>Copying or resale</td><td>Lost revenue</td><td>You host it; licence terms; sell a service, not source code</td></tr>
+    <tr><td>Pound moves</td><td>Hosting cost rises</td><td>Quote expiry; review prices every six months</td></tr>
+    <tr><td>Solo-developer dependency</td><td>Stall if unavailable</td><td>Runbook and an up-to-date project guide</td></tr>
+  </table></div>
+  <div class="grid g2" style="margin-top:44px">
+    <div class="card gilt"><h3>Decisions still open</h3><p>Sole proprietorship or company, and who your accountant is. Which city and venue type come first. Your own server, or Vercel Pro with Supabase Pro. Real quotes from Dgtera, VeraKit360 and Zlenu’s paid plans, requested as a customer.</p></div>
+    <div class="card"><h3>A note on the figures</h3><p>Costs, break-even and tax points come from your Egypt market study and are estimates. Tax, registration and contract wording need an accountant and a lawyer before you rely on them.</p></div>
+  </div>
+</div></section>
+
+<footer><div class="wrap"><span class="brand">elmenue</span>Business &amp; Development Master Plan · October 2026</div></footer>
+
+<script>
+(function(){
+  var $=function(s,r){return (r||document).querySelector(s)},$$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+  // product tabs
+  $$('#ptabs .tab').forEach(function(t){t.addEventListener('click',function(){
+    $$('#ptabs .tab').forEach(function(x){x.setAttribute('aria-selected',x===t?'true':'false')});
+    $$('.panel').forEach(function(p){p.hidden=p.id!==t.dataset.p});
+  })});
+  // pricing
+  var M=[
+    {n:'Basic QR Menu',p:'350–500',u:'/ month',f:['Menu and table QR codes','Micro-service buttons','Menu admin','Setup fee 1,000–2,000']},
+    {n:'Operations',p:'850–1,000',u:'/ month',f:['Everything in Basic','Guest ordering, waiter, kitchen, POS','Inventory and reports','Setup fee 3,000–5,000']},
+    {n:'VIP',p:'1,450+',u:'/ month',f:['Everything in Operations','Loyalty, AI scan, copilot','Premium themes, branch analytics','Setup fee 5,000–8,000']}];
+  var O=[
+    {n:'Starter',p:'20,000',u:'once',f:['About 10 tables','Guest ordering, waiter and kitchen screens','Basic reports','Support 2,400 / year']},
+    {n:'Standard',p:'40,000',u:'once',f:['About 30 tables','POS, inventory, full reports, zones','Two training sessions','Support 4,800 / year']},
+    {n:'Premium',p:'80,000',u:'once',f:['Multi-zone, reservations, custom roles','Fully custom setup','Three sessions, 3 months priority support','Support 9,600 / year']}];
+  var NOTE={month:'Extra branch at 50% of the tier. 20% off yearly, 10% off quarterly, 14-day free trial.',once:'50% on signing, 50% at go-live. Pilot venues get 30–40% off. Extra branch at 50% of the licence. Include one year of hosting or run it on the venue’s own mini PC.'};
+  function draw(m){
+    var d=m==='month'?M:O;
+    $('#pcards').innerHTML=d.map(function(x,i){return '<div class="card'+(i===1?' gilt':'')+'"><span class="eyebrow">'+x.n+'</span><div class="price">'+x.p+'<small>EGP '+x.u+'</small></div><ul class="plist">'+x.f.map(function(a){return '<li>'+a+'</li>'}).join('')+'</ul></div>'}).join('');
+    $('#pnote').textContent=NOTE[m];
+    $$('#ptoggle button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.m===m?'true':'false')});
+  }
+  $$('#ptoggle button').forEach(function(b){b.addEventListener('click',function(){draw(b.dataset.m)})});
+  draw('month');
+  // plan banners
+  var F_BASIC=['Digital menu with six layouts and category photos','Table QR codes with a secret table key','Printable QR table stands','Instant micro-services: water, napkins, cutlery, call waiter','Sound alert with the exact table number','Menu admin: categories, items, photos, sold-out in one tap','Dietary tags and timed categories','Excel menu import and bulk photo upload','Home screen: branding, promotions, Wi-Fi tap-to-copy','Default language of your choice','Basic analytics','Daily off-site backups'];
+  var F_OPS=['Guest ordering with a shared table cart','Review screen and “add more items” loop','Pending window, then server-enforced kitchen lock','Party size and table host','Waiter app: floor map, zone list, tickets','Push alerts and installable app','Kitchen display by station with timers','Ready alerts to waiter and guest','Staff POS ordering at any table','Takeaway and delivery tickets','Discounts with a captain cap, voids with a reason','Cash, card or mixed payment, tips, change','80 mm receipt print and reprint','Split bill: self, table or custom','Move and merge tables, reservations','Floor-plan editor with zones','Inventory: counts, low-stock, waste, movement log','English, Egyptian Ammiya and Franco','Staff PIN accounts and roles','Full analytics with CSV export per block','Excel reports, order history, sales by staff, profit estimate','Audit trail and full backup export','Upsell suggestions in the guest cart','Guest feedback with Google review link','Coupons and timed offers','Online card / wallet payment (Paymob)','ETA e-receipts (test and pre-production)','Shift close, X and Z reports','Offline order queue for staff apps','Plan limits per tier'];
+  var F_VIP=['Loyalty card by phone number','EGP-to-points and redemption ratios you set','Member list and manual point adjustments','AI photo menu scan','Admin AI copilot','27 premium themes incl. Dark Neon Glass and Minimalist Luxury','Multi-branch analytics by group','Custom domain for the venue','Priority WhatsApp support','Gift cards','Monthly owner report (planned)'];
+  var BN=[
+    {c:'basic',t:'Tier one',n:'Basic QR Menu',f:'A beautiful scan-only menu that also calls the waiter. For kiosks, takeaways and small cafés.',p:'450',q:'405',y:'360',lim:'Proposed limits: 1 branch · up to 10 tables · 1 owner login. Guests cannot order in this tier.',own:F_BASIC,inh:[]},
+    {c:'ops',t:'Tier two',n:'Operations',f:'The full café floor: guests order, waiters accept, the kitchen cooks, the till closes. For cafés and restaurants of 10–30 tables.',p:'950',q:'855',y:'760',lim:'Proposed limits: 1 branch · up to 30 tables · 10 staff accounts.',own:F_OPS,inh:F_BASIC,rib:'Core plan'},
+    {c:'vip',t:'Tier three',n:'Enterprise VIP &amp; AI',f:'Loyalty, AI and the premium look, for lounges, large restaurants and small chains.',p:'1,450',q:'1,305',y:'1,160',lim:'Proposed limits: up to 3 branches · unlimited tables and staff. Extra branch at 50%.',own:F_VIP,inh:F_BASIC.concat(F_OPS),rib:'Most complete'}];
+  $('#banners').innerHTML=BN.map(function(b){
+    var li=b.inh.map(function(x){return '<li class="inh">'+x+'</li>'}).concat(b.own.map(function(x){return '<li>'+x+'</li>'})).join('');
+    return '<article class="banner '+b.c+'">'+(b.rib?'<div class="ribbon">'+b.rib+'</div>':'')+
+      '<div class="bl"><div class="tier">'+b.t+'</div><h3>'+b.n+'</h3><div class="for">'+b.f+'</div>'+
+      '<div class="pr">'+b.p+'<small>EGP / month</small></div>'+
+      '<ul class="alt-pr"><li><span>Quarterly, 10% off</span><b>'+b.q+' / month</b></li><li><span>Yearly, 20% off</span><b>'+b.y+' / month</b></li></ul>'+
+      '<div class="lim">'+b.lim+'</div></div>'+
+      '<div class="br"><h4>'+(b.inh.length?'Everything included · '+(b.inh.length+b.own.length)+' features':'Included · '+b.own.length+' features')+'</h4><ul class="cols">'+li+'</ul></div></article>';
+  }).join('');
+
+  // business model
+  var FIX=83000/12, VAR=150, CASH=1500, SETUP=3500, MKT=20000, HRS=15, RATE=300, SUP=450;
+  function sim(n,arpu,ch){
+    var act=0,cum=0,rows=[],rev=0,cost=0,sub=0,set=0,be=0,fx=0,vr=0,aq=0;
+    for(var m=1;m<=12;m++){
+      act=act*(1-ch)+n;
+      var s=act*arpu,su=n*SETUP,r=s+su,c=FIX+act*VAR+n*CASH,net=r-c;
+      cum+=net;rev+=r;cost+=c;sub+=s;set+=su;fx+=FIX;vr+=act*VAR;aq+=n*CASH;
+      if(!be&&cum>=0)be=m;
+      rows.push({m:m,mrr:s,cum:cum});
+    }
+    return {rows:rows,act:act,mrr:act*arpu,rev:rev,cost:cost,net:rev-cost,sub:sub,set:set,be:be,fx:fx,vr:vr,aq:aq,venues:n*12};
+  }
+  var E=function(n){return Math.round(n).toLocaleString('en-US')};
+  var K=function(n){var a=Math.abs(n);return (n<0?'−':'')+(a>=1e6?(a/1e6).toFixed(1)+'M':a>=1000?Math.round(a/1000)+'k':Math.round(a))};
+  function chart(rows){
+    var W=680,H=300,L=58,R=14,T=14,B=34,pw=W-L-R,ph=H-T-B,mx=0,mn=0;
+    rows.forEach(function(r){mx=Math.max(mx,r.mrr,r.cum);mn=Math.min(mn,r.cum)});
+    if(mx<=mn)mx=mn+1;
+    var y=function(v){return T+ph*(1-(v-mn)/(mx-mn))},o='';
+    for(var i=0;i<=4;i++){var v=mn+(mx-mn)*i/4;o+='<line class="gl" x1="'+L+'" x2="'+(W-R)+'" y1="'+y(v)+'" y2="'+y(v)+'"/><text class="ax" x="'+(L-8)+'" y="'+(y(v)+4)+'" text-anchor="end">'+K(v)+'</text>';}
+    var bw=pw/12;
+    rows.forEach(function(r,i){
+      var x=L+i*bw+bw*.2,h=Math.max(0,y(0)-y(r.mrr));
+      o+='<rect class="cb" x="'+x+'" y="'+y(r.mrr)+'" width="'+(bw*.6)+'" height="'+h+'"/><text class="ax" x="'+(L+i*bw+bw/2)+'" y="'+(H-12)+'" text-anchor="middle">'+r.m+'</text>';
+    });
+    o+='<line class="cz" x1="'+L+'" x2="'+(W-R)+'" y1="'+y(0)+'" y2="'+y(0)+'"/>';
+    o+='<polyline class="cl" points="'+rows.map(function(r,i){return (L+i*bw+bw/2)+','+y(r.cum)}).join(' ')+'"/>';
+    o+='<circle class="cd" r="4" cx="'+(L+11*bw+bw/2)+'" cy="'+y(rows[11].cum)+'"/>';
+    return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Monthly recurring revenue by month and cumulative cash position">'+o+'<text class="ax" x="'+(L+pw/2)+'" y="'+(H)+'" text-anchor="middle" style="display:none"></text></svg>';
+  }
+  function model(){
+    var n=+$('#mn').value,arpu=+$('#ma').value,ch=+$('#mc').value/100;
+    $('#mnv').textContent=n;$('#mav').textContent=E(arpu);$('#mcv').textContent=(ch*100).toFixed(1);
+    var r=sim(n,arpu,ch),gp=arpu-VAR,cac=MKT/(n*12)+CASH+HRS*RATE,ltv=gp/ch,pay=Math.max(0,(cac-SETUP)/gp);
+    var set=function(id,t){$(id).textContent=t};
+    set('#kmrr',E(r.mrr));set('#karr',E(r.mrr*12));set('#krev',E(r.rev));set('#knet',(r.net<0?'−':'')+E(Math.abs(r.net)));
+    set('#kgm',Math.round(gp/arpu*100)+'%');set('#kgl',Math.round((gp-SUP)/arpu*100)+'%');
+    set('#kcac',E(cac));set('#kltv',E(ltv));set('#kratio',(ltv/cac).toFixed(1)+' : 1');set('#kpay',pay.toFixed(1));set('#klife',(1/ch).toFixed(0));
+    set('#kbe',r.be?'Month '+r.be:'After month 12');
+    $('#mchart').innerHTML=chart(r.rows);
+    var rows=[['Fixed costs',r.fx],['Variable cost of serving venues',r.vr],['Winning new venues (cash)',r.aq],['Profit before tax and your time',r.net]];
+    $('#mflow').innerHTML=rows.map(function(x){var p=r.rev?x[1]/r.rev*100:0;return '<div class="pb"><span>'+x[0]+'</span><div class="tr"><i style="width:'+Math.min(100,Math.abs(p))+'%"></i></div><b>'+Math.round(p)+'%</b></div>'}).join('')+
+      '<div class="pb"><span>Subscriptions share of revenue</span><div class="tr"><i style="width:'+(r.sub/r.rev*100)+'%"></i></div><b>'+Math.round(r.sub/r.rev*100)+'%</b></div>';
+    $('#mscen').innerHTML=[['Slow',1],['Base',2],['Fast',4]].map(function(x){var q=sim(x[1],arpu,ch);return '<tr><td>'+x[0]+' · '+x[1]+' new venue'+(x[1]>1?'s':'')+' a month</td><td>'+q.venues+'</td><td>'+Math.round(q.act)+'</td><td>'+E(q.mrr)+'</td><td>'+E(q.rev)+'</td><td>'+(q.net<0?'−':'')+E(Math.abs(q.net))+'</td><td>'+(q.be?'Month '+q.be:'After month 12')+'</td></tr>'}).join('');
+  }
+  ['mn','ma','mc'].forEach(function(id){$('#'+id).addEventListener('input',model)});
+  model();
+})();
+</script>

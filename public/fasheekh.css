@@ -1,0 +1,26 @@
+/* "Fasheekh" premium looks (VIP tier). Loaded on demand by App.applyTheme() when settings.theme is neon | luxury | vibrant.
+   The palettes live in shared.js (App.PRESETS); this file only adds the surface treatment and is scoped to html[data-flavor]. */
+
+/* ---- Dark Neon Glassmorphism ---- */
+html[data-flavor="neon"] body { background: radial-gradient(640px 420px at 8% -6%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 70%), radial-gradient(720px 520px at 100% 18%, color-mix(in srgb, var(--accent2) 26%, transparent), transparent 70%), var(--bg); background-attachment: fixed; }
+html[data-flavor="neon"] .c, html[data-flavor="neon"] .card, html[data-flavor="neon"] .tile, html[data-flavor="neon"] .micro button, html[data-flavor="neon"] .sheet, html[data-flavor="neon"] #cop {
+  background: color-mix(in srgb, var(--card) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent); box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 20%, transparent), inset 0 1px 0 rgba(255,255,255,.08); }
+html[data-flavor="neon"] .send, html[data-flavor="neon"] button.primary, html[data-flavor="neon"] .cbs { background: linear-gradient(120deg, var(--accent), var(--accent2)); color: #070914; box-shadow: 0 0 26px color-mix(in srgb, var(--accent) 55%, transparent); border: 0; }
+html[data-flavor="neon"] h1, html[data-flavor="neon"] h2, html[data-flavor="neon"] .serif { text-shadow: 0 0 22px color-mix(in srgb, var(--accent) 45%, transparent); }
+html[data-flavor="neon"] aside, html[data-flavor="neon"] header, html[data-flavor="neon"] #nav { background: color-mix(in srgb, var(--bg) 62%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+
+/* ---- Minimalist Luxury ---- */
+html[data-flavor="luxury"] body { background: var(--bg); letter-spacing: .005em; }
+html[data-flavor="luxury"] .c, html[data-flavor="luxury"] .card, html[data-flavor="luxury"] .tile, html[data-flavor="luxury"] .micro button { border: 1px solid color-mix(in srgb, var(--accent2) 35%, var(--line)); box-shadow: none; border-radius: 4px; background: var(--card); }
+html[data-flavor="luxury"] .send, html[data-flavor="luxury"] button.primary, html[data-flavor="luxury"] .cbs { border-radius: 2px; letter-spacing: .14em; text-transform: uppercase; font-size: .82em; box-shadow: none; }
+html[data-flavor="luxury"] h1, html[data-flavor="luxury"] h2, html[data-flavor="luxury"] h3, html[data-flavor="luxury"] .serif { font-family: 'Playfair Display', Georgia, 'Cairo', serif; font-weight: 500; letter-spacing: .02em; }
+html[data-flavor="luxury"] .eyebrow { letter-spacing: .22em; color: var(--accent2); }
+html[data-flavor="luxury"] .seg button, html[data-flavor="luxury"] .ib { border-radius: 2px; }
+
+/* ---- Vibrant Egyptian Cafe ---- */
+html[data-flavor="vibrant"] body { background-color: var(--bg); background-image: repeating-conic-gradient(from 45deg at 50% 50%, color-mix(in srgb, var(--accent2) 11%, transparent) 0 25%, transparent 0 50%); background-size: 46px 46px; background-attachment: fixed; }
+html[data-flavor="vibrant"] .c, html[data-flavor="vibrant"] .card, html[data-flavor="vibrant"] .tile, html[data-flavor="vibrant"] .micro button { border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 22px; background: var(--card); box-shadow: 4px 5px 0 color-mix(in srgb, var(--accent2) 70%, transparent); }
+html[data-flavor="vibrant"] .send, html[data-flavor="vibrant"] button.primary, html[data-flavor="vibrant"] .cbs { background: var(--accent); color: #fff; border-radius: 99px; box-shadow: 4px 5px 0 var(--accent2); font-weight: 800; }
+html[data-flavor="vibrant"] h1, html[data-flavor="vibrant"] h2, html[data-flavor="vibrant"] .serif { color: var(--accent); font-weight: 800; }
+html[data-flavor="vibrant"] header, html[data-flavor="vibrant"] aside { border-bottom: 4px solid var(--accent2); }

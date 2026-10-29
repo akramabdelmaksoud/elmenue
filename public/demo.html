@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en" data-theme="maison"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Live Demo</title><link rel="stylesheet" href="/shared.css">
+<style>
+body { min-height:100vh; margin:0; display:grid; place-items:center; padding:24px 16px; }
+.wrap { width:min(960px,100%); text-align:center; }
+.logo { width:64px; height:64px; margin:0 auto 14px; border-radius:20px; display:grid; place-items:center; font:700 30px var(--serif); color:#2a1d06; background:linear-gradient(135deg,var(--gold2),var(--gold)); box-shadow:0 10px 30px color-mix(in srgb,var(--gold) 40%,transparent); animation:float 5s ease-in-out infinite; }
+@keyframes float { 50% { transform:translateY(-7px) rotate(3deg); } }
+h1 { font-size:clamp(30px,6vw,46px); margin:0 0 6px; } p.sub { color:var(--muted); margin:0 auto 26px; max-width:560px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:16px; }
+a.tile { display:block; text-decoration:none; color:inherit; padding:22px 18px; border-radius:var(--r); background:var(--panel); border:1px solid var(--line); box-shadow:var(--shadow); backdrop-filter:blur(10px); text-align:start; transition:transform .35s var(--m-ease), border-color .3s; animation:m-rise .6s var(--m-ease) both; animation-delay:calc(var(--i)*70ms); }
+a.tile:hover { transform:translateY(-6px); border-color:var(--gold); } a.tile .e { font-size:34px; display:block; margin-bottom:8px; } a.tile b { font:600 20px var(--serif); display:block; } a.tile span.d { color:var(--muted); font-size:13px; display:block; margin-top:4px; }
+.note { margin-top:22px; color:var(--muted); font-size:13px; } .note button { margin-inline-start:8px; }
+</style></head><body>
+<div class="wrap"><div class="logo">E</div><h1>Try it live</h1><p class="sub">A complete café running in your browser with sample data. Open several of these in different tabs — a guest ordering at a table shows up on the captain and kitchen screens straight away. Nothing is saved to any server.</p>
+<div class="grid">
+<a class="tile" style="--i:0" href="/r/live-demo/t/7?demo=1"><span class="e">📱</span><b>Guest at table 7</b><span class="d">Browse the menu, share the table order, split the bill.</span></a>
+<a class="tile" style="--i:1" href="/r/live-demo/captain?demo=1"><span class="e">🧑‍✈️</span><b>Captain &amp; cashier</b><span class="d">Floor map, take orders, discounts, payment and receipts.</span></a>
+<a class="tile" style="--i:2" href="/r/live-demo/kitchen?demo=1"><span class="e">🍳</span><b>Kitchen &amp; bar</b><span class="d">Live ticket board with timers and stations.</span></a>
+<a class="tile" style="--i:3" href="/r/live-demo/admin?demo=1"><span class="e">📊</span><b>Owner dashboard</b><span class="d">Insights, menu, inventory, floor plan, reports.</span></a>
+</div>
+<div class="note">The demo data lives in this browser only. <button class="ghost" onclick="localStorage.removeItem('demo:v1');this.textContent='Reset ✓'">Reset demo data</button></div></div>
+<script>try { sessionStorage.removeItem('demo'); } catch (e) {}</script></body></html>

@@ -1,0 +1,138 @@
+/* "Maison de Luxe" collection (VIP tier): eight complete looks for high-end venues.
+   Loaded on demand by App.applyTheme() when settings.theme is one of the lux ids (onyx, ivory, noir, champagne, emerald, bordeaux, marble, royal).
+   Palettes live in shared.js (App.PRESETS); this file changes typography, shape, ornament and motion. Everything is scoped to html[data-lux]. */
+@import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Bodoni+Moda:wght@400;500;700&family=Cinzel:wght@400;500;600&family=Cormorant+Garamond:wght@400;500;600;700&family=Italiana&family=Jost:wght@300;400;500&family=Lato:wght@300;400;700&family=Marcellus&family=Montserrat:wght@300;400;500;600&family=Playfair+Display:wght@400;500;700&family=Raleway:wght@300;400;500;600&family=Tajawal:wght@300;400;500;700&display=swap');
+
+/* ---------- typography per theme ---------- */
+html[data-flavor="onyx"]      { --lx-head: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; --lx-body: 'Montserrat', 'Segoe UI', system-ui, sans-serif; }
+html[data-flavor="ivory"]     { --lx-head: 'Bodoni Moda', 'Playfair Display', Georgia, serif;       --lx-body: 'Jost', 'Segoe UI', system-ui, sans-serif; }
+html[data-flavor="noir"]      { --lx-head: 'Italiana', 'Cormorant Garamond', Georgia, serif;        --lx-body: 'Jost', 'Segoe UI', system-ui, sans-serif; }
+html[data-flavor="champagne"] { --lx-head: 'Cormorant Garamond', Georgia, serif;                    --lx-body: 'Lato', 'Segoe UI', system-ui, sans-serif; }
+html[data-flavor="emerald"]   { --lx-head: 'Playfair Display', Georgia, serif;                      --lx-body: 'Raleway', 'Segoe UI', system-ui, sans-serif; }
+html[data-flavor="bordeaux"]  { --lx-head: 'Marcellus', 'Cormorant Garamond', Georgia, serif;       --lx-body: 'Lato', 'Segoe UI', system-ui, sans-serif; }
+html[data-flavor="marble"]    { --lx-head: 'Cinzel', 'Cormorant Garamond', Georgia, serif;          --lx-body: 'Montserrat', 'Segoe UI', system-ui, sans-serif; }
+html[data-flavor="royal"]     { --lx-head: 'Playfair Display', 'Cormorant Garamond', Georgia, serif; --lx-body: 'Cormorant Garamond', 'Raleway', Georgia, serif; }
+html[data-lux][dir="rtl"]     { --lx-head: 'Amiri', 'Cairo', serif; --lx-body: 'Tajawal', 'Cairo', sans-serif; }
+html[data-lux][dir="rtl"] *   { letter-spacing: 0 !important; text-transform: none !important; }   /* Arabic letters must stay joined */
+
+html[data-lux] { --serif: var(--lx-head); --r: 3px; --lx-hair: color-mix(in srgb, var(--accent2) 42%, transparent); --lx-ease: cubic-bezier(.22, 1, .36, 1); }
+html[data-lux] body, html[data-lux] input, html[data-lux] select, html[data-lux] textarea, html[data-lux] button { font-family: var(--lx-body); }
+html[data-lux] body { font-weight: 400; letter-spacing: .01em; -webkit-font-smoothing: antialiased; background: var(--bg); }
+html[data-lux] h1, html[data-lux] h2, html[data-lux] h3, html[data-lux] .serif, html[data-lux] .logo, html[data-lux] .hero h2, html[data-lux] .dish h3,
+html[data-lux] .mhead h3, html[data-lux] .cl .top b, html[data-lux] .lr b, html[data-lux] .hx b, html[data-lux] .pc b, html[data-lux] .cw b, html[data-lux] .cbt { font-family: var(--lx-head); font-weight: 500; letter-spacing: .02em; }
+html[data-lux] h1, html[data-lux] .hero h2, html[data-lux] .cover h2 { font-weight: 400; letter-spacing: .01em; }
+html[data-lux] ::selection { background: var(--accent2); color: var(--bg); }
+html[data-lux] * { scrollbar-width: thin; scrollbar-color: var(--accent2) transparent; }
+
+/* ---------- surfaces: flat, hairline-bordered, almost square ---------- */
+html[data-lux] .c, html[data-lux] .card, html[data-lux] .tile, html[data-lux] .micro button, html[data-lux] .sheet, html[data-lux] .how, html[data-lux] .dish,
+html[data-lux] .cw, html[data-lux] .lr, html[data-lux] .pc, html[data-lux] #cop { border-radius: 2px; border: 1px solid var(--lx-hair); box-shadow: none; background: var(--card); }
+html[data-lux] .how { border-style: solid; background: transparent; }
+html[data-lux] .art, html[data-lux] .lr .art, html[data-lux] .cw .art, html[data-lux] .pc .art, html[data-lux] .dish .art { border-radius: 1px; }
+html[data-lux] .cover, html[data-lux] .hx, html[data-lux] .mhead.has { border-radius: 2px; }
+html[data-lux] .hx .em, html[data-lux] .amb { display: none; }          /* no floating emoji in a luxury room */
+html[data-lux] .dish::after { display: none; }
+html[data-lux] .eyebrow, html[data-lux] .sec, html[data-lux] .ptitle { letter-spacing: .32em; font-weight: 500; color: var(--accent2); }
+
+/* ---------- controls ---------- */
+html[data-lux] button, html[data-lux] input, html[data-lux] select, html[data-lux] textarea { border-radius: 1px; }
+html[data-lux] .send, html[data-lux] button.primary, html[data-lux] .cbs, html[data-lux] .addb2, html[data-lux] .join {
+  border-radius: 1px; background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent); box-shadow: none;
+  text-transform: uppercase; letter-spacing: .22em; font-size: .74em; font-weight: 500; transition: background .5s var(--lx-ease), color .5s var(--lx-ease), letter-spacing .5s var(--lx-ease); }
+html[data-lux] .send:hover, html[data-lux] button.primary:hover, html[data-lux] .cbs:hover, html[data-lux] .addb2:hover { background: transparent; color: var(--accent); letter-spacing: .28em; transform: none; }
+html[data-lux] button.ghost, html[data-lux] .act { border-radius: 1px; border: 1px solid var(--lx-hair); background: transparent; text-transform: uppercase; letter-spacing: .16em; font-size: .78em; }
+html[data-lux] button.sel { outline: 0; border: 1px solid var(--accent2); background: color-mix(in srgb, var(--accent2) 14%, transparent); }
+html[data-lux] .chip { border-radius: 0; background: transparent; border: 0; border-bottom: 1px solid transparent; padding: 10px 12px; text-transform: uppercase; letter-spacing: .2em; font-size: 11px; font-weight: 500; color: var(--muted); }
+html[data-lux] .chip.on { background: transparent; color: var(--text); border-bottom-color: var(--accent2); transform: none; box-shadow: none; }
+html[data-lux] .stp2, html[data-lux] .stp2 button { border-radius: 1px; box-shadow: none; }
+html[data-lux] .stp2 { border: 1px solid var(--lx-hair); background: transparent; }
+html[data-lux] .stp2 button { background: transparent; color: var(--accent2); font-weight: 400; }
+html[data-lux] input, html[data-lux] select, html[data-lux] textarea { background: transparent; border: 0; border-bottom: 1px solid var(--lx-hair); padding-inline: 2px; }
+html[data-lux] .search input { padding: 14px 4px 14px 36px; border-radius: 0; }
+html[data-lux][dir="rtl"] .search input { padding: 14px 36px 14px 4px; }
+html[data-lux] .search svg { inset-inline-start: 4px; }
+html[data-lux] .cover h2 { color: #fff; -webkit-text-fill-color: #fff; background: none; text-shadow: 0 2px 18px rgba(0,0,0,.45); }
+html[data-lux] input:focus, html[data-lux] select:focus, html[data-lux] textarea:focus { border-bottom-color: var(--accent2); }
+
+/* ---------- navigation ---------- */
+html[data-lux] header, html[data-lux] aside, html[data-lux] .stk { background: color-mix(in srgb, var(--bg) 90%, transparent); border-bottom: 1px solid var(--lx-hair); }
+html[data-lux] nav { border-radius: 0; background: color-mix(in srgb, var(--bg) 94%, transparent); border: 0; border-top: 1px solid var(--lx-hair); box-shadow: none; bottom: 0; width: 100%; max-width: 100%; padding-bottom: env(safe-area-inset-bottom); }
+html[data-lux] nav button { border-radius: 0; text-transform: uppercase; letter-spacing: .18em; font-size: 9.5px; font-weight: 500; }
+html[data-lux] nav button.on { color: var(--accent2); }
+html[data-lux] #cartbar { bottom: calc(76px + env(safe-area-inset-bottom)); }
+html[data-lux] #cartbar button { border-radius: 1px; box-shadow: none; border: 1px solid var(--lx-hair); }
+html[data-lux] .cbn { border-radius: 1px; background: var(--accent2); color: var(--bg); }
+html[data-lux] .logo small { letter-spacing: .3em; }
+html[data-lux] .ib { border-radius: 1px; background: transparent; border: 1px solid var(--lx-hair); }
+html[data-lux] .nm, html[data-lux] .pr, html[data-lux] .cbt { font-feature-settings: 'lnum' 1; }
+
+/* ---------- the menu itself: centred headings, hairline + diamond ornament, dotted price leaders ---------- */
+html[data-lux] .mhead:not(.has) { justify-content: center; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 18px 2px 20px; }
+html[data-lux] .mhead:not(.has) h3 { font-size: 22px; text-transform: uppercase; letter-spacing: .32em; font-weight: 500; }
+html[data-lux] .mhead:not(.has) small { margin: 0; letter-spacing: .24em; text-transform: uppercase; font-size: 10px; }
+html[data-lux] .mhead:not(.has)::after { inset-inline: 22%; bottom: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--accent2), transparent); }
+html[data-lux] .mhead:not(.has)::before { content: '\25C6'; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); font-size: 8px; line-height: 1; color: var(--accent2); background: var(--bg); padding: 0 8px; z-index: 1; }
+html[data-lux] .mhead .em { display: none; }
+html[data-lux] .cl { border-bottom: 1px solid var(--lx-hair); }
+html[data-lux] .cl .dots { border-bottom: 1px dotted var(--accent2); opacity: .6; }
+html[data-lux] .lr b, html[data-lux] .pc b { font-size: 19px; }
+html[data-lux] .pr { color: var(--accent2); font-weight: 500; letter-spacing: .06em; }
+html[data-lux] .msec { margin-bottom: 38px; }
+html[data-lux] .rise { animation-duration: 1s; animation-timing-function: var(--lx-ease); }
+
+/* ===================================================================
+   THE EIGHT LOOKS
+   =================================================================== */
+
+/* 1. ONYX & GOLD - black lacquer, gold leaf */
+html[data-flavor="onyx"] body { background: radial-gradient(900px 520px at 50% -12%, rgba(201,164,92,.13), transparent 70%), var(--bg); background-attachment: fixed; }
+html[data-flavor="onyx"] h1, html[data-flavor="onyx"] .hero h2, html[data-flavor="onyx"] .logo { background: linear-gradient(100deg, #8d6b2c, #e9d49b 38%, #c9a45c 62%, #f1e2b6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+html[data-flavor="onyx"] .logo small { -webkit-text-fill-color: var(--muted); }
+html[data-flavor="onyx"] .c, html[data-flavor="onyx"] .card, html[data-flavor="onyx"] .tile { background: linear-gradient(160deg, #141414, #0a0a0a); }
+
+/* 2. IVORY - pure white gallery, ink-black hairlines, no tint at all */
+html[data-flavor="ivory"] body { background: #fff; color: #0b0b0b; }
+html[data-flavor="ivory"] { --lx-hair: rgba(11,11,11,.22); }
+html[data-flavor="ivory"] .c, html[data-flavor="ivory"] .card, html[data-flavor="ivory"] .tile, html[data-flavor="ivory"] .dish, html[data-flavor="ivory"] .cw, html[data-flavor="ivory"] .lr, html[data-flavor="ivory"] .pc { background: #fff; border-color: rgba(11,11,11,.16); }
+html[data-flavor="ivory"] .eyebrow, html[data-flavor="ivory"] .sec, html[data-flavor="ivory"] .pr, html[data-flavor="ivory"] .ptitle { color: #6d5a2e; }
+html[data-flavor="ivory"] .chip.on { border-bottom-color: #0b0b0b; }
+html[data-flavor="ivory"] .mhead:not(.has)::before { color: #0b0b0b; }
+html[data-flavor="ivory"] .mhead:not(.has)::after { background: linear-gradient(90deg, transparent, #0b0b0b, transparent); }
+
+/* 3. NOIR - absolute black (OLED), silver typography, white hairlines */
+html[data-flavor="noir"] body { background: #000; }
+html[data-flavor="noir"] { --lx-hair: rgba(255,255,255,.2); }
+html[data-flavor="noir"] .c, html[data-flavor="noir"] .card, html[data-flavor="noir"] .tile, html[data-flavor="noir"] .dish, html[data-flavor="noir"] .cw, html[data-flavor="noir"] .lr, html[data-flavor="noir"] .pc { background: #000; }
+html[data-flavor="noir"] .send, html[data-flavor="noir"] .cbs, html[data-flavor="noir"] .addb2, html[data-flavor="noir"] button.primary { background: #f2f2f2; color: #000; border-color: #f2f2f2; }
+html[data-flavor="noir"] .send:hover, html[data-flavor="noir"] .cbs:hover, html[data-flavor="noir"] .addb2:hover { background: transparent; color: #f2f2f2; }
+html[data-flavor="noir"] h1, html[data-flavor="noir"] h2, html[data-flavor="noir"] .hero h2 { letter-spacing: .12em; font-weight: 400; }
+
+/* 4. CHAMPAGNE SALON - warm cream, bronze, soft light from above */
+html[data-flavor="champagne"] body { background: linear-gradient(180deg, color-mix(in srgb, var(--accent2) 14%, var(--bg)), var(--bg) 360px) no-repeat, var(--bg); }
+html[data-flavor="champagne"] .c, html[data-flavor="champagne"] .card, html[data-flavor="champagne"] .tile { background: color-mix(in srgb, var(--card) 88%, var(--accent2) 4%); }
+
+/* 5. EMERALD CLUB - deep green, brass, fine pinstripe like a members' lounge */
+html[data-flavor="emerald"] body { background-image: repeating-linear-gradient(135deg, rgba(200,168,90,.045) 0 1px, transparent 1px 14px), radial-gradient(800px 460px at 50% -10%, rgba(63,143,110,.22), transparent 70%); background-color: var(--bg); background-attachment: fixed; }
+html[data-flavor="emerald"] .c, html[data-flavor="emerald"] .card, html[data-flavor="emerald"] .tile { background: linear-gradient(165deg, #0e271e, #091a14); }
+
+/* 6. BORDEAUX & ROSE GOLD - velvet burgundy */
+html[data-flavor="bordeaux"] body { background: radial-gradient(900px 520px at 80% -10%, rgba(156,42,69,.32), transparent 70%), radial-gradient(700px 420px at 0% 100%, rgba(217,163,143,.10), transparent 70%), var(--bg); background-attachment: fixed; }
+html[data-flavor="bordeaux"] .c, html[data-flavor="bordeaux"] .card, html[data-flavor="bordeaux"] .tile { background: linear-gradient(165deg, #2a1017, #1a0a0f); }
+
+/* 7. CARRARA MARBLE - white stone with soft grey veining and a gold thread */
+html[data-flavor="marble"] body {
+  background: radial-gradient(1200px 300px at 20% 12%, rgba(120,120,120,.10), transparent 60%), radial-gradient(900px 260px at 85% 38%, rgba(120,120,120,.08), transparent 60%),
+              linear-gradient(112deg, transparent 38%, rgba(90,90,90,.07) 38.4%, transparent 39.2%), linear-gradient(64deg, transparent 61%, rgba(90,90,90,.06) 61.3%, transparent 62%), #f6f6f4;
+  background-attachment: fixed; }
+html[data-flavor="marble"] .c, html[data-flavor="marble"] .card, html[data-flavor="marble"] .tile, html[data-flavor="marble"] .dish, html[data-flavor="marble"] .cw, html[data-flavor="marble"] .lr, html[data-flavor="marble"] .pc { background: rgba(255,255,255,.82); border-color: rgba(180,154,98,.55); }
+html[data-flavor="marble"] h1, html[data-flavor="marble"] h2, html[data-flavor="marble"] h3 { letter-spacing: .1em; }
+html[data-flavor="marble"] header { border-bottom: 1px solid rgba(180,154,98,.7); }
+
+/* 8. ROYAL NAVY & GOLD - midnight blue, antique gold, classical serif everywhere */
+html[data-flavor="royal"] body { background: radial-gradient(900px 560px at 50% -14%, rgba(127,156,214,.20), transparent 70%), var(--bg); background-attachment: fixed; font-size: 1.04em; }
+html[data-flavor="royal"] .c, html[data-flavor="royal"] .card, html[data-flavor="royal"] .tile { background: linear-gradient(165deg, #0d1a38, #08112a); }
+html[data-flavor="royal"] h1, html[data-flavor="royal"] .hero h2 { color: #e9d27a; }
+
+/* the day/night switch means nothing on a fixed-palette look */
+html[data-lux-lock] [onclick*="toggleMode"] { display: none !important; }
+@media (prefers-reduced-motion: reduce) { html[data-lux] * { transition-duration: .01ms !important; animation-duration: .01ms !important; } }

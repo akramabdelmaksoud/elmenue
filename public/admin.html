@@ -1,0 +1,707 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Dashboard</title><link rel="stylesheet" href="/shared.css"><link rel="stylesheet" href="/floor.css">
+<style>
+.shell { display:grid; grid-template-columns:220px 1fr; min-height:100vh; } @media (max-width:800px){ .shell{grid-template-columns:1fr} aside{flex-direction:row!important;overflow:auto} }
+aside { background:var(--card); border-inline-end:1px solid var(--line); padding:18px 12px; display:flex; flex-direction:column; gap:6px; position:sticky; top:0; height:100vh; }
+@media (max-width:800px){ aside{height:auto;position:static} }
+aside h2 { margin:0 8px 14px; font-size:18px; } aside button { text-align:start; background:none; } aside button.on { background:color-mix(in srgb,var(--accent) 20%,transparent); color:var(--accent); font-weight:700; }
+main { padding:24px; overflow:auto; max-width:1200px; } h1 { margin-top:0; }
+.grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); }
+.kpi b { display:block; font-size:26px; margin-top:4px; } .kpi span { color:var(--muted); font-size:13px; }
+.cat { display:flex; gap:8px; align-items:center; padding:8px; border:1px solid var(--line); border-radius:12px; margin-bottom:6px; background:var(--card2); }
+.cat .h { cursor:grab; padding:4px 8px; } .cat.act { outline:2px solid var(--accent); }
+.cat input { padding:6px 8px; } .sortable-ghost { opacity:.35; }
+table { width:100%; border-collapse:collapse; } td, th { padding:6px; text-align:start; border-bottom:1px solid var(--line); font-size:14px; vertical-align:middle; } td input { padding:6px 8px; min-width:60px; }
+.thumb { width:46px; height:46px; border-radius:10px; background:var(--card2) center/cover; display:grid; place-items:center; font-size:26px; cursor:pointer; }
+.qr { text-align:center; break-inside:avoid; } .qr img { width:100%; max-width:220px; border-radius:12px; background:#fff; } .qr h3 { margin:8px 0 2px; font-size:28px; }
+.heat { display:grid; grid-template-columns:40px repeat(24,1fr); gap:2px; font-size:10px; } .heat i { aspect-ratio:1; border-radius:3px; display:grid; place-items:center; font-style:normal; color:#fff; font-size:9px; }
+.sw { width:44px; height:44px; padding:0; border:0; background:none; } .row2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; margin-top:14px; }
+@media (max-width:800px) { main { padding:14px; } aside button { white-space:nowrap; } .row2 { grid-template-columns:1fr !important; } .card { overflow-x:auto; } h1 { font-size:24px; } input[type=checkbox] { width:22px; height:22px; } }
+@media print { aside, .noprint, .shell > main > h1 { display:none!important } .shell { display:block } body { background:#fff; color:#000 } .qr { color:#000 } .card { border:1px solid #ccc; background:#fff } }
+.mainwrap { min-width: 0; }
+#rfbar { position: sticky; top: 0; z-index: 25; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 8px 20px; font-size: 13px; background: color-mix(in srgb, var(--bg) 88%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+#rfbar .rfb { padding: 7px 14px; font-weight: 700; background: var(--accent); color: var(--on-accent); border-radius: 10px; } #rfbar .rfb.spin { opacity: .6; pointer-events: none; }
+#rfbar select { width: auto; padding: 6px 10px; font-size: 13px; } #rfbar .rft { color: var(--muted); } #rfbar small { color: var(--muted); margin-inline-start: auto; }
+@media print { #rfbar { display: none } }
+#copset { position: absolute; inset: 0; z-index: 3; background: var(--card); border-radius: inherit; display: flex; flex-direction: column; }
+#copset .ch { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); font-weight: 800; }
+#copset .cbody { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; } #copset textarea { resize: vertical; }
+#copset .mem { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; padding: 8px 10px; margin-bottom: 6px; background: var(--card2); border-radius: 10px; font-size: 13px; } #copset .mem button { padding: 2px 8px; flex: none; }
+aside button[data-locked="true"]::after { content: ' 🔒'; opacity: .7; }
+#cop { position: fixed; right: 16px; bottom: 16px; width: min(380px, calc(100vw - 32px)); height: min(520px, calc(100vh - 32px)); z-index: 90; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 24px 70px -20px rgba(0,0,0,.55); overflow: hidden; }
+#cop .ch { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); font-weight: 800; }
+#cop .cm { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+#cop .b { max-width: 88%; padding: 9px 13px; border-radius: 16px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; } #cop .b.u { align-self: flex-end; background: var(--accent); color: var(--on-accent, #fff); } #cop .b.a { align-self: flex-start; background: var(--card2); }
+#cop .cs { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 12px 8px; } #cop .cs button { font-size: 12px; padding: 6px 10px; border-radius: 99px; }
+#cop .ci { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); } #cop .ci input { flex: 1; }
+.bar { height: 10px; border-radius: 99px; background: var(--card2); overflow: hidden; } .bar i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; } .kpis div { background: var(--card2); border-radius: 14px; padding: 12px; } .kpis b { display: block; font-size: 26px; }
+.sbar { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; } .sbar small { font-size: 11px; } .sb { padding: 4px 10px; font-size: 12px; border-radius: 99px; } @media print { .noprint { display: none !important; } }
+</style></head>
+<body><div class="shell"><aside>
+<h2>⚙️ Admin</h2>
+<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="inventory">📦 Inventory</button><button data-t="floor">🪑 Floor plan</button><button data-t="staff" data-lock="staff">👥 Staff</button><button data-t="orders">🧾 Orders</button><button data-t="reports">📈 Reports</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button><button data-t="offers" data-lock="coupons">🎟️ Offers & gift cards</button><button data-t="loyalty" data-lock="loyalty">💳 Loyalty</button><button data-t="ocr" data-lock="ocr">📷 AI menu scan</button><button data-t="branches" data-lock="branches">🏢 Branches</button><button onclick="copilotToggle()" data-lock="copilot">🤖 AI Copilot</button>
+<span style="flex:1"></span><button onclick="App.toggleLang()">🌐 EN / عربي</button><button onclick="App.roleMenu(event)">⇄ Switch role</button><button onclick="App.skinMenu(event)">🎨 Look (Maison)</button><button onclick="App.toggleMode(event)">◐ Light / Dark</button><button onclick="App.logout()">⏻ Sign out</button></aside>
+<div class="mainwrap"><div id="rfbar"></div><main id="main"></main></div></div>
+<script src="/vendor/sortable.js"></script><script src="/vendor/chart.js"></script><script src="/shared.js"></script><script src="/ar-ui.js"></script>
+<script>
+let tab = App.ls('admintab') || 'analytics', cfgKey = '', actCat = null, days = 7, charts = [], A = null;
+const api = (m, u, b) => fetch(u, { method: m, headers: { 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined }).then(r => r.json()).then((r) => { if (m !== 'GET' && !/\/copilot/.test(u) && !(r && r.error)) setTimeout(afterWrite, 0); return r; });
+const $ = (s) => document.querySelector(s);
+/* ---------------- premium tiers: loyalty, AI menu scan, branches, copilot, welcome screen ---------------- */
+const FEAT = () => (App.config && App.config.features) || {};
+const PLAN_NAME = { basic: 'Basic', operations: 'Operations', vip: 'VIP' };
+const lockedCard = (title, feat) => { const need = { staff: 'Operations' }[feat] || 'VIP'; $('#main').innerHTML = `<h1>${title}</h1><div class="card" style="text-align:center;padding:44px 20px"><div style="font-size:54px">🔒</div><h3>${need} plan</h3><p class="muted">This feature is part of the ${need} tier. Ask your account manager to upgrade your subscription.</p></div>`; };
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+async function offersTab() {
+  if (FEAT().coupons === false) return lockedCard('🎟️ Offers & gift cards', 'coupons');
+  const d = await api('GET', '/api/coupons'), pr = App.config.settings.promo || {}, vip = FEAT().giftcards !== false, M = (x) => App.money(x);
+  const gf = vip ? await api('GET', '/api/gifts') : null, rp = await api('GET', '/api/promo/report');
+  const when = (o) => (o.start ? o.start + '–' + o.end : 'all day') + (o.days && o.days.length ? ' · ' + o.days.map((x) => DAYS[x]).join(' ') : ' · every day');
+  $('#main').innerHTML = `<h1>🎟️ Offers & gift cards</h1>
+  <div class="card"><h3>Switch</h3><div class="row wrap"><label class="row" style="gap:6px"><input type="checkbox" style="width:auto" ${pr.enabled ? 'checked' : ''} onchange="promoSet({enabled:this.checked,stack:${!!pr.stack}})"> Coupons &amp; timed offers are on</label>
+   <label class="row" style="gap:6px"><input type="checkbox" style="width:auto" ${pr.stack ? 'checked' : ''} onchange="promoSet({enabled:${!!pr.enabled},stack:this.checked})"> Let discounts add up (off = guest gets the single best one)</label></div></div>
+  <div class="card"><h3>Coupon codes</h3><table><tr><th>Code</th><th>Value</th><th>Min spend</th><th>Uses</th><th>Valid</th><th>Saved</th><th></th></tr>
+   ${d.coupons.map((c) => `<tr><td><b>${App.esc(c.code)}</b></td><td>${c.kind === 'pct' ? c.value + '%' : M(c.value)}</td><td>${c.minSpend ? M(c.minSpend) : '-'}</td><td>${c.uses || 0}${c.maxUses ? ' / ' + c.maxUses : ''}</td><td>${c.to ? 'until ' + new Date(c.to).toLocaleDateString('en-GB') : 'always'}</td><td>${M(c.saved || 0)}</td><td><button class="ghost" onclick="cpnToggle('${c.id}',${!c.active})">${c.active ? 'Pause' : 'Resume'}</button> <button class="ghost" onclick="cpnDel('${c.id}')">Delete</button></td></tr>`).join('') || '<tr><td colspan="7" class="muted">No coupons yet.</td></tr>'}</table>
+   <div class="row wrap" style="margin-top:10px"><input id="cc" placeholder="CODE" style="width:130px"><select id="ck" style="width:auto"><option value="pct">%</option><option value="amt">${App.esc(App.config.settings.currency)}</option></select><input id="cv" type="number" placeholder="value" style="width:90px"><input id="cm" type="number" placeholder="min spend" style="width:110px"><input id="cu" type="number" placeholder="max uses" style="width:100px"><input id="ct" type="date" title="last day" style="width:150px"><button onclick="cpnAdd()">Add coupon</button></div></div>
+  <div class="card"><h3>Timed offers (applied automatically)</h3><table><tr><th>Offer</th><th>Value</th><th>When</th><th>Used</th><th>Saved</th><th></th></tr>
+   ${d.offers.map((o) => `<tr><td><b>${App.esc(o.name)}</b></td><td>${o.kind === 'pct' ? o.value + '%' : M(o.value)}</td><td>${when(o)}</td><td>${o.uses || 0}</td><td>${M(o.saved || 0)}</td><td><button class="ghost" onclick="ofrToggle('${o.id}',${!o.active})">${o.active ? 'Pause' : 'Resume'}</button> <button class="ghost" onclick="ofrDel('${o.id}')">Delete</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">No offers yet.</td></tr>'}</table>
+   <div class="row wrap" style="margin-top:10px"><input id="on" placeholder="Happy hour" style="width:150px"><select id="ok" style="width:auto"><option value="pct">%</option><option value="amt">${App.esc(App.config.settings.currency)}</option></select><input id="ov" type="number" placeholder="value" style="width:90px"><input id="os" type="time" style="width:110px" value="16:00"><input id="oe" type="time" style="width:110px" value="18:00"><span class="muted">days (none = every day):</span>${DAYS.map((x, i) => `<label class="row" style="gap:3px"><input type="checkbox" class="od" style="width:auto" value="${i}">${x}</label>`).join('')}<button onclick="ofrAdd()">Add offer</button></div></div>
+  ${vip ? `<div class="card"><h3>Gift cards</h3><div class="grid"><div class="card"><small class="muted">Sold</small><div style="font-size:24px;font-weight:800">${M(gf.sold)}</div></div><div class="card"><small class="muted">Still to honour</small><div style="font-size:24px;font-weight:800">${M(gf.liability)}</div></div><div class="card"><small class="muted">Redeemed (paid bills)</small><div style="font-size:24px;font-weight:800">${M(rp.giftRedeemed)}</div></div></div>
+   <table style="margin-top:8px"><tr><th>Code</th><th>Value</th><th>Balance</th><th>Sold</th><th>By</th></tr>${gf.gifts.slice(0, 40).map((g) => `<tr><td>${App.esc(g.code)}</td><td>${M(g.initial)}</td><td>${M(g.balance)}</td><td>${new Date(g.at).toLocaleDateString('en-GB')}</td><td>${App.esc(g.by || '')}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">Cashiers sell gift cards from the till.</td></tr>'}</table></div>` : '<div class="card"><h3>Gift cards</h3><p class="muted">Gift cards need the VIP plan.</p></div>'}`;
+}
+const offerErr = (r) => r && r.error ? (App.toast(r.error), 1) : 0;
+async function promoSet(p) { const r = await api('POST', '/api/settings', { promo: p }); App.toast(r.error || 'Saved'); App.config.settings.promo = p; offersTab(); }
+async function cpnAdd() { const r = await api('POST', '/api/coupons', { code: $('#cc').value, kind: $('#ck').value, value: $('#cv').value, minSpend: $('#cm').value, maxUses: $('#cu').value, to: $('#ct').value ? $('#ct').value + 'T23:59:59' : '' }); if (!offerErr(r)) offersTab(); }
+async function cpnToggle(id, a) { await api('PUT', '/api/coupons/' + id, { active: a }); offersTab(); }
+async function cpnDel(id) { if (confirm('Delete this coupon? Past sales keep their record.')) { await api('DELETE', '/api/coupons/' + id); offersTab(); } }
+async function ofrAdd() { const r = await api('POST', '/api/offers', { name: $('#on').value, kind: $('#ok').value, value: $('#ov').value, start: $('#os').value, end: $('#oe').value, days: [...document.querySelectorAll('.od:checked')].map((x) => +x.value) }); if (!offerErr(r)) offersTab(); }
+async function ofrToggle(id, a) { await api('PUT', '/api/offers/' + id, { active: a }); offersTab(); }
+async function ofrDel(id) { if (confirm('Delete this offer?')) { await api('DELETE', '/api/offers/' + id); offersTab(); } }
+async function loyaltyTab() {
+  if (!FEAT().loyalty) return lockedCard('💳 Loyalty program', 'loyalty');
+  const d = await api('GET', '/api/loyalty'), c = d.config, cur = App.esc(App.config.settings.currency);
+  $('#main').innerHTML = `<h1>💳 Loyalty program</h1><div class="row2">
+   <div class="card"><h3>Earning & redemption ratios</h3>
+    <label class="row" style="gap:10px;margin:8px 0"><input type="checkbox" style="width:22px;height:22px;flex:none" ${c.enabled ? 'checked' : ''} onchange="saveLoy({enabled:this.checked})"><b>Program enabled</b></label>
+    <label class="muted">Earning: spend this much (${cur}) for 1 point</label><input type="number" min="1" value="${c.egpPerPoint}" onchange="saveLoy({egpPerPoint:+this.value})">
+    <div class="grid" style="margin-top:8px"><div><label class="muted">Redemption: points…</label><input type="number" min="1" value="${c.pointsPerRedeem}" onchange="saveLoy({pointsPerRedeem:+this.value})"></div><div><label class="muted">…are worth (${cur} off the bill)</label><input type="number" min="0" value="${c.redeemValue}" onchange="saveLoy({redeemValue:+this.value})"></div></div>
+    <p class="muted" style="margin-top:12px">Every <b>${c.egpPerPoint} ${cur}</b> spent = <b>1 point</b> · <b>${c.pointsPerRedeem} points</b> = <b>${c.redeemValue} ${cur}</b> discount. Guests join with their phone number from the Profile tab.</p></div>
+   <div class="card"><h3>Today</h3><div class="kpis"><div><b>${d.members}</b><span class="muted">members</span></div><div><b>${d.outstanding}</b><span class="muted">points outstanding</span></div><div><b>${d.earnedToday}</b><span class="muted">earned today</span></div><div><b>${d.redeemedToday}</b><span class="muted">redeemed today (${Math.round(d.redeemedEgpToday)} ${cur})</span></div></div></div></div>
+   <div class="card" style="margin-top:14px"><h3>Top members</h3>${d.top.length ? `<table><tr><th>Name</th><th>Phone</th><th>Points</th><th>Visits</th><th></th></tr>${d.top.map((m) => `<tr><td>${App.esc(m.name || '—')}</td><td>${App.esc(m.phone)}</td><td><b>${m.points}</b></td><td>${m.visits}</td><td><button onclick="adjPts('${m.phone}')">± points</button></td></tr>`).join('')}</table>` : '<p class="muted">No members yet - guests join from the Profile tab of the menu.</p>'}</div>`;
+}
+async function saveLoy(p) { const r = await api('POST', '/api/settings', { loyalty: { ...(App.config.settings.loyalty || {}), ...p } }); if (r.error) App.toast(r.error); }
+async function adjPts(phone) { const v = prompt('Add or remove points (e.g. 50 or -20)'); if (!v) return; const r = await api('POST', '/api/loyalty/adjust', { phone, delta: +v }); App.toast(r.error || 'Updated'); cfgKey = ''; render(App.state, true); }
+let OCR = [];
+function ocrTab() {
+  if (!FEAT().ocr) return lockedCard('📷 AI menu digitizer', 'ocr');
+  $('#main').innerHTML = `<h1>📷 AI Photo OCR Menu Digitizer</h1><div class="card"><p class="muted">Upload a photo of an old paper menu, or a screenshot of any QR menu. The AI reads categories, item names, descriptions and prices into editable rows - review them, then import.</p>
+   <input type="file" id="ocrf" accept="image/*" style="display:none" onchange="runOcr(this.files[0])"><button class="primary" onclick="$('#ocrf').click()">📸 Take / choose a photo</button></div><div id="ocrout"></div>`;
+}
+async function runOcr(f) {
+  if (!f) return; const out = $('#ocrout'); out.innerHTML = '<div class="card" style="margin-top:14px">⏳ Reading the menu…</div>';
+  const fd = new FormData(); fd.append('image', f);
+  const r = await fetch('/api/menu/ocr', { method: 'POST', body: fd }).then((x) => x.json()).catch(() => ({ error: 'Upload failed' }));
+  if (r.error) return (out.innerHTML = `<div class="card" style="margin-top:14px">⚠️ ${App.esc(r.error)}</div>`);
+  OCR = r.items; drawOcr(r.simulated);
+}
+function drawOcr(sim) {
+  const E = App.esc, inp = (i, k, w) => `<td><input style="min-width:${w || 90}px" value="${E(OCR[i][k] ?? '')}" onchange="OCR[${i}].${k}=this.value"></td>`;
+  $('#ocrout').innerHTML = `<div class="card" style="margin-top:14px">${sim ? '<p class="muted">🧪 Sample reading: no AI key is set on this server (ANTHROPIC_API_KEY), so this shows the flow with a demo menu.</p>' : ''}
+   <table><tr><th>Category</th><th>Name</th><th>الاسم (AR)</th><th>Price</th><th>Description</th><th></th></tr>${OCR.map((x, i) => `<tr>${inp(i, 'cat')}${inp(i, 'name', 130)}${inp(i, 'name_ar')}<td><input type="number" style="width:80px" value="${+x.price || 0}" onchange="OCR[${i}].price=+this.value"></td>${inp(i, 'desc', 150)}<td><button onclick="OCR.splice(${i},1);drawOcr(${!!sim})">✕</button></td></tr>`).join('')}</table>
+   <div class="row" style="margin-top:12px"><button class="primary" onclick="importOcr()">✅ Import ${OCR.length} items to my menu</button></div></div>`;
+}
+async function importOcr() { const r = await api('POST', '/api/menu/ocr/import', { items: OCR }); App.toast(r.error || `Imported ${r.items} items (${r.categories} new categories)`); OCR = []; $('#ocrout').innerHTML = ''; }
+async function branchesTab() {
+  if (!FEAT().branches) return lockedCard('🏢 Multi-branch analytics', 'branches');
+  const d = await api('GET', '/api/branches'), cur = App.esc(d.currency || ''), max = Math.max(1, ...d.branches.map((b) => b.revenue));
+  $('#main').innerHTML = `<h1>🏢 Multi-branch analytics</h1><div class="card"><div class="kpis"><div><b>${Math.round(d.totals.revenue).toLocaleString('en-US')}</b><span class="muted">revenue, last 30 days (${cur})</span></div><div><b>${d.totals.sessions}</b><span class="muted">paid tables</span></div></div></div>
+   <div class="card" style="margin-top:14px"><h3>By branch${d.group ? ' · ' + App.esc(d.group) : ''}</h3>${d.branches.map((b) => `<div style="margin:12px 0"><div class="spread"><b>${App.esc(b.name)}</b><span>${Math.round(b.revenue).toLocaleString('en-US')} ${cur} · ${b.sessions} tables · avg ${Math.round(b.avgTicket)} · live ${b.liveTables}</span></div><div class="bar"><i style="width:${b.revenue / max * 100}%"></i></div></div>`).join('')}
+   ${d.branches.length < 2 ? '<p class="muted">Only this branch is in your group. Ask the platform owner to add your other branches to the same group.</p>' : ''}</div>`;
+}
+// AI copilot side panel: chat + a settings view (name, how to talk, remembered notes). Conversation is kept per cafe in this browser; notes live on the server.
+const COP_Q = ['How many points were redeemed today?', 'Which item is selling best?', 'What is today\'s revenue?', 'Switch default language to Egyptian Ammiya'];
+let COP_H = (() => { try { return JSON.parse(localStorage.getItem('cop:' + App.slug) || '[]'); } catch { return []; } })();
+const copSave = () => { try { localStorage.setItem('cop:' + App.slug, JSON.stringify(COP_H.slice(-40))); } catch {} };
+const copAI = () => { const a = (App.config && App.config.settings && App.config.settings.ai) || {}; return { name: a.name || '', style: a.style || '', memory: a.memory || [] }; };
+function copilotToggle() {
+  if (!FEAT().copilot) return App.toast('🔒 AI Copilot is part of the VIP plan');
+  const old = $('#cop'); if (old) return old.remove();
+  const p = document.createElement('div'); p.id = 'cop';
+  const bubbles = COP_H.slice(-30).map((h) => `<div class="b ${h.r === 'u' ? 'u' : 'a'}">${App.esc(h.t)}</div>`).join('');
+  p.innerHTML = `<div class="ch"><span>🤖 ${App.esc(copAI().name || 'AI Copilot')}</span><span><button onclick="copSettings()" title="AI settings">⚙️</button> <button onclick="$('#cop').remove()">✕</button></span></div>
+   <div class="cm" id="copm"><div class="b a">Hi! Ask me about sales, loyalty points or stock - or tell me to change a setting. I also remember things you tell me: say "Remember that ...".</div>${bubbles}</div>
+   <div class="cs">${COP_Q.map((q) => `<button onclick="copAsk(this.textContent)">${App.esc(q)}</button>`).join('')}</div>
+   <form class="ci" onsubmit="event.preventDefault();copAsk(this.q.value);this.q.value=''"><input name="q" placeholder="Ask anything…" autocomplete="off"><button class="primary">Send</button></form>`;
+  document.body.appendChild(p); const m = $('#copm'); m.scrollTop = m.scrollHeight;
+}
+async function copAsk(q) {
+  q = String(q || '').trim(); if (!q) return; const m = $('#copm'); if (!m) return;
+  m.insertAdjacentHTML('beforeend', `<div class="b u">${App.esc(q)}</div>`); m.scrollTop = m.scrollHeight;
+  const hist = COP_H.slice(-10);
+  const r = await api('POST', '/api/copilot', { q, hist, lang: App.lang }).catch(() => ({ error: 'Could not reach the server' }));
+  const txt = r.reply || r.error || '…';
+  m.insertAdjacentHTML('beforeend', `<div class="b a">${App.esc(txt)}</div>`); m.scrollTop = m.scrollHeight;
+  if (r.reply) { COP_H.push({ r: 'u', t: q }, { r: 'a', t: txt }); copSave(); }
+  if (r.action) afterWrite();
+}
+async function copSettings() {
+  const p = $('#cop'); if (!p) return; let box = $('#copset'); if (box) { box.remove(); return; }
+  const live = await api('GET', '/api/ai').catch(() => ({})); const a = copAI();
+  box = document.createElement('div'); box.id = 'copset';
+  box.innerHTML = `<div class="ch"><span>⚙️ AI settings</span><button onclick="$('#copset').remove()">✕</button></div>
+   <div class="cbody">
+    <p class="muted">${live.live ? '🟢 Free conversation is ON - I can chat about anything.' : '🟠 Free conversation is OFF (no AI key on this server). I still understand sales, stock and settings questions, and I keep your notes.'}</p>
+    <label class="muted">Assistant name</label><input id="aiName" value="${App.esc(a.name)}" placeholder="e.g. Layla">
+    <label class="muted">How should I talk to you?</label><textarea id="aiStyle" rows="4" placeholder="e.g. Talk to me in friendly Egyptian Arabic, keep answers short, call me Chef.">${App.esc(a.style)}</textarea>
+    <button class="primary" onclick="copSaveCfg()">Save</button>
+    <h4 style="margin:16px 0 6px">What I remember about you</h4>
+    <div id="aiMem">${a.memory.length ? a.memory.map((x) => `<div class="mem"><span>${App.esc(x.text)}</span><button onclick="copDelMem('${x.id}')">✕</button></div>`).join('') : '<p class="muted">Nothing yet.</p>'}</div>
+    <div class="row"><input id="aiNew" placeholder="Add a note I should remember…"><button onclick="copAddMem()">Add</button></div>
+   </div>`;
+  p.appendChild(box);
+}
+async function copPush(ai) { const r = await api('POST', '/api/settings', { ai }); if (r.error) return App.toast(r.error); await afterWrite(); const b = $('#copset'); if (b) { b.remove(); copSettings(); } }
+function copSaveCfg() { const a = copAI(); copPush({ name: $('#aiName').value, style: $('#aiStyle').value, memory: a.memory }).then(() => App.toast('✓ Saved')); }
+function copDelMem(id) { const a = copAI(); copPush({ name: a.name, style: a.style, memory: a.memory.filter((x) => x.id !== id) }); }
+function copAddMem() { const v = $('#aiNew').value.trim(); if (!v) return; const a = copAI(); copPush({ name: a.name, style: a.style, memory: a.memory.concat([{ id: '', text: v, at: Date.now() }]) }); }
+const FLAVORS = [['neon', '🌌 Dark Neon Glass'], ['luxury', '🤍 Minimalist Luxury'], ['vibrant', '🏺 Vibrant Egyptian Café']];
+const SIGS = [['aurum', '🏆 Aurum - Black & Gold', 'Brushed-gold cards and numbers'], ['ember', '🔥 Ember - Charcoal & Orange', 'Flat, tight, executive'], ['sunset', '🌅 Sunset Glow', 'Vivid orange, dashed grid, pills'], ['platinum', '🪙 Platinum', 'Gunmetal and polished silver'], ['rosegold', '🌹 Rose Gold Noir', 'Copper-pink metal on black'], ['sapphire', '💠 Sapphire', 'Midnight navy, electric blue'], ['jade', '🟢 Jade', 'Luminous emerald on black'], ['amethyst', '🔮 Amethyst', 'Ultraviolet to magenta']];
+const PROS = [['slate', '🏢 Corporate Slate', 'Hotels, clubs, chains - crisp and neutral'], ['nordic', '🌿 Nordic Minimal', 'Air, oak and sage'], ['bistro', '🥖 Parisian Bistro', 'Cream paper, oxblood, menu-card rules'], ['zen', '🍣 Zen Sushi', 'Washi white, sumi black, one red seal'], ['trattoria', '🍝 Trattoria', 'Terracotta, olive, gingham'], ['roast', '☕ Specialty Roaster', 'Kraft paper, mono prices'], ['steakhouse', '🥩 Charcoal Steakhouse', 'Slate black, ember orange'], ['rooftop', '🌃 Rooftop Lounge', 'Night indigo, frosted glass']];
+const LUXES = [['onyx', '🖤 Onyx & Gold', 'Black lacquer, gold leaf'], ['ivory', '🤍 Ivory Gallery', 'Pure white, ink-black lines'], ['noir', '⚫ Noir', 'Absolute black, silver'], ['champagne', '🥂 Champagne Salon', 'Warm cream and bronze'], ['emerald', '💚 Emerald Club', 'Deep green and brass'], ['bordeaux', '🍷 Bordeaux & Rose Gold', 'Velvet burgundy'], ['marble', '🏛️ Carrara Marble', 'White stone, gold thread'], ['royal', '👑 Royal Navy & Gold', 'Midnight blue, antique gold']];
+function setTheme(k) { if ((['neon', 'luxury', 'vibrant'].includes(k) || LUXES.some((x) => x[0] === k) || PROS.some((x) => x[0] === k) || SIGS.some((x) => x[0] === k)) && !FEAT().themes) return App.toast('🔒 Premium themes are part of the VIP plan'); api('POST', '/api/settings', { theme: k }).then((r) => r.error && App.toast(r.error)); }
+function welcomeCard() {
+  const s = App.config.settings, P = (s.promos || []).concat([{}, {}, {}]).slice(0, 3), el = document.createElement('div'); el.className = 'card'; el.style.marginTop = '14px';
+  el.innerHTML = `<h3>👋 Guest home screen</h3><p class="muted">Guests land here after scanning the QR code, before they open the menu.</p>
+   <div class="grid"><div><label class="muted">Wi-Fi name</label><input value="${App.esc(s.wifi || '')}" onchange="api('POST','/api/settings',{wifi:this.value})"></div><div><label class="muted">Wi-Fi password</label><input value="${App.esc(s.wifiPass || '')}" onchange="api('POST','/api/settings',{wifiPass:this.value})"></div></div>
+   <p class="muted" style="margin-top:12px">Promotions (up to 3)</p>${P.map((p, i) => `<div class="grid" style="margin-bottom:8px"><input placeholder="Title (EN)" value="${App.esc(p.title || '')}" onchange="savePromo(${i},'title',this.value)"><input placeholder="Text (EN)" value="${App.esc(p.text || '')}" onchange="savePromo(${i},'text',this.value)"><input dir="rtl" placeholder="العنوان" value="${App.esc(p.title_ar || '')}" onchange="savePromo(${i},'title_ar',this.value)"><input dir="rtl" placeholder="النص" value="${App.esc(p.text_ar || '')}" onchange="savePromo(${i},'text_ar',this.value)"></div>`).join('')}`;
+  $('#main').appendChild(el);
+}
+function savePromo(i, k, v) { const P = (App.config.settings.promos || []).concat([{}, {}, {}]).slice(0, 3).map((p) => ({ ...p })); P[i][k] = v; api('POST', '/api/settings', { promos: P.filter((p) => p.title || p.text || p.title_ar || p.text_ar) }); }
+
+document.querySelectorAll('aside [data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; App.ls('admintab', tab); cfgKey = ''; render(App.state, true); });
+/* ---------------- refresh control: the dashboard redraws only when the owner asks, or on the schedule they chose (default: hourly) ---------------- */
+const RF_OPTS = [[0, 'Manual only'], [5, 'Every 5 minutes'], [15, 'Every 15 minutes'], [30, 'Every 30 minutes'], [60, 'Every hour'], [120, 'Every 2 hours'], [360, 'Every 6 hours']];
+let rfLast = 0, rfTimer = null, rfBusy = false, rfFirst = true;
+const rfMin = () => { const v = App.config && App.config.settings && App.config.settings.refreshMin; return v === undefined || v === null ? 60 : +v; };
+const rfClock = (d) => new Date(d).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+function rfDraw() {
+  const el = $('#rfbar'); if (!el) return; const mn = rfMin();
+  el.innerHTML = `<button class="rfb${rfBusy ? ' spin' : ''}" onclick="rfNow()">↻ Refresh now</button><span class="rft">Updated ${rfLast ? rfClock(rfLast) : '--:--'}</span><select onchange="rfSet(this.value)" aria-label="Auto-refresh">${RF_OPTS.map(([v, l]) => `<option value="${v}" ${v === mn ? 'selected' : ''}>${l}</option>`).join('')}</select><small>${mn ? 'Next: ' + rfClock(rfLast + mn * 60000) : 'Auto-refresh off'}</small>`;
+}
+async function rfNow() {
+  if (rfBusy) return; rfBusy = true; rfDraw();
+  try { if (App.poll) await App.poll.call(null); } catch {}
+  rfBusy = false; rfLast = Date.now(); cfgKey = ''; render(App.state, true); rfSchedule(); rfDraw();
+}
+function rfSchedule() { clearTimeout(rfTimer); const mn = rfMin(); if (mn > 0) rfTimer = setTimeout(rfNow, mn * 60000); }
+function rfSet(v) { api('POST', '/api/settings', { refreshMin: +v }).then(() => { rfSchedule(); rfDraw(); }); }
+// after the owner's own change: pick up the new state and redraw (never clobbers a field being typed in)
+async function afterWrite() { try { if (App.poll) await App.poll.call(null); } catch {} render(App.state); rfDraw(); }
+App.gate('admin', () => App.connect({ t: 'join', role: 'admin' }, { render(m) {
+  if (!m) return render(App.state, true);                 // language / theme switches redraw straight away
+  if (rfFirst) { rfFirst = false; rfLast = Date.now(); render(m); rfSchedule(); rfDraw(); }
+  /* later live pushes are held back until the next refresh */
+} }));
+function render(m, force) {
+  if (!App.config) return;
+  document.querySelector('aside h2').textContent = '⚙️ Admin · ' + (PLAN_NAME[App.config.plan] || '');
+  document.querySelectorAll('aside [data-lock]').forEach(b => { b.dataset.locked = FEAT()[b.dataset.lock] === false ? 'true' : 'false'; });
+  if (tab === 'floor' && (FP.dirty || FP.drag)) return;   // never rebuild the editor mid-edit
+  document.querySelectorAll('aside [data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
+  const key = JSON.stringify(App.config) + App.lang + document.documentElement.dataset.dark + tab;
+  if (key === cfgKey && !force) { if (tab === 'analytics') {} return; }   // ignore live-session noise
+  cfgKey = key;
+  const focus = document.activeElement; if (focus && focus.closest('#main') && focus.tagName === 'INPUT' && !force) return;  // don't clobber typing
+  ({ analytics, menu, inventory: inventoryTab, orders: ordersTab, floor: floorTab, staff: () => (FEAT().staff === false ? lockedCard('👥 Staff', 'staff') : staffTab()), reports: reportsTab, theme, qr, audit, offers: offersTab, loyalty: loyaltyTab, ocr: ocrTab, branches: branchesTab })[tab]();
+}
+App.handlers.render = (m) => render(m, true);
+
+/* ---------------- Floor plan editor ---------------- */
+let FP = { L: null, sel: null, dirty: false, drag: null, timer: null, v: 0 };
+const DEC = { bar: ['🍸', 'Bar', 6, 2], kitchen: ['🍳', 'Kitchen', 4, 4], wall: ['🧱', 'Wall', 6, 1], plant: ['🪴', 'Plant', 2, 2], door: ['🚪', 'Door', 2, 2] };
+const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+function floorTab() {
+  const F = App.floor();
+  if (!FP.dirty || !FP.L) FP.L = { tables: App.config.tables.map((t) => ({ id: t.id, number: t.number, shape: t.shape, seats: t.seats, ...App.tpos(t) })), decor: F.decor.map((d) => ({ ...d })) };
+  $('#main').innerHTML = `<div class="spread"><h1>🪑 Floor plan</h1><span class="muted" id="fp-st"></span></div>
+  <p class="muted" style="margin-top:-6px">Arrange the tables exactly like your café. Drag to move, pull the round handle to resize. Your captain sees this same map, scaled to fit any phone.</p>
+  <div class="fp-tools"><button class="primary" onclick="fpAddTable()">+ Table</button>${Object.entries(DEC).map(([k, v]) => `<button class="ghost" onclick="fpAddDecor('${k}')">${v[0]} ${v[1]}</button>`).join('')}<button class="ghost" onclick="fpArrange()">✨ Auto-arrange</button></div>
+  <div class="fp-layout"><div><div class="fl-stage edit" id="fp"></div></div><div class="card fp-side" id="fp-side"></div></div>`;
+  fpDraw(); fpBind();
+}
+function fpItem(kind, id) { return kind === 't' ? FP.L.tables.find((x) => x.id === id) : kind === 'd' ? FP.L.decor.find((x) => x.id === id) : null; }
+function fpDraw() {
+  const F = App.floor(), st = $('#fp'); if (!st) return;
+  st.style.setProperty('--cols', F.cols); st.style.setProperty('--rows', F.rows); st.style.aspectRatio = `${F.cols} / ${F.rows}`;
+  const pos = (p) => `left:${p.fx / F.cols * 100}%;top:${p.fy / F.rows * 100}%;width:${p.fw / F.cols * 100}%;height:${p.fh / F.rows * 100}%;--m:${Math.min(p.fw, p.fh)}`;
+  st.innerHTML = FP.L.decor.map((d) => `<div class="fl-d ${d.type} fp-el ${FP.sel === 'd:' + d.id ? 'sel' : ''}" data-k="d:${d.id}" style="${pos(d)}"><div>${App.decorIcon[d.type] || '▬'}${d.label ? `<small>${App.esc(d.label)}</small>` : ''}</div><i class="rzh"></i></div>`).join('')
+    + FP.L.tables.map((t) => `<div class="fl-t ${t.shape} fp-el ${FP.sel === 't:' + t.id ? 'sel' : ''}" data-k="t:${t.id}" style="${pos(t)}">${App.chairs(t.shape, t.seats)}<span class="n">${t.number}</span><span class="s">${t.seats} seats</span><i class="rzh"></i></div>`).join('');
+  fpInspector();
+}
+function fpInspector() {
+  const box = $('#fp-side'); if (!box) return;
+  const [kind, id] = (FP.sel || ':').split(':'), it = fpItem(kind, id);
+  const step = (label, key, min) => `<div class="fp-step"><span>${label}</span><div class="c"><button onclick="fpAdj('${key}',-1,${min})">−</button><b>${it[key]}</b><button onclick="fpAdj('${key}',1,${min})">+</button></div></div>`;
+  if (!it) { box.innerHTML = `<h3>Floor plan</h3><p class="muted">Tap a table or decor item to edit it.</p><p class="muted" style="font-size:13px">${FP.L.tables.length} tables · ${FP.L.tables.reduce((n, t) => n + t.seats, 0)} seats<br>Changes save automatically.</p>`; return; }
+  if (kind === 't') box.innerHTML = `<h3>Table ${it.number}</h3><div class="muted" style="font-size:12px">Shape</div><div class="seg">${['round', 'square', 'long'].map((s) => `<button class="${it.shape === s ? 'on' : ''}" onclick="fpShape('${s}')">${{ round: '⚪ Round', square: '⬜ Square', long: '▭ Long' }[s]}</button>`).join('')}</div>
+    <div class="muted" style="font-size:12px;margin-top:10px">Zone (Main, Terrace, VIP…)</div><input value="${App.esc(it.zone || '')}" maxlength="20" placeholder="Main" list="fpz" oninput="fpZone(this.value)" style="margin:6px 0 4px"><datalist id="fpz">${[...new Set(FP.L.tables.map((x) => x.zone).filter(Boolean))].map((z) => `<option value="${App.esc(z)}">`).join('')}</datalist>${step('Seats', 'seats', 1)}${step('Width', 'fw', 2)}${step('Height', 'fh', 2)}<button class="ghost" style="width:100%;margin-top:12px" onclick="fpDelete()">🗑 Remove table</button>`;
+  else box.innerHTML = `<h3>${DEC[it.type][0]} ${DEC[it.type][1]}</h3><div class="muted" style="font-size:12px">Label</div><input value="${App.esc(it.label || '')}" maxlength="20" oninput="fpLabel(this.value)" style="margin:6px 0 10px">${step('Width', 'fw', 1)}${step('Height', 'fh', 1)}<button class="ghost" style="width:100%;margin-top:12px" onclick="fpDelete()">🗑 Remove</button>`;
+}
+function fpBind() {
+  const st = $('#fp'); if (!st) return;
+  st.onpointerdown = (e) => {
+    const el = e.target.closest('.fp-el');
+    if (!el) { FP.sel = null; st.querySelectorAll('.fp-el.sel').forEach((x) => x.classList.remove('sel')); fpInspector(); return; }
+    const [kind, id] = el.dataset.k.split(':'), item = fpItem(kind, id); if (!item) return;
+    FP.sel = el.dataset.k; st.querySelectorAll('.fp-el').forEach((x) => x.classList.toggle('sel', x === el)); fpInspector();
+    const F = App.floor();
+    FP.drag = { el, item, kind, mode: e.target.classList.contains('rzh') ? 'resize' : 'move', x: e.clientX, y: e.clientY, o: { ...item }, cw: st.getBoundingClientRect().width / F.cols, F, moved: false };
+    st.setPointerCapture(e.pointerId); e.preventDefault();
+  };
+  st.onpointermove = (e) => {
+    const d = FP.drag; if (!d) return;
+    const dx = Math.round(((e.clientX - d.x) / d.cw) * 2) / 2, dy = Math.round(((e.clientY - d.y) / d.cw) * 2) / 2, it = d.item, F = d.F, min = d.kind === 't' ? 2 : 1;
+    if (!d.moved && !dx && !dy) return;
+    d.moved = true;
+    if (d.mode === 'move') { it.fx = clampN(d.o.fx + dx, 0, F.cols - it.fw); it.fy = clampN(d.o.fy + dy, 0, F.rows - it.fh); }
+    else { it.fw = clampN(d.o.fw + dx, min, F.cols - it.fx); it.fh = clampN(d.o.fh + dy, min, F.rows - it.fy); if (d.kind === 't' && it.shape === 'round') { const sz = Math.min(Math.max(min, Math.max(d.o.fw + dx, d.o.fh + dy)), Math.min(F.cols - it.fx, F.rows - it.fy)); it.fw = it.fh = sz; } }
+    d.el.style.left = it.fx / F.cols * 100 + '%'; d.el.style.top = it.fy / F.rows * 100 + '%'; d.el.style.width = it.fw / F.cols * 100 + '%'; d.el.style.height = it.fh / F.rows * 100 + '%'; d.el.style.setProperty('--m', Math.min(it.fw, it.fh));
+  };
+  st.onpointerup = st.onpointercancel = () => { const d = FP.drag; if (!d) return; FP.drag = null; if (d.moved) { FP.dirty = true; FP.v++; fpSaveSoon(); } fpDraw(); };
+}
+function fpSaveSoon() { const s = $('#fp-st'); if (s) s.textContent = 'Saving…'; clearTimeout(FP.timer); FP.timer = setTimeout(fpSave, 500); }
+async function fpSave() {
+  clearTimeout(FP.timer); const v = FP.v;
+  await api('PUT', '/api/layout', { tables: FP.L.tables, decor: FP.L.decor });
+  if (FP.v === v) FP.dirty = false; const s = $('#fp-st'); if (s) s.textContent = 'Saved ✓';
+}
+function fpTouch() { FP.dirty = true; FP.v++; fpDraw(); fpSaveSoon(); }
+function fpAdj(key, d, min) { const it = fpItem(...FP.sel.split(':')); if (!it) return; const F = App.floor(); const lim = key === 'seats' ? 20 : key === 'fw' ? F.cols - it.fx : F.rows - it.fy; it[key] = clampN(it[key] + d, min, lim); if (it.shape === 'round' && (key === 'fw' || key === 'fh')) it.fw = it.fh = it[key]; fpTouch(); }
+function fpShape(s) { const it = fpItem(...FP.sel.split(':')); if (!it) return; it.shape = s; if (s === 'round') it.fw = it.fh = Math.max(2, Math.round((it.fw + it.fh) / 2)); if (s === 'long' && it.fw <= it.fh) it.fw = Math.min(App.floor().cols - it.fx, it.fh + 2); fpTouch(); }
+function fpZone(v) { const it = fpItem(...FP.sel.split(':')); if (!it) return; it.zone = v; FP.dirty = true; FP.v++; fpSaveSoon(); }
+function fpLabel(v) { const it = fpItem(...FP.sel.split(':')); if (!it) return; it.label = v; FP.dirty = true; FP.v++; fpSaveSoon(); const el = $(`#fp [data-k="${FP.sel}"] > div`); if (el) el.innerHTML = (App.decorIcon[it.type] || '▬') + (v ? `<small>${App.esc(v)}</small>` : ''); }
+function fpFree(w, h) { const F = App.floor(), all = [...FP.L.tables, ...FP.L.decor]; for (let y = 0; y <= F.rows - h; y++) for (let x = 0; x <= F.cols - w; x++) if (!all.some((o) => x < o.fx + o.fw && x + w > o.fx && y < o.fy + o.fh && y + h > o.fy)) return { fx: x, fy: y }; return { fx: 0, fy: 0 }; }
+async function refreshCfg() { App.config = await api('GET', '/api/config'); cfgKey = ''; render(App.state, true); }
+async function fpAddTable() { if (FP.dirty) await fpSave(); const t = await api('POST', '/api/tables'); FP.sel = 't:' + t.id; FP.dirty = false; await refreshCfg(); }
+function fpAddDecor(type) { const [, , w, h] = DEC[type]; FP.L.decor.push({ id: 'd' + Date.now().toString(36), type, ...fpFree(w, h), fw: w, fh: h, label: DEC[type][1] === 'Plant' || type === 'wall' ? '' : DEC[type][1] }); FP.sel = 'd:' + FP.L.decor[FP.L.decor.length - 1].id; fpTouch(); }
+async function fpDelete() {
+  const [kind, id] = FP.sel.split(':'), it = fpItem(kind, id); if (!it) return;
+  if (kind === 'd') { FP.L.decor = FP.L.decor.filter((x) => x.id !== id); FP.sel = null; return fpTouch(); }
+  if (!confirm('Remove table ' + it.number + '? Its QR code will stop working.')) return;
+  if (FP.dirty) await fpSave(); await api('DELETE', '/api/tables/' + id); FP.sel = null; FP.dirty = false; await refreshCfg();
+}
+function fpArrange() {
+  const F = App.floor(); let x = 0, y = 0, rowH = 0;
+  FP.L.tables.slice().sort((a, b) => a.number - b.number).forEach((t) => { if (x + t.fw > F.cols - 2) { x = 0; y += rowH + 1; rowH = 0; } t.fx = x; t.fy = Math.min(y, F.rows - t.fh); x += t.fw + 2; rowH = Math.max(rowH, t.fh); });
+  fpTouch();
+}
+
+/* ---------------- Staff ---------------- */
+const limBar = (a, kind) => { const l = a.limits[kind], u = a.usage[kind]; if (l === null) return ''; const over = u > l, full = u >= l; return `<div class="card" style="margin:0 0 12px;border-color:${over || full ? 'var(--gold)' : 'var(--line)'}">${kind === 'staff' ? 'Team accounts' : 'Tables'}: <b>${u} / ${l}</b> on your plan${over ? ' - you are over the limit; everything you have keeps working, but you cannot add more until you upgrade.' : full ? ' - limit reached: upgrade to add more.' : ''}</div>`; };
+function fbCard(S, all) {
+  const s = App.config.settings.fb || {}, can = App.config.features.feedback, mx = Math.max(1, ...S.distribution), tr = S.trend.slice(-8), tm = 5;
+  return `<div class="card"><h3>⭐ Guest feedback & Google reviews ${S.unhandledLow ? `<span class="pill" style="background:#d62828;color:#fff">${S.unhandledLow} to review</span>` : ''}</h3>
+  ${can ? `<div class="row wrap"><label class="row" style="gap:6px"><input type="checkbox" style="width:auto" ${s.enabled ? 'checked' : ''} onchange="fbSet({enabled:this.checked})"> Smart feedback (4-5★ may open your Google page; 1-3★ stay private and alert the team)</label></div><div class="row" style="margin:8px 0"><input id="fbg" style="flex:1" placeholder="Google review link (https://g.page/r/...)" value="${App.esc(s.googleUrl || '')}"><button class="ghost" onclick="fbSet({googleUrl:$('#fbg').value})">Save link</button></div>` : '<p class="muted">Smart feedback needs the Operations plan.</p>'}
+  <div class="grid"><div class="card"><small class="muted">Average</small><div style="font-size:30px;font-weight:800">${S.avg || '-'} ⭐</div><small class="muted">${S.count} ratings</small></div>
+  <div class="card">${[5, 4, 3, 2, 1].map((n) => `<div class="row" style="gap:8px;align-items:center"><span style="width:22px">${n}★</span><div style="flex:1;height:8px;background:var(--line);border-radius:8px"><i style="display:block;height:100%;border-radius:8px;background:var(--accent);width:${S.distribution[n - 1] / mx * 100}%"></i></div><small>${S.distribution[n - 1]}</small></div>`).join('')}</div>
+  <div class="card"><small class="muted">Weekly trend</small><div class="row" style="align-items:flex-end;height:70px;gap:4px">${tr.map((x) => `<div title="${x.week}: ${x.avg} (${x.count})" style="flex:1;background:var(--accent);border-radius:4px 4px 0 0;height:${x.avg / tm * 100}%"></div>`).join('') || '<span class="muted">-</span>'}</div></div></div>
+  ${S.byWaiter.length || S.byZone.length ? `<div class="muted" style="font-size:13px;margin-top:8px">By waiter: ${S.byWaiter.map((x) => App.esc(x.key) + ' ' + x.avg + '★ (' + x.count + ')').join(' · ') || '-'}<br>By zone: ${S.byZone.map((x) => App.esc(x.key) + ' ' + x.avg + '★ (' + x.count + ')').join(' · ') || '-'}</div>` : ''}
+  <div class="row" style="margin-top:10px"><a class="ghost" style="text-decoration:none;padding:8px 14px;border-radius:99px;border:1px solid var(--line)" href="/api/r/${App.slug}/feedback/export.csv?token=${App.tok('admin')}">⬇ CSV</a></div></div>`;
+}
+async function fbSet(p) { const cur = App.config.settings.fb || {}, r = await api('POST', '/api/settings', { fb: { ...cur, ...p } }); App.toast(r.error || 'Saved'); if (!r.error) reportsTab(); }
+async function fbDone(id) { await api('PUT', '/api/feedback/' + id, { handled: true }); reportsTab(); }
+function pairsSet(id, txt) { const ids = txt.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean).map((n) => (App.config.items.find((i) => i.name.toLowerCase() === n) || {}).id).filter(Boolean); return upd('items', id, { pairs: ids }); }
+async function upsellCard() {
+  const can = App.config.features.upsell, s = (App.config.settings.upsell || {}); if (!can) return '<div class="card"><h3>🛎️ Upsell suggestions</h3><p class="muted">Needs the Operations plan.</p></div>';
+  const m = await api('GET', '/api/upsell/stats'), K = (l, v) => '<div class="card"><small class="muted">' + l + '</small><div style="font-size:26px;font-weight:800">' + v + '</div></div>';
+  return '<div class="card"><h3>🛎️ Upsell: “Add something?”</h3><div class="row wrap"><label class="row" style="gap:6px"><input type="checkbox" style="width:auto" ' + (s.enabled ? 'checked' : '') + ' onchange="upSet({enabled:this.checked})"> Suggest dishes in the guest cart</label><label class="muted">max <select style="width:auto" onchange="upSet({max:+this.value})">' + [1, 2, 3, 4, 5, 6].map((n) => '<option ' + (n === (s.max || 3) ? 'selected' : '') + '>' + n + '</option>').join('') + '</select></label></div>'
+   + '<div class="grid" style="margin-top:10px">' + K('Shown', m.shown) + K('Accepted', m.accepted) + K('Acceptance', m.rate + '%') + K('Extra revenue', App.money(m.revenue)) + '</div>'
+   + '<table style="margin-top:8px"><tr><th>Item</th><th>Shown</th><th>Accepted</th><th>Rate</th><th>Revenue</th></tr>' + (m.items.slice(0, 12).map((x) => '<tr><td>' + App.esc(x.name) + '</td><td>' + x.shown + '</td><td>' + x.accepted + '</td><td>' + x.rate + '%</td><td>' + App.money(x.revenue) + '</td></tr>').join('') || '<tr><td colspan="5" class="muted">Numbers appear after guests see suggestions.</td></tr>') + '</table>'
+   + '<div class="row" style="margin-top:10px"><a style="text-decoration:none;padding:8px 14px;border-radius:99px;border:1px solid var(--line)" href="/api/r/' + App.slug + '/upsell/export.csv?token=' + App.tok('admin') + '">⬇ CSV</a><button class="ghost" onclick="if(confirm(\'Start the counters from zero? Your sales records are not touched.\'))api(\'POST\',\'/api/upsell/clear\',{}).then(reportsTab)">Clear</button></div></div>';
+}
+async function payCard() {
+  if (!App.config.features.onlinepay) return '<div class="card"><h3>💳 Online payments</h3><p class="muted">Needs the Operations plan.</p></div>';
+  const op = App.config.settings.onlinePay || {}, c = await api('GET', '/api/pay/config'), pm = c.paymob || {}, list = (await api('GET', '/api/pay/intents')).intents || [], odd = list.filter((x) => x.status === 'paid_unmatched' || x.status === 'mismatch');
+  return '<div class="card"><h3>💳 Online payments (card / wallet)</h3><div class="row wrap"><label class="row" style="gap:6px"><input type="checkbox" style="width:auto" ' + (op.enabled ? 'checked' : '') + ' onchange="paySet({enabled:this.checked,provider:\'' + (op.provider || 'sandbox') + '\'})"> Guests can pay from their phone</label>'
+   + '<select style="width:auto" onchange="paySet({enabled:' + !!op.enabled + ',provider:this.value})"><option value="sandbox" ' + (op.provider !== 'paymob' ? 'selected' : '') + '>Test gateway (no money)</option><option value="paymob" ' + (op.provider === 'paymob' ? 'selected' : '') + '>Paymob</option></select></div>'
+   + '<p class="muted">Card details are typed on Paymob’s page - they never reach this system. Paymob webhook URL: <code>' + location.origin + App.esc(c.webhook) + '</code></p>'
+   + '<div class="row wrap"><input id="pk1" placeholder="API key ' + App.esc(pm.apiKey) + '" style="width:200px"><input id="pk2" placeholder="HMAC secret ' + App.esc(pm.hmac) + '" style="width:200px"><input id="pk3" placeholder="Integration id" value="' + App.esc(pm.integrationId) + '" style="width:130px"><input id="pk4" placeholder="Iframe id" value="' + App.esc(pm.iframeId) + '" style="width:110px"><button onclick="payKeys()">Save keys</button></div>'
+   + (odd.length ? '<p style="color:var(--bad)"><b>⚠ ' + odd.length + ' payment(s) need your attention</b> (paid after the table was cleared, or amount mismatch): ' + odd.map((x) => 'table ' + x.tableNumber + ' ' + App.money(x.amount) + ' ' + x.status).join(', ') + '. Refund from the Paymob dashboard.</p>' : '') + '</div>';
+}
+async function paySet(p) { const r = await api('POST', '/api/settings', { onlinePay: p }); App.toast(r.error || 'Saved'); if (!r.error) App.config.settings.onlinePay = p; reportsTab(); }
+async function payKeys() { const r = await api('POST', '/api/pay/config', { apiKey: $('#pk1').value, hmac: $('#pk2').value, integrationId: $('#pk3').value, iframeId: $('#pk4').value }); App.toast(r.error || 'Keys saved'); reportsTab(); }
+async function etaCard() {
+  if (!App.config.features.eta) return '<div class="card"><h3>🧾 ETA e-receipts</h3><p class="muted">Needs the Operations plan.</p></div>';
+  const op = App.config.settings.eta || {}, c = await api('GET', '/api/eta/config'), q = await api('GET', '/api/eta/queue'), s = q.stats || {};
+  const f = (k, ph, w) => '<input id="eta_' + k + '" placeholder="' + ph + '" value="' + App.esc(c[k] || '') + '" style="width:' + (w || 140) + 'px">';
+  return '<div class="card"><h3>🧾 ETA e-receipts <span class="muted" style="font-size:13px">(test / pre-production only)</span></h3><div class="row wrap"><label class="row" style="gap:6px"><input type="checkbox" style="width:auto" ' + (op.enabled ? 'checked' : '') + ' onchange="etaSet(this.checked,\'' + (op.env || 'mock') + '\')"> Issue an e-receipt for every paid bill</label>'
+   + '<select style="width:auto" onchange="etaSet(' + !!op.enabled + ',this.value)"><option value="mock" ' + (op.env !== 'preprod' ? 'selected' : '') + '>Built-in test mode</option><option value="preprod" ' + (op.env === 'preprod' ? 'selected' : '') + '>ETA pre-production</option></select></div>'
+   + '<p class="muted">Live (production) e-receipts are not switched on in this release. Receipts are kept safely and retried if ETA is unreachable; you can also export them.</p>'
+   + '<div class="row wrap">' + f('rin', 'Tax registration no. (RIN)') + f('tradeName', 'Registered business name', 190) + f('branchCode', 'Branch code', 100) + f('activityCode', 'Activity code', 110) + f('deviceSerial', 'POS serial', 110) + f('governate', 'Governorate', 110) + f('city', 'City / region', 110) + f('street', 'Street', 130) + f('building', 'Building', 80) + f('clientId', 'ETA client id', 150)
+   + '<input id="eta_clientSecret" placeholder="Client secret ' + App.esc(c.clientSecret) + '" style="width:170px"><input id="eta_presharedKey" placeholder="Pre-shared key ' + App.esc(c.presharedKey) + '" style="width:170px"><button onclick="etaKeys()">Save</button></div>'
+   + '<div class="grid" style="margin-top:10px">' + ['queued', 'accepted', 'rejected', 'failed'].map((k) => '<div class="card"><small class="muted">' + k + '</small><div style="font-size:24px;font-weight:800">' + (s[k] || 0) + '</div></div>').join('') + '</div>'
+   + '<div class="row wrap" style="margin-top:8px"><button class="ghost" onclick="etaRun()">Send now</button><a style="text-decoration:none;padding:8px 14px;border-radius:99px;border:1px solid var(--line)" href="/api/r/' + App.slug + '/eta/export.json?token=' + App.tok('admin') + '">⬇ Export JSON</a></div>'
+   + (q.items || []).filter((x) => x.status === 'rejected' || x.status === 'failed').slice(0, 8).map((x) => '<p style="color:var(--bad)">' + App.esc(x.number) + ' (table ' + x.table + ') ' + x.status + ': ' + App.esc(x.error || '') + ' <button class="ghost" onclick="etaRetry(\'' + x.id + '\')">Retry</button></p>').join('') + '</div>';
+}
+async function etaSet(on, env) { const r = await api('POST', '/api/settings', { eta: { enabled: on, env } }); App.toast(r.error || 'Saved'); if (!r.error) App.config.settings.eta = { enabled: on, env }; reportsTab(); }
+async function etaKeys() { const b = {}; ['rin', 'tradeName', 'branchCode', 'activityCode', 'deviceSerial', 'governate', 'city', 'street', 'building', 'clientId', 'clientSecret', 'presharedKey'].forEach((k) => (b[k] = $('#eta_' + k).value)); const r = await api('POST', '/api/eta/config', b); App.toast(r.error || 'Saved'); reportsTab(); }
+async function etaRun() { const r = await api('POST', '/api/eta/run', { force: true }); App.toast(r.error || 'Sent ' + (r.sent || 0)); reportsTab(); }
+async function etaRetry(id) { const r = await api('POST', '/api/eta/retry/' + id, {}); App.toast(r.error || 'Queued'); reportsTab(); }
+async function offlineSet(on) { const r = await api('POST', '/api/settings', { offline: { enabled: on } }); App.toast(r.error || 'Saved'); if (!r.error) App.config.settings.offline = { enabled: on }; reportsTab(); }
+async function offlineCard() {
+  if (!App.config.features.offline) return '<div class="card"><h3>📴 Offline mode (staff apps)</h3><p class="muted">Needs the Operations plan.</p></div>';
+  const on = !!(App.config.settings.offline && App.config.settings.offline.enabled);
+  return '<div class="card"><h3>📴 Offline mode (staff apps)</h3><label class="row" style="gap:6px"><input type="checkbox" style="width:auto" ' + (on ? 'checked' : '') + ' onchange="offlineSet(this.checked)"> Waiters and cashiers can keep taking orders when the wifi drops; they are sent automatically (once only) when it returns.</label><p class="muted">Payments, voids and discounts always need a live connection.</p></div>';
+}
+async function upSet(p) { const cur = App.config.settings.upsell || {}, r = await api('POST', '/api/settings', { upsell: { ...cur, ...p } }); App.toast(r.error || 'Saved'); reportsTab(); }
+async function staffTab() {
+  const acc = await api('GET', '/api/account'), d = await api('GET', '/api/staff'), roles = { captain: '🧑‍✈️ Captain / floor', kitchen: '👨‍🍳 Kitchen', cashier: '💵 Cashier' };
+  const fmt = (x) => x.handled ? Math.round(x.respMs / x.handled / 1000) + 's' : '-';
+  $('#main').innerHTML = `${limBar(acc, 'staff')}<h1>👥 Staff</h1><p class="muted" style="margin-top:-8px">Each person gets their own PIN, so every action is logged under their name and you can see who is fast.</p>
+  <div class="row2" style="grid-template-columns:minmax(300px,1.2fr) minmax(260px,1fr);align-items:start">
+  <div class="card" style="overflow:auto"><h3>Team</h3>
+   <table><tr><th>Name</th><th>Role</th><th>New PIN</th><th>Active</th><th></th></tr>
+   ${d.staff.map((x) => `<tr><td><input value="${App.esc(x.name)}" style="min-width:110px" onchange="stf('${x.id}',{name:this.value})"></td><td><select onchange="stf('${x.id}',{role:this.value})"><option value="captain" ${x.role === 'captain' ? 'selected' : ''}>${roles.captain}</option><option value="kitchen" ${x.role === 'kitchen' ? 'selected' : ''}>${roles.kitchen}</option><option value="cashier" ${x.role === 'cashier' ? 'selected' : ''}>${roles.cashier}</option></select></td>
+    <td><input placeholder="••••" inputmode="numeric" maxlength="8" style="width:90px" onchange="if(this.value)stf('${x.id}',{pin:this.value}).then(()=>this.value='')"></td><td><input type="checkbox" style="width:22px;height:22px" ${x.active === false ? '' : 'checked'} onchange="stf('${x.id}',{active:this.checked})"></td><td><button class="ghost" onclick="if(confirm('Remove ${App.esc(x.name)}?'))api('DELETE','/api/staff/${x.id}').then(()=>{cfgKey='';render(App.state,true)})">🗑</button></td></tr>`).join('') || '<tr><td colspan="5" class="muted">No staff accounts yet - add the first one below.</td></tr>'}</table>
+   <h3 style="margin-top:18px">Add a team member</h3><div class="row wrap"><input id="sn" placeholder="Name" style="max-width:170px"><select id="sr" style="max-width:190px"><option value="captain">${roles.captain}</option><option value="kitchen">${roles.kitchen}</option><option value="cashier">${roles.cashier}</option></select><input id="sp" placeholder="PIN (4-8 digits)" inputmode="numeric" maxlength="8" style="max-width:150px"><button class="ghost" onclick="$('#sp').value=String(Math.floor(1000+Math.random()*9000))">🎲</button><button class="primary" onclick="addStaff()">Add</button></div>
+   <p class="muted" style="font-size:12.5px;margin-top:12px">Captains sign in at <b>/captain</b>, kitchen staff at <b>/kitchen</b>, cashiers at <b>/cashier</b>. The old shared PIN (${App.esc(d.legacyPin)}) still works as "Captain" - change it under Theme & settings or stop using it once everyone has their own.</p></div>
+  <div class="card" style="overflow:auto"><h3>Performance</h3><table><tr><th>Name</th><th>Requests</th><th>Avg reply</th><th>Started</th><th>Served</th><th>Closed</th></tr>
+   ${Object.values(d.stats).map((x) => `<tr><td><b>${App.esc(x.name)}</b></td><td>${x.handled || 0}</td><td>${fmt(x)}</td><td>${x.started || 0}</td><td>${x.served || 0}</td><td>${x.closed || 0}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Numbers appear once staff start handling tables.</td></tr>'}</table></div></div><div class="card" id="shifts" style="overflow:auto;margin-top:14px"></div>`;
+  shiftsCard();
+}
+async function shiftsCard() {
+  const j = await api('GET', '/api/shifts'); if (j.error || !$('#shifts')) return;
+  const m = (n) => App.money(n), t = (x) => new Date(x).toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  $('#shifts').innerHTML = `<h3>💵 Cashier shifts</h3>${j.cur ? `<div class="card" style="margin:8px 0"><b>🟢 Open now</b> · ${App.esc(j.cur.by)} · since ${t(j.cur.openedAt)}<br>Sales ${m(j.cur.total)} (${j.cur.sales}) · Cash in drawer should be <b>${m(j.cur.expected)}</b></div>` : '<p class="muted">No shift is open.</p>'}<table><tr><th>Shift</th><th>By</th><th>Sales</th><th>Expected</th><th>Counted</th><th>Variance</th></tr>${(j.list || []).map((z) => `<tr><td>${t(z.openedAt)}</td><td>${App.esc(z.by)}</td><td>${m(z.total)}</td><td>${m(z.expected)}</td><td>${m(z.counted)}</td><td style="color:${z.variance ? 'var(--bad)' : 'var(--ok)'};font-weight:700">${z.variance > 0 ? '+' : ''}${m(z.variance)}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Closed shifts and cash variances appear here.</td></tr>'}</table>`;
+}
+async function stf(id, body) { const r = await api('PUT', '/api/staff/' + id, body); App.toast(r.error || 'Saved'); return r; }
+async function addStaff() { const r = await api('POST', '/api/staff', { name: $('#sn').value, role: $('#sr').value, pin: $('#sp').value }); if (r.error) return App.toast(r.error); App.toast('Added ' + r.name); cfgKey = ''; render(App.state, true); }
+
+/* ---------------- Reports ---------------- */
+let RP = { preset: 'today', from: null, to: null }, RC = [];
+function rpPrint(i) {
+  const h = RC[i]; if (!h) return;
+  App.printHTML(App.receiptHTML({ label: h.tableNumber, kind: h.kind, customer: h.customer, at: h.closedAt, items: h.items, gross: h.sub, discount: h.discount, discountNote: h.discountNote, service: h.service, tax: h.tax, tip: h.tip, total: h.total, method: h.method, pay: h.pay, by: h.closedBy }));
+}
+function rpRange() {
+  const d0 = new Date(); d0.setHours(0, 0, 0, 0); const day = 86400000, t0 = d0.getTime();
+  if (RP.preset === 'today') return [t0, Date.now()]; if (RP.preset === 'yesterday') return [t0 - day, t0 - 1];
+  if (RP.preset === '7') return [t0 - 6 * day, Date.now()]; if (RP.preset === '30') return [t0 - 29 * day, Date.now()];
+  const f = RP.from ? new Date(RP.from + 'T00:00:00').getTime() : t0, t = RP.to ? new Date(RP.to + 'T23:59:59').getTime() : Date.now(); return [f, t];
+}
+async function reportsTab() {
+  const [f, t] = rpRange(), r = await api('GET', `/api/report?from=${f}&to=${t}`), fb = (await api('GET', '/api/feedback')).reviews || [], FBS = await api('GET', `/api/feedback/summary?from=${f}&to=${t}`); RC = (await api('GET', '/api/receipts')).receipts || [];
+  const K = (l, v, sub) => `<div class="card kpi"><span>${l}</span><b>${v}</b>${sub ? `<small class="muted">${sub}</small>` : ''}</div>`, tk = App.tok('admin');
+  const chip = (k, l) => `<button class="${RP.preset === k ? 'sel' : ''}" onclick="RP.preset='${k}';reportsTab()">${l}</button>`;
+  $('#main').innerHTML = `<div class="spread wrap"><h1>📈 Reports</h1><div class="row wrap noprint">${chip('today', 'Today')}${chip('yesterday', 'Yesterday')}${chip('7', '7 days')}${chip('30', '30 days')}<input type="date" style="width:150px" value="${RP.from || ''}" onchange="RP.preset='c';RP.from=this.value;reportsTab()"><input type="date" style="width:150px" value="${RP.to || ''}" onchange="RP.preset='c';RP.to=this.value;reportsTab()"></div></div>
+  <div class="row wrap noprint" style="margin:6px 0 14px"><a href="/api/r/${App.slug}/report.xlsx?from=${f}&to=${t}&token=${tk}"><button class="primary">⬇ Excel report</button></a><button class="ghost" onclick="window.print()">🖨 Print / PDF</button><a href="/api/r/${App.slug}/export.json?token=${tk}"><button class="ghost">💾 Backup all data</button></a></div>
+  <div class="muted" style="margin-bottom:10px">${new Date(f).toLocaleString()} → ${new Date(t).toLocaleString()}</div>
+  <div class="grid">${K('Table sessions', r.sessions, r.guests + ' guests')}${K('Gross sales', App.money(r.gross))}${K('Service charge', App.money(r.service))}${K('Tax collected', App.money(r.tax))}${K('Tips', App.money(r.tips))}${K('Total collected', App.money(r.total), 'avg ticket ' + App.money(r.avgTicket))}${K('Cash', App.money(r.methods.cash || 0))}${K('Card', App.money(r.methods.card || 0))}${K('Discounts given', App.money(r.discounts || 0))}${K('Voided items', (r.voids || {}).count || 0, App.money((r.voids || {}).value || 0) + ((r.voids || {}).waste ? ' · wasted ' + App.money(r.voids.waste) : ''))}${K('Est. profit', App.money(r.profit || 0), 'after cost of goods and discounts')}${K('Guest rating', r.reviews.count ? '⭐ ' + r.reviews.avg.toFixed(1) : '-', r.reviews.count + ' ratings' + (r.reviews.low ? ' · ' + r.reviews.low + ' low' : ''))}</div>
+  <div class="row2"><div class="card" style="overflow:auto"><h3>Top items</h3><table><tr><th>Item</th><th>Qty</th><th>Revenue</th><th>Profit</th></tr>${r.items.slice(0, 12).map((x) => `<tr><td>${App.esc(x.name)}</td><td>${x.qty}</td><td>${App.money(x.revenue)}</td><td>${App.money(x.profit)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No sales in this period</td></tr>'}</table></div>
+  <div class="card" style="overflow:auto"><h3>Categories</h3><table><tr><th>Category</th><th>Revenue</th><th>Profit</th></tr>${r.categories.map((x) => `<tr><td>${App.esc(x.name)}</td><td>${App.money(x.revenue)}</td><td>${App.money(x.profit)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">-</td></tr>'}</table></div>
+  <div class="card" style="overflow:auto"><h3>Sales by staff</h3><table><tr><th>Staff</th><th>Tables closed</th><th>Collected</th></tr>${Object.keys(r.salesBy || {}).map((n) => `<tr><td>${App.esc(n)}</td><td>${r.closedBy[n]}</td><td>${App.money(r.salesBy[n])}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Sales are attributed when staff sign in with their own PIN</td></tr>'}</table>
+  <h3 style="margin-top:14px">By order type</h3>${Object.keys(r.kinds || {}).map((k) => `<div class="spread"><span>${{ table: '🪑 Dine-in', takeaway: '🛍️ Takeaway', delivery: '🛵 Delivery' }[k] || k}</span><b>${App.money(r.kinds[k])}</b></div>`).join('') || '<p class="muted">-</p>'}</div>
+  <div class="card" style="overflow:auto"><h3>🧾 Recent receipts</h3><table>${RC.map((h, i) => `<tr><td>${new Date(h.closedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td><td>${h.kind && h.kind !== 'table' ? App.esc(h.kind) + ' ' : 'T'}${App.esc(h.tableNumber)}</td><td>${App.money(h.total)}${h.unpaid ? ' <span class="pill" style="color:#ff6b6b">unpaid</span>' : ''}</td><td><button class="ghost" onclick="rpPrint(${i})">🖨</button></td></tr>`).join('') || '<tr><td class="muted">Nothing yet</td></tr>'}</table></div>
+  ${await etaCard()}${await payCard()}${await offlineCard()}${await upsellCard()}${fbCard(FBS, fb)}<div class="card" style="overflow:auto"><h3>💬 Latest ratings</h3>${fb.length ? fb.slice(0, 25).map((x) => `<div style="padding:8px 0;border-bottom:1px solid var(--line);${x.handled ? 'opacity:.55' : ''}"><b>${'⭐'.repeat(x.stars)}</b> <span class="muted">· table ${x.table || '?'}${x.name ? ' · ' + App.esc(x.name) : ''} · ${new Date(x.at).toLocaleString()}</span>${x.stars <= 3 && x.handled === false ? `  <span class="pill" style="color:#ff6b6b">needs attention</span> <button class="ghost" onclick="fbDone('${x.id}')">✔ handled</button>` : ''}<div>${App.esc(x.comment)}</div></div>`).join('') : '<p class="muted">No ratings yet. Guests are asked after they pay.</p>'}</div></div>`;
+}
+
+/* ---------------- Menu builder ---------------- */
+function menu() {
+  const { categories: C, items: I } = App.config;
+  if (!actCat || !C.find(c => c.id === actCat)) actCat = C[0]?.id;
+  const its = I.filter(i => i.cat === actCat);
+  $('#main').innerHTML = `<h1>🍽️ Menu builder</h1>
+  <div class="row2" style="grid-template-columns:minmax(280px,340px) 1fr;align-items:start">
+  <div class="card"><h3>Categories <small class="muted">(drag ⠿ to reorder)</small></h3><div id="cats">${C.map(c => `<div class="cat ${c.id === actCat ? 'act' : ''}" data-id="${c.id}"><span class="h">⠿</span>
+   <input style="width:42px;text-align:center" value="${App.esc(c.emoji)}" onchange="upd('categories','${c.id}',{emoji:this.value})"><input value="${App.esc(c.name)}" onchange="upd('categories','${c.id}',{name:this.value})"><input dir="rtl" value="${App.esc(c.name_ar)}" onchange="upd('categories','${c.id}',{name_ar:this.value})">
+   <button class="ghost" onclick="actCat='${c.id}';cfgKey='';render(App.state,true)">▶</button><button class="ghost" onclick="if(confirm('Delete category and its items?'))api('DELETE','/api/categories/${c.id}')">🗑</button></div>`).join('')}</div>
+   ${menuLook()}${catSettings(C.find(c => c.id === actCat))}
+   <button class="primary" onclick="api('POST','/api/categories',{name:'New category'})">+ Category</button>
+   <hr style="border-color:var(--line);margin:16px 0"><h3>📷 Photos for all items</h3><p class="muted" style="font-size:13px">Pick or drop many photos at once. Name each file like the dish (<b>cappuccino.jpg</b>) and it is attached to the matching item. You can also drop one photo on any item's picture.</p>
+   <div class="card" id="dz" style="border:2px dashed var(--line);text-align:center;padding:18px;cursor:copy" ondragover="event.preventDefault()" ondrop="event.preventDefault();bulkImgs(event.dataTransfer.files)" onclick="$('#bulkin').click()">Drop photos here or click to choose</div><input type="file" id="bulkin" accept="image/*" multiple hidden onchange="bulkImgs(this.files);this.value=''">
+   <hr style="border-color:var(--line);margin:16px 0"><h3>Bulk upload</h3><p class="muted" style="font-size:13px">Excel/CSV columns: category, category_ar, name, name_ar, price, cost, emoji, description</p>
+   <input type="file" id="imp" accept=".xlsx,.xls,.csv"><div class="row" style="margin-top:8px"><button class="primary" onclick="importFile()">Upload</button><a href="/api/r/${App.slug}/menu/template.xlsx" style="color:var(--accent);display:inline-block;padding:10px 6px">⬇ Template</a></div></div>
+  <div class="card" style="overflow:auto"><div class="spread"><h3>Items in “${App.esc(C.find(c => c.id === actCat)?.name || '')}”</h3><button class="primary" onclick="api('POST','/api/items',{cat:'${actCat}'})">+ Item</button></div>
+  <table><tr><th></th><th>Name</th><th>الاسم</th><th>Price</th><th>Cost</th><th>Emoji</th><th title="First starred = Dish of the day, second = featured card">★</th><th title="Dietary tags guests can filter by, e.g. vegan, spicy, gluten-free">Tags</th><th title="Dishes that go well with this one - suggested to guests as 'Add something?'">Goes well with</th><th title="Hide from ordering until you restock">Sold out</th><th>Description</th><th></th></tr>
+  ${its.map(i => `<tr><td style="white-space:nowrap"><div class="thumb" style="${i.img ? `background-image:url(${i.img})` : ''}" title="Click or drop a photo" onclick="pick('${i.id}')" ondragover="event.preventDefault()" ondrop="event.preventDefault();upImg('${i.id}',event.dataTransfer.files[0])">${i.img ? '' : i.emoji}</div><div class="row" style="gap:4px;margin-top:4px"><button class="ghost" style="padding:2px 8px;font-size:11px" onclick="pick('${i.id}')">📷 ${i.img ? 'Change' : 'Add photo'}</button>${i.img ? `<button class="ghost" style="padding:2px 8px;font-size:11px" onclick="rmImg('${i.id}')" title="Remove photo">✕</button>` : ''}</div></td>
+   <td><input value="${App.esc(i.name)}" onchange="upd('items','${i.id}',{name:this.value})"></td><td><input dir="rtl" value="${App.esc(i.name_ar)}" onchange="upd('items','${i.id}',{name_ar:this.value})"></td>
+   <td><input type="number" style="width:80px" value="${i.price}" onchange="upd('items','${i.id}',{price:this.value})"></td><td><input type="number" style="width:70px" value="${i.cost}" onchange="upd('items','${i.id}',{cost:this.value})"></td>
+   <td><input style="width:56px" value="${App.esc(i.emoji)}" onchange="upd('items','${i.id}',{emoji:this.value})"></td><td><input type="checkbox" style="width:auto" ${i.featured ? 'checked' : ''} onchange="upd('items','${i.id}',{featured:this.checked})"></td><td><input style="width:130px" placeholder="vegan, spicy" value="${App.esc((i.tags || []).join(', '))}" onchange="upd('items','${i.id}',{tags:this.value.split(',').map(x=>x.trim()).filter(Boolean)})"></td><td><input list="pairdl" style="width:150px" placeholder="pick items…" value="${App.esc((i.pairs || []).map((p) => (App.config.items.find((x) => x.id === p) || {}).name).filter(Boolean).join(', '))}" onchange="pairsSet('${i.id}',this.value)"></td><td><input type="checkbox" style="width:auto" ${i.soldOut ? 'checked' : ''} onchange="upd('items','${i.id}',{soldOut:this.checked})"></td><td><input value="${App.esc(i.desc)}" onchange="upd('items','${i.id}',{desc:this.value})"></td>
+   <td><select style="width:90px" onchange="upd('items','${i.id}',{cat:this.value})">${C.map(c => `<option value="${c.id}" ${c.id === i.cat ? 'selected' : ''}>${c.emoji}</option>`).join('')}</select> <button class="ghost" onclick="api('DELETE','/api/items/${i.id}')">🗑</button></td></tr>`).join('')}</table></div></div>
+  <datalist id="pairdl">${App.config.items.map((x) => `<option value="${App.esc(x.name)}">`).join('')}</datalist><input type="file" id="imgin" accept="image/*" hidden>`;
+  Sortable.create($('#cats'), { handle: '.h', animation: 180, onEnd: () => api('PUT', '/api/categories/order', { ids: [...document.querySelectorAll('#cats .cat')].map(e => e.dataset.id) }) });
+}
+// how the guests' order page looks: one default layout, plus a layout and a banner photo for each category
+const LAYOUTS = [['cards', '▦ Cards - two columns'], ['list', '☰ List with photos'], ['hero', '🖼 Big photo cards'], ['feature', '✨ Magazine - one large + grid'], ['carousel', '↔ Swipe row'], ['classic', '📜 Classic text menu']];
+function menuLook() {
+  const s = App.config.settings, L = (cur, none) => `${none ? `<option value="" ${!cur ? 'selected' : ''}>${none}</option>` : ''}${LAYOUTS.map(([k, l]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${l}</option>`).join('')}`;
+  return `<div class="card" style="margin:12px 0;background:var(--card2)"><b>✨ Guest order page look</b><p class="muted" style="font-size:12px;margin:4px 0 8px">What guests see when they scan the table code. Each category can use its own layout and banner photo.</p>
+   <label class="muted" style="font-size:12px">Default layout</label><select onchange="api('POST','/api/settings',{menuLayout:this.value})">${L(s.menuLayout || 'cards')}</select>
+   <label class="muted" style="font-size:12px;display:block;margin-top:8px">Cover photo at the top of the order page</label>
+   <div class="row" style="gap:8px"><div class="thumb" style="width:90px;height:52px;border-radius:12px;${s.heroImg ? `background-image:url(${s.heroImg})` : ''}" onclick="pickTo('/api/hero-image')">${s.heroImg ? '' : '🖼'}</div><button class="ghost" onclick="pickTo('/api/hero-image')">📷 ${s.heroImg ? 'Change' : 'Add'}</button>${s.heroImg ? `<button class="ghost" onclick="rmTo('/api/hero-image')">✕</button>` : ''}</div></div>`;
+}
+// upload a photo to any image endpoint (category banner, cover photo)
+function pickTo(url) { const f = $('#imgin'); f.onchange = async () => { const file = f.files[0]; f.value = ''; if (!file) return; try { const fd = new FormData(); fd.append('image', await shrink(file, 1400), 'photo.webp'); const j = await (await fetch(url, { method: 'POST', body: fd })).json(); App.toast(j.error || 'Photo saved ✓'); } catch (e) { App.toast('Could not read that image'); } }; f.click(); }
+async function rmTo(url) { await api('DELETE', url); App.toast('Photo removed'); }
+function catSettings(c) {
+  if (!c) return '';
+  const h = c.hours || {};
+  return `<div class="card" style="margin:12px 0;background:var(--card2)"><b>${c.emoji} ${App.esc(c.name)} - settings</b>
+   <label class="muted" style="font-size:12px;display:block;margin-top:8px">Layout of this category on the order page</label>
+   <select onchange="upd('categories','${c.id}',{layout:this.value})">${[['', 'Use the default layout'], ...LAYOUTS].map(([k, l]) => `<option value="${k}" ${(c.layout || '') === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+   <label class="muted" style="font-size:12px;display:block;margin-top:8px">Banner photo (shown above the dishes)</label>
+   <div class="row" style="gap:8px"><div class="thumb" style="width:90px;height:52px;border-radius:12px;${c.img ? `background-image:url(${c.img})` : ''}" onclick="pickTo('/api/categories/${c.id}/image')">${c.img ? '' : '🖼'}</div><button class="ghost" onclick="pickTo('/api/categories/${c.id}/image')">📷 ${c.img ? 'Change' : 'Add'}</button>${c.img ? `<button class="ghost" onclick="rmTo('/api/categories/${c.id}/image')">✕</button>` : ''}</div>
+   <label class="muted" style="font-size:12px;display:block;margin-top:8px">Prepared at (kitchen screen)</label>
+   <select onchange="upd('categories','${c.id}',{station:this.value})"><option value="kitchen" ${(c.station || 'kitchen') === 'kitchen' ? 'selected' : ''}>🍳 Kitchen</option><option value="bar" ${c.station === 'bar' ? 'selected' : ''}>🍸 Bar</option><option value="both" ${c.station === 'both' ? 'selected' : ''}>Both</option></select>
+   <label class="muted" style="font-size:12px;display:block;margin-top:8px">Only offered between (leave empty = all day)</label>
+   <div class="row"><input type="time" value="${h.from || ''}" onchange="setHours('${c.id}',this.value,'${h.to || ''}')"><span>→</span><input type="time" value="${h.to || ''}" onchange="setHours('${c.id}','${h.from || ''}',this.value)"></div></div>`;
+}
+function setHours(id, from, to) { upd('categories', id, { hours: from && to ? { from, to } : null }); }
+function upd(kind, id, body) { api('PUT', `/api/${kind}/${id}`, body); }
+// photos are shrunk in the browser first (max 900px, webp) so any phone photo uploads fast and fits the limit
+async function shrink(file, max = 900) {
+  const bmp = await createImageBitmap(file), k = Math.min(1, max / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(bmp.width * k)); c.height = Math.max(1, Math.round(bmp.height * k)); c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  let q = 0.86, b; do { b = await new Promise((r) => c.toBlob(r, 'image/webp', q)); q -= 0.14; } while (b && b.size > 600 * 1024 && q > 0.2);
+  return b;
+}
+async function upImg(id, file, quiet) {
+  if (!file || !/^image\//.test(file.type)) { if (!quiet) App.toast('Choose an image file'); return false; }
+  try {
+    const fd = new FormData(); fd.append('image', await shrink(file), 'photo.webp');
+    const j = await (await fetch(`/api/items/${id}/image`, { method: 'POST', body: fd })).json();
+    if (!quiet) App.toast(j.error || 'Photo saved ✓'); return !j.error;
+  } catch (e) { if (!quiet) App.toast('Could not read that image'); return false; }
+}
+function pick(id) { const f = $('#imgin'); f.onchange = () => { upImg(id, f.files[0]); f.value = ''; }; f.click(); }
+async function rmImg(id) { await api('DELETE', `/api/items/${id}/image`); App.toast('Photo removed'); }
+const norm = (s) => String(s || '').toLowerCase().replace(/\.[a-z0-9]{2,4}$/, '').replace(/[^\p{L}\p{N}]+/gu, '');
+// drop or choose many photos at once: each is matched to the item with the same name (cappuccino.jpg -> Cappuccino)
+async function bulkImgs(files) {
+  files = [...files].filter((f) => /^image\//.test(f.type)); if (!files.length) return App.toast('Choose image files');
+  const I = App.config.items; let ok = 0; const miss = [];
+  for (const f of files) {
+    const n = norm(f.name), it = I.find((x) => norm(x.name) === n || norm(x.name_ar) === n) || I.find((x) => n && (norm(x.name).includes(n) || n.includes(norm(x.name))) && norm(x.name).length > 2);
+    if (it && await upImg(it.id, f, true)) ok++; else miss.push(f.name);
+  }
+  App.toast(`${ok} photo${ok === 1 ? '' : 's'} added` + (miss.length ? ` · no matching item for: ${miss.slice(0, 4).join(', ')}${miss.length > 4 ? '…' : ''}` : ''));
+}
+async function importFile() {
+  const f = $('#imp').files[0]; if (!f) return App.toast('Choose a file first');
+  const fd = new FormData(); fd.append('file', f);
+  const r = await (await fetch('/api/menu/import', { method: 'POST', body: fd })).json();
+  App.toast(r.error || `Imported ${r.added} items`);
+}
+
+/* ---------------- Inventory ---------------- */
+async function inventoryTab() {
+  const { categories: C, items: I } = App.config, lg = (await api('GET', '/api/stock-log')).log || [];
+  const tr = (i) => i.stock !== undefined && i.stock !== null && i.stock !== '';
+  const low = (i) => tr(i) && i.stock <= (i.lowAt === undefined ? 5 : i.lowAt);
+  const lows = I.filter(low), value = I.filter(tr).reduce((n, i) => n + i.stock * (i.cost || 0), 0);
+  const cn = (id) => (C.find((c) => c.id === id) || {}).name || '';
+  $('#main').innerHTML = `<h1>📦 Inventory</h1>
+  <div class="grid"><div class="card kpi"><span>Tracked items</span><b>${I.filter(tr).length}</b><small class="muted">of ${I.length} on the menu</small></div><div class="card kpi"><span>Low or out</span><b style="color:${lows.length ? '#ff6b6b' : 'inherit'}">${lows.length}</b><small class="muted">${lows.slice(0, 3).map((i) => App.esc(i.name)).join(', ') || 'all good'}</small></div><div class="card kpi"><span>Stock value (at cost)</span><b>${App.money(value)}</b></div></div>
+  <div class="card" style="overflow:auto;margin-top:14px"><p class="muted" style="margin-top:0">Tick <b>Track</b> to count portions of an item. Every order takes from the count, the item turns <b>sold out</b> by itself at zero and comes back when you restock. Items you do not track stay unlimited.</p>
+  <table><tr><th>Item</th><th>Category</th><th>Track</th><th>Left</th><th>Alert at</th><th>Add / remove</th></tr>
+  ${I.map((i) => `<tr style="${low(i) ? 'background:color-mix(in srgb,#d62828 10%,transparent)' : ''}"><td>${App.esc(i.emoji || '')} ${App.esc(i.name)}</td><td class="muted">${App.esc(cn(i.cat))}</td>
+   <td><input type="checkbox" style="width:auto" ${tr(i) ? 'checked' : ''} onchange="upd('items','${i.id}',{stock:this.checked?0:null})"></td>
+   <td>${tr(i) ? `<b style="color:${i.stock <= 0 ? '#ff6b6b' : low(i) ? 'var(--warn,#e08a1a)' : 'inherit'}">${i.stock}</b>${i.stock <= 0 ? ' <span class="pill">out</span>' : low(i) ? ' <span class="pill">low</span>' : ''}` : '<span class="muted">∞</span>'}</td>
+   <td>${tr(i) ? `<input type="number" min="0" style="width:64px" value="${i.lowAt === undefined ? 5 : i.lowAt}" onchange="upd('items','${i.id}',{lowAt:this.value})">` : ''}</td>
+   <td>${tr(i) ? `<div class="row wrap"><input id="q_${i.id}" type="number" min="0" placeholder="qty" style="width:70px"><input id="r_${i.id}" placeholder="note" style="width:110px"><button class="primary" onclick="adj('${i.id}','restock')">＋ Restock</button><button class="ghost" onclick="adj('${i.id}','waste')">Waste</button><button class="ghost" onclick="adj('${i.id}','count')">Set count</button></div>` : ''}</td></tr>`).join('')}</table></div>
+  <div class="card" style="overflow:auto;margin-top:14px"><h3>Stock movements</h3><table><tr><th>When</th><th>Item</th><th>Change</th><th>Left</th><th>Type</th><th>Who / note</th></tr>${lg.slice(0, 60).map((l) => `<tr><td>${new Date(l.at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td><td>${App.esc(l.item)}</td><td style="color:${l.delta < 0 ? '#ff6b6b' : 'var(--ok,#1f9d55)'}">${l.delta > 0 ? '+' : ''}${l.delta}</td><td>${l.left}</td><td>${App.esc(l.type)}</td><td class="muted">${App.esc(l.who || '')} ${App.esc(l.reason || '')}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nothing yet</td></tr>'}</table></div>`;
+}
+async function adj(id, type) {
+  const q = $('#q_' + id).value; if (q === '') return App.toast('Enter a quantity');
+  const r = await api('POST', `/api/items/${id}/adjust`, { type, qty: q, reason: $('#r_' + id).value });
+  App.toast(r.error || 'Stock updated'); cfgKey = ''; render(App.state, true);
+}
+function receiptCard() {
+  const s = App.config.settings, el = document.createElement('div'); el.className = 'card'; el.style.marginTop = '14px';
+  const f = (k, l, ph) => `<label class="muted" style="display:block;margin-top:8px;font-size:12px">${l}</label><input value="${App.esc(s[k] || '')}" placeholder="${ph || ''}" onchange="api('POST','/api/settings',{${k}:this.value})">`;
+  el.innerHTML = `<h3>🧾 Bills, receipts & discounts</h3>${f('address', 'Address on receipts')}${f('phone', 'Phone on receipts')}${f('taxId', 'Tax / VAT number')}${f('receiptFooter', 'Receipt footer', 'Thank you - see you soon!')}
+   <label class="muted" style="display:block;margin-top:12px;font-size:12px">Largest discount a captain may give without you (%)</label>
+   <div class="row"><input type="number" min="0" max="100" style="max-width:120px" value="${s.discountCapPct === undefined || s.discountCapPct === '' ? 20 : s.discountCapPct}" onchange="api('POST','/api/settings',{discountCapPct:Math.min(100,Math.max(0,+this.value||0))})"><small class="muted">Anything bigger is refused unless the owner is signed in on the captain screen. Every discount, void and refund is written to the table's log.</small></div>`;
+  $('#main').appendChild(el);
+}
+
+/* ---------------- Theme & settings ---------------- */
+function theme() {
+  const s = App.config.settings, p = s.palette;
+  const sw = (k, label) => `<label style="text-align:center;font-size:12px" class="muted"><input class="sw" type="color" value="${p[k]}" onchange="setPal('${k}',this.value)"><br>${label}</label>`;
+  $('#main').innerHTML = `<h1>🎨 Theme & settings</h1><div class="row2">
+  <div class="card"><h3>Theme (applies live to every screen)</h3><div class="row wrap">
+   ${[['bloom', '🌿 Bean & Bloom'], ['espresso', '☕ Espresso'], ['pink', '🌸 Modern pink'], ['white', '⬜ Minimal white'], ['custom', '🎨 Custom']].map(([k, l]) => `<button class="${s.theme === k ? 'sel' : ''}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div>
+   <p class="muted">Fasheekh luxury themes ${FEAT().themes ? '' : '🔒 VIP'}</p><div class="row wrap">${FLAVORS.map(([k, l]) => `<button class="${s.theme === k ? 'sel' : ''}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div>
+   <p class="muted" style="margin-top:14px">Maison de Luxe collection - for high-end venues ${FEAT().themes ? '' : '🔒 VIP'}</p><div class="row wrap">${LUXES.map(([k, l, d]) => `<button class="${s.theme === k ? 'sel' : ''}" title="${d}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div>
+   <p class="muted" style="margin-top:14px">Pro Studio collection - designed per venue type ${FEAT().themes ? '' : '🔒 VIP'}</p><div class="row wrap">${PROS.map(([k, l, d]) => `<button class="${s.theme === k ? 'sel' : ''}" title="${d}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div>
+   <p class="muted" style="margin-top:14px">Signature Dark collection - dashboard-grade premium ${FEAT().themes ? '' : '🔒 VIP'}</p><div class="row wrap">${SIGS.map(([k, l, d]) => `<button class="${s.theme === k ? 'sel' : ''}" title="${d}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div>
+   <p class="muted">Custom palette</p><div class="row wrap">${sw('accent', 'Accent')}${sw('accent2', 'Accent 2')}${sw('bg', 'Background')}${sw('card', 'Cards')}${sw('text', 'Text')}</div>
+   <p class="muted">Default language</p><div class="row wrap">${[['ar', 'عامية مصرية (Ammiya, RTL)'], ['en', 'English (LTR)'], ['fr', 'Franco-Arabic (LTR)']].map(([k, l]) => `<button class="${s.lang === k ? 'sel' : ''}" onclick="api('POST','/api/settings',{lang:'${k}'});App.ls('lang','${k}')">${l}</button>`).join('')}</div>
+   <p class="muted" style="font-size:12px">Guests and staff can also toggle light/dark and language on their own device.</p></div>
+  <div class="card"><h3>Business</h3>
+   <label class="muted">Name (EN)</label><input value="${App.esc(s.name)}" onchange="api('POST','/api/settings',{name:this.value})">
+   <label class="muted">Home tagline (EN)</label><input value="${App.esc(s.tagline || '')}" placeholder="Brew Happy, Live Bold" onchange="api('POST','/api/settings',{tagline:this.value})">
+   <label class="muted">شعار الصفحة الرئيسية (AR)</label><input dir="rtl" value="${App.esc(s.tagline_ar || '')}" onchange="api('POST','/api/settings',{tagline_ar:this.value})">
+   <label class="muted">الاسم (AR)</label><input dir="rtl" value="${App.esc(s.name_ar)}" onchange="api('POST','/api/settings',{name_ar:this.value})">
+   <div class="grid" style="margin-top:8px"><div><label class="muted">Tax %</label><input type="number" value="${s.tax}" onchange="api('POST','/api/settings',{tax:+this.value})"></div><div><label class="muted">Service %</label><input type="number" value="${s.service}" onchange="api('POST','/api/settings',{service:+this.value})"></div><div><label class="muted">Currency</label><input value="${App.esc(s.currency)}" onchange="api('POST','/api/settings',{currency:this.value})"></div></div></div></div>`;
+  welcomeCard(); accountCard(); securityCard(); receiptCard(); lookCard();
+}
+function securityCard() {
+  const s = App.config.settings, el = document.createElement('div'); el.className = 'card'; el.style.marginTop = '14px';
+  el.innerHTML = `<h3>🛡️ Security & automation</h3>
+  <label class="row" style="gap:10px;margin:8px 0"><input type="checkbox" style="width:22px;height:22px" ${s.requireKey === false ? '' : 'checked'} onchange="api('POST','/api/settings',{requireKey:this.checked})"><span><b>Guests must scan the QR code on the table</b><br><small class="muted">Blocks fake orders from people who only know the web address. Turn off only for testing.</small></span></label>
+  <label class="muted" style="display:block;margin-top:10px">Free an empty table after (minutes)</label>
+  <div class="row"><input type="number" min="5" max="240" style="max-width:120px" value="${s.idleMinutes || 30}" onchange="api('POST','/api/settings',{idleMinutes:Math.max(5,+this.value||30)})"><small class="muted">Guests scanned but never ordered, so the table turns grey again by itself. Tables with orders are only flagged 💤 for the captain.</small></div>`;
+  $('#main').appendChild(el);
+}
+async function accountCard() {
+  const a = await api('GET', '/api/account');
+  const el = document.createElement('div'); el.className = 'card'; el.style.marginTop = '14px';
+  el.innerHTML = `<h3>👥 Staff & account</h3><p class="muted">Signed in as ${App.esc(a.email)} · plan: ${App.esc(a.plan)}</p>
+  <label class="muted">Captain PIN (staff sign in at /r/${App.slug}/captain)</label><div class="row"><input id="pin" value="${App.esc(a.pin)}" inputmode="numeric" style="max-width:160px"><button class="primary" onclick="saveAcc({pin:$('#pin').value})">Save PIN</button></div>
+  <label class="muted">New admin password</label><div class="row"><input id="pw" type="password" placeholder="min 6 characters"><button class="primary" onclick="saveAcc({password:$('#pw').value})">Change</button></div>`;
+  $('#main').appendChild(el);
+}
+async function saveAcc(b) { const r = await api('POST', '/api/account', b); App.toast(r.error || 'Saved'); }
+function setPal(k, v) { const p = { ...App.config.settings.palette, [k]: v }; api('POST', '/api/settings', { palette: p, theme: 'custom' }); }
+
+/* ---------------- QR codes ---------------- */
+async function qr() {
+  const info = await api('GET', '/api/info'), acc = await api('GET', '/api/account');
+  const base = App.ls('qrbase') || info.base;
+  const T = App.config.tables;
+  $('#main').innerHTML = `${limBar(acc, 'tables')}<h1>🔳 Table QR codes</h1><div class="card noprint spread wrap" style="margin-bottom:14px"><div style="flex:1;min-width:260px"><label class="muted">Public base URL (use your LAN IP so phones can reach it, or your deployed domain)</label><input id="qrbase" value="${App.esc(base)}"></div>
+  <div class="row"><button class="primary" onclick="App.ls('qrbase',$('#qrbase').value);cfgKey='';render(App.state,true)">Apply</button><button class="primary" onclick="window.print()">🖨 Print / Save as PDF</button><button class="ghost" onclick="api('POST','/api/tables')">+ Table</button><button class="ghost" title="Old printed QR codes stop working" onclick="if(confirm('Create brand-new keys for ALL tables? Every printed QR code must then be reprinted.'))api('POST','/api/tables-rekey').then(()=>App.toast('New keys created - reprint your QR codes'))">🔑 New keys</button></div></div>
+  <div class="grid">${T.map(t => `<div class="card qr"><img src="/api/r/${App.slug}/qr/${t.number}.png?base=${encodeURIComponent(base)}&token=${App.tok('admin')}" alt="QR ${t.number}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'muted',style:'padding:30px 10px;text-align:center',textContent:'QR codes are generated by the live server - open /demo for the live showroom'}))"><h3>${App.tr('table')} ${t.number}</h3><div style="font-weight:700">Scan to order · امسح للطلب</div><div class="muted" style="font-size:12px">${App.esc(App.config.settings.name)}</div>
+   <div class="row noprint" style="justify-content:center;margin-top:8px"><a href="/api/r/${App.slug}/qr/${t.number}.png?base=${encodeURIComponent(base)}&token=${App.tok('admin')}" download="table-${t.number}-qr.png"><button class="ghost">⬇ PNG</button></a><a href="/r/${App.slug}/t/${t.number}?k=${t.key || ''}" target="_blank"><button class="ghost">Open</button></a><button class="ghost" onclick="if(confirm('Remove table ${t.number}?'))api('DELETE','/api/tables/${t.id}')">🗑</button></div></div>`).join('')}</div>`;
+}
+
+/* ---------------- Analytics ---------------- */
+async function analytics() {
+  A = await api('GET', '/api/analytics?days=' + days);
+  const r = A.revenue, tv = A.turnover;
+  const kpi = (l, v) => `<div class="card kpi"><span>${l}</span><b>${v}</b></div>`;
+  statRows(A);
+  $('#main').innerHTML = `<div class="spread wrap"><h1>📊 Analytics</h1><div class="row wrap">${[1, 7, 30].map(d => `<button class="${days === d ? 'sel' : ''}" onclick="days=${d};cfgKey='';render(App.state,true)">${d === 1 ? 'Today' : d + ' days'}</button>`).join('')}<span class="noprint" style="width:12px"></span><button class="ghost" onclick="stExport('all')">⬇ Export all</button><button class="ghost" onclick="stClear('all')">🗑 Clear all</button>${(A.resets || {}).all ? '<button class="ghost" onclick="stClear(\'all\',true)">↩ Restore all</button>' : ''}</div></div>
+  <p class="muted" style="margin:4px 0 12px;font-size:13px">Every block below has its own <b>Export</b> (CSV file) and <b>Clear</b> button. Clearing only restarts that statistic from now - your sales records, receipts and Orders history are never deleted, and you can restore it.</p>
+  ${insights(A)}<div class="spread" style="margin:22px 0 4px"><h3>Details</h3>${sb('details')}</div>
+  <div class="grid">${kpi('Gross sales', App.money(r.gross))}${kpi('Taxes collected', App.money(r.tax))}${kpi('Service charges', App.money(r.service))}${kpi('Tips', App.money(r.tips))}${kpi('Cash / Card', App.money(r.cash) + '<br><small>' + App.money(r.card) + '</small>')}${kpi('Table sessions', r.sessions)}</div>
+  <div class="grid" style="margin-top:14px">${kpi('Avg. table occupied', Math.round(tv.avgOccupiedMin) + ' min')}${kpi('Avg. empty gap', Math.round(tv.avgEmptyGapMin) + ' min')}${kpi('Turnover / table / day', tv.turnsPerTablePerDay.toFixed(1) + '×')}${kpi('Occupancy', tv.occupancyPct.toFixed(0) + '%')}</div>
+  <div class="row2"><div class="card"><div class="spread"><h3>Revenue per day</h3>${sb('trend')}</div><canvas id="c1"></canvas></div><div class="card"><div class="spread"><h3>Revenue breakdown</h3>${sb('details')}</div><canvas id="c2"></canvas></div>
+  <div class="card"><div class="spread"><h3>Top-selling items (qty)</h3>${sb('best')}</div><canvas id="c3"></canvas></div><div class="card"><div class="spread"><h3>Category revenue vs profit</h3>${sb('cats')}</div><canvas id="c4"></canvas></div></div>
+  <div class="card" style="margin-top:14px;overflow:auto"><div class="spread"><h3>Rush hours heatmap (session starts)</h3>${sb('heat')}</div><div id="heat" style="min-width:640px"></div></div>
+  <div class="card" style="margin-top:14px"><div class="spread"><h3>Table usage</h3>${sb('tables')}</div><canvas id="c5" height="80"></canvas></div>`;
+  App.countUps($('#main')); requestAnimationFrame(() => setTimeout(() => document.querySelectorAll('.mi-hbar .fl').forEach((e) => (e.style.width = e.dataset.w + '%')), 350));
+  charts.forEach(c => c.destroy()); charts = [];
+  const cs = getComputedStyle(document.documentElement), ac = cs.getPropertyValue('--accent').trim(), ac2 = cs.getPropertyValue('--accent2').trim(), tx = cs.getPropertyValue('--text').trim();
+  Chart.defaults.color = tx; Chart.defaults.borderColor = 'rgba(128,128,128,.2)';
+  const mk = (id, cfg) => charts.push(new Chart($(id), cfg));
+  const dk = Object.keys(A.daily).sort();
+  mk('#c1', { type: 'line', data: { labels: dk.map(d => d.slice(5)), datasets: [{ data: dk.map(k => Math.round(A.daily[k])), borderColor: ac, backgroundColor: ac + '33', fill: true, tension: .35 }] }, options: { plugins: { legend: { display: false } } } });
+  mk('#c2', { type: 'doughnut', data: { labels: ['Net sales', 'Service', 'Tax', 'Tips'], datasets: [{ data: [r.gross, r.service, r.tax, r.tips].map(Math.round), backgroundColor: [ac, ac2, '#3b82f6', '#2ecc71'], borderWidth: 0 }] } });
+  mk('#c3', { type: 'bar', data: { labels: A.topItems.map(i => i.name), datasets: [{ data: A.topItems.map(i => i.qty), backgroundColor: ac, borderRadius: 6 }] }, options: { indexAxis: 'y', plugins: { legend: { display: false } } } });
+  mk('#c4', { type: 'bar', data: { labels: A.categories.map(c => c.name), datasets: [{ label: 'Revenue', data: A.categories.map(c => Math.round(c.revenue)), backgroundColor: ac2, borderRadius: 6 }, { label: 'Profit', data: A.categories.map(c => Math.round(c.profit)), backgroundColor: ac, borderRadius: 6 }] } });
+  const T = App.config.tables.map(t => t.number);
+  mk('#c5', { type: 'bar', data: { labels: T.map(n => 'T' + n), datasets: [{ data: T.map(n => A.perTable[n] || 0), backgroundColor: ac, borderRadius: 4 }] }, options: { plugins: { legend: { display: false } } } });
+  const max = Math.max(1, ...A.heat.flat()), D = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  let h = '<div class="heat"><span></span>' + Array.from({ length: 24 }, (_, i) => `<span style="text-align:center">${i}</span>`).join('');
+  A.heat.forEach((row, d) => { h += `<span>${D[d]}</span>` + row.map((v, hr) => `<i title="${D[d]} ${hr}:00 — ${v}" style="background:${v ? ac : 'var(--card2)'};opacity:${v ? 0.2 + 0.8 * v / max : 1}">${v || ''}</i>`).join(''); });
+  $('#heat').innerHTML = h + '</div>';
+}
+
+/* ---------------- per-block export / clear ---------------- */
+const EXP = {};
+function statRows(A) {
+  const k = A.kpi, P = k.prev, r = A.revenue, tv = A.turnover, M = (v) => Math.round(v * 100) / 100;
+  EXP.kpi = ['Summary', [['Metric', 'This period', 'Previous period'], ['Revenue', M(k.revenue), M(P.revenue)], ['Orders', k.orders, P.orders], ['Average ticket', M(k.avg), M(P.avg)], ['Est. profit', M(k.profit), M(P.profit)]]];
+  const dk = Object.keys(A.daily).sort();
+  EXP.trend = [days === 1 ? 'Revenue by hour' : 'Revenue by day', [[days === 1 ? 'Hour' : 'Day', 'Revenue'], ...(days === 1 ? A.hourly.map((v, h) => [h + ':00', M(v)]) : dk.map((d) => [d, M(A.daily[d])]))]];
+  EXP.cats = ['Sales by category', [['Category', 'Revenue', 'Profit'], ...A.categories.map((c) => [c.name, M(c.revenue), M(c.profit)])]];
+  EXP.best = ['Best sellers', [['Item', 'Quantity', 'Revenue', 'Profit'], ...A.topItems.map((i) => [i.name, i.qty, M(i.revenue), M(i.profit)])]];
+  EXP.details = ['Details', [['Metric', 'Value'], ['Gross sales', M(r.gross)], ['Taxes', M(r.tax)], ['Service charges', M(r.service)], ['Tips', M(r.tips)], ['Cash', M(r.cash)], ['Card', M(r.card)], ['Discounts', M(r.discounts)], ['Table sessions', r.sessions], ['Avg. table occupied (min)', Math.round(tv.avgOccupiedMin)], ['Avg. empty gap (min)', Math.round(tv.avgEmptyGapMin)], ['Turnover per table per day', M(tv.turnsPerTablePerDay)], ['Occupancy %', Math.round(tv.occupancyPct)]]];
+  const D = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  EXP.heat = ['Rush hours', [['Day', ...Array.from({ length: 24 }, (_, h) => h + ':00')], ...A.heat.map((row, d) => [D[d], ...row])]];
+  EXP.tables = ['Table usage', [['Table', 'Sessions'], ...App.config.tables.map((t) => ['T' + t.number, A.perTable[t.number] || 0])]];
+}
+// the small buttons shown on every statistics block
+function sb(key) {
+  const rs = (A && A.resets) || {}, at = rs[key];
+  return `<span class="sbar noprint">${at ? `<small class="muted">cleared ${new Date(at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small><button class="ghost sb" title="Bring the old numbers back" onclick="stClear('${key}',true)">↩</button>` : ''}<button class="ghost sb" onclick="stExport('${key}')">⬇ Export</button><button class="ghost sb" onclick="stClear('${key}')">🗑 Clear</button></span>`;
+}
+function stExport(key) {
+  const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`, keys = key === 'all' ? Object.keys(EXP) : [key];
+  const csv = keys.map((k) => (key === 'all' ? q(EXP[k][0]) + '\n' : '') + EXP[k][1].map((r) => r.map(q).join(',')).join('\n')).join('\n\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv' }));
+  a.download = `${key === 'all' ? 'statistics' : EXP[key][0].toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${days === 1 ? 'today' : days + 'd'}_${ld()}.csv`; a.click(); App.toast('Saved ✓');
+}
+async function stClear(key, restore) {
+  if (!restore && !confirm(key === 'all' ? 'Clear ALL statistics?\n\nThey restart from zero now. Sales records, receipts and Orders history are kept, and you can restore them.' : 'Clear this statistic?\n\nIt restarts from zero now. Your sales records are kept and you can restore it. Tip: use Export first to save the numbers.')) return;
+  await api('POST', '/api/stats/clear', { key, restore: !!restore }); App.toast(restore ? 'Restored ✓' : 'Cleared ✓'); cfgKey = ''; render(App.state, true);
+}
+
+/* ---------------- Insights block (period comparison, area chart, donut, best sellers, low stock) ---------------- */
+function insights(A) {
+  const k = A.kpi, P = k.prev, COL = ['#d9b36c', '#6aa7ff', '#5fd0a0', '#f07178', '#b48cf2', '#f0b95b'];
+  const K = (l, v, dec, p, i) => { const d = p ? ((v - p) / p) * 100 : null; return `<div class="card mi-kpi"><div class="l">${l}</div><div class="v" data-count="${v}" data-dec="${dec}">0</div><div class="d">${d == null ? '<span class="muted">no earlier data to compare</span>' : `<span class="${d >= 0 ? 'mi-up' : 'mi-down'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1)}% vs previous period</span>`}</div></div>`; };
+  let keys, vals;
+  if (days === 1) { keys = [...Array(24).keys()]; vals = A.hourly.map(Math.round); }
+  else { keys = []; for (let i = days - 1; i >= 0; i--) keys.push(new Date(Date.now() - i * 864e5).toISOString().slice(0, 10)); vals = keys.map((x) => Math.round(A.daily[x] || 0)); }
+  const W = 640, H = 210, max = Math.max(1, ...vals), px = (i) => 20 + (i * (W - 40)) / Math.max(1, keys.length - 1), py = (v) => H - 24 - (v / max) * (H - 50);
+  const path = vals.map((v, i) => `${i ? 'L' : 'M'}${px(i).toFixed(1)},${py(v).toFixed(1)}`).join(' ');
+  const cats = A.categories.filter((c) => c.revenue > 0), cTot = cats.reduce((n, c) => n + c.revenue, 0) || 1; let off = 0;
+  const top = A.topItems.slice().sort((a, b) => b.revenue - a.revenue).slice(0, 8), tMax = (top[0] && top[0].revenue) || 1;
+  const area = k.orders ? `<svg class="mi-area" viewBox="0 0 ${W} ${H}" style="width:100%"><defs><linearGradient id="mig" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".45"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    ${[0, .5, 1].map((f) => `<line x1="20" x2="${W - 20}" y1="${py(max * f)}" y2="${py(max * f)}" stroke="var(--line)"/><text x="20" y="${py(max * f) - 4}" font-size="10" fill="var(--muted)">${Math.round(max * f)}</text>`).join('')}
+    <path class="fill" d="${path} L${px(keys.length - 1)},${H - 24} L${px(0)},${H - 24}Z"/><path class="line" pathLength="1" d="${path}"/>
+    ${vals.map((v, i) => (v ? `<circle class="dot" cx="${px(i)}" cy="${py(v)}" r="3.5"><title>${days === 1 ? keys[i] + ':00' : keys[i]} · ${App.money(v)}</title></circle>` : '')).join('')}
+    ${keys.map((x, i) => (keys.length <= 12 || i % Math.ceil(keys.length / 8) === 0 ? `<text x="${px(i)}" y="${H - 6}" font-size="10" text-anchor="middle" fill="var(--muted)">${days === 1 ? x + 'h' : String(x).slice(8)}</text>` : '')).join('')}</svg>` : '<p class="muted" style="padding:30px 0;text-align:center">No sales in this period yet</p>';
+  return `<div class="spread" style="margin-bottom:8px"><h3>Summary</h3>${sb('kpi')}</div><div class="mi-kpis mi-stag">${K('Revenue', k.revenue, 2, P.revenue, 0)}${K('Orders', k.orders, 0, P.orders, 1)}${K('Average ticket', k.avg, 2, P.avg, 2)}${K('Est. profit', k.profit, 2, P.profit, 3)}</div>
+  <div class="row2"><div class="card"><div class="spread"><h3>${days === 1 ? 'Revenue by hour' : 'Revenue by day'}</h3>${sb('trend')}</div>${area}</div>
+   <div class="card"><div class="spread"><h3>Sales by category</h3>${sb('cats')}</div><div class="row wrap" style="gap:24px;align-items:center"><svg class="mi-donut" viewBox="0 0 42 42" width="160" height="160"><circle cx="21" cy="21" r="15.9155" stroke="var(--card2)" style="animation:none;stroke-dasharray:100 0"/>
+    ${cats.map((c, i) => { const len = (c.revenue / cTot) * 100, x = `<circle cx="21" cy="21" r="15.9155" pathLength="100" stroke="${COL[i % 6]}" style="--i:${i};--len:${len.toFixed(2)};stroke-dashoffset:${(-off).toFixed(2)}"/>`; off += len; return x; }).join('')}</svg>
+    <div class="mi-legend" style="flex:1;min-width:140px">${cats.map((c, i) => `<div><i style="background:${COL[i % 6]}"></i>${App.esc(c.name)} <b style="float:inline-end">${((c.revenue / cTot) * 100).toFixed(0)}%</b></div>`).join('') || '<span class="muted">-</span>'}</div></div></div></div>
+  <div class="row2" style="margin-top:14px"><div class="card"><div class="spread"><h3>Best sellers</h3>${sb('best')}</div>${top.map((x) => `<div class="mi-hbar"><span>${App.esc(x.emoji || '🍽️')} ${App.esc(x.name)}</span><div class="tr"><div class="fl" data-w="${(x.revenue / tMax) * 100}"></div></div><b style="text-align:end">${Math.round(x.revenue)}</b></div>`).join('') || '<p class="muted">No data yet</p>'}</div>
+   <div class="card"><h3>Low stock</h3>${A.lowStock.length ? A.lowStock.map((i) => `<div class="spread" style="padding:7px 0;border-bottom:1px dashed var(--line)"><span>${App.esc(i.emoji || '')} ${App.esc(i.name)}</span><span class="mi-pill" style="color:${i.stock <= 0 ? 'var(--bad)' : 'var(--warn)'}">${i.stock <= 0 ? 'out' : i.stock + ' left'}</span></div>`).join('') : '<p style="color:var(--ok)">Everything is well stocked ✓</p>'}<p class="muted" style="font-size:12px;margin-bottom:0">Turn on stock counting per item in Inventory.</p></div></div>`;
+}
+
+/* ---------------- Orders history ---------------- */
+const ld = (d = new Date()) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+let OD = { day: ld(), list: [] };
+async function ordersTab() {
+  const f = new Date(OD.day + 'T00:00:00').getTime(), t = f + 864e5 - 1;
+  $('#main').innerHTML = '<h1>🧾 Orders</h1><div class="skeleton" style="height:220px"></div>';
+  OD.list = (await api('GET', `/api/orders?from=${f}&to=${t}`)).orders || [];
+  const paid = OD.list.filter((o) => !o.unpaid), rev = paid.reduce((n, o) => n + o.total, 0), M = App.money;
+  $('#main').innerHTML = `<div class="spread wrap"><h1>🧾 Orders</h1><div class="row wrap noprint"><button class="ghost" onclick="OD.day=ld(new Date(new Date(OD.day).getTime()-864e5));ordersTab()">◀</button><input type="date" style="width:160px" value="${OD.day}" onchange="OD.day=this.value||ld();ordersTab()"><button class="ghost" onclick="OD.day=ld(new Date(new Date(OD.day).getTime()+864e5));ordersTab()">▶</button><button class="primary" onclick="odCsv()">⬇ CSV</button></div></div>
+  <p class="muted">${paid.length} paid · ${M(rev)}${OD.list.length - paid.length ? ` · ${OD.list.length - paid.length} cleared unpaid` : ''}</p><div class="mi-stag">${OD.list.map((o, i) => `<details class="card" style="--i:${Math.min(i, 12)};margin-bottom:10px;padding:12px 16px"><summary style="cursor:pointer;display:flex;gap:12px;align-items:center;list-style:none;flex-wrap:wrap">
+    <b class="serif" style="font-size:17px">${o.kind && o.kind !== 'table' ? ({ takeaway: '🛍️', delivery: '🛵' }[o.kind] || '') + ' ' : 'Table '}${App.esc(o.tableNumber)}</b><span class="muted" style="flex:1">${new Date(o.closedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${o.closedBy ? ' · ' + App.esc(o.closedBy) : ''}</span>
+    <span class="mi-pill" style="color:${o.unpaid ? 'var(--bad)' : 'var(--ok)'}">${o.unpaid ? 'cleared unpaid' : App.esc(o.method)}</span><b>${M(o.total)}</b></summary>
+    <table style="margin-top:8px">${o.items.map((l) => `<tr><td>${l.qty}× ${App.esc(l.name)}</td><td style="text-align:end">${M(l.qty * l.price)}</td></tr>`).join('')}
+    ${o.discount ? `<tr><td class="muted">Discount ${App.esc(o.discountNote || '')}</td><td style="text-align:end">−${M(o.discount)}</td></tr>` : ''}<tr><td class="muted">Service + tax</td><td style="text-align:end">${M(o.service + o.tax)}</td></tr>${o.tip ? `<tr><td class="muted">Tip</td><td style="text-align:end">${M(o.tip)}</td></tr>` : ''}</table>
+    ${(o.voids || []).length ? `<p class="muted" style="font-size:12px">Removed: ${o.voids.map((v) => v.qty + '× ' + App.esc(v.name) + (v.reason ? ' (' + App.esc(v.reason) + ')' : '')).join(', ')}</p>` : ''}
+    <div class="row wrap" style="margin-top:8px"><button class="ghost" onclick="odPrint(${i})">🖨 Reprint</button></div></details>`).join('') || '<div class="card" style="text-align:center"><p class="muted">No orders on this day.</p></div>'}</div>`;
+}
+function odPrint(i) { const h = OD.list[i]; if (h) App.printHTML(App.receiptHTML({ label: h.tableNumber, kind: h.kind, customer: h.customer, at: h.closedAt, items: h.items, gross: h.sub, discount: h.discount, discountNote: h.discountNote, service: h.service, tax: h.tax, tip: h.tip, total: h.total, method: h.unpaid ? 'cleared unpaid' : h.method, pay: h.pay, by: h.closedBy })); }
+function odCsv() {
+  const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`, rows = [['table', 'type', 'closed', 'payment', 'item', 'qty', 'unit_price', 'line_total', 'order_total', 'closed_by'].join(',')];
+  OD.list.forEach((o) => o.items.forEach((l) => rows.push([o.tableNumber, o.kind || 'table', new Date(o.closedAt).toISOString(), o.unpaid ? 'unpaid' : o.method, l.name, l.qty, l.price, l.qty * l.price, o.total, o.closedBy || ''].map(q).join(','))));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' })); a.download = `orders_${OD.day}.csv`; a.click();
+}
+function lookCard() {
+  const s = App.config.settings, el = document.createElement('div'); el.className = 'card'; el.style.marginTop = '14px';
+  el.innerHTML = `<h3>✨ Look</h3><p class="muted" style="margin-top:0">Pick the look new visitors see. Everyone can still choose their own with the 🎨 button, and it is remembered for them.</p>
+   <select style="max-width:280px" onchange="api('POST','/api/settings',{skin:this.value})">${[['default', 'Restaurant theme (below)'], ['maison-dark', 'Maison · dark'], ['maison-light', 'Maison · light']].map(([k, l]) => `<option value="${k}" ${(s.skin || 'default') === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+  $('#main').appendChild(el);
+}
+
+/* ---------------- Audit ---------------- */
+async function audit() {
+  const a = await api('GET', '/api/analytics?days=30');
+  const f = (ts) => ts ? new Date(ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+  $('#main').innerHTML = `<h1>📜 Order audit log</h1><div class="card" style="overflow:auto"><table><tr><th>Table</th><th>Entered</th><th>First order</th><th>Check requested</th><th>Cleared</th><th>Guests</th><th>Payment</th><th>Total</th></tr>
+  ${a.audit.map(r => `<tr><td><b>${r.tableNumber}</b> ${r.live ? '<span class="pill" style="color:var(--ok)">LIVE</span>' : ''}</td><td>${f(r.startedAt)}</td><td>${f(r.orderedAt)}</td><td>${f(r.checkAt)}</td><td>${r.live ? 'occupied' : f(r.closedAt)}</td><td>${r.guests}</td><td>${r.method}</td><td>${App.money(r.total)}</td></tr>`).join('')}</table></div>`;
+}
+</script></body></html>

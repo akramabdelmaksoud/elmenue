@@ -1,0 +1,5 @@
+data
+node_modules
+.srv.log
+.tmp
+data/

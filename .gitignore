@@ -1,0 +1,9 @@
+node_modules/
+data/
+.tmp/
+*.log
+.srv.log
+
+.vercel
+.env*
+.vapid.tmp
