@@ -26,6 +26,7 @@ function createTenant(rec, persist, onAlert) {
     // Next-release flags: every new feature starts OFF for existing venues
     const st = db.settings;
     if (!st.fb) { st.fb = { enabled: false, googleUrl: '' }; ch = true; }
+    if (!st.eta) { st.eta = { enabled: false, env: 'mock' }; ch = true; }
     if (!st.onlinePay) { st.onlinePay = { enabled: false, provider: 'sandbox' }; ch = true; }
     if (!st.offline) { st.offline = { enabled: false }; ch = true; }
     if (!db.idem) { db.idem = {}; ch = true; }
@@ -203,6 +204,11 @@ function closeSession(t, method, who, pay) {
       guests: s.guests.length || 1, party: s.party || 0, loyalty: loy, items: Object.values(lines), sub: b.gross, discount: b.discount, discountNote: [s.discount ? (s.discount.reason || '') : '', b.couponCode ? 'Coupon ' + b.couponCode : '', b.offerName || ''].filter(Boolean).join(' · '), coupon: b.couponCode || '', offer: b.offerName || '', gift: gUsed, giftCode: gUsed ? b.giftCode : '', service: b.service, tax: b.tax, tip,
       total, method: payTotal <= 0 && onlineUsed > 0 && m !== 'unpaid' ? 'online' : m, unpaid: m === 'unpaid' && onlineUsed <= 0, online: onlineUsed, onlineRefs: (s.online || []).map((x) => x.ref), pay: m === 'unpaid' ? { cash: 0, card: 0, tendered: 0, change: 0, gift: 0, online: onlineUsed } : { ...settle(m === 'online' ? 'cash' : m, payTotal, pay), gift: gUsed, online: onlineUsed }, split: s.check?.split || 'table', closedBy: who || '', voids: s.voids || [], log: s.log,
     });
+  }
+  // ETA e-receipts (flag settings.eta.enabled): remember the paid sale in a durable pending list; the server turns it into a numbered, chained receipt
+  if (s.orders.length && db.settings.eta && db.settings.eta.enabled && F.has(rec.plan, 'eta') && !(m === 'unpaid' && !(db.history[db.history.length - 1] || {}).online)) {
+    const h = db.history[db.history.length - 1];
+    if (h && h.tableId === t.id) (rec.etaPending ||= []).push({ hid: h.id, snap: { items: h.items.map((l) => ({ itemId: l.itemId, name: l.name, qty: l.qty, price: l.price })), discount: h.discount, service: h.service, tax: h.tax, tip: h.tip, total: h.total, method: h.method, tableNumber: h.tableNumber, closedAt: h.closedAt, taxRate: db.settings.tax } });
   }
   delete db.sessions[t.id];
 }

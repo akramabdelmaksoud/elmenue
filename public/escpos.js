@@ -38,16 +38,18 @@ const ESCPOS = (() => {
       if (p.tendered && p.cash) { L('Received', { r: M(p.tendered) }); L('Change', { r: M(p.change) }); }
     }
     rule(); L(st.receiptFooter || 'Thank you - see you soon!', { c: 1 });
+    if (r.etaImg) { out.push({ img: r.etaImg, h: 190 }); L('E-receipt ' + (r.etaNo || ''), { c: 1, size: 18 }); }   // ETA e-receipt QR (only when the venue has e-receipts on)
     return out;
   }
   function raster(ls) {
     const cv = document.createElement('canvas'), pad = 8, g = cv.getContext('2d');
     const font = (o) => `${o.bold ? '700 ' : ''}${o.size || 24}px "Segoe UI", Tahoma, Arial, sans-serif`;
-    let h = 12; ls.forEach((o) => (h += o.rule ? 16 : (o.size || 24) + 10)); cv.width = W; cv.height = h + 40;
+    let h = 12; ls.forEach((o) => (h += o.rule ? 16 : o.img ? o.h + 10 : (o.size || 24) + 10)); cv.width = W; cv.height = h + 40;
     g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.fillStyle = '#000'; g.textBaseline = 'top';
     const rtl = (s) => /[֐-ࣿ]/.test(s); let y = 8;
     ls.forEach((o) => {
       if (o.rule) { g.fillRect(pad, y + 6, W - pad * 2, 2); y += 16; return; }
+      if (o.img) { g.drawImage(o.img, (W - o.h) / 2, y, o.h, o.h); y += o.h + 10; return; }
       g.font = font(o); g.direction = rtl(o.t) ? 'rtl' : 'ltr';
       let t = o.t; while (g.measureText(t).width > W - pad * 2 - (o.r ? 150 : 0) && t.length > 4) t = t.slice(0, -2);
       if (o.c) { g.textAlign = 'center'; g.fillText(t, W / 2, y); }

@@ -11,7 +11,7 @@ if (-not (Test-Path $html)) { throw "Missing $html" }
 New-Item -ItemType Directory -Force $prof | Out-Null
 $uri = ([System.Uri]$html).AbsoluteUri
 if (Test-Path $pdf) { Remove-Item $pdf -Force }
-$argList = @('--headless=new', '--disable-gpu', '--no-pdf-header-footer', '--virtual-time-budget=8000', "--user-data-dir=`"$prof`"", "--print-to-pdf=`"$pdf`"", "`"$uri`"")
+$argList = @('--headless=new', '--disable-gpu', '--no-pdf-header-footer', '--run-all-compositor-stages-before-draw', '--virtual-time-budget=15000', "--user-data-dir=`"$prof`"", "--print-to-pdf=`"$pdf`"", "`"$uri`"")
 Start-Process -FilePath $edge -ArgumentList $argList -Wait -NoNewWindow -RedirectStandardError (Join-Path $prof 'edge-stderr.txt')
 Start-Sleep -Seconds 2
 if (-not (Test-Path $pdf)) { throw 'PDF was not created' }

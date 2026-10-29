@@ -97,6 +97,7 @@ const App = {
     <div class="c"><b style="font-size:16px">${E(st.name || '')}</b>${st.address ? '<br>' + E(st.address) : ''}${st.phone ? '<br>' + E(st.phone) : ''}${st.taxId ? '<br>Tax ID: ' + E(st.taxId) : ''}<br>${new Date(r.at || Date.now()).toLocaleString('en-GB')}<br>${r.kind && r.kind !== 'table' ? E(r.kind) + ' ' : 'Table '}${E(r.label)}${r.by ? ' · ' + E(r.by) : ''}</div>
     ${r.customer && (r.customer.name || r.customer.phone || r.customer.address) ? `<div>${E(r.customer.name || '')} ${E(r.customer.phone || '')}<br>${E(r.customer.address || '')}</div>` : ''}<hr><table>${rows}</table><hr><table>
     ${ln('Subtotal', M(r.gross))}${r.discount ? ln('Discount' + (r.discountNote ? ' (' + E(r.discountNote) + ')' : ''), '-' + M(r.discount)) : ''}${ln('Service', M(r.service))}${ln('Tax', M(r.tax))}${r.tip ? ln('Tip', M(r.tip)) : ''}<tr class="big"><td>TOTAL</td><td class="r">${M(r.total)} ${E(st.currency || '')}</td></tr></table><hr>
+    ${r.etaQr ? `<div class="c"><img src="${r.etaQr}" style="width:38mm;height:38mm"><br>E-receipt ${E(r.etaNo || '')}</div>` : ''}
     ${r.pre ? '<div class="c"><b>— BILL · NOT A RECEIPT —</b></div>' : `<table>${ln('Paid by', E(r.method || ''))}${pay.cash ? ln('Cash', M(pay.cash)) : ''}${pay.card ? ln('Card', M(pay.card)) : ''}${pay.tendered && pay.cash ? ln('Received', M(pay.tendered)) + ln('Change', M(pay.change)) : ''}</table>`}<hr>
     <div class="c">${E(st.receiptFooter || 'Thank you - see you soon!')}</div>`;
   },

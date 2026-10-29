@@ -11,6 +11,7 @@ let webpush = null; try { webpush = require('web-push'); } catch {}
 const store = require('./store');
 const auth = require('./auth');
 const PAY = require('./payments');
+const ETA = require('./eta');
 const { createTenant, freshData } = require('./tenant');
 const F = require('./features');
 
@@ -637,6 +638,13 @@ A('post', '/settings', (req, res) => {
   if (b.upsell) { if (!F.has(req.tenant.rec.plan, 'upsell')) return res.status(402).json({ error: 'Upsell suggestions need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.upsell = F.upCfg({ upsell: b.upsell }); }
   if (b.fb) { if (!F.has(req.tenant.rec.plan, 'feedback')) return res.status(402).json({ error: 'Guest feedback & Google reviews need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); const u = String(b.fb.googleUrl || '').trim().slice(0, 300); b.fb = { enabled: !!b.fb.enabled, googleUrl: /^https:\/\/[^\s]+$/.test(u) ? u : '' }; }
   if (b.offline) { if (!F.has(req.tenant.rec.plan, 'offline')) return res.status(402).json({ error: 'Offline mode needs the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.offline = { enabled: !!b.offline.enabled }; }
+  if (b.eta) {
+    if (!F.has(req.tenant.rec.plan, 'eta')) return res.status(402).json({ error: 'E-receipts need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' });
+    const env = String(b.eta.env || 'mock'); if (!ETA.envOk(env)) return res.status(400).json({ error: 'Production e-receipts are not available yet. Use the test mode or ETA pre-production.' });
+    if (b.eta.enabled && env === 'mock' && !ETA.mockAllowed(req.tenant.rec.slug)) return res.status(400).json({ error: 'The test e-receipt mode is not allowed on a live venue' });
+    const c = req.tenant.rec.etaCfg || {}; if (b.eta.enabled && !(c.rin && c.tradeName && (env === 'mock' || (c.deviceSerial && c.activityCode && c.clientId && c.clientSecret)))) return res.status(400).json({ error: 'Save your tax registration details first' });
+    b.eta = { enabled: !!b.eta.enabled, env };
+  }
   if (b.onlinePay) { if (!F.has(req.tenant.rec.plan, 'onlinepay')) return res.status(402).json({ error: 'Online payments need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); const p = b.onlinePay.provider === 'paymob' ? 'paymob' : 'sandbox'; if (p === 'sandbox' && b.onlinePay.enabled && !PAY.sandboxAllowed(req.tenant.rec.slug)) return res.status(400).json({ error: 'The test gateway is not allowed on a live venue - connect Paymob' }); if (p === 'paymob' && b.onlinePay.enabled && !(req.tenant.rec.payCfg && req.tenant.rec.payCfg.apiKey && req.tenant.rec.payCfg.hmac && req.tenant.rec.payCfg.integrationId && req.tenant.rec.payCfg.iframeId)) return res.status(400).json({ error: 'Save your Paymob keys first' }); b.onlinePay = { enabled: !!b.onlinePay.enabled, provider: p }; }
   if (b.promo) { if (!F.has(req.tenant.rec.plan, 'coupons')) return res.status(402).json({ error: 'Coupons & offers need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.promo = { enabled: !!b.promo.enabled, stack: !!b.promo.stack }; }
   if ('refreshMin' in b) b.refreshMin = [0, 5, 15, 30, 60, 120, 360].includes(+b.refreshMin) ? +b.refreshMin : 60;
@@ -805,6 +813,69 @@ app.post(`${R}/pay/sandbox/:id/complete`, tenantMw, (req, res) => {
   const r = settleIntent(t, { intent: it.id, amount: it.amount, currency: 'EGP', paid: ok, failed: !ok, id: it.ref }); res.status(r.code).json(r.body);
 });
 A('get', '/pay/intents', gateP, (req, res) => res.json({ intents: Object.values(req.tenant.rec.pays || {}).sort((a, b) => b.at - a.at).slice(0, 100).map(({ url, ...x }) => x) }));
+// ---- ETA e-receipts (F3): sandbox / pre-production only ----
+const gateE = gate('eta'), mockState = {}, etaBusy = new Set();
+const ETA_FIELDS = ['rin', 'tradeName', 'branchCode', 'governate', 'city', 'street', 'building', 'deviceSerial', 'activityCode', 'itemCode', 'clientId', 'osVersion'], ETA_SECRETS = ['clientSecret', 'presharedKey'];
+A('get', '/eta/config', gateE, (req, res) => { const c = req.tenant.rec.etaCfg || {}, o = { mockMode: c.mockMode || 'ok' }; ETA_FIELDS.forEach((k) => (o[k] = c[k] || '')); ETA_SECRETS.forEach((k) => (o[k] = mask(c[k]))); res.json(o); });
+A('post', '/eta/config', gateE, (req, res) => {
+  const b = req.body || {}, c = (req.tenant.rec.etaCfg ||= {});
+  ETA_FIELDS.forEach((k) => { if (k in b) c[k] = String(b[k] || '').trim().slice(0, 200); });
+  ETA_SECRETS.forEach((k) => { const v = String(b[k] || '').trim().slice(0, 200); if (v && !v.startsWith('••••')) c[k] = v; });
+  if (['ok', 'reject', 'down', 'flaky'].includes(b.mockMode)) c.mockMode = b.mockMode;
+  persistRec(req.tenant); res.json({ ok: 1 });
+});
+// pending sales -> numbered receipts with a UUID chain (previousUUID), in the order the sales were closed
+function etaPrepare(t) {
+  const r = t.rec, E = (r.eta ||= { q: [], seq: 0, last: '' }), cfg = r.etaCfg || {};
+  if (!(r.etaPending || []).length) return 0;
+  const todo = r.etaPending.sort((a, b) => a.snap.closedAt - b.snap.closedAt); r.etaPending = [];
+  todo.forEach((p) => {
+    if (E.q.some((x) => x.hid === p.hid)) return;
+    const num = 'R' + String(++E.seq).padStart(7, '0'), doc = ETA.buildReceipt(p.snap, cfg, { receiptNumber: num, previousUUID: E.last });
+    E.last = doc.header.uuid; E.q.push({ id: newId('e'), hid: p.hid, number: num, uuid: doc.header.uuid, doc, status: 'queued', tries: 0, next: 0, at: Date.now(), table: p.snap.tableNumber, total: p.snap.total, recon: ETA.reconcile(p.snap, doc) });
+  });
+  if (E.q.length > 3000) E.q.splice(0, E.q.length - 3000);
+  return todo.length;
+}
+const backoff = (n) => Math.min(3600, 30 * 2 ** Math.min(n, 7)) * 1000;
+async function etaProcess(t, fetchImpl, force) {
+  const r = t.rec, st = t.db.settings.eta || {}; if (!st.enabled || !ETA.envOk(st.env)) return { sent: 0 };
+  if (etaBusy.has(r.slug)) return { sent: 0, busy: true }; etaBusy.add(r.slug);
+  try {
+    etaPrepare(t); const E = r.eta; if (!E) return { sent: 0 };
+    const now = Date.now(), due = E.q.filter((x) => x.status === 'queued' && (force || x.next <= now)).slice(0, 25); if (!due.length) return { sent: 0 };
+    const cfg = r.etaCfg || {}, f = fetchImpl || (st.env === 'mock' ? ETA.mockFetch((mockState[r.slug] ||= { mode: cfg.mockMode || 'ok' })) : fetch);
+    if (st.env === 'mock') mockState[r.slug].mode = cfg.mockMode || 'ok';
+    try {
+      const out = await ETA.submit(cfg, st.env, due.map((x) => x.doc), f);
+      due.forEach((x) => { const a = out.accepted.find((y) => y.uuid === x.uuid), j = out.rejected.find((y) => y.uuid === x.uuid || y.receiptNumber === x.number);
+        if (a) { x.status = 'accepted'; x.longId = a.longId; x.submission = out.submissionUUID; x.doneAt = Date.now(); delete x.error; } else if (j) { x.status = 'rejected'; x.error = String(j.error && j.error.message || 'rejected').slice(0, 300); x.doneAt = Date.now(); } else { x.tries++; x.next = Date.now() + backoff(x.tries); } });
+    } catch (e) {
+      due.forEach((x) => { x.tries++; x.error = String(e.message).slice(0, 200); if (e.retryable === false || x.tries >= 12) x.status = 'failed'; else x.next = Date.now() + Math.max(backoff(x.tries), (e.retryAfter || 0) * 1000); });
+    }
+    persistRec(t); return { sent: due.length };
+  } finally { etaBusy.delete(r.slug); }
+}
+const etaStats = (E) => { const c = { queued: 0, accepted: 0, rejected: 0, failed: 0, superseded: 0 }; ((E && E.q) || []).forEach((x) => (c[x.status] = (c[x.status] || 0) + 1)); return c; };
+A('get', '/eta/queue', gateE, async (req, res) => { const t = req.tenant; etaPrepare(t); persistRec(t); const E = t.rec.eta || { q: [] }; res.json({ stats: etaStats(E), pending: (t.rec.etaPending || []).length, items: E.q.slice(-200).reverse().map(({ doc, ...x }) => x) }); });
+A('post', '/eta/run', gateE, async (req, res) => { const out = await etaProcess(req.tenant, undefined, !!(req.body && req.body.force)); res.json({ ...out, stats: etaStats(req.tenant.rec.eta) }); });
+A('post', '/eta/retry/:id', gateE, (req, res) => {   // failed: send the same receipt again; rejected: issue a corrected receipt that references the old one
+  const t = req.tenant, E = t.rec.eta || { q: [] }, x = E.q.find((y) => y.id === req.params.id); if (!x) return res.status(404).json({ error: 'not found' });
+  if (x.status === 'failed') { x.status = 'queued'; x.tries = 0; x.next = 0; }
+  else if (x.status === 'rejected') {
+    const num = 'R' + String(++E.seq).padStart(7, '0'), d = JSON.parse(JSON.stringify(x.doc)); d.header.receiptNumber = num; d.header.previousUUID = E.last; d.header.referenceOldUUID = x.uuid; d.header.uuid = ''; d.header.uuid = ETA.uuidOf(d);
+    E.last = d.header.uuid; x.status = 'superseded'; E.q.push({ ...x, id: newId('e'), number: num, uuid: d.header.uuid, doc: d, status: 'queued', tries: 0, next: 0, error: undefined, at: Date.now() });
+  } else return res.status(400).json({ error: 'Nothing to retry' });
+  persistRec(t); res.json({ ok: 1 });
+});
+A('get', '/eta/export.json', gateE, (req, res) => { const t = req.tenant; etaPrepare(t); persistRec(t); res.set('Content-Disposition', 'attachment; filename="eta-receipts.json"').json({ receipts: ((t.rec.eta || {}).q || []).filter((x) => x.status !== 'accepted' && x.status !== 'superseded').map((x) => x.doc), signatures: [] }); });
+// the till asks for the receipt link/QR of a sale it is about to print
+app.get(`${R}/eta/receipt/:hid`, tenantMw, needCash, gateE, async (req, res, next) => { try {
+  const t = req.tenant; if (!(t.db.settings.eta || {}).enabled) return res.json({ enabled: false });
+  etaPrepare(t); persistRec(t); const q = ((t.rec.eta || {}).q || []), x = req.params.hid === 'last' ? q.slice().reverse().find((y) => y.table === +req.query.table && Date.now() - y.at < 300000) : q.find((y) => y.hid === req.params.hid); if (!x) return res.json({ enabled: true, ready: false });
+  const url = ETA.shareUrl(x.uuid, x.doc.header.dateTimeIssued); res.json({ enabled: true, ready: true, number: x.number, uuid: x.uuid, status: x.status, url, qr: await QRCode.toDataURL(url, { margin: 1, width: 220 }) });
+} catch (e) { next(e); } });
+if (!STATELESS) setInterval(() => tenants.forEach((t) => { if ((t.db.settings.eta || {}).enabled) etaProcess(t).catch(() => {}); }), 60000).unref();
 const aiKey = () => process.env.ANTHROPIC_API_KEY || '';
 async function claude(content, system, max = 2000) {
   const messages = Array.isArray(content) ? content : [{ role: 'user', content }];

@@ -110,8 +110,18 @@ const PX = (() => {
     const { s, tip, total, pay, short } = calc(); if (short) return;
     const method = PY.method, tid = PY.tid, doPrint = PY.print, data = rcpt(s, { tip, total, method, pay });
     App.send({ t: 'close_table', tableId: tid, method, pay: { tip, tendered: +PY.tendered || 0, card: +PY.card || 0 } });
-    if (doPrint) App.printHTML(App.receiptHTML(data));
+    if (doPrint) etaThenPrint(data, s.tableNumber);
     App.toast('Paid ✓ ' + M(total)); close(); closeM();
+  }
+  // with e-receipts on, ask the server for this sale's receipt link and print it as a QR; if it is not available the receipt still prints
+  async function etaThenPrint(data, table) {
+    const op = App.config.settings.eta; if (!op || !op.enabled || !(App.config.features || {}).eta) return App.printHTML(App.receiptHTML(data));
+    try {
+      await new Promise((ok) => setTimeout(ok, 700));
+      const j = await (await fetch('/api/eta/receipt/last?table=' + encodeURIComponent(table), { headers: { Authorization: 'Bearer ' + App.tok(App.authRole || 'cashier') } })).json();
+      if (j.ready) { data.etaQr = j.qr; data.etaNo = j.number; data.etaImg = await new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = j.qr; }); }
+    } catch {}
+    App.printHTML(App.receiptHTML(data));
   }
   function printBill() { const { s, tip, total } = calc(); App.printHTML(App.receiptHTML(rcpt(s, { tip, total, method: '— not paid yet —', pre: true }))); }
 
