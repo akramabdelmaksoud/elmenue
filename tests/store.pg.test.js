@@ -10,6 +10,9 @@ test('Postgres store: tables, tenants, CAS, history, blobs, flush', async () => 
     await store.init(); await store.init();                                  // idempotent (migration safe to repeat)
     assert.equal(store.mode(), 'postgres'); await store.ping();
     assert.deepEqual(await store.loadAll(), []);
+    const { Client } = require('pg'); const c = new Client({ connectionString: pg.url }); await c.connect();
+    assert.equal((await c.query("select relrowsecurity from pg_class where relname='tenants'")).rows[0].relrowsecurity, true, 'row level security on');
+    await c.end();
 
     // tenant records through the debounced save + flush
     store.save({ id: 'r1', slug: 'one', name: 'One' }); store.save({ id: 'r1', slug: 'one', name: 'One v2' });

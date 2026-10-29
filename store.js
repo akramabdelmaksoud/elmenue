@@ -31,8 +31,14 @@ async function init() {
     const ssl = process.env.PGSSL === 'off' ? false : { rejectUnauthorized: process.env.PGSSL === 'verify' };
     pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl, max: +process.env.PG_POOL_MAX || 8, idleTimeoutMillis: 30000, connectionTimeoutMillis: 10000 });
     pool.on('error', (e) => console.error('pg pool error', e.message));   // an idle connection dropping must not crash the process
+    // Arabic menus need UTF-8; any other encoding would fail every save of a restaurant containing Arabic text
+    const enc = (await pool.query('show server_encoding')).rows[0].server_encoding;
+    if (enc !== 'UTF8') throw new Error(`The database encoding is ${enc}, it must be UTF8 (create the database with ENCODING 'UTF8').`);
     await pool.query('create table if not exists tenants (id text primary key, doc jsonb not null, ver bigint not null default 0, updated_at timestamptz default now())');
     await pool.query('alter table tenants add column if not exists ver bigint not null default 0');
+    // Supabase publishes the "public" schema through its web API: with row security on and no policies, the API roles see nothing.
+    // This app connects as the table owner, which is not affected.
+    await pool.query('alter table tenants enable row level security');
     console.log('  storage: Postgres');
   } else { fs.mkdirSync(DIR, { recursive: true }); console.log('  storage: local files (data/tenants) — not suitable for hosting'); }
 }

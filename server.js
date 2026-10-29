@@ -75,10 +75,12 @@ function mount(rec) {
   return t;
 }
 function makeRecord({ name, slug, email, password, plan = 'operations', demo = false }) {
+  const data = freshData(demo), cap = F.limitsOf(plan).tables;
+  if (cap !== null && data.tables.length > cap) data.tables = data.tables.slice(0, cap);   // sample tables must not start above the plan's table limit
   return {
     id: SINGLE ? MAIN : STATELESS ? 'r_' + slug : newId('r'), slug, name, plan, status: 'active', createdAt: Date.now(), lastActive: null,
     owner: { email: String(email).toLowerCase(), hash: auth.hash(password) }, pin: auth.pin(),
-    data: freshData(demo),
+    data,
   };
 }
 function checkProdConfig() {
@@ -304,6 +306,8 @@ app.get('/api/demo/qr.png', async (req, res, next) => { try {
 } catch (e) { next(e); } });
 app.get('/demo', page('showroom.html'));
 app.get('/demo-local', page('demo.html'));
+app.get('/privacy', page('privacy.html'));
+app.get('/terms', page('terms.html'));
 
 if (!SINGLE) app.get('/super', page('super.html'));
 app.get('/r/:slug', page('tenant.html'));

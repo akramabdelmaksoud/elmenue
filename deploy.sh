@@ -68,6 +68,11 @@ say "Version $VERSION"
 say "Building image (the old version keeps running)"
 APP_VERSION="$VERSION" $DC build app
 
+say "Checking the Caddyfile"
+set -a; . <(grep -E '^(ACME_EMAIL|TLS_ASK_TOKEN|BASE_DOMAIN)=' "$ENVF" | sed 's/[[:space:]]#.*$//'); set +a
+docker run --rm -e ACME_EMAIL -e TLS_ASK_TOKEN -e BASE_DOMAIN -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2 caddy validate --config /etc/caddy/Caddyfile >/dev/null \
+  || die "Caddyfile is invalid - nothing was changed"
+
 cur=$(cat $STATE/current 2>/dev/null || true)
 say "Switching over"
 start_version "$VERSION"

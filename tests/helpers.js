@@ -10,9 +10,9 @@ const freePort = () => new Promise((res) => { const s = net.createServer().liste
 async function startPg() {
   const EmbeddedPostgres = require('embedded-postgres').default;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'elm-pg-')), port = await freePort();
-  const pg = new EmbeddedPostgres({ databaseDir: dir, user: 'postgres', password: 'pw', port, persistent: false, onLog: () => {}, onError: () => {} });
+  const pg = new EmbeddedPostgres({ databaseDir: dir, user: 'postgres', password: 'pw', port, persistent: false, initdbFlags: ['--encoding=UTF8', '--locale=C'], onLog: () => {}, onError: () => {} });
   await pg.initialise(); await pg.start(); await pg.createDatabase('elm');
-  return { url: `postgres://postgres:pw@localhost:${port}/elm`, stop: async () => { await pg.stop(); fs.rmSync(dir, { recursive: true, force: true }); } };
+  return { url: `postgres://postgres:pw@localhost:${port}/elm`, stop: async () => { try { await pg.stop(); } catch (e) { if (!/EBUSY|EPERM/.test(String(e))) throw e; } try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 8, retryDelay: 400 }); } catch {} } };
 }
 
 // Start `node server.js` with extra env; resolves when /health answers.

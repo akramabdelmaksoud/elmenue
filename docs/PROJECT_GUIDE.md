@@ -115,6 +115,9 @@ Message in (`handle(c, m)`), state out (`snapshotFor`). Roles: `customer`, `capt
 - Real phone push delivery is untested.
 - Not built yet / ideas: online payments, printer integration beyond browser print, delivery driver tracking, multi-branch reporting.
 
+## 8b. Production on a VPS (added)
+See `docs/PRODUCTION.md` (architecture, where each concern lives, how to change/roll back), `docs/OWNER_CHECKLIST.md`, `docs/GO_LIVE.md`. New modules: `hosts.js` (subdomain/custom-domain resolution), `ratelimit.js`, `security.js`. `SINGLE_RESTAURANT`, `STATELESS`, `DEMO_DATA` now use strict parsing (`0`/`false`/empty = off). Tests: `npm test` (needs no Docker; uses an embedded real Postgres).
+
 ## 9. Security to-do before real use
 - Rotate the Supabase secret key and any access tokens that were shared in chats.
 - Change the live owner password and the captain PIN; keep secrets only in Vercel env vars.
