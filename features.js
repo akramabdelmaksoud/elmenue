@@ -6,9 +6,9 @@ const PRO_THEMES = ['slate', 'nordic', 'bistro', 'zen', 'trattoria', 'roast', 's
 const SIG_THEMES = ['aurum', 'ember', 'sunset', 'platinum', 'rosegold', 'sapphire', 'jade', 'amethyst'];
 const PREMIUM_THEMES = ['neon', 'luxury', 'vibrant'].concat(LUX_THEMES, PRO_THEMES, SIG_THEMES);
 const PLANS = {
-  basic: { id: 'basic', tier: 1, name: 'Basic QR Menu', name_ar: 'منيو QR الأساسي', price: [350, 500], features: ['menu', 'qr', 'micro', 'admin'] },
-  operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [850, 1000], features: ['ordering', 'staff', 'kds', 'cashier', 'lock', 'party', 'trilingual'] },
-  vip: { id: 'vip', tier: 3, name: 'Enterprise VIP & AI', name_ar: 'VIP والذكاء الاصطناعي', price: [1450, 1450], features: ['loyalty', 'ocr', 'copilot', 'themes', 'branches'] },
+  basic: { id: 'basic', tier: 1, name: 'Basic QR Menu', name_ar: 'منيو QR الأساسي', price: [350, 500], limits: { branches: 1, tables: 10, staff: 0 }, features: ['menu', 'qr', 'micro', 'admin'] },
+  operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [850, 1000], limits: { branches: 1, tables: 30, staff: 10 }, features: ['ordering', 'staff', 'kds', 'cashier', 'lock', 'party', 'trilingual'] },
+  vip: { id: 'vip', tier: 3, name: 'Enterprise VIP & AI', name_ar: 'VIP والذكاء الاصطناعي', price: [1450, 1450], limits: { branches: 3, tables: null, staff: null }, features: ['loyalty', 'ocr', 'copilot', 'themes', 'branches'] },
 };
 // older plan names keep working: they map onto the new tiers
 const LEGACY = { standard: 'operations', pro: 'vip', enterprise: 'vip', demo: 'vip' };
@@ -21,6 +21,14 @@ function featuresOf(p) {
 }
 const has = (p, f) => !!featuresOf(p)[f];
 const minPlanFor = (f) => ORDER.find((id) => PLANS[id].features.includes(f));
+// Plan limits (null = unlimited). Enforced only when CREATING something new; a venue already over a limit keeps everything it has.
+// override: per-tenant numbers set by the super admin (null/undefined = use the plan's).
+function limitsOf(p, override) {
+  const base = PLANS[planOf(p)].limits, o = override || {}, out = {};
+  Object.keys(base).forEach((k) => { out[k] = o[k] === undefined || o[k] === '' ? base[k] : (o[k] === null ? null : Math.max(0, Math.floor(+o[k]) || 0)); });
+  return out;
+}
+const limitCheck = (kind, used, p, override) => { const limit = limitsOf(p, override)[kind]; return { kind, used, limit, ok: limit === null || used < limit, over: limit !== null && used > limit, upgrade: limit === null ? null : ORDER.find((id) => { const l = PLANS[id].limits[kind]; return l === null || l > limit; }) || null }; };
 const monthly = (p) => PLANS[planOf(p)].price[0];
 
 // ---------- Loyalty ----------
@@ -141,5 +149,5 @@ function copilot(q, ctx) {
   return { reply: R('I can answer: "How many points were redeemed today?", "Which item sells best?", "What is today\'s revenue?", "What is low in stock?", or do: "Switch default language to Egyptian Ammiya", "Mark Cheesecake sold out", "Set 5 EGP per point", "Remember that ...". Connect the AI key to chat about anything else.', 'أقدر أجاوب: "النهاردة اتستبدل كام نقطة؟"، "إيه أكتر صنف مبيعًا؟"، "إيرادات النهاردة كام؟"، "إيه اللي قرب يخلص؟"، وأقدر أنفذ: "غير لغة المنيو لعامية"، "خلي الكيك خلصان"، "خلي كل 5 جنيه نقطة"، "تذكر إن ...". ولو الذكاء الاصطناعي متوصل أقدر أتكلم معاك في أي موضوع.'), unknown: true };
 }
 
-const api = { aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
+const api = { limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
 if (typeof module !== 'undefined') module.exports = api;

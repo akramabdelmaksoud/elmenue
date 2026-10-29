@@ -4,7 +4,9 @@
     "description": "",
     "main": "server.js",
     "scripts": {
-        "start": "node server.js"
+        "start": "node server.js",
+        "test": "node --test \"tests/*.test.js\"",
+        "test:ui": "node --test \"tests/ui/*.test.js\""
     },
     "keywords": [],
     "author": "",

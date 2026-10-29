@@ -298,7 +298,7 @@ function tenantStats(t, days = 30) {
   const live = Object.values(t.db.sessions);
   return {
     id: t.rec.id, slug: t.rec.slug, name: t.rec.name, plan: F.planOf(t.rec.plan), group: t.rec.group || '', domain: t.rec.domain || '', mrr: t.rec.status === 'active' ? F.monthly(t.rec.plan) : 0, status: t.rec.status, createdAt: t.rec.createdAt, lastActive: t.rec.lastActive,
-    email: t.rec.owner.email, items: t.db.items.length, tables: t.db.tables.length,
+    email: t.rec.owner.email, items: t.db.items.length, tables: t.db.tables.length, limits: F.limitsOf(t.rec.plan, t.rec.limits), limitOverride: t.rec.limits || null, staffCount: (t.rec.staff || []).length,
     revenue, sessions: H.length, avgTicket: H.length ? revenue / H.length : 0, liveTables: live.length, liveRevenue: live.reduce((n, s) => n + t.bill(s).total, 0),
     guestsLive: live.reduce((n, s) => n + s.guests.length, 0), online: t.clients.size, currency: t.db.settings.currency,
   };
@@ -323,7 +323,9 @@ app.post('/api/super/tenants', needSuper, async (req, res, next) => { try {
   if (STATELESS ? !!(await store.getRec('r_' + slug)) : tenants.has(slug)) return res.status(400).json({ error: 'That slug is taken' });
   if (!b.name || !/^\S+@\S+$/.test(b.email || '')) return res.status(400).json({ error: 'Name and valid owner email required' });
   const password = b.password || auth.randomPassword();
-  const rec = makeRecord({ name: b.name, slug, email: b.email, password, plan: F.PLANS[b.plan] ? b.plan : 'operations', demo: !!b.demo });
+  const plan0 = F.PLANS[b.plan] ? b.plan : 'operations';
+  if (b.group) { const grp = String(b.group).slice(0, 40), used = (await allTenants()).filter((x) => (x.rec.group || '') === grp).length, c = F.limitCheck('branches', used, plan0); if (!c.ok) return res.status(402).json({ error: `Plan allows ${c.limit} branch(es) in a group`, kind: 'branches', limit: c.limit, used, upgrade: c.upgrade, limits: true }); }
+  const rec = makeRecord({ name: b.name, slug, email: b.email, password, plan: plan0, demo: !!b.demo });
   rec.data.settings.name = b.name; if (b.group) rec.group = String(b.group).slice(0, 40); if (b.domain) rec.domain = String(b.domain).toLowerCase().slice(0, 80);
   if (STATELESS) { if (!(await createRecord(rec, !!b.demo))) return res.status(400).json({ error: 'That slug is taken' }); }
   else { const t = mount(rec); if (b.demo) t.seedLive(); store.save(rec); }
@@ -331,6 +333,7 @@ app.post('/api/super/tenants', needSuper, async (req, res, next) => { try {
 } catch (e) { next(e); } });
 app.put('/api/super/tenants/:slug', needSuper, async (req, res, next) => { try {
   const t = await oneTenant(req.params.slug); if (!t) return res.status(404).json({});
+  if (req.body.limits !== undefined) { const L = req.body.limits || {}, o = {}; ['tables', 'staff', 'branches'].forEach((k) => { if (L[k] === null || L[k] === '' ) { if (L[k] === null) o[k] = null; } else if (L[k] !== undefined && +L[k] >= 0) o[k] = Math.floor(+L[k]); }); t.rec.limits = Object.keys(o).length ? o : undefined; }
   ['name', 'plan', 'status', 'group', 'domain'].forEach((k) => { if (req.body[k] === undefined) return; if (k === 'plan' && !F.PLANS[req.body[k]]) return; t.rec[k] = req.body[k]; });
   if (t.rec.domain) t.rec.domain = String(t.rec.domain).toLowerCase().trim().slice(0, 80);
   if (t.rec.status !== 'active') t.clients.forEach((c) => c.ws.close());
@@ -462,7 +465,7 @@ app.post(`${R}/feedback`, tenantMw, (req, res) => {
 // ----- Admin API (owner of this restaurant, or superadmin) -----
 const A = (m, p, ...h) => app[m](`${R}${p}`, tenantMw, needAdmin, ...h);
 const bc = (req) => req.tenant.broadcast();
-A('get', '/account', (req, res) => res.json({ name: req.tenant.rec.name, email: req.tenant.rec.owner.email, pin: req.tenant.rec.pin, plan: F.planOf(req.tenant.rec.plan), features: F.featuresOf(req.tenant.rec.plan), group: req.tenant.rec.group || '' }));
+A('get', '/account', (req, res) => res.json({ name: req.tenant.rec.name, email: req.tenant.rec.owner.email, pin: req.tenant.rec.pin, plan: F.planOf(req.tenant.rec.plan), features: F.featuresOf(req.tenant.rec.plan), group: req.tenant.rec.group || '', limits: F.limitsOf(req.tenant.rec.plan, req.tenant.rec.limits), usage: { tables: req.tenant.db.tables.length, staff: (req.tenant.rec.staff || []).length } }));
 A('post', '/account', (req, res) => {
   const r = req.tenant.rec, b = req.body || {};
   if (b.pin) { if (!/^\d{4,8}$/.test(b.pin)) return res.status(400).json({ error: 'PIN must be 4–8 digits' }); r.pin = b.pin; }
@@ -474,6 +477,7 @@ const pinTaken = (rec, pin, exceptId) => String(rec.pin) === pin || (rec.staff |
 A('post', '/staff', (req, res) => {
   const r = req.tenant.rec, b = req.body || {}, name = String(b.name || '').trim().slice(0, 30), pin = String(b.pin || '');
   if (!name) return res.status(400).json({ error: 'Name required' });
+  { const h = limitHit(req.tenant, 'staff', (r.staff || []).length); if (h) return res.status(402).json(h); }
   if (!['captain', 'kitchen', 'cashier'].includes(b.role)) return res.status(400).json({ error: 'Role must be captain, kitchen or cashier' });
   if (b.role === 'cashier' && !F.has(r.plan, 'cashier')) return res.status(402).json({ error: 'The Cashier role needs the Operations plan', upgrade: F.minPlanFor('cashier') });
   if (!/^\d{4,8}$/.test(pin)) return res.status(400).json({ error: 'PIN must be 4-8 digits' });
@@ -672,7 +676,10 @@ A('post', '/menu/import', upload.single('file'), (req, res) => {
   } catch (e) { res.status(400).json({ error: 'Could not parse file: ' + e.message }); }
 });
 
+// Plan limits: block only the creation of NEW things; venues already over a limit keep working (grandfathered)
+const limitHit = (t, kind, used) => { const c = F.limitCheck(kind, used, t.rec.plan, t.rec.limits); return c.ok ? null : { error: `Your plan allows ${c.limit} ${kind} - upgrade to add more`, kind, limit: c.limit, used, upgrade: c.upgrade, limits: true }; };
 A('post', '/tables', (req, res) => {
+  { const h = limitHit(req.tenant, 'tables', req.tenant.db.tables.length); if (h) return res.status(402).json(h); }
   const d = req.tenant.db, F = d.settings.floor || { cols: 24, rows: 16, decor: [] }, n = Math.max(0, ...d.tables.map((t) => t.number)) + 1;
   const boxes = [...d.tables.map((t) => ({ fx: t.fx ?? ((t.x || 1) - 1) * 2, fy: t.fy ?? ((t.y || 1) - 1) * 2, fw: t.fw || 4, fh: t.fh || 4 })), ...(F.decor || [])];
   const hit = (x, y) => boxes.some((o) => x < o.fx + o.fw && x + 3 > o.fx && y < o.fy + o.fh && y + 3 > o.fy);
