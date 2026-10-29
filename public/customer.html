@@ -291,6 +291,14 @@ const tagLabel = (t) => `${TAGI[String(t).toLowerCase()] || '🏷️'} ${App.esc
 let tagSel = new Set(), lastHad = false, rated = false, lastVisit = ''; const prevSt = {};
 // categories can be limited to hours of the day (e.g. breakfast 07:00-12:00)
 function catOpen(c) { const h = c && c.hours; if (!h || !h.from || !h.to) return true; const d = new Date(), m = d.getHours() * 60 + d.getMinutes(), [a1, a2] = h.from.split(':').map(Number), [b1, b2] = h.to.split(':').map(Number), a = a1 * 60 + a2, b = b1 * 60 + b2; return a <= b ? m >= a && m < b : m >= a || m < b; }
+// coupon code box on the bill (only when the venue switched coupons on)
+function couponBox(cfg, s) {
+  if (!cfg.features.coupons || !(cfg.settings.promo && cfg.settings.promo.enabled)) return '';
+  const b = s.bill;
+  if (s.coupon && b.couponCode) return `<div class="c li rise row2" style="margin-top:10px"><b>🎟️ ${App.esc(b.couponCode)} ${App.tr('cpnApplied')}</b><button class="ghost" style="padding:4px 12px" onclick="App.send({t:'coupon_remove'})">${App.tr('cpnRemove')}</button></div>`;
+  const off = b.offerName ? `<div class="c li rise" style="margin-top:10px;color:var(--ok)"><b>✨ ${App.esc(b.offerName)}</b></div>` : '';
+  return off + `<div class="c li rise" style="margin-top:10px"><div class="row" style="gap:8px"><input id="cpnin" placeholder="${App.tr('cpnPh')}" style="flex:1;text-transform:uppercase;border-radius:14px" maxlength="24" autocomplete="off"><button class="send rp" style="min-width:0;padding:8px 16px" onclick="const v=document.getElementById('cpnin').value.trim();if(v)App.send({t:'coupon_apply',code:v})">${App.tr('cpnApply')}</button></div></div>`;
+}
 const itemOpen = (cfg, i) => catOpen(cfg.categories.find((c) => c.id === i.cat));
 // "Add something?" - suggestions come from the shared pure function in features.js (same code the tests run)
 let FX = null; fetch('/engine/features.js').then((r) => r.text()).then((src) => { const m = { exports: {} }; new Function('module', 'exports', 'require', src)(m, m.exports, () => ({})); FX = m.exports; App.handlers && App.handlers.render && App.state && App.handlers.render(App.state); }).catch(() => {});
@@ -617,6 +625,7 @@ function billTab(cfg, s) {
   <div class="c li rise" style="--i:5"><div class="line"><span>${App.tr('subtotal')}</span><span>${App.money(b.sub)}</span></div>${b.discount - (b.redeemEgp || 0) > 0.001 ? `<div class="line" style="color:var(--ok)"><span>${App.tr('discount')}</span><span>−${App.money(b.discount - (b.redeemEgp || 0))}</span></div>` : ''}${b.redeemEgp ? `<div class="line" style="color:var(--ok)"><span>💳 ${App.tr('loyaltyApplied')}</span><span>−${App.money(b.redeemEgp)}</span></div>` : ''}<div class="line"><span>${App.tr('service')} (${st.service}%)</span><span>${App.money(b.service)}</span></div><div class="line"><span>${App.tr('tax')} (${st.tax}%)</span><span>${App.money(b.tax)}</span></div>
   <div class="line"><span>${App.tr('tip')} (${pay.tip}%)</span><span>${App.money(tipOf(b.net))}</span></div><div class="line" style="border-top:1px dashed var(--line);margin-top:6px;padding-top:10px"><b>${App.tr('total')}</b><b class="bigp">${cnt(withTip, 'tot')}</b></div></div>
   ${loyaltyBill(cfg, s)}
+  ${couponBox(cfg, s)}
   <div class="h3">${App.tr('tip')}</div><div class="seg">${[0, 5, 10, 15, 20].map((p) => `<button class="rp ${pay.tip === p ? 'on' : ''}" onclick="pay.tip=${p};draw(true)">${p}%</button>`).join('')}</div>
   <div class="h3">${App.tr('bill')}</div><div class="seg"><button class="rp ${pay.split === 'self' ? 'on' : ''}" onclick="pay.split='self';draw(true)">👤 ${App.tr('payMine')}</button><button class="rp ${pay.split === 'table' ? 'on' : ''}" onclick="pay.split='table';draw(true)">👥 ${App.tr('payTable')}</button><button class="rp ${pay.split === 'custom' ? 'on' : ''}" onclick="pay.split='custom';draw(true)">✂️ ${App.tr('payCustom')}</button></div>
   ${pay.split === 'custom' ? `<div class="c li" style="margin-top:12px"><p class="muted" style="margin:0 0 8px">${App.tr('assign')}</p>${G.map((g) => `<div class="row" style="margin-bottom:8px;gap:10px"><span style="font-size:22px">${g.avatar}</span><span style="flex:1">${App.esc(g.name)}</span><input type="number" style="width:120px;border-radius:14px" value="${pay.custom[g.id] ?? ''}" placeholder="${Math.round(withTip / G.length)}" onchange="pay.custom['${g.id}']=this.value;draw(true)"></div>`).join('')}

@@ -26,6 +26,10 @@ function createTenant(rec, persist, onAlert) {
     // Next-release flags: every new feature starts OFF for existing venues
     const st = db.settings;
     if (!st.fb) { st.fb = { enabled: false, googleUrl: '' }; ch = true; }
+    if (!st.promo) { st.promo = { enabled: false, stack: false }; ch = true; }
+    if (!db.coupons) { db.coupons = []; ch = true; }
+    if (!db.offers) { db.offers = []; ch = true; }
+    if (!db.gifts) { db.gifts = {}; ch = true; }
     if (!st.upsell) { st.upsell = { enabled: false, max: 3 }; ch = true; }
     if (!db.upsell) { db.upsell = { days: {}, resetAt: 0 }; ch = true; }
     if (!db.itemDaily) { db.itemDaily = {}; (db.history || []).forEach((h) => { if (h.unpaid) return; const k = new Date(h.closedAt).toISOString().slice(0, 10); const d = (db.itemDaily[k] ||= {}); h.items.forEach((l) => (d[l.itemId] = (d[l.itemId] || 0) + l.qty)); }); ch = true; }
@@ -96,6 +100,16 @@ function bill(s) {
   let disc = 0;
   if (s.discount && gross > 0) disc = s.discount.type === 'pct' ? gross * Math.min(100, Math.max(0, +s.discount.value || 0)) / 100 : Math.min(gross, Math.max(0, +s.discount.value || 0));
   disc = +disc.toFixed(2);
+  // coupons / timed offers (flag settings.promo.enabled + tier 'coupons'); stacking is the owner's choice
+  let promo = { coupon: 0, offer: 0 }, couponCode = '', offerName = '';
+  const pc = F.promoCfg(st);
+  if (pc.enabled && F.has(rec.plan, 'coupons') && gross > 0) {
+    const now = Date.now(), cp = s.coupon && db.coupons.find((x) => x.code === s.coupon), ck = cp ? F.couponCheck(cp, gross, now) : null;
+    const live = db.offers.filter((o) => F.offerLive(o, now)).map((o) => ({ o, amt: F.cutAmount(o.kind, o.value, gross) })).sort((a, b) => b.amt - a.amt)[0];
+    const pk = F.promoPick({ manual: disc, coupon: ck && ck.ok ? ck.amount : 0, offer: live ? live.amt : 0, stack: pc.stack, gross });
+    disc = pk.total; promo = { coupon: pk.coupon, offer: pk.offer };
+    if (pk.coupon) couponCode = cp.code; if (pk.offer) offerName = live.o.name;
+  }
   let red = 0, redPts = 0;   // loyalty points the guest chose to redeem (capped by what is left to pay)
   if (s.redeem && s.redeem.points > 0 && gross - disc > 0) {
     const lc = F.loyaltyCfg(st); red = Math.min(+(gross - disc).toFixed(2), F.pointsToEgp(lc, s.redeem.points));
@@ -108,7 +122,10 @@ function bill(s) {
     return { sub: x, service, tax, total: +(x + service + tax).toFixed(2) };
   };
   Object.keys(by).forEach((g) => { by[g].gross = by[g].sub; Object.assign(by[g], calc(+(by[g].sub * k).toFixed(2))); });
-  return { ...calc(net), sub: gross, gross, discount: disc, net, redeemEgp: red, redeemPts: redPts, byGuest: by };
+  const tot = calc(net);
+  let gift = 0, giftCode = '';
+  if (s.gift && F.has(rec.plan, 'giftcards') && db.gifts && db.gifts[s.gift]) { const g = db.gifts[s.gift]; if (F.giftBalanceOk(g)) { gift = Math.min(g.balance, tot.total); giftCode = s.gift; } }
+  return { ...tot, sub: gross, gross, discount: disc, net, redeemEgp: red, redeemPts: redPts, promoCoupon: promo.coupon, promoOffer: promo.offer, couponCode, offerName, gift: +gift.toFixed(2), giftCode, due: +(tot.total - gift).toFixed(2), byGuest: by };
 }
 
 // a reservation counts from 45 minutes before until 20 minutes after its time
@@ -145,8 +162,14 @@ function closeSession(t, method, who, pay) {
   if (upOn() && s.orders.length && method !== 'unpaid') { const d = upDay(); s.orders.forEach((o) => o.items.forEach((i) => { if (i.up) d.revenue[i.itemId] = +((d.revenue[i.itemId] || 0) + i.qty * i.price).toFixed(2); })); }
   if (s.orders.length && method !== 'unpaid') { const k = new Date().toISOString().slice(0, 10), d = ((db.itemDaily ||= {})[k] ||= {}); Object.values(lines).forEach((l) => (d[l.itemId] = (d[l.itemId] || 0) + l.qty)); for (const x of Object.keys(db.itemDaily)) if (x < new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10)) delete db.itemDaily[x]; }
   const tip = pay && pay.tip !== undefined && pay.tip !== null && pay.tip !== '' ? Math.max(0, +(+pay.tip).toFixed(2)) : Math.round(b.net * (s.check?.tipPct || 0) / 100);
-  const total = +(b.total + tip).toFixed(2);
+  const total = +(b.total + tip).toFixed(2), giftUsed = m0 => m0 === 'unpaid' ? 0 : Math.min(b.gift || 0, total);
   const m = ['cash', 'card', 'mixed', 'unpaid'].includes(method) ? method : (s.check?.method || 'cash');
+  const gUsed = giftUsed(m), payTotal = +(total - gUsed).toFixed(2);
+  if (m !== 'unpaid' && s.orders.length) {
+    if (b.couponCode) { const cp = db.coupons.find((x) => x.code === b.couponCode); if (cp) { cp.uses = (cp.uses || 0) + 1; cp.saved = +((cp.saved || 0) + b.promoCoupon).toFixed(2); } }
+    if (b.offerName) { const of = db.offers.find((x) => x.name === b.offerName); if (of) { of.uses = (of.uses || 0) + 1; of.saved = +((of.saved || 0) + b.promoOffer).toFixed(2); } }
+    if (gUsed > 0) { const g = db.gifts[b.giftCode]; g.balance = +(g.balance - gUsed).toFixed(2); g.log = [{ at: Date.now(), type: 'spend', amount: gUsed, table: t.number, by: who || '' }, ...(g.log || [])].slice(0, 50); }
+  }
   log(s, 'closed', 'Table paid and cleared' + (who ? ' by ' + who : ''));
   let loy = null;
   const mem = s.loyaltyPhone && db.loyalty && db.loyalty.members[s.loyaltyPhone];
@@ -160,8 +183,8 @@ function closeSession(t, method, who, pay) {
     db.history.push({
       id: id('h'), tableId: t.id, tableNumber: t.number, kind: s.kind || 'table', customer: s.customer || null, startedAt: s.startedAt,
       orderedAt: s.orders[0].at, checkAt: s.check?.at || Date.now(), closedAt: Date.now(),
-      guests: s.guests.length || 1, party: s.party || 0, loyalty: loy, items: Object.values(lines), sub: b.gross, discount: b.discount, discountNote: s.discount ? (s.discount.reason || '') : '', service: b.service, tax: b.tax, tip,
-      total, method: m, unpaid: m === 'unpaid', pay: m === 'unpaid' ? { cash: 0, card: 0, tendered: 0, change: 0 } : settle(m, total, pay), split: s.check?.split || 'table', closedBy: who || '', voids: s.voids || [], log: s.log,
+      guests: s.guests.length || 1, party: s.party || 0, loyalty: loy, items: Object.values(lines), sub: b.gross, discount: b.discount, discountNote: [s.discount ? (s.discount.reason || '') : '', b.couponCode ? 'Coupon ' + b.couponCode : '', b.offerName || ''].filter(Boolean).join(' · '), coupon: b.couponCode || '', offer: b.offerName || '', gift: gUsed, giftCode: gUsed ? b.giftCode : '', service: b.service, tax: b.tax, tip,
+      total, method: m, unpaid: m === 'unpaid', pay: m === 'unpaid' ? { cash: 0, card: 0, tendered: 0, change: 0 } : settle(m, payTotal, pay), split: s.check?.split || 'table', closedBy: who || '', voids: s.voids || [], log: s.log,
     });
   }
   delete db.sessions[t.id];
@@ -302,6 +325,19 @@ function handle(c, m) {
         else if (m.name && !mem.name) mem.name = String(m.name).slice(0, 24);
         s.loyaltyPhone = ph; s.redeem = null; log(s, 'loyalty', `${mem.name || 'Guest'} joined the loyalty card`); break;
       }
+      case 'coupon_apply': {
+        if (!F.promoCfg(db.settings).enabled || !F.has(rec.plan, 'coupons')) { c.ws.send(JSON.stringify({ t: 'notice', msg: 'Coupons are not available here' })); break; }
+        const code = F.normCode(m.code), cp = db.coupons.find((x) => x.code === code), gross = bill(s).gross, ck = F.couponCheck(cp, gross, Date.now());
+        if (!ck.ok) { c.ws.send(JSON.stringify({ t: 'notice', msg: { unknown: 'Code not recognised', inactive: 'This code is not active', notyet: 'This code is not valid yet', expired: 'This code has expired', used: 'This code has been fully used', min: 'Spend at least ' + (ck.min || 0) + ' to use this code' }[ck.reason] || 'Code not valid', code: 'coupon_' + ck.reason })); break; }
+        s.coupon = code; log(s, 'coupon', 'Coupon ' + code + ' applied'); break;
+      }
+      case 'coupon_remove': if (s.coupon) { log(s, 'coupon', 'Coupon ' + s.coupon + ' removed'); s.coupon = null; } break;
+      case 'gift_apply': {
+        const code = F.normCode(m.code), g = db.gifts && db.gifts[code];
+        if (!F.has(rec.plan, 'giftcards') || !F.giftBalanceOk(g)) { c.ws.send(JSON.stringify({ t: 'notice', msg: 'Gift card not valid', code: 'gift_bad' })); break; }
+        s.gift = code; log(s, 'gift', 'Gift card ' + code.slice(0, 4) + '… applied'); break;
+      }
+      case 'gift_remove': s.gift = null; break;
       case 'loyalty_leave': s.loyaltyPhone = null; s.redeem = null; break;
       case 'loyalty_redeem': {
         const mem = s.loyaltyPhone && db.loyalty && db.loyalty.members[s.loyaltyPhone]; if (!mem) break;
@@ -445,6 +481,19 @@ function handle(c, m) {
           if (!m.waste) putStock(it.itemId, q, 'return', 'voided: ' + String(m.reason || '').slice(0, 40), c.staffName);
           it.qty -= q; if (it.qty <= 0) o.items.splice(i, 1); if (!o.items.length) s.orders = s.orders.filter((x) => x !== o);
           log(s, 'void', `${q}× ${it.name} voided${m.reason ? ' (' + String(m.reason).slice(0, 80) + ')' : ''}` + (c.staffName ? ' by ' + c.staffName : '')); break;
+        }
+        break;
+      }
+      case 'promo_set': {   // staff attach / remove a coupon or gift card on a table
+        const s = db.sessions[m.tableId]; if (!s) break;
+        const say = (msg) => c.ws.send(JSON.stringify({ t: 'notice', msg }));
+        if ('coupon' in m) {
+          if (!m.coupon) { s.coupon = null; log(s, 'coupon', 'Coupon removed'); }
+          else { const code = F.normCode(m.coupon), ck = F.promoCfg(db.settings).enabled && F.has(rec.plan, 'coupons') ? F.couponCheck(db.coupons.find((x) => x.code === code), bill(s).gross, Date.now()) : { ok: false, reason: 'off' }; if (!ck.ok) { say('Coupon not valid (' + ck.reason + ')'); break; } s.coupon = code; log(s, 'coupon', 'Coupon ' + code + ' applied by ' + (c.staffName || 'staff')); }
+        }
+        if ('gift' in m) {
+          if (!m.gift) s.gift = null;
+          else { const code = F.normCode(m.gift), g = db.gifts && db.gifts[code]; if (!F.has(rec.plan, 'giftcards') || !F.giftBalanceOk(g)) { say('Gift card not valid'); break; } s.gift = code; log(s, 'gift', 'Gift card applied by ' + (c.staffName || 'staff')); }
         }
         break;
       }

@@ -41,7 +41,7 @@ aside button[data-locked="true"]::after { content: ' 🔒'; opacity: .7; }
 </style></head>
 <body><div class="shell"><aside>
 <h2>⚙️ Admin</h2>
-<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="inventory">📦 Inventory</button><button data-t="floor">🪑 Floor plan</button><button data-t="staff" data-lock="staff">👥 Staff</button><button data-t="orders">🧾 Orders</button><button data-t="reports">📈 Reports</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button><button data-t="loyalty" data-lock="loyalty">💳 Loyalty</button><button data-t="ocr" data-lock="ocr">📷 AI menu scan</button><button data-t="branches" data-lock="branches">🏢 Branches</button><button onclick="copilotToggle()" data-lock="copilot">🤖 AI Copilot</button>
+<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="inventory">📦 Inventory</button><button data-t="floor">🪑 Floor plan</button><button data-t="staff" data-lock="staff">👥 Staff</button><button data-t="orders">🧾 Orders</button><button data-t="reports">📈 Reports</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button><button data-t="offers" data-lock="coupons">🎟️ Offers & gift cards</button><button data-t="loyalty" data-lock="loyalty">💳 Loyalty</button><button data-t="ocr" data-lock="ocr">📷 AI menu scan</button><button data-t="branches" data-lock="branches">🏢 Branches</button><button onclick="copilotToggle()" data-lock="copilot">🤖 AI Copilot</button>
 <span style="flex:1"></span><button onclick="App.toggleLang()">🌐 EN / عربي</button><button onclick="App.roleMenu(event)">⇄ Switch role</button><button onclick="App.skinMenu(event)">🎨 Look (Maison)</button><button onclick="App.toggleMode(event)">◐ Light / Dark</button><button onclick="App.logout()">⏻ Sign out</button></aside>
 <div class="mainwrap"><div id="rfbar"></div><main id="main"></main></div></div>
 <script src="/vendor/sortable.js"></script><script src="/vendor/chart.js"></script><script src="/shared.js"></script><script src="/ar-ui.js"></script>
@@ -53,6 +53,32 @@ const $ = (s) => document.querySelector(s);
 const FEAT = () => (App.config && App.config.features) || {};
 const PLAN_NAME = { basic: 'Basic', operations: 'Operations', vip: 'VIP' };
 const lockedCard = (title, feat) => { const need = { staff: 'Operations' }[feat] || 'VIP'; $('#main').innerHTML = `<h1>${title}</h1><div class="card" style="text-align:center;padding:44px 20px"><div style="font-size:54px">🔒</div><h3>${need} plan</h3><p class="muted">This feature is part of the ${need} tier. Ask your account manager to upgrade your subscription.</p></div>`; };
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+async function offersTab() {
+  if (FEAT().coupons === false) return lockedCard('🎟️ Offers & gift cards', 'coupons');
+  const d = await api('GET', '/api/coupons'), pr = App.config.settings.promo || {}, vip = FEAT().giftcards !== false, M = (x) => App.money(x);
+  const gf = vip ? await api('GET', '/api/gifts') : null, rp = await api('GET', '/api/promo/report');
+  const when = (o) => (o.start ? o.start + '–' + o.end : 'all day') + (o.days && o.days.length ? ' · ' + o.days.map((x) => DAYS[x]).join(' ') : ' · every day');
+  $('#main').innerHTML = `<h1>🎟️ Offers & gift cards</h1>
+  <div class="card"><h3>Switch</h3><div class="row wrap"><label class="row" style="gap:6px"><input type="checkbox" style="width:auto" ${pr.enabled ? 'checked' : ''} onchange="promoSet({enabled:this.checked,stack:${!!pr.stack}})"> Coupons &amp; timed offers are on</label>
+   <label class="row" style="gap:6px"><input type="checkbox" style="width:auto" ${pr.stack ? 'checked' : ''} onchange="promoSet({enabled:${!!pr.enabled},stack:this.checked})"> Let discounts add up (off = guest gets the single best one)</label></div></div>
+  <div class="card"><h3>Coupon codes</h3><table><tr><th>Code</th><th>Value</th><th>Min spend</th><th>Uses</th><th>Valid</th><th>Saved</th><th></th></tr>
+   ${d.coupons.map((c) => `<tr><td><b>${App.esc(c.code)}</b></td><td>${c.kind === 'pct' ? c.value + '%' : M(c.value)}</td><td>${c.minSpend ? M(c.minSpend) : '-'}</td><td>${c.uses || 0}${c.maxUses ? ' / ' + c.maxUses : ''}</td><td>${c.to ? 'until ' + new Date(c.to).toLocaleDateString('en-GB') : 'always'}</td><td>${M(c.saved || 0)}</td><td><button class="ghost" onclick="cpnToggle('${c.id}',${!c.active})">${c.active ? 'Pause' : 'Resume'}</button> <button class="ghost" onclick="cpnDel('${c.id}')">Delete</button></td></tr>`).join('') || '<tr><td colspan="7" class="muted">No coupons yet.</td></tr>'}</table>
+   <div class="row wrap" style="margin-top:10px"><input id="cc" placeholder="CODE" style="width:130px"><select id="ck" style="width:auto"><option value="pct">%</option><option value="amt">${App.esc(App.config.settings.currency)}</option></select><input id="cv" type="number" placeholder="value" style="width:90px"><input id="cm" type="number" placeholder="min spend" style="width:110px"><input id="cu" type="number" placeholder="max uses" style="width:100px"><input id="ct" type="date" title="last day" style="width:150px"><button onclick="cpnAdd()">Add coupon</button></div></div>
+  <div class="card"><h3>Timed offers (applied automatically)</h3><table><tr><th>Offer</th><th>Value</th><th>When</th><th>Used</th><th>Saved</th><th></th></tr>
+   ${d.offers.map((o) => `<tr><td><b>${App.esc(o.name)}</b></td><td>${o.kind === 'pct' ? o.value + '%' : M(o.value)}</td><td>${when(o)}</td><td>${o.uses || 0}</td><td>${M(o.saved || 0)}</td><td><button class="ghost" onclick="ofrToggle('${o.id}',${!o.active})">${o.active ? 'Pause' : 'Resume'}</button> <button class="ghost" onclick="ofrDel('${o.id}')">Delete</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">No offers yet.</td></tr>'}</table>
+   <div class="row wrap" style="margin-top:10px"><input id="on" placeholder="Happy hour" style="width:150px"><select id="ok" style="width:auto"><option value="pct">%</option><option value="amt">${App.esc(App.config.settings.currency)}</option></select><input id="ov" type="number" placeholder="value" style="width:90px"><input id="os" type="time" style="width:110px" value="16:00"><input id="oe" type="time" style="width:110px" value="18:00"><span class="muted">days (none = every day):</span>${DAYS.map((x, i) => `<label class="row" style="gap:3px"><input type="checkbox" class="od" style="width:auto" value="${i}">${x}</label>`).join('')}<button onclick="ofrAdd()">Add offer</button></div></div>
+  ${vip ? `<div class="card"><h3>Gift cards</h3><div class="grid"><div class="card"><small class="muted">Sold</small><div style="font-size:24px;font-weight:800">${M(gf.sold)}</div></div><div class="card"><small class="muted">Still to honour</small><div style="font-size:24px;font-weight:800">${M(gf.liability)}</div></div><div class="card"><small class="muted">Redeemed (paid bills)</small><div style="font-size:24px;font-weight:800">${M(rp.giftRedeemed)}</div></div></div>
+   <table style="margin-top:8px"><tr><th>Code</th><th>Value</th><th>Balance</th><th>Sold</th><th>By</th></tr>${gf.gifts.slice(0, 40).map((g) => `<tr><td>${App.esc(g.code)}</td><td>${M(g.initial)}</td><td>${M(g.balance)}</td><td>${new Date(g.at).toLocaleDateString('en-GB')}</td><td>${App.esc(g.by || '')}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">Cashiers sell gift cards from the till.</td></tr>'}</table></div>` : '<div class="card"><h3>Gift cards</h3><p class="muted">Gift cards need the VIP plan.</p></div>'}`;
+}
+const offerErr = (r) => r && r.error ? (App.toast(r.error), 1) : 0;
+async function promoSet(p) { const r = await api('POST', '/api/settings', { promo: p }); App.toast(r.error || 'Saved'); App.config.settings.promo = p; offersTab(); }
+async function cpnAdd() { const r = await api('POST', '/api/coupons', { code: $('#cc').value, kind: $('#ck').value, value: $('#cv').value, minSpend: $('#cm').value, maxUses: $('#cu').value, to: $('#ct').value ? $('#ct').value + 'T23:59:59' : '' }); if (!offerErr(r)) offersTab(); }
+async function cpnToggle(id, a) { await api('PUT', '/api/coupons/' + id, { active: a }); offersTab(); }
+async function cpnDel(id) { if (confirm('Delete this coupon? Past sales keep their record.')) { await api('DELETE', '/api/coupons/' + id); offersTab(); } }
+async function ofrAdd() { const r = await api('POST', '/api/offers', { name: $('#on').value, kind: $('#ok').value, value: $('#ov').value, start: $('#os').value, end: $('#oe').value, days: [...document.querySelectorAll('.od:checked')].map((x) => +x.value) }); if (!offerErr(r)) offersTab(); }
+async function ofrToggle(id, a) { await api('PUT', '/api/offers/' + id, { active: a }); offersTab(); }
+async function ofrDel(id) { if (confirm('Delete this offer?')) { await api('DELETE', '/api/offers/' + id); offersTab(); } }
 async function loyaltyTab() {
   if (!FEAT().loyalty) return lockedCard('💳 Loyalty program', 'loyalty');
   const d = await api('GET', '/api/loyalty'), c = d.config, cur = App.esc(App.config.settings.currency);
@@ -188,7 +214,7 @@ function render(m, force) {
   if (key === cfgKey && !force) { if (tab === 'analytics') {} return; }   // ignore live-session noise
   cfgKey = key;
   const focus = document.activeElement; if (focus && focus.closest('#main') && focus.tagName === 'INPUT' && !force) return;  // don't clobber typing
-  ({ analytics, menu, inventory: inventoryTab, orders: ordersTab, floor: floorTab, staff: () => (FEAT().staff === false ? lockedCard('👥 Staff', 'staff') : staffTab()), reports: reportsTab, theme, qr, audit, loyalty: loyaltyTab, ocr: ocrTab, branches: branchesTab })[tab]();
+  ({ analytics, menu, inventory: inventoryTab, orders: ordersTab, floor: floorTab, staff: () => (FEAT().staff === false ? lockedCard('👥 Staff', 'staff') : staffTab()), reports: reportsTab, theme, qr, audit, offers: offersTab, loyalty: loyaltyTab, ocr: ocrTab, branches: branchesTab })[tab]();
 }
 App.handlers.render = (m) => render(m, true);
 

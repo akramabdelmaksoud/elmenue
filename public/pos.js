@@ -74,7 +74,7 @@ const PX = (() => {
   }
   function calc() {
     const s = S.sessions[PY.tid], b = s.bill;
-    const tip = PY.tipCustom !== null ? Math.max(0, +PY.tipCustom || 0) : Math.round(b.net * PY.tipPct / 100), total = r2(b.total + tip);
+    const tip = PY.tipCustom !== null ? Math.max(0, +PY.tipCustom || 0) : Math.round(b.net * PY.tipPct / 100), total = r2(b.total + tip - (b.gift || 0));   // a gift card pays part of the bill
     let pay;
     if (PY.method === 'card') pay = { cash: 0, card: total, tendered: 0, change: 0 };
     else if (PY.method === 'mixed') { const card = r2(Math.min(total, Math.max(0, +PY.card || 0))), cash = r2(total - card), tendered = Math.max(cash, +PY.tendered || cash); pay = { cash, card, tendered, change: r2(tendered - cash) }; }
@@ -84,9 +84,9 @@ const PX = (() => {
   }
   function totalsHTML() {
     const { s, b, tip, total, pay, short } = calc();
-    return `<div class="card" style="margin:10px 0"><div class="line"><span>Subtotal</span><span>${M(b.gross)}</span></div>${b.discount ? `<div class="line" style="color:var(--ok)"><span>Discount${s.discount && s.discount.reason ? ' (' + E(s.discount.reason) + ')' : ''}</span><span>−${M(b.discount)}</span></div>` : ''}
+    return `<div class="card" style="margin:10px 0"><div class="line"><span>Subtotal</span><span>${M(b.gross)}</span></div>${b.discount ? `<div class="line" style="color:var(--ok)"><span>Discount${s.discount && s.discount.reason ? ' (' + E(s.discount.reason) + ')' : ''}</span><span>−${M(b.discount)}</span></div>` : ''}${b.couponCode ? `<div class="line muted"><span>🎟️ ${E(b.couponCode)}</span><span>−${M(b.promoCoupon)}</span></div>` : ''}${b.offerName ? `<div class="line muted"><span>✨ ${E(b.offerName)}</span><span>−${M(b.promoOffer)}</span></div>` : ''}
       <div class="line"><span>Service</span><span>${M(b.service)}</span></div><div class="line"><span>Tax</span><span>${M(b.tax)}</span></div>${tip ? `<div class="line"><span>Tip</span><span>${M(tip)}</span></div>` : ''}
-      <div class="line"><b>Total due</b><b style="font-size:22px">${M(total)}</b></div>${PY.method !== 'card' ? `<div class="line"><span>Received</span><span>${M(pay.tendered)}</span></div><div class="line"><b>Change</b><b style="color:${short ? 'var(--bad)' : 'var(--ok)'}">${short ? 'not enough' : M(pay.change)}</b></div>` : ''}
+      ${b.gift ? `<div class="line" style="color:var(--ok)"><span>🎁 Gift card</span><span>−${M(b.gift)}</span></div>` : ''}<div class="line"><b>Total due</b><b style="font-size:22px">${M(total)}</b></div>${PY.method !== 'card' ? `<div class="line"><span>Received</span><span>${M(pay.tendered)}</span></div><div class="line"><b>Change</b><b style="color:${short ? 'var(--bad)' : 'var(--ok)'}">${short ? 'not enough' : M(pay.change)}</b></div>` : ''}
       ${PY.method === 'mixed' ? `<div class="line"><span>Cash part</span><span>${M(pay.cash)}</span></div><div class="line"><span>Card part</span><span>${M(pay.card)}</span></div>` : ''}</div>
       <button class="primary block" ${short ? 'disabled' : ''} onclick="PX.confirmPay()" style="width:100%">✅ Confirm payment${PY.method === 'mixed' ? ' (cash + card)' : ' · ' + PY.method}</button>`;
   }
@@ -98,6 +98,7 @@ const PX = (() => {
       <h3>Discount</h3><div class="row wrap"><select id="pdt" style="width:auto" onchange="PX.dtype(this.value)"><option value="pct" ${PY.dtype === 'pct' ? 'selected' : ''}>% percent</option><option value="amt" ${PY.dtype === 'amt' ? 'selected' : ''}>Amount</option></select>
         <input id="pdv" type="number" min="0" step="any" placeholder="0" style="width:90px" value="${s.discount ? s.discount.value : ''}"><input id="pdr" placeholder="Reason (staff meal, regular…)" style="flex:1;min-width:120px" value="${E(s.discount ? s.discount.reason : '')}">
         <button class="ghost" onclick="PX.applyDisc()">Apply</button>${s.discount ? '<button class="ghost" onclick="PX.removeDisc()">Remove</button>' : ''}</div>
+      ${(App.config.features || {}).coupons || (App.config.features || {}).giftcards ? `<h3>Code / gift card</h3><div class="row wrap"><input id="pcp" placeholder="Coupon code" style="width:150px;text-transform:uppercase" value="${E(s.coupon || '')}"><button class="ghost" onclick="PX.coupon()">Apply</button>${s.coupon ? '<button class="ghost" onclick="PX.couponOff()">Remove</button>' : ''}<input id="pgf" placeholder="Gift card code" style="width:190px;text-transform:uppercase" value="${E(s.gift || '')}"><button class="ghost" onclick="PX.giftOn()">Redeem</button>${s.gift ? '<button class="ghost" onclick="PX.giftOff()">Remove</button>' : ''}</div>` : ''}
       <h3>Tip</h3><div class="row wrap">${[0, 5, 10, 15].map((p) => chip(PY.tipCustom === null && PY.tipPct === p, `PX.tip(${p})`, p + '%')).join('')}<input id="ptc" type="number" min="0" step="any" placeholder="Custom" style="width:100px" value="${PY.tipCustom === null ? '' : PY.tipCustom}" oninput="PX.tipC(this.value)"></div>
       <h3>Payment</h3><div class="row wrap">${chip(PY.method === 'cash', "PX.method('cash')", '💵 Cash')}${chip(PY.method === 'card', "PX.method('card')", '💳 Card')}${chip(PY.method === 'mixed', "PX.method('mixed')", '➗ Cash + card')}</div>
       ${PY.method === 'mixed' ? `<div class="field" style="margin-top:8px"><label>Card amount</label><input id="pcd" type="number" min="0" step="any" value="${PY.card}" oninput="PX.setv('card',this.value)"></div>` : ''}
@@ -159,6 +160,8 @@ const PX = (() => {
     note(i, v) { PO.cart[i].note = v; }, guest(v) { PO.guestId = v; }, search(v) { PO.q = v; $('pogrid').innerHTML = posGrid(); }, cat(c) { PO.cat = c; drawPOS(); },
     send, dtype(v) { PY.dtype = v; },
     applyDisc() { App.send({ t: 'discount', tableId: PY.tid, type: PY.dtype, value: +$('pdv').value || 0, reason: $('pdr').value.trim() }); },
+    coupon() { App.send({ t: 'promo_set', tableId: PY.tid, coupon: $('pcp').value.trim() }); }, couponOff() { App.send({ t: 'promo_set', tableId: PY.tid, coupon: '' }); },
+    giftOn() { App.send({ t: 'promo_set', tableId: PY.tid, gift: $('pgf').value.trim() }); }, giftOff() { App.send({ t: 'promo_set', tableId: PY.tid, gift: '' }); },
     removeDisc() { App.send({ t: 'discount', tableId: PY.tid, value: 0 }); },
     tip(p) { PY.tipPct = p; PY.tipCustom = null; drawPay(); }, tipC(v) { PY.tipCustom = v === '' ? null : v; $('pytot').innerHTML = totalsHTML(); },
     method(m) { PY.method = m; drawPay(); }, cash(q) { PY.tendered = String(q); drawPay(); },

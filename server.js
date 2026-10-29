@@ -635,6 +635,7 @@ A('post', '/settings', (req, res) => {
   if (b.loyalty) { if (!F.has(req.tenant.rec.plan, 'loyalty')) return res.status(402).json({ error: 'Loyalty needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const l = b.loyalty; b.loyalty = { enabled: l.enabled !== false, egpPerPoint: Math.max(1, +l.egpPerPoint || 10), pointsPerRedeem: Math.max(1, +l.pointsPerRedeem || 100), redeemValue: Math.max(0, +l.redeemValue || 0) }; }
   if (b.upsell) { if (!F.has(req.tenant.rec.plan, 'upsell')) return res.status(402).json({ error: 'Upsell suggestions need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.upsell = F.upCfg({ upsell: b.upsell }); }
   if (b.fb) { if (!F.has(req.tenant.rec.plan, 'feedback')) return res.status(402).json({ error: 'Guest feedback & Google reviews need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); const u = String(b.fb.googleUrl || '').trim().slice(0, 300); b.fb = { enabled: !!b.fb.enabled, googleUrl: /^https:\/\/[^\s]+$/.test(u) ? u : '' }; }
+  if (b.promo) { if (!F.has(req.tenant.rec.plan, 'coupons')) return res.status(402).json({ error: 'Coupons & offers need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.promo = { enabled: !!b.promo.enabled, stack: !!b.promo.stack }; }
   if ('refreshMin' in b) b.refreshMin = [0, 5, 15, 30, 60, 120, 360].includes(+b.refreshMin) ? +b.refreshMin : 60;
   if (b.ai) { if (!F.has(req.tenant.rec.plan, 'copilot')) return res.status(402).json({ error: 'The AI assistant needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const a = F.aiCfg({ ai: b.ai }); b.ai = { name: a.name, style: a.style, memory: a.memory.map((m) => ({ ...m, id: m.id || Math.random().toString(36).slice(2, 9), at: m.at || Date.now() })) }; }
   if (b.promos) b.promos = (Array.isArray(b.promos) ? b.promos : []).slice(0, 6).map((p) => ({ title: String(p.title || '').slice(0, 60), title_ar: String(p.title_ar || '').slice(0, 60), text: String(p.text || '').slice(0, 140), text_ar: String(p.text_ar || '').slice(0, 140) })); Object.assign(d.settings, b); bc(req); res.json(d.settings); });
@@ -676,6 +677,60 @@ app.get(`${R}/img/:key`, async (req, res) => {
 });
 // ----- Premium (Tier 3) features: loyalty, AI menu digitizer, admin copilot, multi-branch -----
 const gate = (f) => (req, res, next) => F.has(req.tenant.rec.plan, f) ? next() : res.status(402).json({ error: 'This feature needs the ' + F.PLANS[F.minPlanFor(f)].name + ' plan', upgrade: F.minPlanFor(f) });
+// ---- coupons, timed offers, gift cards (F5) ----
+const gateC = gate('coupons'), gateG = gate('giftcards'), clean = (v, n) => String(v || '').slice(0, n);
+const num = (v, lo, hi) => Math.min(hi, Math.max(lo, +v || 0));
+const parseDate = (v) => { const t = v ? Date.parse(v) : 0; return Number.isFinite(t) ? t : 0; };
+function couponIn(b, old) {
+  const kind = b.kind === 'amt' ? 'amt' : 'pct', value = kind === 'pct' ? num(b.value, 0, 100) : num(b.value, 0, 100000);
+  const code = F.normCode(b.code); if (!code || code.length < 3) return { error: 'Code must be 3-24 letters/numbers' }; if (!(value > 0)) return { error: 'Value must be above zero' };
+  return { c: { ...(old || { uses: 0, saved: 0 }), code, kind, value, minSpend: num(b.minSpend, 0, 1e6), maxUses: Math.floor(num(b.maxUses, 0, 1e6)), from: parseDate(b.from), to: parseDate(b.to), active: b.active !== false, note: clean(b.note, 80) } };
+}
+A('get', '/coupons', gateC, (req, res) => res.json({ coupons: req.tenant.db.coupons, offers: req.tenant.db.offers }));
+A('post', '/coupons', gateC, (req, res) => {
+  const d = req.tenant.db; if (d.coupons.length >= 200) return res.status(400).json({ error: 'Too many coupons' });
+  const r = couponIn(req.body || {}); if (r.error) return res.status(400).json(r); if (d.coupons.some((x) => x.code === r.c.code)) return res.status(409).json({ error: 'That code already exists' });
+  r.c.id = newId('c'); r.c.createdAt = Date.now(); d.coupons.push(r.c); persistRec(req.tenant); res.json(r.c);
+});
+A('put', '/coupons/:id', gateC, (req, res) => {
+  const d = req.tenant.db, i = d.coupons.findIndex((x) => x.id === req.params.id); if (i < 0) return res.status(404).json({ error: 'not found' });
+  const r = couponIn({ ...d.coupons[i], ...(req.body || {}) }, d.coupons[i]); if (r.error) return res.status(400).json(r);
+  if (d.coupons.some((x, k) => k !== i && x.code === r.c.code)) return res.status(409).json({ error: 'That code already exists' }); d.coupons[i] = r.c; persistRec(req.tenant); res.json(r.c);
+});
+A('delete', '/coupons/:id', gateC, (req, res) => { const d = req.tenant.db; d.coupons = d.coupons.filter((x) => x.id !== req.params.id); persistRec(req.tenant); res.json({ ok: 1 }); });   // past sales keep the coupon code in their history
+function offerIn(b, old) {
+  const kind = b.kind === 'amt' ? 'amt' : 'pct', value = kind === 'pct' ? num(b.value, 0, 100) : num(b.value, 0, 100000), name = clean(b.name, 40).trim();
+  if (!name) return { error: 'Give the offer a name' }; if (!(value > 0)) return { error: 'Value must be above zero' };
+  const hm = (x) => (/^\d{1,2}:\d{2}$/.test(String(x)) ? String(x) : '');
+  const days = (Array.isArray(b.days) ? b.days : []).map(Number).filter((x) => x >= 0 && x <= 6);
+  return { o: { ...(old || { uses: 0, saved: 0 }), name, name_ar: clean(b.name_ar, 40), kind, value, days, start: hm(b.start) || undefined, end: hm(b.end) || undefined, from: parseDate(b.from), to: parseDate(b.to), active: b.active !== false } };
+}
+A('post', '/offers', gateC, (req, res) => { const d = req.tenant.db; if (d.offers.length >= 50) return res.status(400).json({ error: 'Too many offers' }); const r = offerIn(req.body || {}); if (r.error) return res.status(400).json(r); r.o.id = newId('o'); d.offers.push(r.o); persistRec(req.tenant); res.json(r.o); });
+A('put', '/offers/:id', gateC, (req, res) => { const d = req.tenant.db, i = d.offers.findIndex((x) => x.id === req.params.id); if (i < 0) return res.status(404).json({ error: 'not found' }); const r = offerIn({ ...d.offers[i], ...(req.body || {}) }, d.offers[i]); if (r.error) return res.status(400).json(r); d.offers[i] = r.o; persistRec(req.tenant); res.json(r.o); });
+A('delete', '/offers/:id', gateC, (req, res) => { const d = req.tenant.db; d.offers = d.offers.filter((x) => x.id !== req.params.id); persistRec(req.tenant); res.json({ ok: 1 }); });
+// guests see the offers that are live right now (public, no codes)
+app.get(`${R}/offers`, tenantMw, (req, res) => { const t = req.tenant, on = F.promoCfg(t.db.settings).enabled && F.has(t.rec.plan, 'coupons'); res.json({ offers: on ? t.db.offers.filter((o) => F.offerLive(o, Date.now())).map((o) => ({ id: o.id, name: o.name, name_ar: o.name_ar, kind: o.kind, value: o.value, end: o.end })) : [] }); });
+// gift cards: codes are random, server-made; only staff sell them
+const giftCode = () => { const A32 = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', b = require('crypto').randomBytes(12); return 'GC-' + [...b].map((x) => A32[x % 32]).join('').replace(/(.{4})(?=.)/g, '$1-'); };
+app.post(`${R}/gifts`, tenantMw, needCash, gateG, (req, res) => {
+  const d = req.tenant.db, amt = num(req.body && req.body.amount, 0, 100000); if (!(amt >= 1)) return res.status(400).json({ error: 'Enter an amount' });
+  if (Object.keys(d.gifts).length >= 5000) return res.status(400).json({ error: 'Too many gift cards' });
+  let code; do code = giftCode(); while (d.gifts[code]);
+  const months = Math.floor(num(req.body.months, 0, 60)), who = req.claims.n || req.claims.r, g = { code, initial: +amt.toFixed(2), balance: +amt.toFixed(2), at: Date.now(), expires: months ? Date.now() + months * 30 * 86400000 : 0, by: who, buyer: clean(req.body.buyer, 40), log: [{ at: Date.now(), type: 'issue', amount: +amt.toFixed(2), by: who }] };
+  d.gifts[code] = g; persistRec(req.tenant); res.json(g);
+});
+const giftHits = {};
+app.post(`${R}/gifts/check`, tenantMw, needStaff, gateG, (req, res) => {   // staff look up a balance; brute force is throttled
+  const k = String(req.ip), now = Date.now(); giftHits[k] = (giftHits[k] || []).filter((x) => now - x < 60000); if (giftHits[k].length >= 30) return res.status(429).json({ error: 'Too many tries' }); giftHits[k].push(now);
+  const g = req.tenant.db.gifts[F.normCode(req.body && req.body.code)]; res.json(g ? { code: g.code, balance: g.balance, expires: g.expires, valid: F.giftBalanceOk(g) } : { valid: false });
+});
+A('get', '/gifts', gateG, (req, res) => { const l = Object.values(req.tenant.db.gifts).sort((a, b) => b.at - a.at); res.json({ gifts: l, liability: +l.filter((g) => !g.expires || g.expires > Date.now()).reduce((n, g) => n + g.balance, 0).toFixed(2), sold: +l.reduce((n, g) => n + g.initial, 0).toFixed(2) }); });
+async function promoReport(t, from, to) {
+  const hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history, by = { coupons: {}, offers: {} }; let gift = 0;
+  hist.filter((h) => h.closedAt >= from && h.closedAt <= to && !h.unpaid).forEach((h) => { gift += h.gift || 0; if (h.coupon) { const c = (by.coupons[h.coupon] ||= { orders: 0, sales: 0 }); c.orders++; c.sales = +(c.sales + h.total).toFixed(2); } if (h.offer) { const o = (by.offers[h.offer] ||= { orders: 0, sales: 0 }); o.orders++; o.sales = +(o.sales + h.total).toFixed(2); } });
+  return { by, giftRedeemed: +gift.toFixed(2), coupons: t.db.coupons.map((c) => ({ code: c.code, uses: c.uses || 0, saved: c.saved || 0 })), offers: t.db.offers.map((o) => ({ name: o.name, uses: o.uses || 0, saved: o.saved || 0 })), giftLiability: +Object.values(t.db.gifts).reduce((n, g) => n + g.balance, 0).toFixed(2) };
+}
+A('get', '/promo/report', async (req, res) => { try { res.json(await promoReport(req.tenant, +req.query.from || 0, +req.query.to || Date.now())); } catch (e) { res.status(500).json({ error: e.message }); } });
 const aiKey = () => process.env.ANTHROPIC_API_KEY || '';
 async function claude(content, system, max = 2000) {
   const messages = Array.isArray(content) ? content : [{ role: 'user', content }];

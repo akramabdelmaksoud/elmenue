@@ -57,6 +57,41 @@ function upsellFor(cfg, cartIds, o = {}) {
   return out.slice(0, u.max);
 }
 
+// ---------- Coupons, timed offers, gift cards ----------
+// Pure rules shared by the engine and the tests. All money 2 decimals. Codes are compared upper-case.
+const PROMO_DEFAULT = { enabled: false, stack: false };
+const promoCfg = (settings) => ({ ...PROMO_DEFAULT, ...((settings && settings.promo) || {}), enabled: !!(settings && settings.promo && settings.promo.enabled), stack: !!(settings && settings.promo && settings.promo.stack) });
+const normCode = (c) => String(c || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 24);
+const r2 = (x) => Math.round((+x + Number.EPSILON) * 100) / 100;
+const cutAmount = (kind, value, base) => r2(kind === 'pct' ? base * Math.min(100, Math.max(0, +value || 0)) / 100 : Math.min(base, Math.max(0, +value || 0)));
+// is a timed offer running at this moment (local time of the venue = server clock offset passed by caller)
+function offerLive(o, now) {
+  if (!o || !o.active) return false;
+  const d = new Date(now), mins = d.getHours() * 60 + d.getMinutes(), hm = (x) => { const [h, m] = String(x || '0:0').split(':'); return (+h || 0) * 60 + (+m || 0); };
+  if (o.from && now < o.from) return false; if (o.to && now > o.to) return false;
+  if (Array.isArray(o.days) && o.days.length && !o.days.includes(d.getDay())) return false;
+  const a = hm(o.start), b = hm(o.end); if (o.start === undefined && o.end === undefined) return true;
+  return a <= b ? mins >= a && mins < b : mins >= a || mins < b;   // overnight windows allowed
+}
+// coupon check -> { ok, reason, amount }
+function couponCheck(c, gross, now) {
+  if (!c) return { ok: false, reason: 'unknown' };
+  if (!c.active) return { ok: false, reason: 'inactive' };
+  if (c.from && now < c.from) return { ok: false, reason: 'notyet' };
+  if (c.to && now > c.to) return { ok: false, reason: 'expired' };
+  if (c.maxUses > 0 && (c.uses || 0) >= c.maxUses) return { ok: false, reason: 'used' };
+  if (c.minSpend > 0 && gross < c.minSpend) return { ok: false, reason: 'min', min: c.minSpend };
+  return { ok: true, amount: cutAmount(c.kind, c.value, gross) };
+}
+// the promotional discount for a bill: coupon + best live offer. stack=false -> only the single biggest of (manual discount, coupon, offer)
+function promoPick(o) {
+  const { manual = 0, coupon = 0, offer = 0, stack, gross } = o;
+  if (stack) { const t = Math.min(gross, manual + coupon + offer); return { manual, coupon, offer, total: r2(t) }; }
+  const m = Math.max(manual, coupon, offer);
+  return { manual: m === manual ? manual : 0, coupon: m === coupon && m !== manual ? coupon : 0, offer: m === offer && m !== manual && m !== coupon ? offer : 0, total: r2(m) };
+}
+const giftBalanceOk = (g) => !!g && g.balance > 0 && (!g.expires || g.expires > Date.now());
+
 // ---------- Loyalty ----------
 const LOYALTY_DEFAULT = { enabled: true, egpPerPoint: 10, pointsPerRedeem: 100, redeemValue: 50 };
 const loyaltyCfg = (settings) => ({ ...LOYALTY_DEFAULT, ...(settings.loyalty || {}) });
@@ -175,5 +210,5 @@ function copilot(q, ctx) {
   return { reply: R('I can answer: "How many points were redeemed today?", "Which item sells best?", "What is today\'s revenue?", "What is low in stock?", or do: "Switch default language to Egyptian Ammiya", "Mark Cheesecake sold out", "Set 5 EGP per point", "Remember that ...". Connect the AI key to chat about anything else.', 'أقدر أجاوب: "النهاردة اتستبدل كام نقطة؟"، "إيه أكتر صنف مبيعًا؟"، "إيرادات النهاردة كام؟"، "إيه اللي قرب يخلص؟"، وأقدر أنفذ: "غير لغة المنيو لعامية"، "خلي الكيك خلصان"، "خلي كل 5 جنيه نقطة"، "تذكر إن ...". ولو الذكاء الاصطناعي متوصل أقدر أتكلم معاك في أي موضوع.'), unknown: true };
 }
 
-const api = { upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
+const api = { promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
 if (typeof module !== 'undefined') module.exports = api;
