@@ -21,6 +21,9 @@ function createTenant(rec, persist, onAlert) {
   function ensure() {
     let ch = false;
     db.tables.forEach((t) => { if (!t.key) { t.key = rkey(); ch = true; } });
+    // Next-release flags: every new feature starts OFF for existing venues
+    const st = db.settings;
+    if (!st.fb) { st.fb = { enabled: false, googleUrl: '' }; ch = true; }
     if (!rec.stats) { rec.stats = { staff: {} }; ch = true; }
     if (!db.reservations) { db.reservations = []; ch = true; }
     return ch;
@@ -215,7 +218,9 @@ const view = (s) => {
   return { ...s, bill: bill(s), loyalty: mem ? { phone: mem.phone, name: mem.name, points: mem.points, visits: mem.visits } : null };
 };
 function snapshotFor(c) {
-  const config = { settings: db.settings, categories: db.categories, items: db.items, tables: c.role === 'admin' ? db.tables : db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec.plan), plan: F.planOf(rec.plan) };
+  // the Google review link is only ever handed out by the feedback endpoint (4-5 stars), never inside the public config
+  const pubSettings = c.role === 'admin' || !db.settings.fb ? db.settings : { ...db.settings, fb: { enabled: !!db.settings.fb.enabled } };
+  const config = { settings: pubSettings, categories: db.categories, items: db.items, tables: c.role === 'admin' ? db.tables : db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec.plan), plan: F.planOf(rec.plan) };
   if (c.role !== 'customer') config.reservations = (db.reservations || []).filter((r) => r.at > Date.now() - 3 * 3600000);
   if (c.role === 'customer') {
     const t = db.tables.find((x) => x.number === c.tableNumber);
@@ -577,6 +582,6 @@ function analytics(days = 7) {
     if (r.action) broadcast(); return r;
   }
   const publicConfig = () => ({ settings: db.settings, categories: db.categories, items: db.items, tables: db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec.plan), plan: F.planOf(rec.plan) });
-  return { rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
+  return { notify: alertCaptains, rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
 }
 module.exports = { createTenant, freshData, clone };

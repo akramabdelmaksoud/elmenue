@@ -29,7 +29,7 @@ function vapidKeys() {
 }
 const VAPID = vapidKeys();
 if (webpush && VAPID.publicKey) webpush.setVapidDetails('mailto:' + (process.env.VAPID_CONTACT || 'admin@example.com'), VAPID.publicKey, VAPID.privateKey);
-const PUSH_TITLE = { order: '🍽️ New order', urgent: '🚨 Urgent request', check: '🧾 Check requested', request: '🔔 Guest request', ready: '✅ Order ready' };
+const PUSH_TITLE = { feedback: '💬 Guest feedback needs attention', order: '🍽️ New order', urgent: '🚨 Urgent request', check: '🧾 Check requested', request: '🔔 Guest request', ready: '✅ Order ready' };
 async function sendPush(rec, alerts) {
   const dead = [];
   if (!webpush || !VAPID.publicKey || !alerts.length || !(rec.pushSubs || []).length) return dead;
@@ -482,16 +482,29 @@ app.post(`${R}/push/subscribe`, tenantMw, needStaff, (req, res) => {
 app.post(`${R}/push/unsubscribe`, tenantMw, needStaff, (req, res) => {
   const r = req.tenant.rec, ep = req.body && req.body.endpoint; r.pushSubs = (r.pushSubs || []).filter((x) => x.sub.endpoint !== ep); req.tenant.broadcast(); res.json({ ok: 1 });
 });
-// guest feedback after paying (public, rate limited)
-app.post(`${R}/feedback`, tenantMw, (req, res) => {
-  const b = req.body || {}, r = req.tenant.rec, stars = Math.round(+b.stars);
+// guest feedback after paying (public, rate limited).
+// With the Operations "feedback" flag on (settings.fb.enabled): one rating per guest per visit, 4-5 stars may be offered the venue's Google link,
+// 1-3 stars stay private and alert the team. With the flag off the original behaviour is untouched.
+app.post(`${R}/feedback`, tenantMw, async (req, res, next) => { try {
+  const b = req.body || {}, t = req.tenant, r = t.rec, stars = Math.round(+b.stars), fb = (t.db.settings.fb || {}), plus = !!fb.enabled && F.has(r.plan, 'feedback');
   if (!(stars >= 1 && stars <= 5)) return res.status(400).json({ error: 'bad rating' });
   const rate = (r.fbRate ||= {}), k = String(req.ip).replace(/[^\w.:]/g, '').slice(0, 45), now = Date.now();
-  if (rate[k] && now - rate[k] < 3 * 60000) return res.json({ ok: 1, dup: true });
-  rate[k] = now; for (const x of Object.keys(rate)) if (now - rate[x] > 3600000) delete rate[x];
-  r.reviews = [{ id: newId('f'), at: now, stars, comment: String(b.comment || '').slice(0, 400), table: +b.table || 0, name: String(b.name || '').slice(0, 24) }, ...(r.reviews || [])].slice(0, 300);
-  req.tenant.broadcast(); res.json({ ok: 1 });
-});
+  const hits = (rate[k] = (Array.isArray(rate[k]) ? rate[k] : rate[k] ? [rate[k]] : []).filter((x) => now - x < (plus ? 600000 : 180000)));   // a venue's wifi shares one IP, so plus mode allows a few guests per window
+  if (hits.length >= (plus ? 12 : 1)) return res.json({ ok: 1, dup: true, limited: true });
+  hits.push(now); for (const x of Object.keys(rate)) if (!rate[x].length || now - rate[x][rate[x].length - 1] > 3600000) delete rate[x];
+  const comment = String(b.comment || '').slice(0, 400), table = +b.table || 0, name = String(b.name || '').slice(0, 24);
+  const rec = { id: newId('f'), at: now, stars, comment, table, name };
+  if (plus) {
+    const visit = String(b.visit || '').slice(0, 40), gid = String(b.guestId || '').slice(0, 40);
+    if (visit && gid && (r.reviews || []).some((x) => x.visit === visit && x.guestId === gid)) return res.json({ ok: 1, dup: true });
+    const tb = t.db.tables.find((x) => x.number === table), hist = STATELESS ? await store.getHist(r.id) : t.db.history, last = hist.slice().reverse().find((h) => h.tableNumber === table && now - h.closedAt < 3 * 3600000);
+    Object.assign(rec, { visit, guestId: gid, zone: tb ? tb.zone || 'Main' : '', waiter: last ? last.closedBy || '' : '', handled: false, private: stars <= 3 });
+  }
+  r.reviews = [rec, ...(r.reviews || [])].slice(0, 1000);
+  if (plus && stars <= 3) t.notify('feedback', table, `${'⭐'.repeat(stars)} table ${table}: ${comment.slice(0, 80) || 'low rating'}`);
+  persistRec(t); t.broadcast();
+  res.json({ ok: 1, google: plus && stars >= 4 && fb.googleUrl ? fb.googleUrl : '', private: plus && stars <= 3 });
+} catch (e) { next(e); } });
 
 // ----- Admin API (owner of this restaurant, or superadmin) -----
 const A = (m, p, ...h) => app[m](`${R}${p}`, tenantMw, needAdmin, ...h);
@@ -527,6 +540,16 @@ A('put', '/staff/:id', (req, res) => {
 });
 A('delete', '/staff/:id', (req, res) => { const r = req.tenant.rec; r.staff = (r.staff || []).filter((x) => x.id !== req.params.id); bc(req); res.json({ ok: 1 }); });
 A('get', '/feedback', (req, res) => res.json({ reviews: req.tenant.rec.reviews || [] }));
+// dashboard numbers: average, distribution, weekly trend, by waiter / zone, unhandled low ratings
+function fbSummary(rec, from, to) {
+  const rev = (rec.reviews || []).filter((x) => x.at >= from && x.at <= to), n = rev.length, avg = (a) => (a.length ? Math.round(a.reduce((s, x) => s + x.stars, 0) / a.length * 100) / 100 : 0);
+  const dist = [0, 0, 0, 0, 0], wk = {}, grp = (key) => { const m = {}; rev.forEach((x) => { const k = x[key] || '-'; (m[k] ||= []).push(x); }); return Object.entries(m).map(([k, a]) => ({ key: k, count: a.length, avg: avg(a) })).sort((a, b) => b.count - a.count); };
+  rev.forEach((x) => { dist[x.stars - 1]++; const d = new Date(x.at); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 1) % 7)); (wk[d.toISOString().slice(0, 10)] ||= []).push(x); });
+  return { count: n, avg: avg(rev), distribution: dist, trend: Object.keys(wk).sort().map((k) => ({ week: k, avg: avg(wk[k]), count: wk[k].length })), byWaiter: grp('waiter'), byZone: grp('zone'), unhandledLow: (rec.reviews || []).filter((x) => x.stars <= 3 && x.handled === false).length, latest: rev.slice(0, 30) };
+}
+A('get', '/feedback/summary', (req, res) => res.json(fbSummary(req.tenant.rec, +req.query.from || 0, +req.query.to || Date.now())));
+A('put', '/feedback/:id', (req, res) => { const x = (req.tenant.rec.reviews || []).find((r) => r.id === req.params.id); if (!x) return res.status(404).json({ error: 'not found' }); x.handled = !!req.body.handled; persistRec(req.tenant); res.json({ ok: 1 }); });
+A('get', '/feedback/export.csv', (req, res) => { const q = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"'; res.type('text/csv').set('Content-Disposition', 'attachment; filename="feedback.csv"').send('\ufeff' + ['Date,Stars,Table,Zone,Waiter,Guest,Comment,Handled', ...(req.tenant.rec.reviews || []).map((x) => [new Date(x.at).toISOString(), x.stars, x.table, q(x.zone), q(x.waiter), q(x.name), q(x.comment), x.handled ? 'yes' : 'no'].join(','))].join('\n')); });
 A('post', '/tables/:id/rekey', (req, res) => { const t = req.tenant.db.tables.find((x) => x.id === req.params.id); if (t) t.key = Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6); bc(req); res.json({ ok: 1 }); });
 A('post', '/tables-rekey', (req, res) => { req.tenant.db.tables.forEach((t) => (t.key = Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6))); bc(req); res.json({ ok: 1 }); });
 A('post', '/items/:id/adjust', (req, res) => {
@@ -595,6 +618,7 @@ A('post', '/settings', (req, res) => {
   const d = req.tenant.db; const b = req.body || {}; delete b.presets;
   if (F.PREMIUM_THEMES.includes(b.theme) && !F.has(req.tenant.rec.plan, 'themes')) return res.status(402).json({ error: 'Custom themes need the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' });
   if (b.loyalty) { if (!F.has(req.tenant.rec.plan, 'loyalty')) return res.status(402).json({ error: 'Loyalty needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const l = b.loyalty; b.loyalty = { enabled: l.enabled !== false, egpPerPoint: Math.max(1, +l.egpPerPoint || 10), pointsPerRedeem: Math.max(1, +l.pointsPerRedeem || 100), redeemValue: Math.max(0, +l.redeemValue || 0) }; }
+  if (b.fb) { if (!F.has(req.tenant.rec.plan, 'feedback')) return res.status(402).json({ error: 'Guest feedback & Google reviews need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); const u = String(b.fb.googleUrl || '').trim().slice(0, 300); b.fb = { enabled: !!b.fb.enabled, googleUrl: /^https:\/\/[^\s]+$/.test(u) ? u : '' }; }
   if ('refreshMin' in b) b.refreshMin = [0, 5, 15, 30, 60, 120, 360].includes(+b.refreshMin) ? +b.refreshMin : 60;
   if (b.ai) { if (!F.has(req.tenant.rec.plan, 'copilot')) return res.status(402).json({ error: 'The AI assistant needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const a = F.aiCfg({ ai: b.ai }); b.ai = { name: a.name, style: a.style, memory: a.memory.map((m) => ({ ...m, id: m.id || Math.random().toString(36).slice(2, 9), at: m.at || Date.now() })) }; }
   if (b.promos) b.promos = (Array.isArray(b.promos) ? b.promos : []).slice(0, 6).map((p) => ({ title: String(p.title || '').slice(0, 60), title_ar: String(p.title_ar || '').slice(0, 60), text: String(p.text || '').slice(0, 140), text_ar: String(p.text_ar || '').slice(0, 140) })); Object.assign(d.settings, b); bc(req); res.json(d.settings); });

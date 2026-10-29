@@ -3,6 +3,7 @@
 (() => {
   const EN = {
     // new screens
+    ratePrivate: 'Thank you - your feedback goes privately to our management.', rateGoogleNote: 'Optional - only if you would like to.', rateGoogle: 'Share your experience on Google',
     etaTitle: 'Estimated ready time', etaIn: 'Ready in about', etaMin: 'min', etaSoon: 'Plating now - just a moment', etaLate: 'A little longer - your dishes deserve it', etaWait: 'The kitchen will confirm shortly', etaCook: 'Being prepared by our chefs', etaDone: 'Served - enjoy', etaQueue: 'Estimated from your dishes and the kitchen queue',
     showMenu: 'Show Menu', wifi: 'Wi-Fi', wifiPass: 'Password', offers: 'Offers', tapCopy: 'Tap to copy', copied: 'Copied',
     partyQ: 'How many of you are at the table?', partySub: 'It helps the kitchen and the waiter get ready for you.', partyN: 'guests', partyOne: 'Just me',
@@ -38,6 +39,7 @@
     reviewTitle: 'راجع طلبك', reviewSub: 'اتأكد من كل حاجة قبل ما الطلب يروح للويتر.', addMore: '+ إضافة أصناف أخرى', confirmOrder: 'تأكيد الطلب', checkout: 'تأكيد', backToMenu: 'ارجع للمنيو',
     pendingTitle: 'مستني الويتر', pendingBanner: 'مسموحلك ترجع في كلامك أو تعدّل أي حاجة لحد ما الويتر يدخّل الطلب المطبخ.',
     lockedTitle: 'في المطبخ', lockedBanner: 'الطلب دخل المطبخ، لو محتاج تعدل اطلب الويتر.',
+    ratePrivate: 'شكراً - رأيك بيوصل للإدارة بشكل خاص.', rateGoogleNote: 'اختياري - لو حابب بس.', rateGoogle: 'شارك تجربتك على جوجل',
     etaTitle: 'الوقت المتوقع للجاهزية', etaIn: 'هيبقى جاهز خلال حوالي', etaMin: 'دقيقة', etaSoon: 'بنقدّمه حالاً - لحظات', etaLate: 'شوية كمان - أطباقك تستاهل', etaWait: 'المطبخ هيأكد حالاً', etaCook: 'الشيف بيحضّر طلبك دلوقتي', etaDone: 'اتقدم - بالهنا والشفا', etaQueue: 'تقدير حسب أطباقك وضغط المطبخ',
     cancelOrder: 'إلغاء طلبي', cancelAsk: 'تلغي الطلب ده؟', statusPending: 'مستني المراجعة', statusInKitchen: 'في المطبخ', statusReady: 'جاهز',
     water: 'مية', napkins: 'مناديل', cutlery: 'شوك وملاعق', microTitle: 'محتاج حاجة؟', microSent: 'جايلك حالًا!',
@@ -66,6 +68,7 @@
     reviewTitle: 'Rage3 talabak', reviewSub: 'Et2akked men kol 7aga abl ma el talab yeru7 lel waiter.', addMore: '+ Dif asnaf tanya', confirmOrder: 'Ta2keed el talab', checkout: 'Ta2keed', backToMenu: 'Erga3 lel menu',
     pendingTitle: 'Mestanny el waiter', pendingBanner: "masmo7lk terga3 f kalamk aw te3addel haga lehad mayeb2a in kitchen",
     lockedTitle: 'Fel matba5', lockedBanner: 'El talab da5al el matba5, lw me7tag te3addel oltob el waiter.',
+    ratePrivate: 'Shokran - ra2yak byewsal lel edara beshakl khass.', rateGoogleNote: 'Ekhteyary - law 7abeb bas.', rateGoogle: 'Share tagrebtak 3ala Google',
     etaTitle: 'El wa2t el mo2ada lel gahzeya', etaIn: 'Hayeb2a gahez ba3d ta2reban', etaMin: 'de2e2a', etaSoon: 'Benqaddemo hallan - lahazat', etaLate: 'Shwaya kaman - atba2ak testahel', etaWait: 'El matba5 hay2akked hallan', etaCook: 'El chef bihaddar talabak delwa2ty', etaDone: 'Etqaddem - bel hana wel shefa', etaQueue: 'Ta2dir 7asab atba2ak w daghT el matba5',
     cancelOrder: 'Ilgha2 talaby', cancelAsk: 'Te-lghy el talab da?', statusPending: 'Mestanny el moraga3a', statusInKitchen: 'Fel matba5', statusReady: 'Gahez',
     water: 'Maya', napkins: 'Manadeel', cutlery: 'Shoak w ma3ale2', microTitle: 'Me7tag 7aga?', microSent: 'Gaylak 7alan!',
