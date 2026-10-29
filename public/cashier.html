@@ -103,11 +103,7 @@ async function shiftDlg() {
 }
 async function shiftDo(k) {
   let j = k === 'open' ? await sapi('POST', 'shift/open', { float: +$('shf').value || 0 }) : await sapi('POST', 'shift/close', { counted: +$('shc').value || 0, note: $('shn').value });
-  if (j.warn) { if (!confirm('These tables are still open:
-' + j.openTables.map((x) => 'Table ' + x.table + ' · ' + x.total).join('
-') + '
-
-Close the shift anyway?')) return; j = await sapi('POST', 'shift/close', { counted: +$('shc').value || 0, note: $('shn').value, force: true }); }
+  if (j.warn) { if (!confirm(['These tables are still open:'].concat(j.openTables.map((x) => 'Table ' + x.table + ' · ' + x.total)).concat(['', 'Close the shift anyway?']).join(String.fromCharCode(10)))) return; j = await sapi('POST', 'shift/close', { counted: +$('shc').value || 0, note: $('shn').value, force: true }); }
   if (j.error) return App.toast(j.error);
   SH = j; paintShift(); document.querySelector('#dlg .modal') && document.querySelector('#dlg .modal').remove();
   if (k === 'open') { ESCPOS.linked && ESCPOS.kick().catch(() => {}); return App.toast('Shift open ✓'); }
