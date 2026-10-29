@@ -4,8 +4,10 @@ const F = require('./features');
 const clone = (o) => JSON.parse(JSON.stringify(o));
 function freshData(demo) {
   // demo cafés get the photographed showroom menu (showroom.js); real customers start from the plain seed menu
-  const sh = demo ? require('./showroom') : null;
-  return { settings: { ...clone(seed.settings), ...(sh ? clone(sh.settings) : {}) }, categories: clone(sh ? sh.categories : seed.categories), items: clone(sh ? sh.items : seed.items), tables: clone(seed.tables), sessions: {}, history: demo ? seed.buildHistory(sh.items) : [] };
+  const sh = demo && typeof require === 'function' ? require('./showroom') : null;   // the browser demo has no require: it keeps the plain menu
+  const d = { settings: { ...clone(seed.settings), ...(sh ? clone(sh.settings) : {}) }, categories: clone(sh ? sh.categories : seed.categories), items: clone(sh ? sh.items : seed.items), tables: clone(seed.tables), sessions: {}, history: demo ? seed.buildHistory(sh ? sh.items : undefined) : [] };
+  d.itemDaily = {}; d.history.forEach((h) => { const k = new Date(h.closedAt).toISOString().slice(0, 10), m = (d.itemDaily[k] ||= {}); h.items.forEach((l) => (m[l.itemId] = (m[l.itemId] || 0) + l.qty)); });
+  return d;
 }
 
 // A tenant = one restaurant with its own menu, tables, sessions, history, websocket clients.
@@ -24,6 +26,9 @@ function createTenant(rec, persist, onAlert) {
     // Next-release flags: every new feature starts OFF for existing venues
     const st = db.settings;
     if (!st.fb) { st.fb = { enabled: false, googleUrl: '' }; ch = true; }
+    if (!st.upsell) { st.upsell = { enabled: false, max: 3 }; ch = true; }
+    if (!db.upsell) { db.upsell = { days: {}, resetAt: 0 }; ch = true; }
+    if (!db.itemDaily) { db.itemDaily = {}; (db.history || []).forEach((h) => { if (h.unpaid) return; const k = new Date(h.closedAt).toISOString().slice(0, 10); const d = (db.itemDaily[k] ||= {}); h.items.forEach((l) => (d[l.itemId] = (d[l.itemId] || 0) + l.qty)); }); ch = true; }
     if (!rec.stats) { rec.stats = { staff: {} }; ch = true; }
     if (!db.reservations) { db.reservations = []; ch = true; }
     return ch;
@@ -137,6 +142,8 @@ function closeSession(t, method, who, pay) {
     const l = (lines[i.itemId] ||= { itemId: i.itemId, cat: m?.cat, name: i.name, qty: 0, price: i.price, cost: m?.cost || 0 });
     l.qty += i.qty;
   }));
+  if (upOn() && s.orders.length && method !== 'unpaid') { const d = upDay(); s.orders.forEach((o) => o.items.forEach((i) => { if (i.up) d.revenue[i.itemId] = +((d.revenue[i.itemId] || 0) + i.qty * i.price).toFixed(2); })); }
+  if (s.orders.length && method !== 'unpaid') { const k = new Date().toISOString().slice(0, 10), d = ((db.itemDaily ||= {})[k] ||= {}); Object.values(lines).forEach((l) => (d[l.itemId] = (d[l.itemId] || 0) + l.qty)); for (const x of Object.keys(db.itemDaily)) if (x < new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10)) delete db.itemDaily[x]; }
   const tip = pay && pay.tip !== undefined && pay.tip !== null && pay.tip !== '' ? Math.max(0, +(+pay.tip).toFixed(2)) : Math.round(b.net * (s.check?.tipPct || 0) / 100);
   const total = +(b.total + tip).toFixed(2);
   const m = ['cash', 'card', 'mixed', 'unpaid'].includes(method) ? method : (s.check?.method || 'cash');
@@ -217,10 +224,18 @@ const view = (s) => {
   const mem = s.loyaltyPhone && db.loyalty && db.loyalty.members[s.loyaltyPhone];
   return { ...s, bill: bill(s), loyalty: mem ? { phone: mem.phone, name: mem.name, points: mem.points, visits: mem.visits } : null };
 };
+// units sold per item over the last 30 days, best first (feeds the upsell fallback)
+function bestSellers() {
+  const cut = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10), tot = {};
+  Object.entries(db.itemDaily || {}).forEach(([day, m]) => { if (day >= cut) Object.entries(m).forEach(([id, q]) => (tot[id] = (tot[id] || 0) + q)); });
+  return Object.entries(tot).sort((a, b) => b[1] - a[1]).slice(0, 20).map((x) => x[0]);
+}
+const upDay = () => { const k = new Date().toISOString().slice(0, 10); return ((db.upsell ||= { days: {}, resetAt: 0 }).days[k] ||= { shown: {}, accepted: {}, revenue: {} }); };
+const upOn = () => F.has(rec.plan, 'upsell') && db.settings.upsell && db.settings.upsell.enabled;
 function snapshotFor(c) {
   // the Google review link is only ever handed out by the feedback endpoint (4-5 stars), never inside the public config
   const pubSettings = c.role === 'admin' || !db.settings.fb ? db.settings : { ...db.settings, fb: { enabled: !!db.settings.fb.enabled } };
-  const config = { settings: pubSettings, categories: db.categories, items: db.items, tables: c.role === 'admin' ? db.tables : db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec.plan), plan: F.planOf(rec.plan) };
+  const config = { best: bestSellers(), settings: pubSettings, categories: db.categories, items: db.items, tables: c.role === 'admin' ? db.tables : db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec.plan), plan: F.planOf(rec.plan) };
   if (c.role !== 'customer') config.reservations = (db.reservations || []).filter((r) => r.at > Date.now() - 3 * 3600000);
   if (c.role === 'customer') {
     const t = db.tables.find((x) => x.number === c.tableNumber);
@@ -314,11 +329,20 @@ function handle(c, m) {
         break;
       }
       case 'profile': { const g = s.guests.find((x) => x.id === c.guestId); if (g) { g.name = String(m.name || g.name).slice(0, 20); g.avatar = String(m.avatar || g.avatar).slice(0, 8); } break; }
+      case 'upsell_shown': {
+        if (!upOn()) break; const seen = (s.upSeen ||= {}), d = upDay();
+        (Array.isArray(m.ids) ? m.ids : []).slice(0, 6).forEach((x) => { if (db.items.some((i) => i.id === x) && !seen[x]) { seen[x] = 1; d.shown[x] = (d.shown[x] || 0) + 1; } });
+        break;
+      }
       case 'cart_add': {
         const it = db.items.find((x) => x.id === m.itemId); if (!it || it.soldOut) break;
         const ex = s.cart.find((l) => l.itemId === it.id && l.guestId === c.guestId && !l.note);
         if (ex) { if (ex.qty < 20) ex.qty++; }
-        else if (s.cart.length < 40) s.cart.push({ id: id('l'), guestId: c.guestId, itemId: it.id, name: it.name, name_ar: it.name_ar, emoji: it.emoji, price: it.price, qty: 1, note: '' });
+        else if (s.cart.length < 40) {
+          const up = !!m.up && upOn();   // added from the "Add something?" strip
+          s.cart.push({ id: id('l'), guestId: c.guestId, itemId: it.id, name: it.name, name_ar: it.name_ar, emoji: it.emoji, price: it.price, qty: 1, note: '', ...(up ? { up: 1 } : {}) });
+          if (up) { const d = upDay(); d.accepted[it.id] = (d.accepted[it.id] || 0) + 1; }
+        }
         break;
       }
       case 'cart_qty': {

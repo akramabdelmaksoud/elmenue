@@ -292,6 +292,20 @@ let tagSel = new Set(), lastHad = false, rated = false, lastVisit = ''; const pr
 // categories can be limited to hours of the day (e.g. breakfast 07:00-12:00)
 function catOpen(c) { const h = c && c.hours; if (!h || !h.from || !h.to) return true; const d = new Date(), m = d.getHours() * 60 + d.getMinutes(), [a1, a2] = h.from.split(':').map(Number), [b1, b2] = h.to.split(':').map(Number), a = a1 * 60 + a2, b = b1 * 60 + b2; return a <= b ? m >= a && m < b : m >= a || m < b; }
 const itemOpen = (cfg, i) => catOpen(cfg.categories.find((c) => c.id === i.cat));
+// "Add something?" - suggestions come from the shared pure function in features.js (same code the tests run)
+let FX = null; fetch('/engine/features.js').then((r) => r.text()).then((src) => { const m = { exports: {} }; new Function('module', 'exports', 'require', src)(m, m.exports, () => ({})); FX = m.exports; App.handlers && App.handlers.render && App.state && App.handlers.render(App.state); }).catch(() => {});
+const upReported = new Set();
+const upDismissed = (s) => { try { return JSON.parse(localStorage.getItem('up:' + SLUG + ':' + s.id) || '[]'); } catch { return []; } };
+window.upDismiss = (sid) => { try { localStorage.setItem('up:' + SLUG + ':' + sid, JSON.stringify(['*'])); } catch {} const e = document.getElementById('upstrip'); if (e) e.remove(); };
+function upStrip(s, mine) {
+  const cfg = App.config; if (!FX || !cfg.features.upsell || !FX.upCfg(cfg.settings).enabled || !mine.length) return '';
+  const dis = upDismissed(s); if (dis.includes('*')) return '';
+  const ordered = s.orders.flatMap((o) => o.items.map((i) => i.itemId));
+  const ids = FX.upsellFor(cfg, [...new Set(mine.map((l) => l.itemId))], { isOpen: (i) => itemOpen(cfg, i), skip: ordered.concat(dis) }); if (!ids.length) return '';
+  const fresh = ids.filter((x) => !upReported.has(x)); if (fresh.length) { fresh.forEach((x) => upReported.add(x)); setTimeout(() => App.send({ t: 'upsell_shown', ids: fresh }), 0); }
+  const card = (id) => { const i = cfg.items.find((x) => x.id === id); return `<div style="flex:none;width:150px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--card)"><div style="height:84px;background:${i.img ? "url('" + App.esc(i.img) + "') center/cover" : 'var(--line)'};display:grid;place-items:center;font-size:30px">${i.img ? '' : i.emoji}</div><div style="padding:8px"><b style="font-size:13px;display:block;line-height:1.25;min-height:32px">${App.esc(App.nm(i))}</b><div class="row2" style="margin-top:6px;align-items:center"><span class="muted" style="font-size:13px">${App.money(i.price)}</span><button class="send rp" style="padding:6px 12px;font-size:14px;min-width:0" data-up="${i.id}" onclick="App.send({t:'cart_add',itemId:'${i.id}',up:1})">+</button></div></div></div>`; };
+  return `<div id="upstrip" class="c rise" style="padding:14px;margin-top:10px"><div class="row2" style="margin-bottom:8px"><b class="serif" style="font-size:18px">${App.tr('upTitle')}</b><button class="ghost" style="padding:4px 10px;font-size:12px" onclick="upDismiss('${s.id}')">${App.tr('upNo')} ✕</button></div><div style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none">${ids.map(card).join('')}</div></div>`;
+}
 let tab = 'home', prevTab = 'home', cat = null, q = '', S = null, built = false, dirty = false, animate = true;
 let pay = { method: 'cash', split: 'table', tip: 10, custom: {} };
 const prevNum = {};
@@ -566,6 +580,7 @@ function tableTab(cfg, s) {
   ${hostCard(s)}
   <div class="h3 rise" style="--i:2">${App.tr(mine.length || !s.orders.length ? 'reviewTitle' : 'yourOrder')}</div>${mine.length ? `<p class="muted" style="margin:-4px 0 8px;font-size:13px">${App.tr('reviewSub')}</p>` : ''}
   ${mine.length ? mine.map((l, k) => line(l, true, k + 2)).join('') : s.orders.length ? '' : `<div class="c note rise muted" style="--i:3;text-align:center;padding:26px">${ic('cup').replace('<svg', '<svg width="34" height="34" style="color:var(--accent);margin-bottom:6px"')}<br>${App.tr('cartEmpty')}</div>`}
+  ${upStrip(s, mine)}
   <button class="c note rp rise" style="width:100%;font-weight:700;color:var(--accent)" onclick="go('menu')">${App.tr('addMore')}</button>
   ${mine.length ? `<button class="send rp" onclick="sendMine(this)">${ic('send')}${App.tr('confirmOrder')} · ${cnt(mineTotal, 'mine')}</button>` : ''}
   ${others.length ? `<div class="h3">${App.tr('tableOrder')}</div>${others.map((l, k) => line(l, false, k)).join('')}<button class="c note rp" style="width:100%" onclick="sendAll(this)">${ic('users').replace('<svg', '<svg width="18" height="18" style="vertical-align:-4px"')} ${App.tr('sendAll')} (${App.money(othersTotal)})</button>` : ''}

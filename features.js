@@ -31,6 +31,32 @@ function limitsOf(p, override) {
 const limitCheck = (kind, used, p, override) => { const limit = limitsOf(p, override)[kind]; return { kind, used, limit, ok: limit === null || used < limit, over: limit !== null && used > limit, upgrade: limit === null ? null : ORDER.find((id) => { const l = PLANS[id].limits[kind]; return l === null || l > limit; }) || null }; };
 const monthly = (p) => PLANS[planOf(p)].price[0];
 
+// ---------- Upsell suggestions ----------
+// Which dishes to offer next to what is already in the cart. Pure: the guest page and the tests call the same function.
+// cfg = { items, categories, best: [itemId...], settings }, cartIds = item ids in the cart, o.isOpen(item) = timed-category check, o.skip = ids the guest dismissed
+const UP_DEFAULT = { enabled: false, max: 3 };
+const upCfg = (settings) => { const u = { ...UP_DEFAULT, ...((settings && settings.upsell) || {}) }; u.max = Math.min(6, Math.max(1, Math.floor(+u.max) || 3)); u.enabled = !!u.enabled; return u; };
+function catRole(c) {
+  if (!c) return 'food'; if (['food', 'drink', 'dessert'].includes(c.role)) return c.role;
+  const n = (c.name + ' ' + (c.name_ar || '')).toLowerCase();
+  if (/dessert|sweet|cake|ice cream|حلو|حلويات/.test(n)) return 'dessert';
+  if (/coffee|tea|drink|juice|mocktail|smoothie|beverage|shake|water|قهوة|شاي|عصير|مشروب|موكتيل|مياه/.test(n)) return 'drink';
+  return 'food';
+}
+function upsellFor(cfg, cartIds, o = {}) {
+  const u = upCfg(cfg.settings); if (!u.enabled) return [];
+  const byId = Object.fromEntries(cfg.items.map((i) => [i.id, i])), role = (i) => catRole(cfg.categories.find((c) => c.id === i.cat));
+  const inCart = new Set(cartIds), skip = new Set(o.skip || []), isOpen = o.isOpen || (() => true);
+  const ok = (i) => i && !i.soldOut && !i.hidden && !inCart.has(i.id) && !skip.has(i.id) && isOpen(i);
+  const out = [], push = (i) => { if (ok(i) && !out.includes(i.id)) out.push(i.id); };
+  cartIds.forEach((id) => byId[id] && (byId[id].pairs || []).forEach((p) => push(byId[p])));   // 1) the owner's hand-picked pairings first
+  const have = new Set(cartIds.map((id) => byId[id]).filter(Boolean).map(role));
+  const want = !have.size ? [] : have.has('food') && !have.has('drink') ? ['drink', 'dessert'] : have.has('food') && !have.has('dessert') ? ['dessert'] : !have.has('food') && have.has('drink') ? ['food', 'dessert'] : have.has('dessert') && !have.has('drink') ? ['drink'] : ['drink', 'dessert'];
+  const rank = (cfg.best || []).slice(), pos = (i) => { const k = rank.indexOf(i.id); return k < 0 ? 999 : k; };
+  want.forEach((w) => cfg.items.filter((i) => role(i) === w && ok(i)).sort((a, b) => pos(a) - pos(b)).slice(0, 2).forEach(push));   // 2) best sellers of the complementary categories
+  return out.slice(0, u.max);
+}
+
 // ---------- Loyalty ----------
 const LOYALTY_DEFAULT = { enabled: true, egpPerPoint: 10, pointsPerRedeem: 100, redeemValue: 50 };
 const loyaltyCfg = (settings) => ({ ...LOYALTY_DEFAULT, ...(settings.loyalty || {}) });
@@ -149,5 +175,5 @@ function copilot(q, ctx) {
   return { reply: R('I can answer: "How many points were redeemed today?", "Which item sells best?", "What is today\'s revenue?", "What is low in stock?", or do: "Switch default language to Egyptian Ammiya", "Mark Cheesecake sold out", "Set 5 EGP per point", "Remember that ...". Connect the AI key to chat about anything else.', 'أقدر أجاوب: "النهاردة اتستبدل كام نقطة؟"، "إيه أكتر صنف مبيعًا؟"، "إيرادات النهاردة كام؟"، "إيه اللي قرب يخلص؟"، وأقدر أنفذ: "غير لغة المنيو لعامية"، "خلي الكيك خلصان"، "خلي كل 5 جنيه نقطة"، "تذكر إن ...". ولو الذكاء الاصطناعي متوصل أقدر أتكلم معاك في أي موضوع.'), unknown: true };
 }
 
-const api = { limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
+const api = { upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
 if (typeof module !== 'undefined') module.exports = api;

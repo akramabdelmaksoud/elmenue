@@ -540,6 +540,21 @@ A('put', '/staff/:id', (req, res) => {
 });
 A('delete', '/staff/:id', (req, res) => { const r = req.tenant.rec; r.staff = (r.staff || []).filter((x) => x.id !== req.params.id); bc(req); res.json({ ok: 1 }); });
 A('get', '/feedback', (req, res) => res.json({ reviews: req.tenant.rec.reviews || [] }));
+// ---- upsell metrics (non-destructive Clear: only moves resetAt) ----
+function upStats(t, from, to) {
+  const u = t.db.upsell || { days: {}, resetAt: 0 }, lo = from, per = {};
+  Object.entries(u.days).forEach(([day, d]) => { const ts = Date.parse(day + 'T12:00:00Z'); if (ts < lo - 86400000 || ts > to) return; ['shown', 'accepted', 'revenue'].forEach((k) => Object.entries(d[k] || {}).forEach(([id, v]) => { (per[id] ||= { shown: 0, accepted: 0, revenue: 0 })[k] += v; })); });
+  const items = Object.entries(per).map(([id, v]) => { const it = t.db.items.find((x) => x.id === id); return { id, name: it ? it.name : id, ...v, revenue: Math.round(v.revenue * 100) / 100, rate: v.shown ? Math.round(v.accepted / v.shown * 1000) / 10 : 0 }; }).sort((a, b) => b.revenue - a.revenue || b.accepted - a.accepted);
+  const shown = items.reduce((n, x) => n + x.shown, 0), accepted = items.reduce((n, x) => n + x.accepted, 0), revenue = Math.round(items.reduce((n, x) => n + x.revenue, 0) * 100) / 100;
+  return { shown, accepted, rate: shown ? Math.round(accepted / shown * 1000) / 10 : 0, revenue, items, resetAt: u.resetAt || 0 };
+}
+const gateUp = (req, res, next) => (F.has(req.tenant.rec.plan, 'upsell') ? next() : res.status(402).json({ error: 'Upsell needs the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }));
+A('get', '/upsell/stats', gateUp, (req, res) => res.json(upStats(req.tenant, +req.query.from || 0, +req.query.to || Date.now())));
+A('post', '/upsell/clear', gateUp, (req, res) => { const u = (req.tenant.db.upsell ||= { days: {}, resetAt: 0 }), mergeInto = (to, from) => Object.entries(from || {}).forEach(([day, d]) => { const x = (to[day] ||= { shown: {}, accepted: {}, revenue: {} }); ['shown', 'accepted', 'revenue'].forEach((k) => Object.entries(d[k] || {}).forEach(([id, v]) => (x[k][id] = (x[k][id] || 0) + v))); });
+  // non-destructive: the counters move to an archive (restorable); sales records are never touched
+  if (req.body && req.body.restore) { mergeInto(u.days, u.archive); u.archive = {}; u.resetAt = 0; } else { u.archive = u.archive || {}; mergeInto(u.archive, u.days); u.days = {}; u.resetAt = Date.now(); }
+  persistRec(req.tenant); res.json({ ok: 1 }); });
+A('get', '/upsell/export.csv', gateUp, (req, res) => { const s = upStats(req.tenant, +req.query.from || 0, +req.query.to || Date.now()); res.type('text/csv').set('Content-Disposition', 'attachment; filename="upsell.csv"').send('\ufeff' + ['Item,Shown,Accepted,Acceptance %,Extra revenue', ...s.items.map((x) => [JSON.stringify(x.name), x.shown, x.accepted, x.rate, x.revenue].join(',')), ['TOTAL', s.shown, s.accepted, s.rate, s.revenue].join(',')].join('\n')); });
 // dashboard numbers: average, distribution, weekly trend, by waiter / zone, unhandled low ratings
 function fbSummary(rec, from, to) {
   const rev = (rec.reviews || []).filter((x) => x.at >= from && x.at <= to), n = rev.length, avg = (a) => (a.length ? Math.round(a.reduce((s, x) => s + x.stars, 0) / a.length * 100) / 100 : 0);
@@ -618,6 +633,7 @@ A('post', '/settings', (req, res) => {
   const d = req.tenant.db; const b = req.body || {}; delete b.presets;
   if (F.PREMIUM_THEMES.includes(b.theme) && !F.has(req.tenant.rec.plan, 'themes')) return res.status(402).json({ error: 'Custom themes need the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' });
   if (b.loyalty) { if (!F.has(req.tenant.rec.plan, 'loyalty')) return res.status(402).json({ error: 'Loyalty needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const l = b.loyalty; b.loyalty = { enabled: l.enabled !== false, egpPerPoint: Math.max(1, +l.egpPerPoint || 10), pointsPerRedeem: Math.max(1, +l.pointsPerRedeem || 100), redeemValue: Math.max(0, +l.redeemValue || 0) }; }
+  if (b.upsell) { if (!F.has(req.tenant.rec.plan, 'upsell')) return res.status(402).json({ error: 'Upsell suggestions need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.upsell = F.upCfg({ upsell: b.upsell }); }
   if (b.fb) { if (!F.has(req.tenant.rec.plan, 'feedback')) return res.status(402).json({ error: 'Guest feedback & Google reviews need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); const u = String(b.fb.googleUrl || '').trim().slice(0, 300); b.fb = { enabled: !!b.fb.enabled, googleUrl: /^https:\/\/[^\s]+$/.test(u) ? u : '' }; }
   if ('refreshMin' in b) b.refreshMin = [0, 5, 15, 30, 60, 120, 360].includes(+b.refreshMin) ? +b.refreshMin : 60;
   if (b.ai) { if (!F.has(req.tenant.rec.plan, 'copilot')) return res.status(402).json({ error: 'The AI assistant needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const a = F.aiCfg({ ai: b.ai }); b.ai = { name: a.name, style: a.style, memory: a.memory.map((m) => ({ ...m, id: m.id || Math.random().toString(36).slice(2, 9), at: m.at || Date.now() })) }; }
@@ -629,7 +645,7 @@ A('put', '/categories/:id', (req, res) => { const c = req.tenant.db.categories.f
 A('delete', '/categories/:id', (req, res) => { const d = req.tenant.db; d.categories = d.categories.filter((x) => x.id !== req.params.id); d.items = d.items.filter((i) => i.cat !== req.params.id); bc(req); res.json({ ok: 1 }); });
 
 A('post', '/items', (req, res) => { const d = req.tenant.db; const b = req.body; const i = { id: newId('i'), cat: b.cat, name: b.name || 'New item', name_ar: b.name_ar || '', price: +b.price || 0, cost: +b.cost || 0, emoji: b.emoji || '🍽️', desc: b.desc || '', img: '' }; if (b.stock !== undefined && b.stock !== null && b.stock !== '') i.stock = Math.max(0, Math.floor(+b.stock) || 0); d.items.push(i); bc(req); res.json(i); });
-A('put', '/items/:id', (req, res) => { const i = req.tenant.db.items.find((x) => x.id === req.params.id); if (i) { Object.assign(i, req.body, { id: i.id }); i.price = +i.price; i.cost = +i.cost; const b = req.body || {}; if ('stock' in b) i.stock = b.stock === null || b.stock === '' ? null : Math.max(0, Math.floor(+b.stock) || 0); if ('lowAt' in b) i.lowAt = Math.max(0, Math.floor(+b.lowAt) || 0); } bc(req); res.json(i); });
+A('put', '/items/:id', (req, res) => { const i = req.tenant.db.items.find((x) => x.id === req.params.id); if (i) { Object.assign(i, req.body, { id: i.id }); i.price = +i.price; i.cost = +i.cost; const b = req.body || {}; if ('pairs' in b) i.pairs = (Array.isArray(b.pairs) ? b.pairs : []).filter((p, k, a) => a.indexOf(p) === k && p !== i.id && req.tenant.db.items.some((x) => x.id === p)).slice(0, 6); if ('stock' in b) i.stock = b.stock === null || b.stock === '' ? null : Math.max(0, Math.floor(+b.stock) || 0); if ('lowAt' in b) i.lowAt = Math.max(0, Math.floor(+b.lowAt) || 0); } bc(req); res.json(i); });
 A('delete', '/items/:id', (req, res) => { const d = req.tenant.db; d.items = d.items.filter((x) => x.id !== req.params.id); bc(req); res.json({ ok: 1 }); });
 A('post', '/items/:id/image', upload.single('image'), async (req, res) => {
   const i = req.tenant.db.items.find((x) => x.id === req.params.id);
