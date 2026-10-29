@@ -37,6 +37,46 @@ Object.assign(DICT.ar, {
 
 // ?demo=1 (remembered for this tab) runs the whole app on in-browser sample data - see demo.js
 const DEMO = (() => { if (/^\/r\/live-demo(\/|$)/.test(location.pathname)) return true; try { if (new URLSearchParams(location.search).has('demo')) sessionStorage.setItem('demo', '1'); return sessionStorage.getItem('demo') === '1'; } catch { return false; } })();
+// F7 offline queue for staff apps: an action is written to IndexedDB first, sent with an idempotency key, removed only after the server confirmed it.
+const OQ = {
+  role: '', join: null, busy: false, tbl: null,
+  on() { const c = App.config; return !!(c && c.features && c.features.offline && c.settings && c.settings.offline && c.settings.offline.enabled) && (OQ.role === 'captain' || OQ.role === 'cashier'); },
+  want(o) { return OQ.on() && !!o && ['staff_order', 'open_ticket', 'seat_table', 'resolve_request', 'order_status'].includes(o.t); },
+  db() { return OQ.tbl || (OQ.tbl = new Promise((ok, no) => { try { const r = indexedDB.open('elmenue-oq', 1); r.onupgradeneeded = () => r.result.createObjectStore('q', { keyPath: 'k' }); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); } catch (e) { no(e); } })); },
+  async tx(mode, fn) { const d = await OQ.db(); return new Promise((ok, no) => { const t = d.transaction('q', mode), s = t.objectStore('q'), r = fn(s); t.oncomplete = () => ok(r && r.result); t.onerror = () => no(t.error); }); },
+  all() { return OQ.tx('readonly', (s) => s.getAll()).then((l) => (l || []).filter((x) => x.slug === App.slug).sort((a, b) => a.at - b.at)); },
+  async add(o) {
+    const item = { k: (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)), slug: App.slug, at: Date.now(), msg: o };
+    try { await OQ.tx('readwrite', (s) => s.put(item)); } catch { App.toast('This device cannot store offline actions'); return; }
+    OQ.bar(); OQ.flush();
+  },
+  async post(it) {
+    const j = { join: { ...OQ.join, since: -1 }, msg: { ...it.msg, k: it.k }, since: -1 };
+    const r = await fetch('/api/r/' + App.slug + '/rpc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(j) });
+    return { r, j: await r.json().catch(() => ({})) };
+  },
+  async flush() {
+    if (OQ.busy || !OQ.join) return; OQ.busy = true;
+    try {
+      for (const it of await OQ.all()) {
+        let res; try { res = await OQ.post(it); } catch { break; }   // still offline: keep everything, retry later
+        if (res.r.status === 401) { break; }
+        if (res.r.status >= 500 || res.r.status === 409 || res.r.status === 429) break;
+        await OQ.tx('readwrite', (s) => s.delete(it.k));   // confirmed (or refused for good: a notice explains why)
+        (res.j.notices || []).filter((n) => n && n !== 'Already applied').forEach((n) => App.toast('⚠ ' + n));
+        if (App.poll) App.poll.call(null);
+      }
+    } finally { OQ.busy = false; OQ.bar(); }
+  },
+  async bar() {
+    let n = 0; try { n = (await OQ.all()).length; } catch {}
+    let b = document.getElementById('oqbar'); if (!b) { b = document.createElement('div'); b.id = 'oqbar'; document.body.appendChild(b); }
+    const off = navigator.onLine === false || document.body.classList.contains('offline');
+    b.textContent = n ? (off ? '📴 Offline - ' : '⏳ ') + n + (n === 1 ? ' action' : ' actions') + ' waiting to send' : off && OQ.on() ? '📴 Offline - new orders will be saved and sent when you are back' : '';
+    b.classList.toggle('on', !!b.textContent);
+  },
+  start(j) { OQ.role = j.role; OQ.join = { role: j.role, token: j.token }; if (OQ.on !== undefined && (j.role === 'captain' || j.role === 'cashier') && !OQ.t) { OQ.t = setInterval(() => { OQ.flush(); OQ.bar(); }, 4000); addEventListener('online', () => OQ.flush()); addEventListener('offline', OQ.bar); OQ.flush(); } },
+};
 const App = {
   demo: DEMO,
   loadDemo() { return (App._dl ||= new Promise((res) => { const s = document.createElement('script'); s.src = '/demo.js'; s.onload = () => App.demoReady().then(res); s.onerror = res; document.head.appendChild(s); })); },
@@ -243,6 +283,7 @@ const App = {
     App.handlers = handlers;
     if (App.demo) { App.loadDemo().then(() => App.demoConnect({ ...joinMsg, slug: App.slug }, handlers)); return; }
     joinMsg = { ...joinMsg, slug: App.slug }; if (joinMsg.role !== 'customer') joinMsg.token = App.tok(joinMsg.role);
+    App.oq.start(joinMsg);
     const onMsg = (m) => {
       if (m.t === 'state') { App.state = m; App.config = m.config; App.applyTheme(); handlers.render && handlers.render(m); }
       else if (m.t === 'error' && m.msg === 'auth') { App.ls(`tok:${App.slug}:${App.authRole}`, ''); location.reload(); }
@@ -262,7 +303,8 @@ const App = {
     };
     open();
   },
-  send(o) { if (App.demoSend) return App.demoSend(o); if (App.poll) return App.poll.call(o); App.ws && App.ws.readyState === 1 && App.ws.send(JSON.stringify(o)); },
+  oq: OQ,
+  send(o) { if (App.demoSend) return App.demoSend(o); if (App.oq && App.oq.want(o)) return App.oq.add(o); if (App.poll) return App.poll.call(o); App.ws && App.ws.readyState === 1 && App.ws.send(JSON.stringify(o)); },
   startPolling(joinMsg, handlers, onMsg) {
     const P = (App.poll = { since: -1, chain: Promise.resolve(), timer: null });
     document.body.classList.remove('offline');
@@ -349,4 +391,4 @@ document.addEventListener('click', (e) => {
 
 // make the staff pages installable (needs the service worker); remember the install prompt for a button
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); App.installEvt = e; document.dispatchEvent(new Event('app-installable')); });
-if (/\/(captain|kitchen)(\/|$)/.test(location.pathname) && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+if (/\/(captain|kitchen|cashier)(\/|$)/.test(location.pathname) && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});

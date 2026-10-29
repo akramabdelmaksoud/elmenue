@@ -26,6 +26,8 @@ function createTenant(rec, persist, onAlert) {
     // Next-release flags: every new feature starts OFF for existing venues
     const st = db.settings;
     if (!st.fb) { st.fb = { enabled: false, googleUrl: '' }; ch = true; }
+    if (!st.offline) { st.offline = { enabled: false }; ch = true; }
+    if (!db.idem) { db.idem = {}; ch = true; }
     if (!st.promo) { st.promo = { enabled: false, stack: false }; ch = true; }
     if (!db.coupons) { db.coupons = []; ch = true; }
     if (!db.offers) { db.offers = []; ch = true; }
@@ -288,6 +290,12 @@ function alertCaptains(kind, tableNumber, text) {
 
 // ---------- WebSocket logic ----------
 function handle(c, m) {
+  // idempotency: a queued staff action replayed after a reconnect (same key) is applied once only
+  if (m && m.k && m.t !== 'join' && c.joined) {
+    const k = String(m.k).slice(0, 64), seen = (db.idem ||= {});
+    if (seen[k]) { c.ws.send(JSON.stringify({ t: 'notice', msg: 'Already applied', code: 'dup' })); return; }
+    seen[k] = Date.now(); const ks = Object.keys(seen); if (ks.length > 800) ks.sort((a, b) => seen[a] - seen[b]).slice(0, ks.length - 600).forEach((x) => delete seen[x]);
+  }
   if (m.t === 'join') {
     if (c.joined) return;
     if (m.role !== 'customer' && !c.authed) return;
@@ -457,12 +465,14 @@ function handle(c, m) {
         if (!F.has(rec.plan, 'ordering')) break;
         const t = db.tables.find((x) => x.id === m.tableId); let s = db.sessions[m.tableId];
         if (!s && t) s = openSession(t); if (!s) break;
-        const want = [];
+        const want = [], dropped = [];
         (Array.isArray(m.items) ? m.items : []).slice(0, 40).forEach((x) => {
           const it = db.items.find((y) => y.id === x.itemId); const q = Math.min(20, Math.floor(+x.qty));
+          if (it && it.soldOut && q > 0) dropped.push(it.name);
           if (!it || it.soldOut || !(q > 0)) return;
           want.push({ id: id('l'), guestId: null, itemId: it.id, name: it.name, name_ar: it.name_ar, emoji: it.emoji, price: it.price, qty: q, note: String(x.note || '').slice(0, 140) });
         });
+        if (dropped.length) c.ws.send(JSON.stringify({ t: 'notice', msg: 'Sold out, not added: ' + dropped.join(', '), code: 'conflict' }));
         if (!want.length) break;
         let g = s.guests.find((x) => x.id === m.guestId) || s.guests[0];
         if (!g) { g = { id: 'staff', name: 'Staff', avatar: '🧑‍🍳' }; s.guests.push(g); }
