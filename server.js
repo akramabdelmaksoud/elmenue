@@ -402,38 +402,69 @@ function needStaff(req, res, next) {
   if (d.r !== 'super' && !(d.s === req.params.slug && ['admin', 'captain', 'kitchen', 'cashier'].includes(d.r))) return res.status(403).json({ error: 'forbidden' });
   req.claims = d; next();
 }
-// ---- cashier till: shifts, paid in/out, counted-cash variance (Z report) ----
+// ---- cashier till: shifts, X / Z reports, paid in/out, counted-cash variance ----
+// A closed shift (Z report) is immutable: nothing below edits rec.shifts.list entries, and Z numbers come from the persistent counter rec.zSeq.
 const needCash = (req, res, next) => needStaff(req, res, () => (['admin', 'cashier', 'super'].includes(req.claims.r) ? next() : res.status(403).json({ error: 'forbidden' })));
-async function shiftView(t, extra) {
+const r2 = (n) => Math.round((+n || 0) * 100) / 100;
+const METHODS = ['cash', 'card', 'online', 'gift'];
+// Everything a shift report shows, computed from the closed sessions of the period (unpaid clears are excluded from revenue, as everywhere else)
+function shiftReport(t, from, to, hist) {
+  const all = hist.filter((h) => h.closedAt >= from && h.closedAt <= to), H = all.filter((h) => !h.unpaid);
+  const sum = (f) => r2(H.reduce((n, h) => n + (f(h) || 0), 0)), by = Object.fromEntries(METHODS.map((m) => [m, 0])), kinds = {}, items = {}, voids = [];
+  H.forEach((h) => {
+    const p = h.pay || {};
+    if (h.method === 'online') by.online += h.total; else if (h.method === 'gift') by.gift += h.total; else { by.cash += p.cash || 0; by.card += p.card || 0; by.online += p.online || 0; by.gift += p.gift || 0; }
+    const k = (kinds[h.kind || 'table'] ||= { count: 0, total: 0 }); k.count++; k.total = r2(k.total + h.total);
+    (h.items || []).forEach((l) => { const x = (items[l.name] ||= { name: l.name, qty: 0, revenue: 0 }); x.qty += l.qty; x.revenue = r2(x.revenue + l.qty * l.price); });
+    (h.voids || []).forEach((v) => voids.push({ table: h.tableNumber, name: v.name, qty: v.qty, value: r2(v.qty * v.price), reason: v.reason || '', waste: !!v.waste, by: v.by || '' }));
+  });
+  METHODS.forEach((m) => (by[m] = r2(by[m])));
+  return { from, to, sales: H.length, unpaidClears: all.length - H.length, gross: sum((h) => h.sub), discounts: sum((h) => h.discount), service: sum((h) => h.service), tax: sum((h) => h.tax), tips: sum((h) => h.tip), total: sum((h) => h.total), byMethod: by, kinds, voids, voidValue: r2(voids.reduce((n, v) => n + v.value, 0)), itemsSold: Object.values(items).sort((x, y) => y.qty - x.qty) };
+}
+async function shiftView(t) {
   const sh = (t.rec.shifts ||= { cur: null, list: [] }), hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history;
-  const cur = sh.cur && (() => {
-    const H = hist.filter((h) => h.closedAt >= sh.cur.openedAt && !h.unpaid);
-    const cash = H.reduce((n, h) => n + ((h.pay && h.pay.cash) || 0), 0), card = H.reduce((n, h) => n + ((h.pay && h.pay.card) || 0), 0);
-    const inn = sh.cur.moves.filter((m) => m.kind === 'in').reduce((n, m) => n + m.amount, 0), out = sh.cur.moves.filter((m) => m.kind === 'out').reduce((n, m) => n + m.amount, 0);
-    return { ...sh.cur, sales: H.length, cash: +cash.toFixed(2), card: +card.toFixed(2), tips: +H.reduce((n, h) => n + (h.tip || 0), 0).toFixed(2), discounts: +H.reduce((n, h) => n + (h.discount || 0), 0).toFixed(2), voids: H.reduce((n, h) => n + (h.voids || []).length, 0), total: +H.reduce((n, h) => n + h.total, 0).toFixed(2), paidIn: inn, paidOut: out, expected: +(sh.cur.float + cash + inn - out).toFixed(2) };
-  })();
-  return { cur: cur || null, list: sh.list.slice(-15).reverse(), ...extra };
+  let cur = null;
+  if (sh.cur) {
+    const R = shiftReport(t, sh.cur.openedAt, Date.now(), hist), inn = r2(sh.cur.moves.filter((m) => m.kind === 'in').reduce((n, m) => n + m.amount, 0)), out = r2(sh.cur.moves.filter((m) => m.kind === 'out').reduce((n, m) => n + m.amount, 0));
+    cur = { ...sh.cur, ...R, cash: R.byMethod.cash, card: R.byMethod.card, paidIn: inn, paidOut: out, expected: r2(sh.cur.float + R.byMethod.cash + inn - out) };
+  }
+  const openTables = Object.values(t.db.sessions).filter((s) => s.orders.length).map((s) => ({ table: s.tableNumber, total: t.bill(s).total }));
+  return { cur, list: sh.list.slice(-30).reverse(), openTables, zSeq: t.rec.zSeq || 0 };
 }
 app.get(`${R}/shift`, tenantMw, needCash, async (req, res) => { try { res.json(await shiftView(req.tenant)); } catch (e) { res.status(500).json({ error: e.message }); } });
+// X report: the same numbers as the Z report, but the shift stays open
+app.get(`${R}/shift/x`, tenantMw, needCash, async (req, res) => { try { const v = await shiftView(req.tenant); v.cur ? res.json({ x: v.cur, openTables: v.openTables }) : res.status(400).json({ error: 'No open shift' }); } catch (e) { res.status(500).json({ error: e.message }); } });
 app.post(`${R}/shift/open`, tenantMw, needCash, async (req, res) => {
-  const t = req.tenant, sh = (t.rec.shifts ||= { cur: null, list: [] }), f = Math.max(0, +req.body.float || 0);
+  const t = req.tenant, sh = (t.rec.shifts ||= { cur: null, list: [] }), f = Math.max(0, r2(req.body.float));
   if (sh.cur) return res.status(400).json({ error: 'A shift is already open' });
   sh.cur = { id: newId('sh'), openedAt: Date.now(), by: req.claims.n || 'Owner', float: f, moves: [] }; persistRec(t); res.json(await shiftView(t));
 });
 app.post(`${R}/shift/move`, tenantMw, needCash, async (req, res) => {
-  const t = req.tenant, sh = (t.rec.shifts ||= { cur: null, list: [] }), a = Math.round((+req.body.amount || 0) * 100) / 100;
+  const t = req.tenant, sh = (t.rec.shifts ||= { cur: null, list: [] }), a = r2(req.body.amount);
   if (!sh.cur) return res.status(400).json({ error: 'Open a shift first' });
   if (!(a > 0) || !['in', 'out'].includes(req.body.kind)) return res.status(400).json({ error: 'Enter an amount' });
-  sh.cur.moves.push({ at: Date.now(), kind: req.body.kind, amount: a, note: String(req.body.note || '').slice(0, 60), by: req.claims.n || 'Owner' }); persistRec(t); res.json(await shiftView(t));
+  const why = String(req.body.note || '').trim().slice(0, 60); if (req.body.kind === 'out' && !why) return res.status(400).json({ error: 'Give a reason for the cash taken out' });
+  sh.cur.moves.push({ at: Date.now(), kind: req.body.kind, amount: a, note: why, by: req.claims.n || 'Owner' }); persistRec(t); res.json(await shiftView(t));
 });
 app.post(`${R}/shift/close`, tenantMw, needCash, async (req, res) => {
   const t = req.tenant, sh = (t.rec.shifts ||= { cur: null, list: [] });
   if (!sh.cur) return res.status(400).json({ error: 'No open shift' });
-  const v = (await shiftView(t)).cur, counted = Math.max(0, +req.body.counted || 0);
-  const z = { ...v, closedAt: Date.now(), closedBy: req.claims.n || 'Owner', counted, variance: +(counted - v.expected).toFixed(2), note: String(req.body.note || '').slice(0, 120) };
-  sh.list.push(z); sh.list = sh.list.slice(-60); sh.cur = null; persistRec(t); res.json({ ...(await shiftView(t)), z });
+  const view = await shiftView(t);
+  if (view.openTables.length && !req.body.force) return res.status(409).json({ error: 'Some tables are still open', warn: true, openTables: view.openTables });
+  const counted = Math.max(0, r2(req.body.counted)), v = view.cur;
+  t.rec.zSeq = (t.rec.zSeq || 0) + 1;
+  const z = { ...v, number: t.rec.zSeq, closedAt: Date.now(), closedBy: req.claims.n || 'Owner', counted, variance: r2(counted - v.expected), note: String(req.body.note || '').slice(0, 120), openTablesAtClose: view.openTables.length };
+  sh.list.push(Object.freeze(z)); sh.list = sh.list.slice(-500); sh.cur = null; persistRec(t); res.json({ ...(await shiftView(t)), z });
 });
+const csv = (rows) => '\ufeff' + rows.map((r) => r.map((c) => { const x = String(c ?? ''); return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; }).join(',')).join('\n');
+const zRow = (z) => [z.number, new Date(z.openedAt).toISOString(), new Date(z.closedAt).toISOString(), z.by, z.closedBy, z.float, z.sales, z.gross, z.discounts, z.service, z.tax, z.tips, z.total, z.byMethod.cash, z.byMethod.card, z.byMethod.online, z.byMethod.gift, z.paidIn, z.paidOut, z.expected, z.counted, z.variance, z.voidValue];
+const Z_HEAD = ['Z no', 'Opened', 'Closed', 'Opened by', 'Closed by', 'Float', 'Sales', 'Gross', 'Discounts', 'Service', 'Tax', 'Tips', 'Total', 'Cash', 'Card', 'Online', 'Gift card', 'Paid in', 'Paid out', 'Expected cash', 'Counted cash', 'Variance', 'Voids'];
 app.get(`${R}/shifts`, tenantMw, needAdmin, async (req, res) => res.json(await shiftView(req.tenant)));
+app.get(`${R}/shifts/export.csv`, tenantMw, needAdmin, (req, res) => { const l = (req.tenant.rec.shifts || { list: [] }).list; res.type('text/csv').set('Content-Disposition', 'attachment; filename="z-reports.csv"').send(csv([Z_HEAD, ...l.map(zRow)])); });
+app.get(`${R}/shift/z/:no/export.csv`, tenantMw, needCash, (req, res) => {
+  const z = ((req.tenant.rec.shifts || { list: [] }).list).find((x) => String(x.number) === req.params.no); if (!z) return res.status(404).json({ error: 'not found' });
+  res.type('text/csv').set('Content-Disposition', `attachment; filename="z-${z.number}.csv"`).send(csv([Z_HEAD, zRow(z), [], ['Items sold'], ['Item', 'Qty', 'Revenue'], ...z.itemsSold.map((i) => [i.name, i.qty, i.revenue]), [], ['Voids'], ['Table', 'Item', 'Qty', 'Value', 'Reason', 'By'], ...z.voids.map((v) => [v.table, v.name, v.qty, v.value, v.reason, v.by])]));
+});
 
 // quick "sold out" switch for kitchen, captain and owner
 app.put(`${R}/items/:id/stock`, tenantMw, needStaff, (req, res) => {
