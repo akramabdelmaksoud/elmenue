@@ -248,8 +248,8 @@ if (SINGLE) {
   });
 }
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/vendor/sortable.js', express.static(require.resolve('sortablejs/Sortable.min.js')));
-app.use('/vendor/chart.js', express.static(path.join(__dirname, 'node_modules/chart.js/dist/chart.umd.js')));
+app.use('/vendor/sortable.js', express.static(require.resolve('sortablejs/Sortable.min.js'), { maxAge: '7d' }));
+app.use('/vendor/chart.js', express.static(path.join(__dirname, 'node_modules/chart.js/dist/chart.umd.js'), { maxAge: '7d' }));
 if (!SINGLE) app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'platform.html')));
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: (+process.env.UPLOAD_MAX_MB || 5) * 1024 * 1024, files: 1 } });
 const page = (f) => (req, res) => res.sendFile(path.join(__dirname, 'public', f));
@@ -815,10 +815,12 @@ A('get', '/promo/report', async (req, res) => { try { res.json(await promoReport
 const gateP = gate('onlinepay'), payHits = {};
 const payThrottle = (req, res, max) => { const k = String(req.ip) + req.path.slice(0, 20), now = Date.now(); payHits[k] = (payHits[k] || []).filter((x) => now - x < 60000); if (payHits[k].length >= max) { res.status(429).json({ error: 'Too many requests' }); return true; } payHits[k].push(now); return false; };
 const mask = (v) => (v ? '••••' + String(v).slice(-3) : '');
-A('get', '/pay/config', gateP, (req, res) => { const c = req.tenant.rec.payCfg || {}; res.json({ provider: (req.tenant.db.settings.onlinePay || {}).provider, sandboxAllowed: PAY.sandboxAllowed(req.tenant.rec.slug), paymob: { apiKey: mask(c.apiKey), hmac: mask(c.hmac), integrationId: c.integrationId || '', iframeId: c.iframeId || '' }, webhook: '/api/r/' + req.tenant.rec.slug + '/pay/webhook/paymob' }); });
+const PAY_SECRETS = ['apiKey', 'hmac'];   // stored encrypted (auth.seal); read through payCfg()
+const payCfg = (rec) => Object.fromEntries(Object.entries(rec.payCfg || {}).map(([k, v]) => [k, PAY_SECRETS.includes(k) ? auth.unseal(v) : v]));
+A('get', '/pay/config', gateP, (req, res) => { const c = payCfg(req.tenant.rec); res.json({ provider: (req.tenant.db.settings.onlinePay || {}).provider, sandboxAllowed: PAY.sandboxAllowed(req.tenant.rec.slug), paymob: { apiKey: mask(c.apiKey), hmac: mask(c.hmac), integrationId: c.integrationId || '', iframeId: c.iframeId || '' }, webhook: '/api/r/' + req.tenant.rec.slug + '/pay/webhook/paymob' }); });
 A('post', '/pay/config', gateP, (req, res) => {   // secrets live on the venue record, never in the public config, never returned
   const b = req.body || {}; if (String(b.integrationId || '').trim() && !/^\d+$/.test(String(b.integrationId).trim())) return res.status(400).json({ error: 'Integration id is a number' });
-  const c = (req.tenant.rec.payCfg ||= {}), set = (k, v, n) => { v = String(v || '').trim().slice(0, n); if (v && !v.startsWith('••••')) c[k] = v; };
+  const c = (req.tenant.rec.payCfg ||= {}), set = (k, v, n) => { v = String(v || '').trim().slice(0, n); if (v && !v.startsWith('••••')) c[k] = PAY_SECRETS.includes(k) ? auth.seal(v) : v; };
   set('apiKey', b.apiKey, 600); set('hmac', b.hmac, 200); set('integrationId', b.integrationId, 20); set('iframeId', b.iframeId, 20);
   persistRec(req.tenant); res.json({ ok: 1 });
 });
@@ -841,7 +843,7 @@ app.post(`${R}/pay/intent`, tenantMw, async (req, res, next) => { try {
   const id = 'pi_' + require('crypto').randomBytes(12).toString('hex'), rec = t.rec, pays = (rec.pays ||= {});
   const it = { id, tableId: tbl.id, tableNumber: tbl.number, sessionId: s.id, guestId: gid || null, base, tip, amount, provider: op.provider, status: 'pending', at: Date.now(), ref: '' };
   if (op.provider === 'paymob') {
-    const c = rec.payCfg || {}; if (!(c.apiKey && c.hmac && c.integrationId && c.iframeId)) return res.status(503).json({ error: 'Payments are not configured' });
+    const c = payCfg(rec); if (!(c.apiKey && c.hmac && c.integrationId && c.iframeId)) return res.status(503).json({ error: 'Payments are not configured' });
     try { const o = await PAY.paymobCreate(c, { amount, intent: id }); it.ref = o.ref; it.url = o.url; } catch (e) { return res.status(502).json({ error: 'The payment provider is unavailable, please pay at the table' }); }
   } else {
     if (!PAY.sandboxAllowed(rec.slug)) return res.status(400).json({ error: 'Test gateway not allowed' });
@@ -864,7 +866,7 @@ function settleIntent(t, out) {
 }
 app.post(`${R}/pay/webhook/paymob`, tenantMw, (req, res) => {
   if (payThrottle(req, res, 120)) return;
-  const t = req.tenant, c = t.rec.payCfg || {}, obj = req.body && req.body.obj;
+  const t = req.tenant, c = payCfg(t.rec), obj = req.body && req.body.obj;
   if (!obj || !PAY.verifyPaymob(obj, req.query.hmac, c.hmac)) return res.status(401).json({ error: 'bad signature' });
   if (req.body.type && req.body.type !== 'TRANSACTION') return res.json({ ok: 1, ignored: true });
   const r = settleIntent(t, PAY.paymobOutcome(obj)); res.status(r.code).json(r.body);
