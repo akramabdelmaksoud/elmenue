@@ -314,6 +314,15 @@ setup = [P('10. Setup comparison and decision table', H2), T(cmp_rows, [34, 46, 
 story[3:3] = decision
 story += hw + setup
 
+
+story += [P('13. Summary, open gaps and next steps', H2),
+  P('<b>Decision:</b> start on Vercel Pro (fra1) + Supabase Pro (Frankfurt) with adaptive polling; move to your own Hetzner WebSocket server + Supabase at about 15-20 busy cafés. Do not scale on the polling design as built (about %s a month at 50 cafés).' % usd(A50['total'])),
+  P('<b>Hardware:</b> recommended café kit EGP %s - %s (starter EGP %s - %s, premium EGP %s - %s). The café pays the retailer; for the first 10 cafés publish the kit as a shopping list instead of reselling.' % (f0(kit(KITS[1][1])[0]), f0(kit(KITS[1][1])[1]), f0(kit(KITS[0][1])[0]), f0(kit(KITS[0][1])[1]), f0(kit(KITS[2][1])[0]), f0(kit(KITS[2][1])[1]))),
+  P('<b>Gaps (no source found, get local quotes):</b> printed QR table stands in Egypt; an Android box for a kitchen screen; Vodafone / Orange business-fibre prices. samsung.com/eg showed no tablet prices, so Samsung figures are retailer prices. All retailer prices are listing snapshots: check the live listing before paying.', S),
+  P('<b>Assumptions to confirm:</b> EGP %s per USD (sources disagreed, about 31 versus 51); Hetzner plans showed "currently unavailable", so check stock; load per café is my estimate until a load test is run; Egypt-to-Frankfurt latency (40-70 ms) is not measured.' % f0(FX), S),
+  P('<b>Not yet tested:</b> the printing code on a real printer. Buy one Xprinter and one Epson and test both with the app before recommending either.', S),
+  P('<b>Next steps, in order:</b> (1) build the adaptive-polling change (about one day); (2) run a load test to replace the load estimate; (3) test the two printers; (4) get quotes for QR stands and business internet; (5) confirm the exchange rate with your accountant; (6) pilot with one café, then approve the budget in section 11.')]
+
 def foot(c, d):
     c.saveState(); c.setFont('Helvetica', 7.5); c.setFillColor(colors.grey)
     c.drawString(15 * mm, 9 * mm, 'elmenue cost and pricing report - 29 Oct 2026 - estimates marked; confirm before paying'); c.drawRightString(195 * mm, 9 * mm, 'Page %d' % d.page); c.restoreState()
