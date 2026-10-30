@@ -1089,7 +1089,11 @@ app.post(`${R}/rpc`, rpcLimit, async (req, res) => {
       }
       const state = t.snapshotFor(c);
       const alerts = (jn.role === 'captain' || jn.role === 'cashier') && j.since >= 0 ? (t.rec.alerts || []).filter((a) => a.id > j.since) : [];
-      return res.json({ state, guestId: c.guestId || null, alerts, alertSeq: t.rec.alertSeq || 0, notices: out.filter((m) => m.t === 'notice').map((m) => m.msg) });
+      const notices = out.filter((m) => m.t === 'notice').map((m) => m.msg);
+      // The client sends the fingerprint of the state it already has; when nothing changed we answer in a few bytes instead of the whole state.
+      const etag = require('crypto').createHash('sha1').update(JSON.stringify(state)).digest('base64url').slice(0, 20);
+      if (j.etag && j.etag === etag && !alerts.length && !notices.length && !j.msg) return res.json({ same: 1, guestId: c.guestId || null, alertSeq: t.rec.alertSeq || 0 });
+      return res.json({ state, etag, guestId: c.guestId || null, alerts, alertSeq: t.rec.alertSeq || 0, notices });
     }
     res.status(409).json({ error: 'busy' });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }

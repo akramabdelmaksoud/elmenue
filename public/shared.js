@@ -77,6 +77,14 @@ const OQ = {
   },
   start(j) { OQ.role = j.role; OQ.join = { role: j.role, token: j.token }; if (OQ.on !== undefined && (j.role === 'captain' || j.role === 'cashier') && !OQ.t) { OQ.t = setInterval(() => { OQ.flush(); OQ.bar(); }, 4000); addEventListener('online', () => OQ.flush()); addEventListener('offline', OQ.bar); OQ.flush(); } },
 };
+// How often a screen asks the server for news when websockets are unavailable (Vercel). `idleMs` = time since the last change or action.
+// Staff stay quick (orders must reach the kitchen), idle guest phones back off. Tested in tests/polling.test.js (extracted between the markers).
+/*pollplan*/
+function pollDelay(role, idleMs) {
+  const s = role === 'captain' || role === 'cashier' ? [2000, 3000, 4000] : role === 'kitchen' ? [2500, 3500, 5000] : [2500, 4500, 6500];
+  return idleMs < 15000 ? s[0] : idleMs < 45000 ? s[1] : s[2];
+}
+/*endpollplan*/
 // set by the server when the page is served on <slug>.domain or a custom domain (no /r/<slug> prefix in the URL)
 const HOSTSLUG = (() => { const m = document.querySelector('meta[name="elm-slug"]'); return m ? m.content : null; })();
 const App = {
@@ -309,29 +317,39 @@ const App = {
   oq: OQ,
   send(o) { if (App.demoSend) return App.demoSend(o); if (App.oq && App.oq.want(o)) return App.oq.add(o); if (App.poll) return App.poll.call(o); App.ws && App.ws.readyState === 1 && App.ws.send(JSON.stringify(o)); },
   startPolling(joinMsg, handlers, onMsg) {
-    const P = (App.poll = { since: -1, chain: Promise.resolve(), timer: null });
+    const P = (App.poll = { since: -1, chain: Promise.resolve(), timer: null, etag: null, lastChange: Date.now() });
     document.body.classList.remove('offline');
-    const every = joinMsg.role === 'captain' || joinMsg.role === 'cashier' ? 2000 : joinMsg.role === 'admin' ? 0 : 2500;   // admin: on demand only (see the refresh bar)
+    const manual = joinMsg.role === 'admin';   // admin: on demand only (see the refresh bar)
     P.call = (msg) => (P.chain = P.chain.then(async () => {   // serialised so actions keep their order
       try {
-        const r = await fetch(`/api/r/${App.slug}/rpc`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ join: joinMsg, msg, since: P.since }) });
+        if (msg) P.lastChange = Date.now();   // the user just did something: go back to fast polling
+        const r = await fetch(`/api/r/${App.slug}/rpc`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ join: joinMsg, msg, since: P.since, etag: msg ? null : P.etag }) });
         if (r.status === 401) return onMsg({ t: 'error', msg: 'auth' });
         const j = await r.json();
         if (!r.ok) { if (r.status === 404 || r.status === 403) onMsg({ t: 'error', msg: j.error }); else document.body.classList.add('offline'); return; }
         document.body.classList.remove('offline');
         if (j.guestId && joinMsg.guestId !== j.guestId) { joinMsg.guestId = j.guestId; onMsg({ t: 'you', guestId: j.guestId }); }
+        const staffTimers = joinMsg.role === 'captain' || joinMsg.role === 'cashier' ? 60000 : Infinity;   // captain also refreshes once a minute for the 'x min' timers
+        if (j.same) {   // the server says nothing changed since our last reply: keep the screen, just keep the clock honest
+          P.since = j.alertSeq;
+          if (App.state && Date.now() - (P.lastRender || 0) > staffTimers) { P.lastRender = Date.now(); onMsg(App.state); }
+          return;
+        }
+        P.etag = j.etag || null;
         if (P.since >= 0) j.alerts.forEach((a) => onMsg({ t: 'alert', ...a }));
         P.since = j.alertSeq;
         (j.notices || []).forEach((n) => App.toast(n));
-        // Only redraw when something really changed (captain also refreshes once a minute for the 'x min' timers), so idle screens never flicker
+        // Only redraw when something really changed, so idle screens never flicker
         const sig = JSON.stringify(j.state);
         App.state = j.state; App.config = j.state.config;
         if (joinMsg.role === 'customer' && j.state.session) joinMsg.fresh = false;
-        if (sig !== P.sig || Date.now() - (P.lastRender || 0) > (joinMsg.role === 'captain' || joinMsg.role === 'cashier' ? 60000 : Infinity)) { P.sig = sig; P.lastRender = Date.now(); onMsg(j.state); }
+        if (sig !== P.sig || (j.alerts || []).length || (j.notices || []).length) P.lastChange = Date.now();
+        if (sig !== P.sig || Date.now() - (P.lastRender || 0) > staffTimers) { P.sig = sig; P.lastRender = Date.now(); onMsg(j.state); }
       } catch { document.body.classList.add('offline'); }
     }));
-    const tick = () => { clearTimeout(P.timer); if (!document.hidden) P.call(null); P.timer = every ? setTimeout(tick, every) : null; };
-    document.addEventListener('visibilitychange', () => { if (!document.hidden && every) tick(); });
+    // Adaptive: fast while things are happening, slower the longer the screen has been unchanged, paused while the tab is hidden
+    const tick = () => { clearTimeout(P.timer); if (!document.hidden) P.call(null); P.timer = manual ? null : setTimeout(tick, pollDelay(joinMsg.role, Date.now() - P.lastChange)); };
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && !manual) { P.lastChange = Date.now(); tick(); } });
     tick();
   },
   // who is signed in (from the token) - used to greet staff and label their actions

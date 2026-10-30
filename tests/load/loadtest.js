@@ -28,6 +28,31 @@ const stats = { connect: [], join: [], action: [], errors: [], closed: 0, opened
   console.log(`Target ${base} (${slug}): ${N} guests on ${tableNums.length} tables for ${SECS}s${ORDERS ? ', sending orders' : ', cart only'}`);
 
   const deadline = Date.now() + SECS * 1000, guests = [];
+  // --poll: no websockets (Vercel). Each guest asks /rpc the way the real page does: every 2.5 s right after an action, backing off to 6.5 s when idle.
+  if (opt('poll', false)) {
+    for (let g = 0; g < N; g++) guests.push((async () => {
+      const table = tableNums[g % tableNums.length], join = { role: 'customer', tableNumber: table, guestId: 'lt' + g + Math.random().toString(36).slice(2, 7), name: 'Load ' + g, avatar: '🙂', key: keys[table] };
+      let etag = null, lastChange = Date.now(), nextAct = Date.now() + 2500 + Math.random() * 3000;
+      while (Date.now() < deadline) {
+        const act = Date.now() >= nextAct, it = items[Math.floor(Math.random() * items.length)], t0 = Date.now();
+        try {
+          const r = await fetch(`${base}/api/r/${slug}/rpc`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ join, msg: act ? { t: 'cart_add', itemId: it.id } : null, since: -1, etag: act ? null : etag }) });
+          const j = await r.json().catch(() => ({})); stats.msgs++;
+          if (!r.ok) stats.errors.push('HTTP ' + r.status + ' ' + (j.error || '')); else { stats.action.push(Date.now() - t0); if (j.guestId) join.guestId = j.guestId; if (!j.same) { etag = j.etag; lastChange = Date.now(); } }
+          if (act) { lastChange = Date.now(); nextAct = Date.now() + 2500 + Math.random() * 3000; }
+        } catch (e) { stats.errors.push(e.message); }
+        const idle = Date.now() - lastChange;
+        await new Promise((r) => setTimeout(r, idle < 15000 ? 2500 : idle < 45000 ? 4500 : 6500));
+      }
+      stats.opened++;
+    })());
+    await Promise.all(guests);
+    const f = (a) => `p50 ${pct(a, 0.5)} ms   p95 ${pct(a, 0.95)} ms   max ${pct(a, 1)} ms   (n=${a.length})`;
+    console.log(`\nguests ${stats.opened}/${N}, requests ${stats.msgs} (${(stats.msgs / SECS).toFixed(1)}/s)`); console.log('rpc round trip', f(stats.action));
+    const errs = [...new Set(stats.errors)]; if (errs.length) console.log('errors:', errs.slice(0, 8).join(' | '));
+    const ok = !errs.length && pct(stats.action, 0.95) < 1500;
+    console.log(ok ? '\nPASS (no errors, p95 round trip under 1.5 s)' : '\nCHECK RESULTS ABOVE'); process.exit(ok ? 0 : 1);
+  }
   for (let g = 0; g < N; g++) guests.push(new Promise((done) => {
     const table = tableNums[g % tableNums.length], gid = 'lt' + g + Math.random().toString(36).slice(2, 7);
     const t0 = Date.now(); let joined = false, lastSent = 0, timer;

@@ -21,7 +21,7 @@ Leave `SINGLE_RESTAURANT` unset. `/super` is the platform owner console; each re
 Leave `SINGLE_RESTAURANT` unset and set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SECRET`, `SUPER_EMAIL`, `SUPER_PASSWORD`. `/super` creates cafés (each is a Supabase row `r_<slug>`), assigns tiers (Basic / Operations / VIP), branch groups and custom domains. Optional: `ANTHROPIC_API_KEY` for real photo-OCR and a smarter admin copilot. See `docs/SPEC_COVERAGE.md`.
 
 ### B3) Production SaaS on your own server (recommended)
-Hetzner VPS + Caddy (automatic HTTPS) + Supabase Postgres, WebSocket mode, `<slug>.yourdomain.com` and custom domains. See `docs/OWNER_CHECKLIST.md` (step by step), `docs/GO_LIVE.md` and `docs/PRODUCTION.md`. Deploy with `./deploy.sh`, undo with `./deploy.sh rollback`. Config template: `.env.example`. Run the tests with `npm test`.
+Hetzner VPS + Caddy (automatic HTTPS) + Supabase Postgres, WebSocket mode, `<slug>.yourdomain.com` and custom domains. Option C steps: `docs/OWNER_CHECKLIST.md`; option B (Vercel) steps: `docs/OWNER_CHECKLIST_B.md`. See `docs/OWNER_CHECKLIST.md`, `docs/GO_LIVE.md` and `docs/PRODUCTION.md`. Deploy with `./deploy.sh`, undo with `./deploy.sh rollback`. Config template: `.env.example`. Run the tests with `npm test`.
 
 ### C) Vercel, one restaurant (serverless, no websockets)
 Phones poll every ~2.5s instead of using websockets; all state lives in Supabase. The frontend picks polling automatically

@@ -1,4 +1,5 @@
 {
+  "regions": ["fra1"],
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
   "functions": { "api/index.js": { "includeFiles": "{public/**,tenant.js,data.js,features.js,showroom.js,payments.js,eta.js}", "maxDuration": 30 } }
 }
