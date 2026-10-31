@@ -56,6 +56,12 @@ function createTenant(rec, persist, onAlert) {
     if (!c.staffId) return;
     const st = ((rec.stats ||= { staff: {} }).staff[c.staffId] ||= { name: c.staffName || '?', handled: 0, respMs: 0, served: 0, started: 0, closed: 0 });
     st.name = c.staffName || st.name; st[key] = (st[key] || 0) + add;
+    // time-bucketed activity log per person (the Insights tab reads it): counters per hour for 35 days + the last 150 actions
+    const ix = F.STAFF_LOG_KEYS.indexOf(key); if (ix < 0) return;
+    const now = Date.now(), L = ((rec.staffLog ||= {})[c.staffId] ||= { b: {}, ev: [] }), hr = Math.floor(now / 3600000), cell = (L.b[hr] ||= Array(F.STAFF_LOG_KEYS.length).fill(0));
+    cell[ix] += add; if (key !== 'respMs') L.ev.push([now, ix, add]);
+    if (L.ev.length > 180) L.ev.splice(0, L.ev.length - 150);
+    if (Math.random() < 0.02) Object.keys(L.b).forEach((h) => { if (+h < hr - 35 * 24) delete L.b[h]; });
   }
   // ---------- Inventory (optional per item: stock = number of portions left, null = unlimited) ----------
   const tracked = (it) => it && it.stock !== undefined && it.stock !== null && it.stock !== '';
@@ -202,7 +208,7 @@ function closeSession(t, method, who, pay) {
       id: id('h'), tableId: t.id, tableNumber: t.number, kind: s.kind || 'table', customer: s.customer || null, startedAt: s.startedAt,
       orderedAt: s.orders[0].at, checkAt: s.check?.at || Date.now(), closedAt: Date.now(),
       guests: s.guests.length || 1, party: s.party || 0, loyalty: loy, items: Object.values(lines), sub: b.gross, discount: b.discount, discountNote: [s.discount ? (s.discount.reason || '') : '', b.couponCode ? 'Coupon ' + b.couponCode : '', b.offerName || ''].filter(Boolean).join(' · '), coupon: b.couponCode || '', offer: b.offerName || '', gift: gUsed, giftCode: gUsed ? b.giftCode : '', service: b.service, tax: b.tax, tip,
-      total, method: payTotal <= 0 && onlineUsed > 0 && m !== 'unpaid' ? 'online' : m, unpaid: m === 'unpaid' && onlineUsed <= 0, online: onlineUsed, onlineRefs: (s.online || []).map((x) => x.ref), pay: m === 'unpaid' ? { cash: 0, card: 0, tendered: 0, change: 0, gift: 0, online: onlineUsed } : { ...settle(m === 'online' ? 'cash' : m, payTotal, pay), gift: gUsed, online: onlineUsed }, split: s.check?.split || 'table', closedBy: who || '', voids: s.voids || [], log: s.log,
+      total, method: payTotal <= 0 && onlineUsed > 0 && m !== 'unpaid' ? 'online' : m, unpaid: m === 'unpaid' && onlineUsed <= 0, online: onlineUsed, onlineRefs: (s.online || []).map((x) => x.ref), pay: m === 'unpaid' ? { cash: 0, card: 0, tendered: 0, change: 0, gift: 0, online: onlineUsed } : { ...settle(m === 'online' ? 'cash' : m, payTotal, pay), gift: gUsed, online: onlineUsed }, split: s.check?.split || 'table', source: s.source || '', closedBy: who || '', voids: s.voids || [], log: s.log,
     });
   }
   // ETA e-receipts (flag settings.eta.enabled): remember the paid sale in a durable pending list; the server turns it into a numbered, chained receipt
@@ -310,6 +316,53 @@ function alertCaptains(kind, tableNumber, text) {
 }
 
 // ---------- WebSocket logic ----------
+// ---------- Online ordering: a guest places a pickup / delivery ticket from the venue's public page (no login; pay on receipt) ----------
+// Everything is validated here; the caller only supplies a random ticket id. Returns { ok, tid, number, total, prepMin } or { error, code }.
+function placeOnline(p) {
+  const o = F.onlineCfg(db.settings);
+  if (!F.has(rec.plan, 'online') || !o.enabled) return { error: 'Online ordering is not available at this venue', code: 'off' };
+  const kind = p.kind === 'delivery' ? 'delivery' : 'takeaway';
+  if (kind === 'delivery' ? !o.delivery : !o.pickup) return { error: kind === 'delivery' ? 'Delivery is not offered' : 'Pickup is not offered', code: 'kind' };
+  const name = String(p.name || '').trim().slice(0, 30), phone = String(p.phone || '').replace(/[^\d+]/g, '').slice(0, 20), address = String(p.address || '').trim().slice(0, 140);
+  if (!name) return { error: 'Please enter your name', code: 'name' };
+  if (phone.replace(/\D/g, '').length < 7) return { error: 'Please enter a valid phone number', code: 'phone' };
+  if (kind === 'delivery' && address.length < 6) return { error: 'Please enter your delivery address', code: 'address' };
+  if (!/^tk_[a-z0-9]{6,14}$/.test(String(p.tid || '')) || db.sessions[p.tid]) return { error: 'Bad request', code: 'tid' };
+  const want = [], dropped = [];
+  (Array.isArray(p.items) ? p.items : []).slice(0, 40).forEach((x) => {
+    const it = db.items.find((y) => y.id === x.itemId), q = Math.min(20, Math.floor(+x.qty));
+    if (it && it.soldOut && q > 0) dropped.push(it.name);
+    if (!it || it.soldOut || !(q > 0) || it.id === o.feeItemId) return;
+    want.push({ id: id('l'), guestId: 'cust', itemId: it.id, name: it.name, name_ar: it.name_ar, emoji: it.emoji, price: it.price, qty: q, note: String(x.note || '').slice(0, 140) });
+  });
+  if (dropped.length) return { error: 'Sold out: ' + dropped.join(', '), code: 'soldout', dropped };
+  if (!want.length) return { error: 'Your order is empty', code: 'empty' };
+  const food = want.reduce((n, l) => n + l.price * l.qty, 0);
+  if (o.minOrder && food < o.minOrder) return { error: `The minimum order is ${o.minOrder}`, code: 'min', min: o.minOrder };
+  // delivery price: by distance zone when zones are set (needs the guest's location), otherwise the flat fee item. Checked before stock is touched.
+  const zone = kind === 'delivery' ? F.zoneFor(db.settings, p.geo) : null;
+  if (zone && !zone.ok) return zone.code === 'far' ? { error: `Sorry, we deliver up to ${zone.max} km. You are ${zone.km} km away.`, code: 'far', km: zone.km, max: zone.max } : { error: 'Please share your location so we can price delivery', code: 'nogeo' };
+  const lines = takeStock(want, 'online');
+  if (!lines.length) return { error: 'Those items just ran out', code: 'soldout' };
+  const byZone = zone && !zone.flat, fee = kind === 'delivery' && !byZone && o.feeItemId ? db.items.find((y) => y.id === o.feeItemId) : null;
+  if (byZone && zone.fee > 0) lines.push({ id: id('l'), guestId: 'cust', itemId: 'delivery_fee', name: 'Delivery', name_ar: 'توصيل', emoji: '🛵', price: zone.fee, qty: 1, note: zone.km + ' km' });
+  if (fee) lines.push({ id: id('l'), guestId: 'cust', itemId: fee.id, name: fee.name, name_ar: fee.name_ar, emoji: fee.emoji, price: fee.price, qty: 1, note: '' });
+  db.ticketSeq = (db.ticketSeq || 0) + 1;
+  const s = { id: id('s'), tableId: p.tid, tableNumber: (kind === 'delivery' ? 'DL-' : 'TA-') + db.ticketSeq, kind, source: 'online', startedAt: Date.now(), lastAt: Date.now(), guests: [{ id: 'cust', name, avatar: kind === 'delivery' ? '🛵' : '🛍️' }], cart: [], orders: [], requests: [], check: null, log: [], customer: { name, phone, address, note: String(p.note || '').trim().slice(0, 200), ...(F.geoPoint(p.geo) ? { map: 'https://www.google.com/maps?q=' + F.geoPoint(p.geo).lat + ',' + F.geoPoint(p.geo).lng, km: zone ? zone.km : undefined } : {}) } };
+  s.orders.push(stampEta({ id: id('o'), at: Date.now(), status: 'received', items: lines, by: 'online' }));
+  db.sessions[p.tid] = s; log(s, 'ordered', `Online ${kind} order from ${name} (${lines.reduce((n, l) => n + l.qty, 0)} item(s))`);
+  alertCaptains('order', s.tableNumber, `🌐 Online ${kind === 'delivery' ? 'delivery' : 'pickup'} ${s.tableNumber}: ${name}`);
+  save(); broadcast();
+  return { ok: 1, tid: p.tid, number: s.tableNumber, kind, total: bill(s).total, prepMin: o.prepMin };
+}
+// public tracking for the guest: derived from the ticket's orders; a closed ticket is 'done'
+function onlineStatus(tid) {
+  const s = db.sessions[tid];
+  if (!s || s.source !== 'online') return { status: s ? 'unknown' : 'done' };
+  const st = s.orders.map((x) => x.status), pick = (...k) => st.some((x) => k.includes(x));
+  return { status: pick('received') && !pick('kitchen', 'ready', 'served') ? 'received' : pick('received', 'kitchen') ? 'preparing' : 'ready', number: s.tableNumber, kind: s.kind, total: bill(s).total, at: s.startedAt };
+}
+
 function handle(c, m) {
   // idempotency: a queued staff action replayed after a reconnect (same key) is applied once only
   if (m && m.k && m.t !== 'join' && c.joined) {
@@ -329,6 +382,8 @@ function handle(c, m) {
       if (!t) return c.ws.send(JSON.stringify({ t: 'error', msg: 'Unknown table' }));
       const known = db.sessions[t.id] && db.sessions[t.id].guests.find((x) => x.id === m.guestId);
       if (!known && !keyOk(t, m.key)) return c.ws.send(JSON.stringify({ t: 'error', msg: 'scan' }));
+      // in-cafe lock: a new guest must be physically at the cafe (a table the waiter seated is exempt: staff vouch for it)
+      if (!known && F.has(rec.plan, 'geo') && F.geoLockCfg(db.settings).enabled && !(db.sessions[t.id] && db.sessions[t.id].staffSeated)) { const gc = F.geoCheck(db.settings, m.geo); if (!gc.ok) return c.ws.send(JSON.stringify({ t: 'error', msg: 'geo', code: gc.code, dist: gc.dist })); }
       const s = openSession(t); s.lastAt = Date.now(); s.idle = false;
       let g = s.guests.find((x) => x.id === m.guestId);
       if (!g) { g = { id: id('g'), name: m.name || 'Guest', avatar: m.avatar || '🙂' }; s.guests.push(g); if (!s.host || !s.guests.some((x) => x.id === s.host)) s.host = g.id; log(s, 'join', `${g.avatar} ${g.name} joined${s.host === g.id ? ' (host)' : ''}`); }
@@ -485,7 +540,7 @@ function handle(c, m) {
       case 'staff_order': {
         if (!F.has(rec.plan, 'ordering')) break;
         const t = db.tables.find((x) => x.id === m.tableId); let s = db.sessions[m.tableId];
-        if (!s && t) s = openSession(t); if (!s) break;
+        if (!s && t) s = openSession(t); if (!s) break; s.staffSeated = true;
         const want = [], dropped = [];
         (Array.isArray(m.items) ? m.items : []).slice(0, 40).forEach((x) => {
           const it = db.items.find((y) => y.id === x.itemId); const q = Math.min(20, Math.floor(+x.qty));
@@ -564,7 +619,7 @@ function handle(c, m) {
         const s = openSession(t); s.lastAt = Date.now(); if (!s.guests.length) s.guests.push({ id: 'cust', name: r.name, avatar: '📅' });
         log(s, 'seated', `Reservation for ${r.name} seated`); db.reservations = db.reservations.filter((x) => x !== r); break;
       }
-      case 'seat_table': { const t = db.tables.find((x) => x.id === m.tableId); if (t) { const s = openSession(t); s.lastAt = Date.now(); } break; }
+      case 'seat_table': { const t = db.tables.find((x) => x.id === m.tableId); if (t) { const s = openSession(t); s.lastAt = Date.now(); s.staffSeated = true; } break; }
       case 'sim': simulate = !!m.on; break;
     }
     return broadcast();
@@ -686,6 +741,6 @@ function analytics(days = 7) {
     if (r.action) broadcast(); return r;
   }
   const publicConfig = () => ({ settings: db.settings, categories: db.categories, items: db.items, tables: db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec.plan), plan: F.planOf(rec.plan) });
-  return { applyOnline, notify: alertCaptains, rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
+  return { placeOnline, onlineStatus, applyOnline, notify: alertCaptains, rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
 }
 module.exports = { createTenant, freshData, clone };

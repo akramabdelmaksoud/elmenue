@@ -7,7 +7,7 @@ const SIG_THEMES = ['aurum', 'ember', 'sunset', 'platinum', 'rosegold', 'sapphir
 const PREMIUM_THEMES = ['neon', 'luxury', 'vibrant'].concat(LUX_THEMES, PRO_THEMES, SIG_THEMES);
 const PLANS = {
   basic: { id: 'basic', tier: 1, name: 'Basic QR Menu', name_ar: 'منيو QR الأساسي', price: [350, 500], limits: { branches: 1, tables: 10, staff: 0 }, features: ['menu', 'qr', 'micro', 'admin'] },
-  operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [850, 1000], limits: { branches: 1, tables: 30, staff: 10 }, features: ['ordering', 'staff', 'kds', 'cashier', 'lock', 'party', 'trilingual', 'feedback', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline'] },
+  operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [850, 1000], limits: { branches: 1, tables: 30, staff: 10 }, features: ['ordering', 'staff', 'kds', 'cashier', 'lock', 'party', 'trilingual', 'feedback', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline', 'online', 'insights', 'geo'] },
   vip: { id: 'vip', tier: 3, name: 'Enterprise VIP & AI', name_ar: 'VIP والذكاء الاصطناعي', price: [1450, 1450], limits: { branches: 3, tables: null, staff: null }, features: ['loyalty', 'ocr', 'copilot', 'themes', 'branches', 'giftcards'] },
 };
 // older plan names keep working: they map onto the new tiers
@@ -214,5 +214,36 @@ function copilot(q, ctx) {
   return { reply: R('I can answer: "How many points were redeemed today?", "Which item sells best?", "What is today\'s revenue?", "What is low in stock?", or do: "Switch default language to Egyptian Ammiya", "Mark Cheesecake sold out", "Set 5 EGP per point", "Remember that ...". Connect the AI key to chat about anything else.', 'أقدر أجاوب: "النهاردة اتستبدل كام نقطة؟"، "إيه أكتر صنف مبيعًا؟"، "إيرادات النهاردة كام؟"، "إيه اللي قرب يخلص؟"، وأقدر أنفذ: "غير لغة المنيو لعامية"، "خلي الكيك خلصان"، "خلي كل 5 جنيه نقطة"، "تذكر إن ...". ولو الذكاء الاصطناعي متوصل أقدر أتكلم معاك في أي موضوع.'), unknown: true };
 }
 
-const api = { OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
+// ---------- Online ordering (guest storefront: pickup + delivery, pay on receipt) ----------
+const ONLINE_DEFAULT = { enabled: false, pickup: true, delivery: false, minOrder: 0, feeItemId: '', prepMin: 20, note: '', zones: [] };
+const onlineCfg = (settings) => { const o = { ...ONLINE_DEFAULT, ...((settings && settings.online) || {}) }; o.enabled = !!o.enabled; o.pickup = o.pickup !== false; o.delivery = !!o.delivery; o.minOrder = Math.max(0, +o.minOrder || 0); o.prepMin = Math.min(180, Math.max(5, Math.floor(+o.prepMin) || 20)); o.feeItemId = String(o.feeItemId || '').slice(0, 40); o.note = String(o.note || '').slice(0, 200); o.zones = zonesCfg(o.zones); return o; };
+
+// ---------- Location: delivery zones + "order only from inside the cafe" ----------
+const geoPoint = (g) => { if (!g || g.lat === '' || g.lng === '' || g.lat == null || g.lng == null) return null; const lat = +g.lat, lng = +g.lng; return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0) ? { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6 } : null; };
+const distM = (a, b) => { const R = 6371000, rad = (x) => x * Math.PI / 180, dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng), h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2; return 2 * R * Math.asin(Math.min(1, Math.sqrt(h))); };
+const GEOLOCK_DEFAULT = { enabled: false, radiusM: 150 };
+const geoLockCfg = (settings) => { const g = { ...GEOLOCK_DEFAULT, ...((settings && settings.geoLock) || {}) }; g.enabled = !!g.enabled; g.radiusM = Math.min(1000, Math.max(30, Math.floor(+g.radiusM) || 150)); return g; };
+// Is this guest's phone at the cafe? Indoor GPS is rough, so the phone's reported accuracy (capped at 100 m) is forgiven.
+function geoCheck(settings, g) {
+  const v = geoPoint(settings && settings.venueGeo), here = geoPoint(g), cfg = geoLockCfg(settings);
+  if (!v) return { ok: true, off: true };
+  if (!here) return { ok: false, code: 'nogeo' };
+  const d = distM(v, here), acc = Math.min(100, Math.max(0, +g.acc || 0));
+  return d - acc <= cfg.radiusM ? { ok: true, dist: Math.round(d) } : { ok: false, code: 'far', dist: Math.round(d) };
+}
+// Delivery zones: [{ km, fee }] ascending, "up to km kilometres costs fee"; farther than the last zone is refused.
+const zonesCfg = (z) => (Array.isArray(z) ? z : []).filter((x) => x && +x.km > 0).map((x) => ({ km: Math.round(Math.min(100, Math.max(0.1, +x.km)) * 10) / 10, fee: Math.round(Math.max(0, +x.fee || 0) * 100) / 100 })).sort((a, b) => a.km - b.km).slice(0, 8);
+function zoneFor(settings, g) {
+  const o = onlineCfg(settings), v = geoPoint(settings && settings.venueGeo);
+  if (!o.zones.length) return { ok: true, flat: true, fee: 0 };
+  if (!v) return { ok: true, flat: true, fee: 0, unset: true };   // zones are configured but the cafe location is not: do not block orders on a setup mistake
+  const here = geoPoint(g); if (!here) return { ok: false, code: 'nogeo' };
+  const km = Math.round(distM(v, here) / 100) / 10, z = o.zones.find((x) => km <= x.km);
+  return z ? { ok: true, km, fee: z.fee, zone: z.km } : { ok: false, code: 'far', km, max: o.zones[o.zones.length - 1].km };
+}
+
+
+
+const STAFF_LOG_KEYS = ['taken', 'handled', 'started', 'served', 'closed', 'respMs'];   // column order of rec.staffLog[id].b[hour]
+const api = { geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
 if (typeof module !== 'undefined') module.exports = api;

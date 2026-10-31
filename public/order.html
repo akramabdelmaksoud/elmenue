@@ -1,0 +1,133 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Order online</title><link rel="stylesheet" href="/shared.css">
+<style>
+html { -webkit-tap-highlight-color: transparent; }
+body { background: var(--bg); min-height: 100vh; padding-bottom: 110px; }
+.wrap { max-width: 560px; margin: 0 auto; padding: 16px; }
+.top { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.top h1 { margin: 0; font-size: 22px; }
+.seg { display: flex; gap: 8px; margin: 14px 0; } .seg button { flex: 1; padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); color: inherit; font-weight: 700; } .seg button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--card)); }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 8px; position: sticky; top: 0; background: var(--bg); z-index: 5; } .chips button { white-space: nowrap; padding: 8px 14px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: inherit; }
+.cat h2 { margin: 18px 0 8px; font-size: 18px; }
+.it { display: flex; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); margin-bottom: 8px; }
+.it .e { font-size: 30px; width: 44px; text-align: center; } .it .i { flex: 1; min-width: 0; } .it b { display: block; } .it small { color: var(--muted); }
+.it.out { opacity: .5; }
+.step { display: flex; align-items: center; gap: 8px; } .step button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: inherit; font-size: 18px; } .step b { min-width: 18px; text-align: center; }
+.bar { position: fixed; bottom: calc(12px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(536px, calc(100% - 24px)); z-index: 20; }
+.bar button, .btn { width: 100%; padding: 15px; border-radius: 16px; border: 0; background: var(--accent); color: #fff; font-weight: 800; font-size: 16px; }
+.btn:disabled { opacity: .45; }
+.panel { position: fixed; inset: 0; background: var(--bg); z-index: 30; overflow: auto; } .panel .wrap { padding-bottom: 40px; }
+label { display: block; margin: 12px 0 4px; font-weight: 700; font-size: 14px; } input, textarea { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: inherit; font: inherit; } textarea { min-height: 70px; }
+.line { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; } .tot { font-size: 20px; font-weight: 800; border-top: 1px solid var(--line); margin-top: 8px; padding-top: 10px; }
+.ok { text-align: center; padding-top: 40px; } .ok .big { font-size: 64px; }
+.track { display: flex; gap: 6px; margin: 18px 0; } .track i { flex: 1; height: 8px; border-radius: 8px; background: var(--line); } .track i.on { background: var(--accent); }
+.err { color: #d62828; margin-top: 10px; font-weight: 600; }
+</style></head>
+<body><div class="wrap" id="root"></div><div class="bar" id="bar"></div><div class="panel" id="panel" hidden></div>
+<script src="/shared.js"></script>
+<script>
+const T = {
+  en: { title: 'Order online', pickup: 'Pickup', delivery: 'Delivery', all: 'All', view: 'View order', items: 'items', add: '+ Add', sold: 'Sold out', your: 'Your order', name: 'Your name', phone: 'Phone number', addr: 'Delivery address', note: 'Notes for the kitchen (optional)', place: 'Place order', sub: 'Items', fee: 'Delivery', total: 'Total', payNote: 'Pay when you receive your order.', min: 'Minimum order', off: 'Online ordering is not available right now.', back: '← Back', thanks: 'Order received!', num: 'Your order number', received: 'Received', preparing: 'Preparing', ready: 'Ready', ready_t: 'Your order is ready', prep_t: 'Estimated time', min_s: 'min', done: 'Thank you - enjoy!', again: 'Order again', busy: 'Could not send the order. Please try again.', tracking: 'Track your order', share: '📍 Share my location', locating: 'Finding you…', located: 'Location found', away: 'away', zoneFee: 'Delivery fee', needLoc: 'Share your location so we can price delivery.', far: 'Sorry, we deliver up to', locFail: 'Could not get your location. Allow location access and try again, or choose Pickup.', km: 'km', empty: 'Your cart is empty', closed: 'Not available at this hour' },
+  ar: { title: 'اطلب أونلاين', pickup: 'استلام من المكان', delivery: 'توصيل', all: 'الكل', view: 'عرض الطلب', items: 'أصناف', add: '+ أضف', sold: 'غير متاح', your: 'طلبك', name: 'اسمك', phone: 'رقم الموبايل', addr: 'عنوان التوصيل', note: 'ملاحظات للمطبخ (اختياري)', place: 'تأكيد الطلب', sub: 'الأصناف', fee: 'التوصيل', total: 'الإجمالي', payNote: 'الدفع عند الاستلام.', min: 'الحد الأدنى للطلب', off: 'الطلب أونلاين غير متاح حالياً.', back: '→ رجوع', thanks: 'تم استلام طلبك!', num: 'رقم طلبك', received: 'تم الاستلام', preparing: 'جاري التحضير', ready: 'جاهز', ready_t: 'طلبك جاهز', prep_t: 'الوقت المتوقع', min_s: 'دقيقة', done: 'شكراً لك - بالهناء!', again: 'اطلب مرة أخرى', busy: 'تعذر إرسال الطلب. حاول مرة أخرى.', tracking: 'تتبع طلبك', share: '📍 شارك موقعي', locating: 'جاري تحديد موقعك…', located: 'تم تحديد الموقع', away: 'بعيد', zoneFee: 'رسوم التوصيل', needLoc: 'شارك موقعك لنحسب رسوم التوصيل.', far: 'عذراً، نوصل لحد', locFail: 'تعذر تحديد موقعك. اسمح بالوصول للموقع وحاول مرة أخرى، أو اختر الاستلام.', km: 'كم', empty: 'السلة فارغة', closed: 'غير متاح في هذا الوقت' },
+};
+const t = (k) => (T[App.lang] || T.en)[k] || T.en[k] || k;
+const $ = (s) => document.querySelector(s), root = $('#root'), bar = $('#bar'), panel = $('#panel');
+let cfg, cart = {}, kind = 'takeaway', cat = '', placed = null, poll = null, err = '', busy = false, geoPos = null, geoMsg = '';
+const KEY = () => 'ol:' + App.slug;
+const save = () => { try { localStorage.setItem(KEY(), JSON.stringify({ name: $('#fn') ? $('#fn').value : (saved.name || ''), phone: $('#fp') ? $('#fp').value : (saved.phone || ''), address: $('#fa') ? $('#fa').value : (saved.address || ''), placed })); } catch {} };
+let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEY()) || '{}') || {}; } catch {}
+const open = (c) => { const h = c && c.hours; if (!h || !h.from || !h.to) return true; const d = new Date(), m = d.getHours() * 60 + d.getMinutes(), [a1, a2] = h.from.split(':').map(Number), [b1, b2] = h.to.split(':').map(Number), a = a1 * 60 + a2, b = b1 * 60 + b2; return a <= b ? m >= a && m < b : m >= a || m < b; };
+const O = () => (cfg.settings.online || {}), feeItem = () => O().feeItemId && cfg.items.find((i) => i.id === O().feeItemId);
+const visible = () => cfg.items.filter((i) => i.id !== O().feeItemId);
+const food = () => Object.entries(cart).reduce((n, [id, q]) => n + (cfg.items.find((i) => i.id === id) || { price: 0 }).price * q, 0);
+const zones = () => (O().zones || []), hasZones = () => zones().length > 0 && !!cfg.settings.venueGeo;
+const hav = (a, b) => { const r = (x) => x * Math.PI / 180, h = Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lng - a.lng) / 2) ** 2; return 2 * 6371 * Math.asin(Math.sqrt(h)); };
+// the server prices delivery again from the shared coordinates; this only previews the fee
+const zoneNow = () => { if (kind !== 'delivery' || !hasZones()) return null; if (!geoPos) return { need: true }; const km = Math.round(hav(cfg.settings.venueGeo, geoPos) * 10) / 10, z = zones().find((x) => km <= x.km); return z ? { km, fee: z.fee } : { far: true, km, max: zones()[zones().length - 1].km }; };
+const fee = () => { if (kind !== 'delivery') return 0; const z = zoneNow(); if (z) return z.fee || 0; return feeItem() ? feeItem().price : 0; };
+function locate() { geoMsg = t('locating'); openCart(); if (!navigator.geolocation) { geoMsg = t('locFail'); return openCart(); } navigator.geolocation.getCurrentPosition((p) => { geoPos = { lat: p.coords.latitude, lng: p.coords.longitude }; geoMsg = ''; openCart(); }, () => { geoMsg = t('locFail'); openCart(); }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }); }
+const count = () => Object.values(cart).reduce((n, q) => n + q, 0);
+
+function render() {
+  document.documentElement.dir = App.lang === 'ar' ? 'rtl' : 'ltr';
+  const o = O();
+  if (!cfg.features.online || !o.enabled) { root.innerHTML = `<div class="ok"><div class="big">🛑</div><h2>${App.esc(cfg.settings.name)}</h2><p class="muted">${t('off')}</p></div>`; bar.innerHTML = ''; return; }
+  if (placed) return renderPlaced();
+  if (kind === 'delivery' && !o.delivery) kind = 'takeaway'; if (kind === 'takeaway' && o.pickup === false && o.delivery) kind = 'delivery';
+  const cats = cfg.categories.filter((c) => visible().some((i) => i.cat === c.id));
+  const sel = cat || '';
+  root.innerHTML = `<div class="top"><h1 class="serif">${App.esc(cfg.settings.name)}</h1><button class="ghost" onclick="App.toggleLang(event)">${App.langLabel(App.nextLang())}</button></div>
+  <p class="muted" style="margin:4px 0 0">${t('title')}${o.note ? ' · ' + App.esc(o.note) : ''}</p>
+  <div class="seg">${o.pickup !== false ? `<button class="${kind === 'takeaway' ? 'on' : ''}" onclick="setKind('takeaway')">🛍️ ${t('pickup')}</button>` : ''}${o.delivery ? `<button class="${kind === 'delivery' ? 'on' : ''}" onclick="setKind('delivery')">🛵 ${t('delivery')}</button>` : ''}</div>
+  <div class="chips"><button class="${sel ? '' : 'on'}" onclick="setCat('')">${t('all')}</button>${cats.map((c) => `<button onclick="setCat('${c.id}')" style="${sel === c.id ? 'border-color:var(--accent)' : ''}">${c.emoji || ''} ${App.esc(App.nm(c))}</button>`).join('')}</div>
+  ${cats.filter((c) => !sel || c.id === sel).map((c) => `<div class="cat"><h2 class="serif">${c.emoji || ''} ${App.esc(App.nm(c))}</h2>${!open(c) ? `<p class="muted">${t('closed')}</p>` : ''}${visible().filter((i) => i.cat === c.id).map((i) => row(i, open(c))).join('')}</div>`).join('')}`;
+  const n = count();
+  bar.innerHTML = n ? `<button onclick="openCart()">${t('view')} · ${n} ${t('items')} · ${App.money(food() + fee())}</button>` : '';
+}
+function row(i, isOpen) {
+  const q = cart[i.id] || 0, out = i.soldOut || !isOpen;
+  return `<div class="it ${out ? 'out' : ''}"><div class="e">${i.emoji || '🍽️'}</div><div class="i"><b>${App.esc(App.nm(i))}</b>${i.desc ? `<small>${App.esc(i.desc)}</small><br>` : ''}<small>${App.money(i.price)}</small></div>
+  ${out ? `<small>${t('sold')}</small>` : q ? `<div class="step"><button onclick="qty('${i.id}',-1)">−</button><b>${q}</b><button onclick="qty('${i.id}',1)">+</button></div>` : `<button class="ghost" onclick="qty('${i.id}',1)">${t('add')}</button>`}</div>`;
+}
+function setKind(k) { kind = k; render(); if (!panel.hidden) openCart(); }
+function setCat(c) { cat = c; render(); }
+function qty(id, d) { const q = Math.max(0, Math.min(20, (cart[id] || 0) + d)); if (q) cart[id] = q; else delete cart[id]; render(); }
+
+function openCart() {
+  panel.hidden = false; const o = O(), f = fee(), fd = food(), zn = zoneNow(), blocked = zn && (zn.need || zn.far);
+  const lines = Object.entries(cart).map(([id, q]) => { const i = cfg.items.find((x) => x.id === id); return `<div class="line"><span>${q} × ${App.esc(App.nm(i))}</span><span>${App.money(i.price * q)}</span></div>`; }).join('');
+  const short = o.minOrder && fd < o.minOrder;
+  panel.innerHTML = `<div class="wrap"><button class="ghost" onclick="closeCart()">${t('back')}</button><h2 class="serif">${t('your')}</h2>
+  <div class="seg">${o.pickup !== false ? `<button class="${kind === 'takeaway' ? 'on' : ''}" onclick="setKind('takeaway')">🛍️ ${t('pickup')}</button>` : ''}${o.delivery ? `<button class="${kind === 'delivery' ? 'on' : ''}" onclick="setKind('delivery')">🛵 ${t('delivery')}</button>` : ''}</div>
+  ${lines || `<p class="muted">${t('empty')}</p>`}
+  <div class="line"><span>${t('sub')}</span><span>${App.money(fd)}</span></div>${f ? `<div class="line"><span>${t('fee')}</span><span>${App.money(f)}</span></div>` : ''}
+  <div class="line tot"><span>${t('total')}</span><span>${App.money(fd + f)}</span></div><p class="muted" style="font-size:13px">${t('payNote')}</p>
+  ${short ? `<p class="err">${t('min')}: ${App.money(o.minOrder)}</p>` : ''}
+  <label for="fn">${t('name')}</label><input id="fn" maxlength="30" autocomplete="name" value="${App.esc(saved.name || '')}">
+  <label for="fp">${t('phone')}</label><input id="fp" type="tel" maxlength="20" autocomplete="tel" inputmode="tel" value="${App.esc(saved.phone || '')}">
+  ${kind === 'delivery' ? `<label for="fa">${t('addr')}</label><textarea id="fa" maxlength="140">${App.esc(saved.address || '')}</textarea>` : ''}
+  ${zn ? `<div class="card" style="margin:12px 0 0">${zn.need ? `<p class="muted" style="margin:0 0 8px">${t('needLoc')}</p>` : zn.far ? `<p class="err" style="margin:0 0 8px">${t('far')} ${zn.max} ${t('km')} (${zn.km} ${t('km')} ${t('away')})</p>` : `<p style="margin:0 0 8px">✅ ${t('located')} · ${zn.km} ${t('km')} ${t('away')} · ${t('zoneFee')}: <b>${App.money(zn.fee)}</b></p>`}<button class="ghost" onclick="locate()">${t('share')}</button>${geoMsg ? `<p class="err" style="margin:8px 0 0">${App.esc(geoMsg)}</p>` : ''}</div>` : ''}
+  <label for="fo">${t('note')}</label><textarea id="fo" maxlength="200"></textarea>
+  ${err ? `<p class="err">${App.esc(err)}</p>` : ''}
+  <div style="margin-top:16px"><button class="btn" id="go" ${!count() || short || busy || blocked ? 'disabled' : ''} onclick="submitOrder()">${t('place')} · ${App.money(fd + f)}</button></div></div>`;
+}
+function closeCart() { save(); panel.hidden = true; err = ''; render(); }
+
+async function submitOrder(tries = 0) {
+  if (busy && !tries) return; busy = true; err = ''; $('#go').disabled = true;
+  const body = { kind, name: $('#fn').value, phone: $('#fp').value, address: $('#fa') ? $('#fa').value : '', note: $('#fo').value, items: Object.entries(cart).map(([itemId, q]) => ({ itemId, qty: q })), geo: kind === 'delivery' && geoPos ? geoPos : undefined };
+  saved = { name: body.name, phone: body.phone, address: body.address };
+  try {
+    const r = await fetch('/api/online/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), j = await r.json().catch(() => ({}));
+    if (r.status === 409 && tries < 3) { await new Promise((x) => setTimeout(x, 400 + tries * 400)); return submitOrder(tries + 1); }   // another write won the race: retry
+    if (!r.ok || !j.ok) { busy = false; err = j.error || t('busy'); return openCart(); }
+    busy = false; placed = { tid: j.tid, number: j.number, kind: j.kind, total: j.total, prepMin: j.prepMin, status: 'received' }; cart = {}; save(); panel.hidden = true; render(); startPoll();
+  } catch { busy = false; err = t('busy'); openCart(); }
+}
+
+function renderPlaced() {
+  const p = placed, st = p.status, step = { received: 1, preparing: 2, ready: 3, done: 3 }[st] || 1;
+  root.innerHTML = `<div class="ok"><div class="big">${st === 'ready' || st === 'done' ? '✅' : '🧾'}</div><h2 class="serif">${st === 'done' ? t('done') : st === 'ready' ? t('ready_t') : t('thanks')}</h2>
+  <p class="muted">${t('num')}</p><div style="font-size:34px;font-weight:800">${App.esc(p.number)}</div>
+  <div class="track"><i class="${step >= 1 ? 'on' : ''}"></i><i class="${step >= 2 ? 'on' : ''}"></i><i class="${step >= 3 ? 'on' : ''}"></i></div>
+  <div class="row" style="justify-content:space-between"><small>${t('received')}</small><small>${t('preparing')}</small><small>${t('ready')}</small></div>
+  ${st !== 'ready' && st !== 'done' ? `<p class="muted">${t('prep_t')}: ~${p.prepMin} ${t('min_s')}</p>` : ''}
+  <p style="font-size:20px;font-weight:700">${App.money(p.total)}</p><p class="muted">${t('payNote')}</p>
+  ${st === 'done' ? `<button class="btn" onclick="again()">${t('again')}</button>` : ''}</div>`;
+  bar.innerHTML = '';
+}
+function again() { placed = null; save(); clearInterval(poll); render(); }
+async function check() {
+  if (!placed) return;
+  try { const r = await fetch('/api/online/status/' + encodeURIComponent(placed.tid)), j = await r.json(); if (j.status && j.status !== 'unknown') { if (j.status !== placed.status) { placed.status = j.status; if (j.total) placed.total = j.total; save(); renderPlaced(); } if (j.status === 'done') clearInterval(poll); } } catch {}
+}
+function startPoll() { clearInterval(poll); poll = setInterval(check, 8000); check(); }
+
+(async function init() {
+  try { const r = await fetch('/api/config'); if (!r.ok) throw 0; cfg = await r.json(); } catch { root.innerHTML = '<h2>Restaurant not found or suspended</h2>'; return; }
+  App.config = cfg; App.applyTheme(); App.handlers = { render }; document.title = cfg.settings.name + ' · ' + t('title');
+  if (saved.placed) { placed = saved.placed; if (placed.status === 'done') placed = null; }
+  render(); if (placed) startPoll();
+})();
+</script></body></html>
