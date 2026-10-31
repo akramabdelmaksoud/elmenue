@@ -12,13 +12,16 @@ Set `SINGLE_RESTAURANT=1`. Clean URLs: `/` (setup on first run), `/admin`, `/cap
     SINGLE_RESTAURANT=1 npm start       # open http://localhost:3000 → setup wizard
 
 Or skip the wizard: `OWNER_EMAIL`, `OWNER_PASSWORD`, `RESTAURANT_NAME` (and optionally `DEMO_DATA=1`).
-Docker: `docker build -t qrmenu . && docker run -p 3000:3000 -v qrdata:/app/data qrmenu`
+Docker: `docker build -t qrmenu . && docker run -p 3000:3000 -e SINGLE_RESTAURANT=1 -v qrdata:/app/data qrmenu`
 
 ### B) Many restaurants on one server (SaaS)
 Leave `SINGLE_RESTAURANT` unset. `/super` is the platform owner console; each restaurant lives at `/r/<slug>/…`.
 
 ### B2) Many restaurants on Vercel (SaaS, free demo hosting)
 Leave `SINGLE_RESTAURANT` unset and set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SECRET`, `SUPER_EMAIL`, `SUPER_PASSWORD`. `/super` creates cafés (each is a Supabase row `r_<slug>`), assigns tiers (Basic / Operations / VIP), branch groups and custom domains. Optional: `ANTHROPIC_API_KEY` for real photo-OCR and a smarter admin copilot. See `docs/SPEC_COVERAGE.md`.
+
+### B3) Production SaaS on your own server (recommended)
+Hetzner VPS + Caddy (automatic HTTPS) + Supabase Postgres, WebSocket mode, `<slug>.yourdomain.com` and custom domains. Option C steps: `docs/OWNER_CHECKLIST.md`; option B (Vercel) steps: `docs/OWNER_CHECKLIST_B.md`. See `docs/OWNER_CHECKLIST.md`, `docs/GO_LIVE.md` and `docs/PRODUCTION.md`. Deploy with `./deploy.sh`, undo with `./deploy.sh rollback`. Config template: `.env.example`. Run the tests with `npm test`.
 
 ### C) Vercel, one restaurant (serverless, no websockets)
 Phones poll every ~2.5s instead of using websockets; all state lives in Supabase. The frontend picks polling automatically

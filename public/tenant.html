@@ -7,7 +7,7 @@
 <script>
 fetch('/api/config').then(r => r.ok ? r.json() : Promise.reject()).then(c => {
   App.config = c; App.applyTheme(); document.getElementById('n').textContent = c.settings.name; document.title = c.settings.name;
-  { const o = c.settings.online || {}, a = document.getElementById('onl'); if (c.features.online && o.enabled) { a.href = '/r/' + App.slug + '/order'; a.hidden = false; } }
-  document.getElementById('cap').href = '/r/' + App.slug + '/captain'; document.getElementById('adm').href = '/r/' + App.slug + '/admin'; document.getElementById('kit').href = '/r/' + App.slug + '/kitchen';
+  { const o = c.settings.online || {}, a = document.getElementById('onl'); if (c.features.online && o.enabled) { a.href = (App.base === '' ? '' : '/r/' + App.slug) + '/order'; a.hidden = false; } }
+  const B = App.base === '' ? '' : '/r/' + App.slug; document.getElementById('cap').href = B + '/captain'; document.getElementById('adm').href = B + '/admin'; document.getElementById('kit').href = B + '/kitchen';
 }).catch(() => { document.querySelector('.c').innerHTML = '<h2>Restaurant not found or suspended</h2>'; });
-</script></body></html>
+</script><p style="text-align:center;font-size:12px;opacity:.6;margin:24px 0"><a href="/privacy" style="color:inherit">Privacy</a> · <a href="/terms" style="color:inherit">Terms</a></p></body></html>

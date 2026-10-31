@@ -10,6 +10,7 @@ body{min-height:100vh;display:grid;place-items:center;padding:24px;background:ra
 <a class="card" id="d1" href="/r/demo/admin" hidden><div class="i">🔐</div><h3>Demo admin</h3><p class="muted" id="dc"></p></a>
 <a class="card" id="d2" href="/r/demo/captain" hidden><div class="i">🧑‍✈️</div><h3>Demo captain</h3><p class="muted">Floor map &amp; live orders.</p></a>
 <a class="card" id="d3" href="/r/demo/t/1" target="_blank" hidden><div class="i">📱</div><h3>Demo guest (table 1)</h3><p class="muted">Open in two tabs to test group ordering.</p></a></div></div>
+<p style="text-align:center;font-size:13px;opacity:.7"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>
 <script src="/shared.js"></script>
 <script>
 fetch('/api/public/demo').then(r => r.json()).then(d => {

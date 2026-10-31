@@ -1,0 +1,52 @@
+# elmenue production stack: the app (WebSocket mode, ONE instance only) + Caddy (automatic HTTPS).
+# Always run through deploy.sh, which passes --env-file .env.production and sets APP_VERSION.
+#
+# Only ONE app container may ever run: live table state is held in memory, a second copy would overwrite the first.
+services:
+  app:
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    image: elmenue:${APP_VERSION:-dev}
+    env_file: .env.production
+    environment:
+      NODE_ENV: production
+      APP_VERSION: ${APP_VERSION:-dev}
+    restart: unless-stopped
+    stop_grace_period: 30s          # time for the app to write pending saves after SIGTERM
+    volumes:
+      - appdata:/app/data
+    expose:
+      - "3000"
+    mem_limit: 1400m
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      BASE_DOMAIN: ${BASE_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+      TLS_ASK_TOKEN: ${TLS_ASK_TOKEN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data              # certificates live here: keep this volume!
+      - caddy_config:/config
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+volumes:
+  appdata:
+  caddy_data:
+  caddy_config:

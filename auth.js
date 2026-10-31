@@ -21,6 +21,21 @@ exports.hash = (pw) => { const salt = crypto.randomBytes(16).toString('hex'); re
 exports.check = (pw, h) => { if (!h) return false; const [salt, hex] = h.split(':'); const x = crypto.scryptSync(String(pw), salt, 32); const y = Buffer.from(hex, 'hex'); return x.length === y.length && crypto.timingSafeEqual(x, y); };
 exports.randomPassword = () => crypto.randomBytes(6).toString('base64url');
 exports.pin = () => String(crypto.randomInt(1000, 9999));
+// Secrets kept in the database (a café's payment-provider keys) are encrypted with AES-256-GCM using a key derived from SECRET,
+// so a leaked backup or database row does not reveal them. Plain legacy values are still readable and get sealed on their next save.
+// NOTE: changing SECRET makes sealed values unreadable (they must be entered again).
+exports.seal = (txt) => {
+  const iv = crypto.randomBytes(12), c = crypto.createCipheriv('aes-256-gcm', Buffer.from(exports.derive('seal-v1'), 'hex'), iv);
+  const enc = Buffer.concat([c.update(String(txt), 'utf8'), c.final()]);
+  return 'enc1:' + Buffer.concat([iv, c.getAuthTag(), enc]).toString('base64');
+};
+exports.unseal = (v) => {
+  if (typeof v !== 'string' || !v.startsWith('enc1:')) return v;
+  try {
+    const raw = Buffer.from(v.slice(5), 'base64'), d = crypto.createDecipheriv('aes-256-gcm', Buffer.from(exports.derive('seal-v1'), 'hex'), raw.subarray(0, 12));
+    d.setAuthTag(raw.subarray(12, 28)); return Buffer.concat([d.update(raw.subarray(28)), d.final()]).toString('utf8');
+  } catch { return ''; }
+};
 // simple login throttling
 const fails = {};
 exports.throttled = (key) => { const f = fails[key]; return f && f.n >= 8 && Date.now() - f.t < 10 * 60000; };

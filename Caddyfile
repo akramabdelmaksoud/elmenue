@@ -1,0 +1,51 @@
+# HTTPS for  <slug>.BASE_DOMAIN  and every custom domain, using on-demand TLS.
+# Caddy only requests a certificate after the app confirms the host belongs to a known restaurant
+# (GET /internal/tls-ask), so strangers cannot make us request certificates for random names.
+{
+	email {$ACME_EMAIL}
+	on_demand_tls {
+		ask http://app:3000/internal/tls-ask?token={$TLS_ASK_TOKEN}
+	}
+}
+
+# Plain HTTP -> HTTPS (certificate challenges on port 80 are answered by Caddy before this runs)
+http:// {
+	redir https://{host}{uri} permanent
+}
+
+https:// {
+	tls {
+		on_demand
+	}
+
+	# the certificate check endpoint is for Caddy only, never for the internet
+	@internal path /internal/*
+	respond @internal 404
+
+	encode zstd gzip
+	request_body {
+		max_size 8MB
+	}
+
+	# access log without tokens: exports use ?token=... in the URL
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri query {
+					replace token REDACTED
+				}
+				request>headers>Authorization delete
+				request>headers>Cookie delete
+			}
+		}
+	}
+
+	# WebSockets (/ws) work automatically through reverse_proxy
+	reverse_proxy app:3000 {
+		health_uri /health
+		health_interval 15s
+		lb_try_duration 8s
+	}
+}

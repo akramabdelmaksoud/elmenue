@@ -15,11 +15,19 @@ const ETA = require('./eta');
 const { createTenant, freshData } = require('./tenant');
 const F = require('./features');
 const INS = require('./insights');
+const { rateLimit, messageBudget } = require('./ratelimit');
+const HOSTS = require('./hosts');
+const { securityHeaders } = require('./security');
 
+// "0", "false", "no", "off" and empty all mean OFF (a plain truthiness check treats the string "0" as ON).
+const envOn = (v) => /^(1|true|yes|on)$/i.test(String(v == null ? '' : v).trim());
 const PORT = process.env.PORT || 3000;
 const PROD = process.env.NODE_ENV === 'production';
+const VERSION = process.env.APP_VERSION || 'dev';
+const BASE_DOMAIN = HOSTS.normalizeDomain(process.env.BASE_DOMAIN) || '';   // e.g. elmenue.com -> <slug>.elmenue.com
+const DEMO_DATA = envOn(process.env.DEMO_DATA);
 try { fs.mkdirSync(process.env.DATA_DIR || path.join(__dirname, 'data'), { recursive: true }); } catch {}
-const STATELESS = !!(process.env.STATELESS || process.env.VERCEL);   // serverless: no websockets, no in-memory state
+const STATELESS = envOn(process.env.STATELESS) || !!process.env.VERCEL;   // serverless: no websockets, no in-memory state
 
 // ---------- Web push (captain / kitchen notifications that work with the phone locked) ----------
 function vapidKeys() {
@@ -50,7 +58,7 @@ const SLUG = /^[a-z0-9][a-z0-9-]{1,29}$/;
 // ---------- Super admin credentials ----------
 let SUPER = { email: process.env.SUPER_EMAIL, hash: process.env.SUPER_PASSWORD ? auth.hash(process.env.SUPER_PASSWORD) : null };
 function setupSuper() {
-  if (process.env.SINGLE_RESTAURANT) return;
+  if (SINGLE) return;
   if (SUPER.email && SUPER.hash) return;
   const f = path.join(process.env.DATA_DIR || path.join(__dirname, 'data'), 'super.json');
   try { const j = JSON.parse(fs.readFileSync(f, 'utf8')); SUPER = { email: j.email, hash: j.hash }; return; } catch {}
@@ -68,19 +76,30 @@ function mount(rec) {
   return t;
 }
 function makeRecord({ name, slug, email, password, plan = 'operations', demo = false }) {
+  const data = freshData(demo), cap = F.limitsOf(plan).tables;
+  if (cap !== null && data.tables.length > cap) data.tables = data.tables.slice(0, cap);   // sample tables must not start above the plan's table limit
   return {
     id: SINGLE ? MAIN : STATELESS ? 'r_' + slug : newId('r'), slug, name, plan, status: 'active', createdAt: Date.now(), lastActive: null,
     owner: { email: String(email).toLowerCase(), hash: auth.hash(password) }, pin: auth.pin(),
-    data: freshData(demo),
+    data,
   };
 }
+function checkProdConfig() {
+  if (!PROD || SINGLE || STATELESS) return;
+  const bad = [];
+  if (String(process.env.SECRET || '').length < 32) bad.push('SECRET must be set (32+ random characters) - otherwise every login breaks on restart');
+  if (!process.env.SUPER_EMAIL || String(process.env.SUPER_PASSWORD || '').length < 10) bad.push('SUPER_EMAIL and SUPER_PASSWORD (10+ characters) must be set');
+  if (!process.env.DATABASE_URL && !(process.env.SUPABASE_URL && process.env.SUPABASE_SECRET_KEY) && !envOn(process.env.ALLOW_FILE_STORAGE)) bad.push('DATABASE_URL must be set (or ALLOW_FILE_STORAGE=1 to knowingly use local files)');
+  if (bad.length) throw new Error('Unsafe production configuration:\n   - ' + bad.join('\n   - '));
+}
 async function bootstrap() {
+  checkProdConfig();
   await store.init();
   setupSuper();
   (await store.loadAll()).forEach(mount);
   if (SINGLE && !tenants.size && process.env.OWNER_EMAIL && process.env.OWNER_PASSWORD) {
-    const rec = makeRecord({ name: process.env.RESTAURANT_NAME || 'My Restaurant', slug: MAIN, email: process.env.OWNER_EMAIL, password: process.env.OWNER_PASSWORD, demo: !!process.env.DEMO_DATA });
-    rec.data.settings.name = rec.name; const t = mount(rec); if (process.env.DEMO_DATA) t.seedLive(); store.save(rec);
+    const rec = makeRecord({ name: process.env.RESTAURANT_NAME || 'My Restaurant', slug: MAIN, email: process.env.OWNER_EMAIL, password: process.env.OWNER_PASSWORD, demo: DEMO_DATA });
+    rec.data.settings.name = rec.name; const t = mount(rec); if (DEMO_DATA) t.seedLive(); store.save(rec);
   }
   if (!SINGLE && !tenants.has('demo') && !PROD) {
     const rec = makeRecord({ name: 'Demo Café', slug: 'demo', email: 'demo@demo.com', password: 'demo123', demo: true });
@@ -101,9 +120,9 @@ function needAdmin(req, res, next) {
 async function loadFresh(slug) {
   let got = await store.getRec(SINGLE ? MAIN : 'r_' + slug);
   if (!got && process.env.OWNER_EMAIL && process.env.OWNER_PASSWORD) {
-    const rec = makeRecord({ name: process.env.RESTAURANT_NAME || 'My Restaurant', slug: MAIN, email: process.env.OWNER_EMAIL, password: process.env.OWNER_PASSWORD, demo: !!process.env.DEMO_DATA });
+    const rec = makeRecord({ name: process.env.RESTAURANT_NAME || 'My Restaurant', slug: MAIN, email: process.env.OWNER_EMAIL, password: process.env.OWNER_PASSWORD, demo: DEMO_DATA });
     rec.data.settings.name = rec.name;
-    await createRecord(rec, !!process.env.DEMO_DATA);
+    await createRecord(rec, DEMO_DATA);
     got = await store.getRec(MAIN);
   }
   if (!got) return null;
@@ -157,9 +176,49 @@ async function tenantMw(req, res, next) {
 
 // ---------- HTTP ----------
 const app = express();
-app.set('trust proxy', 1);
+app.disable('x-powered-by');
+app.set('trust proxy', process.env.TRUST_PROXY === undefined ? 1 : (/^\d+$/.test(process.env.TRUST_PROXY) ? +process.env.TRUST_PROXY : process.env.TRUST_PROXY));   // 1 = one proxy (Caddy) in front
+app.use(securityHeaders({ prod: PROD }));
+// Rate limits (per client IP, in memory). Scale all of them with RATE_MULT. The numbers are deliberately generous: a whole café can share one Wi-Fi IP.
+const writeLimit = rateLimit({ windowMs: 60000, max: 900 });
+const loginLimit = rateLimit({ windowMs: 60000, max: 12, message: 'Too many sign-in attempts, wait a minute' });   // runs before the (slow) password hashing
+const rpcLimit = rateLimit({ windowMs: 60000, max: 2400, key: (req) => req.ip + ':' + req.params.slug });
+const upLimit = rateLimit({ windowMs: 60000, max: 30, message: 'Too many uploads, wait a minute' });
+app.use('/api', rateLimit({ windowMs: 60000, max: 3000 }));
+app.use('/api', (req, res, next) => (req.method === 'GET' || req.method === 'HEAD' ? next() : writeLimit(req, res, next)));
 app.use(express.json({ limit: '2mb' }));
-const SINGLE = !!process.env.SINGLE_RESTAURANT, MAIN = 'main';
+const SINGLE = envOn(process.env.SINGLE_RESTAURANT), MAIN = 'main';
+
+// ---------- Host-based tenants: <slug>.BASE_DOMAIN and custom domains serve the restaurant's pages (rewrite, not redirect) ----------
+// /r/<slug>/... keeps working on every host, so printed QR codes, ?k= table keys and demo mode are untouched.
+const hostIndex = HOSTS.createHostIndex({ base: BASE_DOMAIN, ttlMs: STATELESS ? 30000 : 2000, load: async () => (STATELESS ? store.listRecs() : [...tenants.values()].map((t) => t.rec)) });
+const HOST_PAGES = { '/': 'tenant.html', '/captain': 'captain.html', '/admin': 'admin.html', '/kitchen': 'kitchen.html', '/cashier': 'cashier.html', '/order': 'order.html' };
+const pageCache = {};
+function pageFor(file, slug) {   // the page plus <meta name="elm-slug"> so shared.js knows the restaurant without a /r/<slug> prefix
+  let h = pageCache[file];
+  if (!h) { h = fs.readFileSync(path.join(__dirname, 'public', file), 'utf8'); if (PROD) pageCache[file] = h; }
+  return h.replace('<head>', '<head><meta name="elm-slug" content="' + slug + '">');
+}
+const hostOf = (req) => String(req.headers.host || '').toLowerCase().replace(/:\d+$/, '');
+if (!SINGLE) app.use(async (req, res, next) => {
+  try {
+    const r = await hostIndex.resolve(hostOf(req));
+    if (!r) return next();
+    const api = req.path.startsWith('/api/');
+    if (r.unknown) return res.status(404).type(api ? 'json' : 'html').send(api ? '{"error":"Unknown restaurant"}' : '<!doctype html><meta charset=utf-8><title>Not found</title><h1 style="font-family:sans-serif;text-align:center;margin-top:20vh">Restaurant not found</h1>');
+    if (/^\/(super|api\/super)(\/|$)/.test(req.path)) return res.status(404).end();   // the platform console is never served on a restaurant's host
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    const file = HOST_PAGES[req.path.length > 1 ? req.path.replace(/\/$/, '') : req.path] || (/^\/t\/\d+\/?$/.test(req.path) ? 'customer.html' : null);
+    if (!file) return next();
+    res.set('Cache-Control', 'no-cache').type('html').send(pageFor(file, r.slug));
+  } catch (e) { next(e); }
+});
+// Caddy on-demand TLS asks this before it requests a certificate for a host. Only reachable inside the Docker network (never proxied publicly).
+app.get('/internal/tls-ask', async (req, res, next) => { try {
+  if (SINGLE || req.headers['x-forwarded-for']) return res.status(404).end();
+  if (process.env.TLS_ASK_TOKEN && req.query.token !== process.env.TLS_ASK_TOKEN) return res.status(404).end();
+  res.status((await hostIndex.known(String(req.query.domain || ''))) ? 200 : 404).end();
+} catch (e) { next(e); } });
 if (SINGLE) {
   // One install = one restaurant: clean URLs (/admin, /captain, /t/5) that map to the single tenant
   const sendPub = (f) => (req, res) => res.sendFile(path.join(__dirname, 'public', f));
@@ -174,7 +233,7 @@ if (SINGLE) {
   app.get('/t/:n', (req, res) => res.redirect('/r/' + MAIN + '/t/' + encodeURIComponent(req.params.n) + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')));
   app.get('/index.html', (req, res) => res.redirect('/'));
   app.get('/api/setup/status', async (req, res) => { try { res.json({ setup: await isSetup(), needsKey: !!process.env.SETUP_KEY }); } catch (e) { res.status(500).json({ error: 'Server error' }); } });
-  app.post('/api/setup', async (req, res) => {
+  app.post('/api/setup', loginLimit, async (req, res) => {
     try {
       if (await isSetup()) return res.status(403).json({ error: 'Already set up' });
       if (process.env.SETUP_KEY && req.body.setupKey !== process.env.SETUP_KEY) return res.status(403).json({ error: 'Wrong setup key' });
@@ -191,19 +250,10 @@ if (SINGLE) {
   });
 }
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/vendor/sortable.js', express.static(require.resolve('sortablejs/Sortable.min.js')));
-app.use('/vendor/chart.js', express.static(path.join(__dirname, 'node_modules/chart.js/dist/chart.umd.js')));
-// custom domains: a café's own domain (set in the super admin) opens its landing page at /
-let domCache = { at: 0, map: {} };
-if (!SINGLE) app.get('/', async (req, res, next) => {
-  try {
-    if (Date.now() - domCache.at > 60000) { const recs = STATELESS ? await store.listRecs() : [...tenants.values()].map((t) => t.rec); domCache = { at: Date.now(), map: Object.fromEntries(recs.filter((r) => r.domain).map((r) => [r.domain, r.slug])) }; }
-    const slug = domCache.map[String(req.hostname || '').toLowerCase()]; if (slug) return res.redirect(302, '/r/' + slug);
-  } catch {}
-  next();
-});
+app.use('/vendor/sortable.js', express.static(require.resolve('sortablejs/Sortable.min.js'), { maxAge: '7d' }));
+app.use('/vendor/chart.js', express.static(path.join(__dirname, 'node_modules/chart.js/dist/chart.umd.js'), { maxAge: '7d' }));
 if (!SINGLE) app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'platform.html')));
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: (+process.env.UPLOAD_MAX_MB || 5) * 1024 * 1024, files: 1 } });
 const page = (f) => (req, res) => res.sendFile(path.join(__dirname, 'public', f));
 // the order engine is plain JS, so the in-browser demo can run the exact same code with nothing saved
 app.get('/engine/:f', (req, res, next) => ['tenant.js', 'data.js', 'features.js'].includes(req.params.f) ? res.type('js').sendFile(path.join(__dirname, req.params.f)) : next());
@@ -258,6 +308,8 @@ app.get('/api/demo/qr.png', async (req, res, next) => { try {
 } catch (e) { next(e); } });
 app.get('/demo', page('showroom.html'));
 app.get('/demo-local', page('demo.html'));
+app.get('/privacy', page('privacy.html'));
+app.get('/terms', page('terms.html'));
 
 if (!SINGLE) app.get('/super', page('super.html'));
 app.get('/r/:slug', page('tenant.html'));
@@ -267,7 +319,10 @@ app.get('/r/:slug/captain', page('captain.html'));
 app.get('/r/:slug/admin', page('admin.html'));
 app.get('/r/:slug/kitchen', page('kitchen.html'));
 app.get('/r/:slug/cashier', page('cashier.html'));
-app.get('/health', (req, res) => res.send('ok'));
+app.get('/health', async (req, res) => {
+  try { await store.ping(); res.json({ ok: true, version: VERSION, storage: store.mode(), uptime: Math.round(process.uptime()) }); }
+  catch (e) { console.error('health check failed:', e.message); res.status(503).json({ ok: false }); }
+});
 
 function lanIP() {
   for (const ifs of Object.values(os.networkInterfaces())) for (const i of ifs) if (i.family === 'IPv4' && !i.internal) return i.address;
@@ -278,7 +333,7 @@ const origin = (req) => (process.env.PUBLIC_URL || (PROD ? `${req.protocol}://${
 app.get('/api/public/demo', (req, res) => res.json(!SINGLE && !PROD && tenants.has('demo') ? { slug: 'demo', email: 'demo@demo.com', password: 'demo123', pin: '1234' } : null));
 
 // ----- Super admin API -----
-app.post('/api/super/login', (req, res) => {
+app.post('/api/super/login', loginLimit, (req, res) => {
   if (SINGLE) return res.status(404).json({});
   const key = 'super:' + req.ip;
   if (auth.throttled(key)) return res.status(429).json({ error: 'Too many attempts, try later' });
@@ -322,28 +377,40 @@ app.get('/api/super/overview', needSuper, async (req, res, next) => { try {
     topItems: Object.entries(items).sort((a, b) => b[1] - a[1]).slice(0, 8),
   });
 } catch (e) { next(e); } });
+// A café's own domain: normalised, valid, not one of ours (they get the free subdomain), and not already used by another café.
+async function checkDomain(input, selfSlug) {
+  hostIndex.clear();
+  const value = HOSTS.normalizeDomain(input);
+  if (value === null) return { status: 400, error: 'That is not a valid domain name (example: menu.mycafe.com)' };
+  if (value && BASE_DOMAIN && (value === BASE_DOMAIN || value.endsWith('.' + BASE_DOMAIN))) return { status: 400, error: "Use the restaurant's free subdomain instead of a " + BASE_DOMAIN + ' name' };
+  const owner = value ? await hostIndex.domainOwner(value) : null;
+  if (owner && owner !== selfSlug) return { status: 409, error: 'That domain already belongs to "' + owner + '"' };
+  return { value };
+}
 app.post('/api/super/tenants', needSuper, async (req, res, next) => { try {
   const b = req.body || {}; const slug = String(b.slug || '').toLowerCase().trim();
-  if (!SLUG.test(slug) || ['super', 'api', 'admin', 'vendor', 'uploads'].includes(slug)) return res.status(400).json({ error: 'Slug must be 2–30 chars: a-z, 0-9, dashes' });
+  if (!SLUG.test(slug) || ['super', 'api', 'admin', 'vendor', 'uploads'].includes(slug) || HOSTS.RESERVED.has(slug)) return res.status(400).json({ error: 'Slug must be 2–30 chars: a-z, 0-9, dashes' });
   if (STATELESS ? !!(await store.getRec('r_' + slug)) : tenants.has(slug)) return res.status(400).json({ error: 'That slug is taken' });
   if (!b.name || !/^\S+@\S+$/.test(b.email || '')) return res.status(400).json({ error: 'Name and valid owner email required' });
+  const dom = await checkDomain(b.domain, null); if (dom.error) return res.status(dom.status).json({ error: dom.error });
   const password = b.password || auth.randomPassword();
   const plan0 = F.PLANS[b.plan] ? b.plan : 'operations';
   if (b.group) { const grp = String(b.group).slice(0, 40), used = (await allTenants()).filter((x) => (x.rec.group || '') === grp).length, c = F.limitCheck('branches', used, plan0); if (!c.ok) return res.status(402).json({ error: `Plan allows ${c.limit} branch(es) in a group`, kind: 'branches', limit: c.limit, used, upgrade: c.upgrade, limits: true }); }
   const rec = makeRecord({ name: b.name, slug, email: b.email, password, plan: plan0, demo: !!b.demo });
-  rec.data.settings.name = b.name; if (b.group) rec.group = String(b.group).slice(0, 40); if (b.domain) rec.domain = String(b.domain).toLowerCase().slice(0, 80);
+  rec.data.settings.name = b.name; if (b.group) rec.group = String(b.group).slice(0, 40); if (b.domain) rec.domain = dom.value;
   if (STATELESS) { if (!(await createRecord(rec, !!b.demo))) return res.status(400).json({ error: 'That slug is taken' }); }
   else { const t = mount(rec); if (b.demo) t.seedLive(); store.save(rec); }
+  hostIndex.clear();
   res.json({ slug, email: rec.owner.email, password, pin: rec.pin, url: `${origin(req)}/r/${slug}/admin` });
 } catch (e) { next(e); } });
 app.put('/api/super/tenants/:slug', needSuper, async (req, res, next) => { try {
   const t = await oneTenant(req.params.slug); if (!t) return res.status(404).json({});
   if (req.body.limits !== undefined) { const L = req.body.limits || {}, o = {}; ['tables', 'staff', 'branches'].forEach((k) => { if (L[k] === null || L[k] === '' ) { if (L[k] === null) o[k] = null; } else if (L[k] !== undefined && +L[k] >= 0) o[k] = Math.floor(+L[k]); }); t.rec.limits = Object.keys(o).length ? o : undefined; }
-  ['name', 'plan', 'status', 'group', 'domain'].forEach((k) => { if (req.body[k] === undefined) return; if (k === 'plan' && !F.PLANS[req.body[k]]) return; t.rec[k] = req.body[k]; });
-  if (t.rec.domain) t.rec.domain = String(t.rec.domain).toLowerCase().trim().slice(0, 80);
+  if (req.body.domain !== undefined) { const dom = await checkDomain(req.body.domain, t.rec.slug); if (dom.error) return res.status(dom.status).json({ error: dom.error }); t.rec.domain = dom.value; }
+  ['name', 'plan', 'status', 'group'].forEach((k) => { if (req.body[k] === undefined) return; if (k === 'plan' && !F.PLANS[req.body[k]]) return; t.rec[k] = req.body[k]; });
   if (t.rec.status !== 'active') t.clients.forEach((c) => c.ws.close());
   if (!(await saveTenant(t))) return res.status(409).json({ error: 'busy, try again' });
-  res.json(tenantStats(t));
+  hostIndex.clear(); res.json(tenantStats(t));
 } catch (e) { next(e); } });
 app.post('/api/super/tenants/:slug/reset', needSuper, async (req, res, next) => { try {
   const t = await oneTenant(req.params.slug); if (!t) return res.status(404).json({});
@@ -354,13 +421,15 @@ app.post('/api/super/tenants/:slug/reset', needSuper, async (req, res, next) => 
 app.post('/api/super/tenants/:slug/impersonate', needSuper, (req, res) => res.json({ token: auth.sign('admin', req.params.slug, 1) }));
 app.delete('/api/super/tenants/:slug', needSuper, async (req, res, next) => { try {
   const t = await oneTenant(req.params.slug); if (!t) return res.status(404).json({});
-  t.clients.forEach((c) => c.ws.close()); tenants.delete(t.rec.slug); await store.remove(t.rec.id); res.json({ ok: 1 });
+  t.clients.forEach((c) => c.ws.close()); tenants.delete(t.rec.slug); await store.remove(t.rec.id); hostIndex.clear(); res.json({ ok: 1 });
 } catch (e) { next(e); } });
 
 // ----- Per-restaurant public API -----
 const R = '/api/r/:slug';
 app.get(`${R}/config`, tenantMw, (req, res) => res.json(req.tenant.publicConfig()));
-app.get(`${R}/info`, tenantMw, (req, res) => res.json({ base: origin(req) + '/r/' + req.params.slug }));
+// Canonical public address: its own domain, else <slug>.BASE_DOMAIN (production), else the /r/<slug> form. Old /r/<slug> links keep working either way.
+const tenantBase = (req, rec) => (rec.domain ? 'https://' + rec.domain : BASE_DOMAIN && PROD && !SINGLE ? 'https://' + rec.slug + '.' + BASE_DOMAIN : origin(req) + '/r/' + rec.slug);
+app.get(`${R}/info`, tenantMw, (req, res) => res.json({ base: tenantBase(req, req.tenant.rec) }));
 app.get(`${R}/qr/:n.png`, tenantMw, needAdmin, async (req, res) => {
   const base = String(req.query.base || origin(req) + '/r/' + req.params.slug).replace(/\/$/, '');
   const tb = req.tenant.db.tables.find((x) => String(x.number) === req.params.n);
@@ -374,7 +443,7 @@ app.get(`${R}/menu/template.xlsx`, (req, res) => {
   res.send(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
 });
 const persistRec = (t) => { if (STATELESS) t.dirty = true; else store.save(t.rec); };
-app.post(`${R}/login`, tenantMw, (req, res) => {
+app.post(`${R}/login`, loginLimit, tenantMw, (req, res) => {
   const t = req.tenant, { role, email, password, pin } = req.body || {};
   const key = `${role}:${req.ip}`, fails = (t.rec.fails ||= {}), f = fails[key] || { n: 0, t: 0 };
   if (f.n >= 8 && Date.now() - f.t < 10 * 60000) return res.status(429).json({ error: 'Too many attempts, try again in a few minutes' });
@@ -688,7 +757,7 @@ A('delete', '/categories/:id', (req, res) => { const d = req.tenant.db; d.catego
 A('post', '/items', (req, res) => { const d = req.tenant.db; const b = req.body; const i = { id: newId('i'), cat: b.cat, name: b.name || 'New item', name_ar: b.name_ar || '', price: +b.price || 0, cost: +b.cost || 0, emoji: b.emoji || '🍽️', desc: b.desc || '', img: '' }; if (b.stock !== undefined && b.stock !== null && b.stock !== '') i.stock = Math.max(0, Math.floor(+b.stock) || 0); d.items.push(i); bc(req); res.json(i); });
 A('put', '/items/:id', (req, res) => { const i = req.tenant.db.items.find((x) => x.id === req.params.id); if (i) { Object.assign(i, req.body, { id: i.id }); i.price = +i.price; i.cost = +i.cost; const b = req.body || {}; if ('pairs' in b) i.pairs = (Array.isArray(b.pairs) ? b.pairs : []).filter((p, k, a) => a.indexOf(p) === k && p !== i.id && req.tenant.db.items.some((x) => x.id === p)).slice(0, 6); if ('stock' in b) i.stock = b.stock === null || b.stock === '' ? null : Math.max(0, Math.floor(+b.stock) || 0); if ('lowAt' in b) i.lowAt = Math.max(0, Math.floor(+b.lowAt) || 0); } bc(req); res.json(i); });
 A('delete', '/items/:id', (req, res) => { const d = req.tenant.db; d.items = d.items.filter((x) => x.id !== req.params.id); bc(req); res.json({ ok: 1 }); });
-A('post', '/items/:id/image', upload.single('image'), async (req, res) => {
+A('post', '/items/:id/image', upLimit, upload.single('image'), async (req, res) => {
   const i = req.tenant.db.items.find((x) => x.id === req.params.id);
   if (!i || !req.file) return res.status(400).json({ error: 'bad request' });
   if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(req.file.mimetype)) return res.status(400).json({ error: 'Unsupported image type' });
@@ -706,9 +775,9 @@ const putImage = async (req, res, label) => {
   await store.putBlob(key, `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`);
   return `/api/r/${req.params.slug}/img/${key}`;
 };
-A('post', '/categories/:id/image', upload.single('image'), async (req, res) => { const c = req.tenant.db.categories.find((x) => x.id === req.params.id); if (!c) return res.status(404).json({ error: 'not found' }); const u = await putImage(req, res, 'c' + c.id); if (!u) return; c.img = u; bc(req); res.json({ ok: 1 }); });
+A('post', '/categories/:id/image', upLimit, upload.single('image'), async (req, res) => { const c = req.tenant.db.categories.find((x) => x.id === req.params.id); if (!c) return res.status(404).json({ error: 'not found' }); const u = await putImage(req, res, 'c' + c.id); if (!u) return; c.img = u; bc(req); res.json({ ok: 1 }); });
 A('delete', '/categories/:id/image', (req, res) => { const c = req.tenant.db.categories.find((x) => x.id === req.params.id); if (c) c.img = ''; bc(req); res.json({ ok: 1 }); });
-A('post', '/hero-image', upload.single('image'), async (req, res) => { const u = await putImage(req, res, 'hero'); if (!u) return; req.tenant.db.settings.heroImg = u; bc(req); res.json({ ok: 1 }); });
+A('post', '/hero-image', upLimit, upload.single('image'), async (req, res) => { const u = await putImage(req, res, 'hero'); if (!u) return; req.tenant.db.settings.heroImg = u; bc(req); res.json({ ok: 1 }); });
 A('delete', '/hero-image', (req, res) => { req.tenant.db.settings.heroImg = ''; bc(req); res.json({ ok: 1 }); });
 app.get(`${R}/img/:key`, async (req, res) => {
   const d = await store.getBlob(req.params.key); const m = d && /^data:([\w/+.-]+);base64,(.*)$/.exec(d);
@@ -775,10 +844,12 @@ A('get', '/promo/report', async (req, res) => { try { res.json(await promoReport
 const gateP = gate('onlinepay'), payHits = {};
 const payThrottle = (req, res, max) => { const k = String(req.ip) + req.path.slice(0, 20), now = Date.now(); payHits[k] = (payHits[k] || []).filter((x) => now - x < 60000); if (payHits[k].length >= max) { res.status(429).json({ error: 'Too many requests' }); return true; } payHits[k].push(now); return false; };
 const mask = (v) => (v ? '••••' + String(v).slice(-3) : '');
-A('get', '/pay/config', gateP, (req, res) => { const c = req.tenant.rec.payCfg || {}; res.json({ provider: (req.tenant.db.settings.onlinePay || {}).provider, sandboxAllowed: PAY.sandboxAllowed(req.tenant.rec.slug), paymob: { apiKey: mask(c.apiKey), hmac: mask(c.hmac), integrationId: c.integrationId || '', iframeId: c.iframeId || '' }, webhook: '/api/r/' + req.tenant.rec.slug + '/pay/webhook/paymob' }); });
+const PAY_SECRETS = ['apiKey', 'hmac'];   // stored encrypted (auth.seal); read through payCfg()
+const payCfg = (rec) => Object.fromEntries(Object.entries(rec.payCfg || {}).map(([k, v]) => [k, PAY_SECRETS.includes(k) ? auth.unseal(v) : v]));
+A('get', '/pay/config', gateP, (req, res) => { const c = payCfg(req.tenant.rec); res.json({ provider: (req.tenant.db.settings.onlinePay || {}).provider, sandboxAllowed: PAY.sandboxAllowed(req.tenant.rec.slug), paymob: { apiKey: mask(c.apiKey), hmac: mask(c.hmac), integrationId: c.integrationId || '', iframeId: c.iframeId || '' }, webhook: '/api/r/' + req.tenant.rec.slug + '/pay/webhook/paymob' }); });
 A('post', '/pay/config', gateP, (req, res) => {   // secrets live on the venue record, never in the public config, never returned
   const b = req.body || {}; if (String(b.integrationId || '').trim() && !/^\d+$/.test(String(b.integrationId).trim())) return res.status(400).json({ error: 'Integration id is a number' });
-  const c = (req.tenant.rec.payCfg ||= {}), set = (k, v, n) => { v = String(v || '').trim().slice(0, n); if (v && !v.startsWith('••••')) c[k] = v; };
+  const c = (req.tenant.rec.payCfg ||= {}), set = (k, v, n) => { v = String(v || '').trim().slice(0, n); if (v && !v.startsWith('••••')) c[k] = PAY_SECRETS.includes(k) ? auth.seal(v) : v; };
   set('apiKey', b.apiKey, 600); set('hmac', b.hmac, 200); set('integrationId', b.integrationId, 20); set('iframeId', b.iframeId, 20);
   persistRec(req.tenant); res.json({ ok: 1 });
 });
@@ -801,7 +872,7 @@ app.post(`${R}/pay/intent`, tenantMw, async (req, res, next) => { try {
   const id = 'pi_' + require('crypto').randomBytes(12).toString('hex'), rec = t.rec, pays = (rec.pays ||= {});
   const it = { id, tableId: tbl.id, tableNumber: tbl.number, sessionId: s.id, guestId: gid || null, base, tip, amount, provider: op.provider, status: 'pending', at: Date.now(), ref: '' };
   if (op.provider === 'paymob') {
-    const c = rec.payCfg || {}; if (!(c.apiKey && c.hmac && c.integrationId && c.iframeId)) return res.status(503).json({ error: 'Payments are not configured' });
+    const c = payCfg(rec); if (!(c.apiKey && c.hmac && c.integrationId && c.iframeId)) return res.status(503).json({ error: 'Payments are not configured' });
     try { const o = await PAY.paymobCreate(c, { amount, intent: id }); it.ref = o.ref; it.url = o.url; } catch (e) { return res.status(502).json({ error: 'The payment provider is unavailable, please pay at the table' }); }
   } else {
     if (!PAY.sandboxAllowed(rec.slug)) return res.status(400).json({ error: 'Test gateway not allowed' });
@@ -824,7 +895,7 @@ function settleIntent(t, out) {
 }
 app.post(`${R}/pay/webhook/paymob`, tenantMw, (req, res) => {
   if (payThrottle(req, res, 120)) return;
-  const t = req.tenant, c = t.rec.payCfg || {}, obj = req.body && req.body.obj;
+  const t = req.tenant, c = payCfg(t.rec), obj = req.body && req.body.obj;
   if (!obj || !PAY.verifyPaymob(obj, req.query.hmac, c.hmac)) return res.status(401).json({ error: 'bad signature' });
   if (req.body.type && req.body.type !== 'TRANSACTION') return res.json({ ok: 1, ignored: true });
   const r = settleIntent(t, PAY.paymobOutcome(obj)); res.status(r.code).json(r.body);
@@ -971,7 +1042,7 @@ A('post', '/insights/ai', gateI, gate('copilot'), async (req, res, next) => { tr
   } catch (e) { res.json({ text: fallback, ai: false, error: 'AI is unavailable right now; showing the rule-based summary.' }); }
 } catch (e) { next(e); } });
 // OCR: with ANTHROPIC_API_KEY the photo is read by a vision model; without it the demo returns a sample parse so the flow can be shown offline
-A('post', '/menu/ocr', gate('ocr'), upload.single('image'), async (req, res) => {
+A('post', '/menu/ocr', gate('ocr'), upLimit, upload.single('image'), async (req, res) => {
   if (!req.file || !/^image\/(png|jpe?g|webp|gif)$/.test(req.file.mimetype)) return res.status(400).json({ error: 'Upload a PNG, JPG or WebP photo of the menu' });
   if (!aiKey()) return res.json({ simulated: true, ...F.parseMenuText(F.OCR_SAMPLE) });
   try {
@@ -986,7 +1057,7 @@ A('get', '/branches', gate('branches'), async (req, res, next) => { try {
   const sum = (f) => list.reduce((n, x) => n + f(x), 0);
   res.json({ group: g || '', branches: list.map((x) => ({ slug: x.slug, name: x.name, revenue: x.revenue, sessions: x.sessions, avgTicket: x.avgTicket, liveTables: x.liveTables, guestsLive: x.guestsLive })), totals: { revenue: sum((x) => x.revenue), sessions: sum((x) => x.sessions), liveTables: sum((x) => x.liveTables) }, currency: req.tenant.db.settings.currency });
 } catch (e) { next(e); } });
-A('post', '/menu/import', upload.single('file'), (req, res) => {
+A('post', '/menu/import', upLimit, upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
   const d = req.tenant.db;
   try {
@@ -1045,7 +1116,7 @@ A('get', '/analytics', async (req, res) => { if (STATELESS) req.tenant.db.histor
 
 // ---------- Polling transport (used when websockets are unavailable, e.g. Vercel) ----------
 // One call = optional message + fresh snapshot. Retries automatically on write conflicts.
-app.post(`${R}/rpc`, async (req, res) => {
+app.post(`${R}/rpc`, rpcLimit, async (req, res) => {
   const j = req.body || {}, jn = j.join || {};
   try {
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -1077,7 +1148,11 @@ app.post(`${R}/rpc`, async (req, res) => {
       }
       const state = t.snapshotFor(c);
       const alerts = (jn.role === 'captain' || jn.role === 'cashier') && j.since >= 0 ? (t.rec.alerts || []).filter((a) => a.id > j.since) : [];
-      return res.json({ state, guestId: c.guestId || null, alerts, alertSeq: t.rec.alertSeq || 0, notices: out.filter((m) => m.t === 'notice').map((m) => m.msg) });
+      const notices = out.filter((m) => m.t === 'notice').map((m) => m.msg);
+      // The client sends the fingerprint of the state it already has; when nothing changed we answer in a few bytes instead of the whole state.
+      const etag = require('crypto').createHash('sha1').update(JSON.stringify(state)).digest('base64url').slice(0, 20);
+      if (j.etag && j.etag === etag && !alerts.length && !notices.length && !j.msg) return res.json({ same: 1, guestId: c.guestId || null, alertSeq: t.rec.alertSeq || 0 });
+      return res.json({ state, etag, guestId: c.guestId || null, alerts, alertSeq: t.rec.alertSeq || 0, notices });
     }
     res.status(409).json({ error: 'busy' });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
@@ -1093,11 +1168,27 @@ app.use((err, req, res, next) => {
 if (require.main === module && !STATELESS) {
   const { WebSocketServer } = require('ws');
   const server = http.createServer(app);
-  const wss = new WebSocketServer({ server, path: '/ws' });
+  server.keepAliveTimeout = 65000; server.headersTimeout = 66000;   // longer than the reverse proxy's idle time, so it never reuses a connection we just closed
+  const WS_MAX = +process.env.WS_MAX || 3000;
+  const wss = new WebSocketServer({
+    server, path: '/ws', maxPayload: 64 * 1024,
+    // only pages served from this same host may open a socket (blocks other websites from driving a visitor's session)
+    verifyClient: ({ req }) => {
+      if (wss.clients.size >= WS_MAX) return false;
+      const o = req.headers.origin; if (!o) return true;
+      try { return new URL(o).host.toLowerCase() === String(req.headers.host || '').toLowerCase(); } catch { return false; }
+    },
+  });
+  // heartbeat: phones that vanish (lift, tunnel, lock screen) are dropped within ~60 s instead of piling up
+  const beat = setInterval(() => wss.clients.forEach((w) => { if (w.dead) return w.terminate(); w.dead = true; try { w.ping(); } catch {} }), 30000); beat.unref();
   wss.on('connection', (ws) => {
     const c = { ws, role: null, joined: false, authed: false };
-    let tenant = null;
+    let tenant = null, strikes = 0;
+    const budget = messageBudget(80, 10000);   // 80 messages / 10 s per connection is far above any real use
+    ws.dead = false; ws.on('pong', () => { ws.dead = false; }); ws.on('error', () => {});
     ws.on('message', (d) => {
+      ws.dead = false;
+      if (!budget()) { if (++strikes > 20) ws.close(1008, 'slow down'); return; }
       try {
         const m = JSON.parse(d);
         if (!tenant) {
@@ -1119,6 +1210,17 @@ if (require.main === module && !STATELESS) {
     ws.on('close', () => tenant && tenant.clients.delete(c));
   });
   setInterval(() => tenants.forEach((t) => t.simulate && t.tick()), 6000);
+  // Graceful shutdown (docker stop / deploy): stop accepting, tell clients to reconnect, write every pending save, then exit.
+  let closing = false;
+  const shutdown = async (sig) => {
+    if (closing) return; closing = true; console.log('  ' + sig + ': shutting down, saving data...');
+    setTimeout(() => { console.error('  shutdown timed out'); process.exit(1); }, 20000).unref();
+    try { server.close(); wss.clients.forEach((w) => { try { w.close(1001, 'restart'); } catch {} }); await new Promise((r) => setTimeout(r, 300)); await store.close(); console.log('  data saved, bye'); process.exit(0); }
+    catch (e) { console.error('shutdown error', e); process.exit(1); }
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM')); process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('unhandledRejection', (e) => console.error('unhandledRejection', e));
+  process.on('uncaughtException', async (e) => { console.error('uncaughtException', e); try { await Promise.race([store.flush(), new Promise((r) => setTimeout(r, 4000))]); } catch {} process.exit(1); });
   bootstrap().then(() => server.listen(PORT, () => {
     console.log(`\n  Digital Menu Platform on port ${PORT}\n   Landing     http://localhost:${PORT}\n   Super admin http://localhost:${PORT}/super\n   Demo place  http://localhost:${PORT}/r/demo/admin  (demo@demo.com / demo123, captain PIN 1234)\n   LAN         http://${lanIP()}:${PORT}\n`);
   })).catch((e) => { console.error('\n  STARTUP FAILED: ' + e.message); process.exit(1); });

@@ -115,8 +115,11 @@ Message in (`handle(c, m)`), state out (`snapshotFor`). Roles: `customer`, `capt
 - Real phone push delivery is untested.
 - Not built yet / ideas: online payments, printer integration beyond browser print, delivery driver tracking, multi-branch reporting.
 
-## 8b. Time zone
+## 8c. Time zone
 `env.js` sets `process.env.TZ` to `APP_TZ` (default `Africa/Cairo`). All hour / day / "Today" logic uses the server clock, which is UTC on Vercel; without this every hour would be 2-3 h off for an Egyptian venue.
+
+## 8b. Production on a VPS (added)
+See `docs/PRODUCTION.md` (architecture, where each concern lives, how to change/roll back), `docs/OWNER_CHECKLIST.md`, `docs/GO_LIVE.md`. New modules: `hosts.js` (subdomain/custom-domain resolution), `ratelimit.js`, `security.js`. `SINGLE_RESTAURANT`, `STATELESS`, `DEMO_DATA` now use strict parsing (`0`/`false`/empty = off). Tests: `npm test` (needs no Docker; uses an embedded real Postgres).
 
 ## 9. Security to-do before real use
 - Rotate the Supabase secret key and any access tokens that were shared in chats.

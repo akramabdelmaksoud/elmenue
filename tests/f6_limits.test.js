@@ -4,7 +4,12 @@ const fs = require('node:fs'), path = require('node:path');
 for (const mode of ['ws', 'rpc']) test(`F6 plan limits [${mode}]`, async (t) => {
   const S = await start(mode); t.after(() => S.stop());
   const B = await S.tenant('basic'), O = await S.tenant('operations'), V = await S.tenant('vip');
-  // LIM-01 new table blocked at the limit (basic = 10; the seed has 18, so it is already over -> grandfathered)
+  // New cafes start with sample tables trimmed to their plan (basic = 10). To get a cafe that is OVER its limit, raise the limit, add tables, lower it again.
+  assert.equal((await B.api('GET', '/account')).j.usage.tables, 10, 'sample tables are capped at the plan limit');
+  assert.equal((await S.J('PUT', `/api/super/tenants/${B.slug}`, { limits: { tables: 18 } }, S.sup)).s, 200);
+  for (let i = 0; i < 8; i++) assert.equal((await B.api('POST', '/tables', {})).s, 200);
+  assert.equal((await S.J('PUT', `/api/super/tenants/${B.slug}`, { limits: { tables: '' } }, S.sup)).s, 200);
+  // LIM-01 new table blocked at the limit (basic = 10; this cafe has 18, so it is already over -> grandfathered)
   const over = await B.api('POST', '/tables', {});
   assert.equal(over.s, 402); assert.equal(over.j.kind, 'tables'); assert.equal(over.j.limit, 10); assert.equal(over.j.upgrade, 'operations');
   // LIM-03 existing over-limit tenant keeps everything: tables, layout save, guests, ordering path untouched

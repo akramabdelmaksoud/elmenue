@@ -1,0 +1,6 @@
+# Shell scripts and server config must keep Unix line endings even when edited on Windows
+*.sh text eol=lf
+Caddyfile text eol=lf
+Dockerfile text eol=lf
+docker-compose.yml text eol=lf
+.env.example text eol=lf
