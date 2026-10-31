@@ -115,6 +115,9 @@ Message in (`handle(c, m)`), state out (`snapshotFor`). Roles: `customer`, `capt
 - Real phone push delivery is untested.
 - Not built yet / ideas: online payments, printer integration beyond browser print, delivery driver tracking, multi-branch reporting.
 
+## 8b. Time zone
+`env.js` sets `process.env.TZ` to `APP_TZ` (default `Africa/Cairo`). All hour / day / "Today" logic uses the server clock, which is UTC on Vercel; without this every hour would be 2-3 h off for an Egyptian venue.
+
 ## 9. Security to-do before real use
 - Rotate the Supabase secret key and any access tokens that were shared in chats.
 - Change the live owner password and the captain PIN; keep secrets only in Vercel env vars.
@@ -135,5 +138,8 @@ Each is behind a per-venue switch that is OFF by default and gated by tier on th
 | Plan limits | always on | all | `features.limitsOf` |
 | Offline queue (staff apps) | `settings.offline.enabled` | Operations | `shared.js` (`App.oq`), `sw.js` |
 | Shifts + Z-report | always on for cashiers | all | cashier app, `/shift*` routes |
+| Online ordering (pickup + delivery, pay on receipt) | `settings.online.enabled` | Operations | `public/order.html`, `tenant.placeOnline`, `POST /online/order`, `GET /online/status/:tid`; creates `TA-n` / `DL-n` tickets with `source:'online'` |
+| Review categories (quality, portions, price, service, clean) | inside `settings.fb` | Operations | guest rating screen in `customer.html`; overall stars = rounded average; `cats` stored on each review |
+| Insights (peaks/drops, captain logs, review themes, suggestions) | tier feature `insights` | Operations (AI briefing: VIP + `ANTHROPIC_API_KEY`) | `insights.js` (pure), `GET /insights`, `/insights/staff.csv`, `POST /insights/ai`; captain activity is bucketed per hour in `rec.staffLog` by `bump()` |
 
 Run the tests with `npm test` (starts the real server on a random port twice per feature: WebSocket mode and stateless mode). Test output goes to `A:\Apps and Compilers\_work\tmp`.

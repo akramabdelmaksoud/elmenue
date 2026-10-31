@@ -1,0 +1,252 @@
+<title>Table Tab Brand Exploration</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one page that re-themes live. A palette switcher up top drives every mark, mockup and swatch through CSS tokens. */
+:root{
+  --bg:#0E0E10; --surf:#17171A; --surf2:#1F1F23; --fg:#F5F0E6; --mute:#A39D90; --line:#2D2C29; --acc:#C9A45C; --on-acc:#0E0E10; --acc2:#0F4C3A;
+  --display:'Bricolage Grotesque','Arial Black',sans-serif; --body:'Instrument Sans',system-ui,sans-serif; --ar:'IBM Plex Sans Arabic',sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+  color-scheme:dark;
+}
+:root[data-pal="ink"]{--bg:#0B1220;--surf:#121A2C;--surf2:#1A2440;--fg:#F2F5FB;--mute:#92A0BB;--line:#25324F;--acc:#FF6B4A;--on-acc:#0B1220;--acc2:#3DDC97}
+:root[data-pal="paper"]{--bg:#F4EFE6;--surf:#FFFFFF;--surf2:#EAE3D5;--fg:#16130F;--mute:#6B6458;--line:#D9D0BE;--acc:#C2410C;--on-acc:#FFFFFF;--acc2:#1F3D2B;color-scheme:light}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);line-height:1.6;margin:0;transition:background .3s,color .3s;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0}
+.wrap{max-width:1120px;margin:0 auto}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);margin-inline:-16px;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
+.bar small{font-family:var(--mono);font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.pals{display:flex;gap:6px;flex-wrap:wrap}
+.pals button{font:inherit;font-size:.82rem;color:var(--fg);background:none;border:1px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer}
+.pals button[aria-pressed="true"]{border-color:var(--acc);background:var(--acc);color:var(--on-acc);font-weight:600}
+.pals button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+h1,h2,h3{font-family:var(--display);margin:0;line-height:1.05;text-wrap:balance}
+h2{font-size:clamp(1.7rem,3.6vw,2.4rem);font-weight:700;letter-spacing:-.02em}
+h3{font-size:1.1rem;font-weight:700}
+.k{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--acc)}
+p{margin:0}
+.mute{color:var(--mute)}
+section{padding-top:64px}
+.lead{max-width:62ch;color:var(--mute);margin-top:8px}
+
+.hero{margin-top:26px;border:1px solid var(--line);border-radius:22px;background:var(--surf);padding:56px 24px;display:grid;place-items:center;text-align:center;gap:14px;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;inset:auto -10% -45% -10%;height:70%;background:radial-gradient(closest-side,var(--acc),transparent);opacity:.14}
+.hero > *{position:relative;z-index:1}
+.mk{fill:var(--acc)}
+.mk2{fill:var(--fg)}
+.word{font-family:var(--display);font-weight:800;letter-spacing:-.04em;font-size:clamp(2.6rem,9vw,5.4rem);line-height:.95}
+.word i{font-style:normal;color:var(--acc)}
+.ar{font-family:var(--ar);color:var(--mute);letter-spacing:.04em}
+
+.grid{display:grid;gap:14px;margin-top:22px}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:1fr 1fr}
+.cell{background:var(--surf);border:1px solid var(--line);border-radius:14px;overflow:hidden;min-width:0}
+.cell .art{display:grid;place-items:center;height:150px;background:var(--bg);border-bottom:1px solid var(--line)}
+.cell .art svg{width:88px;height:88px}
+.cell .cap{padding:12px 14px;font-size:.84rem}
+.cell .cap b{display:block;font-family:var(--display);font-size:.98rem}
+.cell .cap span{color:var(--mute)}
+.cell.pick{border-color:var(--acc)}
+.tag{display:inline-block;font-family:var(--mono);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;background:var(--acc);color:var(--on-acc);border-radius:3px;padding:1px 6px;margin-inline-start:6px;vertical-align:middle}
+
+.sw{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.sw div{flex:1;min-width:110px;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:.74rem;color:var(--mute)}
+.sw i{display:block;height:54px}
+.sw span{display:block;padding:7px 10px;font-family:var(--mono)}
+.sw b{display:block;color:var(--fg);font-family:var(--body);font-weight:600}
+
+.type{display:grid;gap:0;margin-top:18px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.type div{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:14px;align-items:baseline;flex-wrap:wrap;background:var(--surf)}
+.type div:last-child{border-bottom:0}
+.type small{font-family:var(--mono);font-size:.7rem;color:var(--mute)}
+
+.stage{background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:26px 20px;display:grid;place-items:center;min-width:0}
+.stage > .lbl{align-self:start;justify-self:start;margin-bottom:14px}
+.lbl{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.phone{width:min(290px,100%);background:var(--bg);border:1px solid var(--line);border-radius:30px;padding:18px 15px;display:grid;gap:11px}
+.phone .hd{display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--mute)}
+.phone .hd b{font-family:var(--display);color:var(--fg);font-size:1rem}
+.item{display:flex;justify-content:space-between;gap:10px;background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:.88rem}
+.item span{color:var(--mute)}
+.tab{background:var(--surf2);border:1px solid var(--line);border-radius:16px;padding:14px;display:grid;gap:8px}
+.tab .row{display:flex;justify-content:space-between;font-size:.84rem;color:var(--mute)}
+.tab .tot{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--display);font-size:1.5rem;font-weight:700}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:.72rem;border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--mute)}
+.chip.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.btn{display:block;text-align:center;background:var(--acc);color:var(--on-acc);font-weight:600;border-radius:12px;padding:12px;font-size:.92rem}
+
+.receipt{width:min(250px,100%);background:#fff;color:#16130F;border-radius:4px;padding:18px 16px 22px;font-family:var(--mono);font-size:.72rem;display:grid;gap:5px;
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 8px),95% 100%,90% calc(100% - 8px),85% 100%,80% calc(100% - 8px),75% 100%,70% calc(100% - 8px),65% 100%,60% calc(100% - 8px),55% 100%,50% calc(100% - 8px),45% 100%,40% calc(100% - 8px),35% 100%,30% calc(100% - 8px),25% 100%,20% calc(100% - 8px),15% 100%,10% calc(100% - 8px),5% 100%,0 calc(100% - 8px))}
+.receipt .r{display:flex;justify-content:space-between}
+.receipt hr{border:0;border-top:1px dashed #16130F55;margin:4px 0;width:100%}
+.tent{width:min(240px,100%);aspect-ratio:3/4;background:var(--acc);color:var(--on-acc);border-radius:12px;display:grid;place-items:center;text-align:center;padding:20px;gap:6px;align-content:center}
+.tent .qr{width:104px;height:104px;background:var(--on-acc);border-radius:8px;padding:8px}
+.tent .qr svg{width:100%;height:100%;display:block}
+.tent b{font-family:var(--display);font-size:1.5rem;line-height:1}
+.tabs{display:flex;gap:4px;align-items:flex-end;width:100%;border-bottom:1px solid var(--line);padding:0 6px}
+.tabs span{padding:9px 16px;font-size:.84rem;color:var(--mute);border:1px solid transparent;border-bottom:0;border-radius:12px 12px 0 0}
+.tabs span.on{background:var(--surf2);color:var(--fg);border-color:var(--line);position:relative;top:1px}
+.site{width:100%;text-align:start;display:grid;gap:12px}
+.site h3{font-size:clamp(1.7rem,4vw,2.6rem);font-weight:800;letter-spacing:-.03em}
+
+.lines{display:grid;grid-template-columns:1fr 1fr;gap:0 28px;margin-top:18px}
+.lines div{padding:12px 0;border-bottom:1px solid var(--line);font-family:var(--display);font-weight:600;font-size:1.1rem}
+.risk{border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:10px;padding:14px 18px;background:var(--surf);margin-top:12px;font-size:.92rem}
+.risk b{color:var(--acc)}
+.foot{margin-block:30px 70px;color:var(--mute);font-size:.82rem}
+@media (max-width:860px){.g4{grid-template-columns:1fr 1fr}.g3,.g2,.lines{grid-template-columns:1fr}}
+@media (max-width:480px){.g4{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){body{transition:none}}
+</style>
+
+<div class="wrap">
+<div class="bar"><small>Palette</small>
+  <div class="pals" role="group" aria-label="Palette"><button data-p="brass" aria-pressed="true">Midnight Brass</button><button data-p="ink" aria-pressed="false">Ink &amp; Tomato</button><button data-p="paper" aria-pressed="false">Paper &amp; Rust</button></div>
+</div>
+
+<header class="hero">
+  <svg width="120" height="120" viewBox="0 0 100 100" aria-label="TT mark"><rect class="mk" x="14" y="24" width="34" height="11" rx="3"/><rect class="mk" x="52" y="24" width="34" height="11" rx="3"/><rect class="mk" x="26" y="38" width="10" height="40" rx="3"/><rect class="mk" x="64" y="38" width="10" height="40" rx="3"/></svg>
+  <div class="word">Table<i>Tab</i></div>
+  <div class="ar" lang="ar" dir="rtl">تيبل تاب</div>
+  <p class="mute" style="max-width:46ch">Your table. Your tab. A dining system where the table is the place and the tab is the bill, and both live on one calm screen.</p>
+</header>
+
+<section>
+  <span class="k">The idea</span>
+  <h2>Two words, two meanings, one table</h2>
+  <p class="lead">"Table" is where guests sit. "Tab" is the bill you open and settle, and it is also the interface tab you tap. The TT monogram is both T's side by side: a shared top and two legs. Read it once and it is a table.</p>
+  <div class="grid g3">
+    <div class="cell"><div class="cap"><b>Table</b><span>QR per table, a shared cart, host and guests, floor map.</span></div></div>
+    <div class="cell"><div class="cap"><b>Tab</b><span>Running bill, split by person, tip, pay from the phone, close at the till.</span></div></div>
+    <div class="cell"><div class="cap"><b>Tab shape</b><span>Folder-tab corners as a UI motif: rounded top, flat bottom. Used on chips, nav and the mark's bar.</span></div></div>
+  </div>
+</section>
+
+<section>
+  <span class="k">The TT mark</span>
+  <h2>Eight ways to build it</h2>
+  <p class="lead">All drawn from two T's. Concept 1 is my pick: it holds up at 16 px, reads as a table, and has a tidy gap between the letters.</p>
+  <div class="grid g4" id="tt"></div>
+</section>
+
+<section>
+  <span class="k">Colour</span>
+  <h2>Three worlds, one switch</h2>
+  <p class="lead">Use the switcher at the top and the whole page changes. Midnight Brass keeps the luxury look from before. Ink &amp; Tomato is the sharpest product look and the best on a phone screen. Paper &amp; Rust is the most casual and prints best.</p>
+  <div class="sw" id="sw"></div>
+</section>
+
+<section>
+  <span class="k">Type</span>
+  <h2>A confident grotesque</h2>
+  <div class="type">
+    <div><span style="font-family:var(--display);font-weight:800;font-size:2.4rem;letter-spacing:-.04em">Table<span style="color:var(--acc)">Tab</span></span><small>Bricolage Grotesque 800 · wordmark and headings</small></div>
+    <div><span style="font-size:1.05rem">Open a tab on any table. Split it, tip it, close it.</span><small>Instrument Sans · body and UI</small></div>
+    <div><span lang="ar" dir="rtl" style="font-family:var(--ar);font-size:1.15rem">افتح حسابك على أي طاولة وادفع من هاتفك.</span><small>IBM Plex Sans Arabic · Arabic UI</small></div>
+    <div><span style="font-family:var(--mono);font-size:1rem">TABLE 07 · TAB #2418 · 312.00 EGP</span><small>JetBrains Mono · numbers, receipts, tags</small></div>
+  </div>
+</section>
+
+<section>
+  <span class="k">In use</span>
+  <h2>How far it goes</h2>
+  <div class="grid g2">
+    <div class="stage"><span class="lbl">Guest app · the tab</span>
+      <div class="phone">
+        <div class="hd"><b>Table 07</b><span>3 guests</span></div>
+        <div class="item"><div>Flat white<br><span>Omar</span></div><div>95</div></div>
+        <div class="item"><div>Cortado<br><span>Salma</span></div><div>85</div></div>
+        <div class="item"><div>Basbousa<br><span>Shared</span></div><div>110</div></div>
+        <div class="tab"><div class="row"><span>Subtotal</span><span>290.00</span></div><div class="row"><span>Service 12%</span><span>34.80</span></div><div class="tot"><span>Tab</span><span>324.80</span></div>
+          <div class="chips"><span class="chip on">Split equally</span><span class="chip">By item</span><span class="chip">Custom</span></div></div>
+        <div class="btn">Pay my share · 108.27</div>
+      </div></div>
+    <div class="stage"><span class="lbl">Staff app · tab-shaped navigation</span>
+      <div class="tabs" style="margin-bottom:18px"><span>Floor</span><span>Kitchen</span><span class="on">Tabs</span><span>Reports</span></div>
+      <div class="phone" style="width:min(340px,100%);border-radius:18px">
+        <div class="item"><div>Table 07<br><span>3 guests · open 42 min</span></div><div>324.80</div></div>
+        <div class="item"><div>Table 12<br><span>2 guests · open 18 min</span></div><div>188.00</div></div>
+        <div class="item"><div>Table 03<br><span>paid · closing</span></div><div style="color:var(--acc2)">✓</div></div>
+      </div></div>
+    <div class="stage"><span class="lbl">Receipt</span>
+      <div class="receipt">
+        <div style="display:flex;gap:8px;align-items:center"><svg width="26" height="26" viewBox="0 0 100 100"><rect fill="#16130F" x="14" y="24" width="34" height="11" rx="3"/><rect fill="#16130F" x="52" y="24" width="34" height="11" rx="3"/><rect fill="#16130F" x="26" y="38" width="10" height="40" rx="3"/><rect fill="#16130F" x="64" y="38" width="10" height="40" rx="3"/></svg><b style="font-size:.9rem">Table Tab</b></div>
+        <div>Café Nile · Table 07</div><hr>
+        <div class="r"><span>Flat white</span><span>95.00</span></div><div class="r"><span>Cortado</span><span>85.00</span></div><div class="r"><span>Basbousa</span><span>110.00</span></div><hr>
+        <div class="r"><b>TAB</b><b>324.80</b></div><hr><div style="text-align:center">Thanks for sitting with us</div>
+      </div></div>
+    <div class="stage"><span class="lbl">Table tent · print</span>
+      <div class="tent">
+        <svg width="46" height="46" viewBox="0 0 100 100"><rect fill="currentColor" x="14" y="24" width="34" height="11" rx="3"/><rect fill="currentColor" x="52" y="24" width="34" height="11" rx="3"/><rect fill="currentColor" x="26" y="38" width="10" height="40" rx="3"/><rect fill="currentColor" x="64" y="38" width="10" height="40" rx="3"/></svg>
+        <b>Your table.<br>Your tab.</b>
+        <div class="qr"><svg viewBox="0 0 21 21" shape-rendering="crispEdges"><path fill="var(--acc)" d="M0 0h7v7H0zM14 0h7v7h-7zM0 14h7v7H0z"/><path fill="var(--on-acc)" d="M1 1h5v5H1zM15 1h5v5h-5zM1 15h5v5H1z"/><path fill="var(--acc)" d="M2 2h3v3H2zM16 2h3v3h-3zM2 16h3v3H2zM9 1h2v2H9zM9 5h3v2H9zM8 9h2v2H8zM12 9h2v2h-2zM16 9h3v2h-3zM9 13h2v2H9zM13 13h3v2h-3zM9 17h3v3H9zM15 16h2v2h-2zM18 18h2v2h-2zM13 18h2v2h-2z"/></svg></div>
+        <span style="font-size:.7rem;letter-spacing:.14em;text-transform:uppercase">Table 07 · Scan to order</span>
+      </div>
+      <p class="mute" style="font-size:.74rem;margin-top:8px">Sample pattern, not a working code.</p></div>
+    <div class="stage" style="grid-column:1/-1"><span class="lbl">Website hero</span>
+      <div class="site">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-family:var(--display);font-size:1.15rem">Table<span style="color:var(--acc)">Tab</span></b><span class="mute" style="font-size:.84rem">Product · Pricing · Stories · Log in</span></div>
+        <h3>Open a tab.<br>Not a queue.</h3>
+        <p class="mute" style="max-width:48ch">QR ordering, split bills, kitchen display and loyalty for cafés and restaurants.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap"><span class="btn" style="display:inline-block;padding:12px 24px">Start free</span><span class="btn" style="display:inline-block;padding:12px 24px;background:none;color:var(--fg);border:1px solid var(--line)">Watch the demo</span></div>
+      </div></div>
+  </div>
+</section>
+
+<section>
+  <span class="k">Lines</span>
+  <h2>Short, and mostly puns that work</h2>
+  <div class="lines">
+    <div>Your table. Your tab.</div><div>Open a tab. Not a queue.</div>
+    <div>Sit. Scan. Settle.</div><div>Every table has a tab.</div>
+    <div>Split it. Tip it. Done.</div><div>The table that settles itself.</div>
+    <div>Run a tab, not a till.</div><div>Good tables keep good tabs.</div>
+    <div>Pull up a chair. We have the tab.</div><div>Dinner, then done.</div>
+  </div>
+</section>
+
+<section>
+  <span class="k">Check before you commit</span>
+  <h2>Where this could go wrong</h2>
+  <div class="risk"><b>Name crowding.</b> "Tab" is used by many products, including the famous soft drink, and several payment and ordering apps. "Table Tab" is a descriptive pair, which is harder to protect as a trademark. Search the Egyptian and Gulf registries and app stores before you spend on design.</div>
+  <div class="risk"><b>Arabic reach.</b> Your buyers are Arabic-first. "Table Tab" works best as a modern, English-led brand with an Arabic line (تيبل تاب). If most venue owners say the name in Arabic, test that it is easy to say and to remember.</div>
+  <div class="risk"><b>Two brands in your files.</b> The earlier مائدة identity, the rename prompt and the master plan are built on the old name. If you switch, the rename prompt needs rewriting before anyone runs it.</div>
+  <p class="foot">Sketches for direction, not final artwork. A designer should redraw the TT with optical corrections. Nothing here has been checked for trademark or domain availability.</p>
+</section>
+</div>
+
+<script>
+var T=[
+['Twin T','Two T\'s with a gap. Bar and legs read as a table.','<rect class="mk" x="14" y="24" width="34" height="11" rx="3"/><rect class="mk" x="52" y="24" width="34" height="11" rx="3"/><rect class="mk" x="26" y="38" width="10" height="40" rx="3"/><rect class="mk" x="64" y="38" width="10" height="40" rx="3"/>',1],
+['Shared top','One tabletop, two stems, a notch between.','<path class="mk" d="M12 24h76v11H54l-4-5-4 5H12z"/><rect class="mk" x="26" y="38" width="10" height="40" rx="3"/><rect class="mk" x="64" y="38" width="10" height="40" rx="3"/>'],
+['Folder tab','Rounded tab corners on top of each T.','<path class="mk" d="M14 36V30a8 8 0 018-8h18a8 8 0 018 8v6zM52 36V30a8 8 0 018-8h18a8 8 0 018 8v6z"/><rect class="mk" x="26" y="38" width="10" height="40" rx="3"/><rect class="mk" x="64" y="38" width="10" height="40" rx="3"/>'],
+['Tile','Negative space inside a rounded tile.','<rect class="mk" x="8" y="8" width="84" height="84" rx="22"/><rect fill="var(--bg)" x="22" y="28" width="26" height="9" rx="2.5"/><rect fill="var(--bg)" x="52" y="28" width="26" height="9" rx="2.5"/><rect fill="var(--bg)" x="31" y="40" width="8" height="34" rx="2.5"/><rect fill="var(--bg)" x="61" y="40" width="8" height="34" rx="2.5"/>'],
+['Reflection','Second T flipped: table above, tab below.','<rect class="mk" x="22" y="14" width="56" height="11" rx="3"/><rect class="mk" x="45" y="27" width="10" height="18" rx="3"/><rect class="mk2" x="45" y="55" width="10" height="18" rx="3"/><rect class="mk2" x="22" y="75" width="56" height="11" rx="3"/>'],
+['Receipt legs','The stems end in a torn-receipt edge.','<rect class="mk" x="14" y="24" width="72" height="11" rx="3"/><path class="mk" d="M24 38h12v40l-3-4-3 4-3-4-3 4zM64 38h12v40l-3-4-3 4-3-4-3 4z"/>'],
+['Ring','Both T\'s inside one ring, a round table.','<circle cx="50" cy="50" r="40" fill="none" stroke="var(--acc)" stroke-width="5"/><rect class="mk" x="26" y="32" width="21" height="8" rx="2"/><rect class="mk" x="53" y="32" width="21" height="8" rx="2"/><rect class="mk" x="32" y="42" width="9" height="26" rx="2"/><rect class="mk" x="59" y="42" width="9" height="26" rx="2"/>'],
+['Stacked','Two T\'s one above the other, like stacked bills.','<rect class="mk" x="26" y="12" width="48" height="9" rx="3"/><rect class="mk" x="45.5" y="23" width="9" height="20" rx="3"/><rect class="mk2" x="26" y="52" width="48" height="9" rx="3"/><rect class="mk2" x="45.5" y="63" width="9" height="22" rx="3"/>']
+];
+document.getElementById('tt').innerHTML=T.map(function(t,i){return '<div class="cell'+(t[3]?' pick':'')+'"><div class="art"><svg viewBox="0 0 100 100" aria-hidden="true">'+t[2]+'</svg></div><div class="cap"><b>'+(i+1)+' · '+t[0]+(t[3]?'<span class="tag">Pick</span>':'')+'</b><span>'+t[1]+'</span></div></div>'}).join('');
+
+var PAL={
+brass:[['Night','#0E0E10'],['Charcoal','#17171A'],['Ivory','#F5F0E6'],['Brass','#C9A45C'],['Emerald','#0F4C3A']],
+ink:[['Ink','#0B1220'],['Panel','#121A2C'],['Cloud','#F2F5FB'],['Tomato','#FF6B4A'],['Mint','#3DDC97']],
+paper:[['Paper','#F4EFE6'],['White','#FFFFFF'],['Espresso','#16130F'],['Rust','#C2410C'],['Pine','#1F3D2B']]
+};
+function paint(k){
+  document.documentElement.setAttribute('data-pal',k==='brass'?'':k);
+  if(k==='brass')document.documentElement.removeAttribute('data-pal');
+  document.getElementById('sw').innerHTML=PAL[k].map(function(c){return '<div><i style="background:'+c[1]+'"></i><span><b>'+c[0]+'</b>'+c[1]+'</span></div>'}).join('');
+  document.querySelectorAll('.pals button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.p===k?'true':'false')});
+  try{localStorage.setItem('tt-pal',k)}catch(e){}
+}
+document.querySelectorAll('.pals button').forEach(function(b){b.addEventListener('click',function(){paint(b.dataset.p)})});
+var start='brass';try{start=localStorage.getItem('tt-pal')||'brass';if(!PAL[start])start='brass'}catch(e){}
+paint(start);
+</script>
