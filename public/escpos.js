@@ -23,7 +23,7 @@ const ESCPOS = (() => {
     L((r.kind && r.kind !== 'table' ? r.kind + ' ' : 'Table ') + r.label + (r.by ? ' · ' + r.by : ''), { c: 1, bold: 1, size: 28 });
     if (r.customer && (r.customer.name || r.customer.phone || r.customer.address)) L([r.customer.name, r.customer.phone, r.customer.address].filter(Boolean).join(' · '), { c: 1 });
     rule();
-    r.items.forEach((l) => { L(l.name, { bold: 1 }); L(l.qty + ' x ' + M(l.price), { r: M(l.qty * l.price) }); });
+    r.items.forEach((l) => { L(l.name, { bold: 1 }); if (l.opt) L('  ' + l.opt); L(l.qty + ' x ' + M(l.price), { r: M(l.qty * l.price) }); });
     rule();
     L('Subtotal', { r: M(r.gross) });
     if (r.discount) L('Discount' + (r.discountNote ? ' (' + r.discountNote + ')' : ''), { r: '-' + M(r.discount) });

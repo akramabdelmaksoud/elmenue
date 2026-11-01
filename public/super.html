@@ -5,7 +5,7 @@ main{max-width:1250px;margin:auto;padding:22px}.grid{display:grid;gap:14px;grid-
 table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid var(--line);text-align:start;font-size:14px;white-space:nowrap}.scroll{overflow:auto}
 .row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;margin-top:14px}.st{padding:2px 10px;border-radius:99px;font-size:12px;color:#fff}.st.active{background:#2ecc71}.st.suspended{background:#e74c3c}
 .login{min-height:100vh;display:grid;place-items:center;padding:20px}form.f{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end}
-.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#2ecc71;margin-inline-end:5px}.dot.off{background:#888}
+.ov{position:fixed;inset:0;background:#000a;z-index:50;display:grid;place-items:start center;overflow:auto;padding:24px}.ov>.card{max-width:1000px;width:100%}.mx td,.mx th{padding:6px 10px}.mx input[type=number]{width:90px}.mx input[type=checkbox]{width:20px;height:20px}.lv{font-size:11px;color:var(--muted)}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#2ecc71;margin-inline-end:5px}.dot.off{background:#888}
 pre{background:var(--card2);padding:12px;border-radius:12px;white-space:pre-wrap}
 </style></head><body><div id="app"></div>
 <script src="/vendor/chart.js"></script><script src="/shared.js"></script>
@@ -18,7 +18,7 @@ const api = async (m, u, b) => {
   if (r.status === 401 && u !== '/api/super/login') { App.ls('tok:_:super', ''); login(); throw new Error('auth'); }
   const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Error'); return j;
 };
-const TIERS = [['basic', 'Tier 1 · Starter QR Ordering · 600-800 EGP'], ['operations', 'Tier 2 · Operations & POS · 1,200-1,500 EGP'], ['vip', 'Tier 3 · Enterprise VIP & AI · 2,000+ EGP']];
+let TIERS = [['basic', 'Tier 1 · Starter QR Ordering · 600-800 EGP'], ['operations', 'Tier 2 · Operations & POS · 1,200-1,500 EGP'], ['vip', 'Tier 3 · Enterprise VIP & AI · 2,000+ EGP']];
 const money = (n, c) => Math.round(n).toLocaleString() + ' ' + (c || '');
 const ago = (t) => (t ? App.ago(t) + ' ago' : 'never');
 async function login() {
@@ -35,7 +35,7 @@ async function load() {
 function draw() {
   const t = O.totals;
   const k = (l, v) => `<div class="card kpi"><span>${l}</span><b>${v}</b></div>`;
-  $('#app').innerHTML = `<main><div class="spread"><h1>👑 Platform control</h1><div class="row"><button class="ghost" onclick="App.toggleMode()">◐</button><button class="ghost" onclick="App.ls('tok:_:super','');location.reload()">Sign out</button></div></div>
+  $('#app').innerHTML = `<main><div class="spread"><h1>👑 Platform control</h1><div class="row"><button class="ghost" onclick="openBundles()">⚙ Bundles &amp; features</button><button class="ghost" onclick="App.toggleMode()">◐</button><button class="ghost" onclick="App.ls('tok:_:super','');location.reload()">Sign out</button></div></div>
   <div class="grid">${k('Restaurants', `${t.active} / ${t.restaurants}`)}${k('Revenue (30d, all)', money(t.revenue))}${k('Table sessions (30d)', t.sessions.toLocaleString())}${k('Live tables now', t.liveTables)}${k('Guests seated now', t.guestsLive)}${k('Connected devices', t.online)}${k('Live open bills', money(t.liveRevenue))}${k('Subscription revenue / month', money(t.mrr, 'EGP'))}${(t.plans || []).map(p => k((TIERS.find(x => x[0] === p.plan) || [p.plan, p.plan])[1].split(' · ')[1] + ' cafés', p.count)).join('')}</div>
   <div class="row2"><div class="card"><h3>Platform revenue per day</h3><canvas id="c1"></canvas></div><div class="card"><h3>Revenue by restaurant (30d)</h3><canvas id="c2"></canvas></div>
   <div class="card"><h3>Rush hours across platform</h3><canvas id="c3"></canvas></div><div class="card"><h3>Top items platform-wide</h3><canvas id="c4"></canvas></div></div>
@@ -51,7 +51,7 @@ function draw() {
    <td><select onchange="act('${x.slug}',{plan:this.value})">${TIERS.map(([v, l]) => `<option value="${v}" ${v === x.plan ? 'selected' : ''}>${l.split(' · ').slice(0, 2).join(' · ')}</option>`).join('')}</select></td>
    <td><input style="min-width:110px" placeholder="group" value="${App.esc(x.group || '')}" onchange="act('${x.slug}',{group:this.value})"><br><input style="min-width:110px;margin-top:4px" placeholder="domain" value="${App.esc(x.domain || '')}" onchange="act('${x.slug}',{domain:this.value})"></td>
    <td>${money(x.revenue, x.currency)}</td><td>${x.sessions}</td><td>${money(x.avgTicket, x.currency)}</td><td><span class="dot ${x.online ? '' : 'off'}"></span>${x.liveTables} tables · ${x.guestsLive} guests</td><td>${x.items} / ${x.tables}<br><small class="muted" title="tables · staff vs plan limit">${x.tables}/${x.limits.tables === null ? '∞' : x.limits.tables} T · ${x.staffCount}/${x.limits.staff === null ? '∞' : x.limits.staff} S</small><br><input style="width:62px;margin-top:3px" placeholder="T max" title="override: max tables (blank = plan)" value="${x.limitOverride && x.limitOverride.tables != null ? x.limitOverride.tables : ''}" onchange="act('${x.slug}',{limits:{...(${JSON.stringify(x.limitOverride || {})}),tables:this.value===''?undefined:+this.value}})"></td><td>${ago(x.lastActive)}</td>
-   <td><button class="ghost" onclick="openAdmin('${x.slug}')">Open admin</button> <button class="ghost" onclick="act('${x.slug}',{status:'${x.status === 'active' ? 'suspended' : 'active'}'})">${x.status === 'active' ? 'Suspend' : 'Activate'}</button> <button class="ghost" onclick="reset('${x.slug}')">Reset login</button> <button class="ghost" onclick="del('${x.slug}')">🗑</button></td></tr>`).join('')}</table></div></main>`;
+   <td><button class="ghost" onclick="openAdmin('${x.slug}')">Open admin</button> <button class="ghost" onclick="openFeatures('${x.slug}')">Features</button> <button class="ghost" onclick="act('${x.slug}',{status:'${x.status === 'active' ? 'suspended' : 'active'}'})">${x.status === 'active' ? 'Suspend' : 'Activate'}</button> <button class="ghost" onclick="reset('${x.slug}')">Reset login</button> <button class="ghost" onclick="del('${x.slug}')">🗑</button></td></tr>`).join('')}</table></div></main>`;
   $('#create').onsubmit = async (e) => { e.preventDefault(); const b = Object.fromEntries(new FormData(e.target)); b.demo = !!b.demo; try { newCred = await api('POST', '/api/super/tenants', b); load(); } catch (er) { alert(er.message); } };
   charts.forEach(c => c.destroy()); charts = [];
   const cs = getComputedStyle(document.documentElement), ac = cs.getPropertyValue('--accent').trim(), ac2 = cs.getPropertyValue('--accent2').trim();
@@ -66,6 +66,44 @@ async function act(slug, b) { await api('PUT', '/api/super/tenants/' + slug, b);
 async function reset(slug) { if (!confirm('Generate a new password and captain PIN for ' + slug + '?')) return; const r = await api('POST', `/api/super/tenants/${slug}/reset`); newCred = { url: location.origin + '/r/' + slug + '/admin', ...r }; draw(); window.scrollTo(0, 0); }
 async function del(slug) { if (prompt('Type the slug "' + slug + '" to permanently delete this restaurant and all its data') !== slug) return; await api('DELETE', '/api/super/tenants/' + slug); load(); }
 async function openAdmin(slug) { const r = await api('POST', `/api/super/tenants/${slug}/impersonate`); App.ls(`tok:${slug}:admin`, r.token); window.open('/r/' + slug + '/admin', '_blank'); }
+
+// ---- Bundles editor: which features each plan contains, prices and limits ----
+let PLX = null;
+const closeOv = () => { const o = document.getElementById('ov'); if (o) o.remove(); };
+const ovShow = (html) => { closeOv(); const d = document.createElement('div'); d.id = 'ov'; d.className = 'ov'; d.innerHTML = '<div class="card">' + html + '</div>'; d.addEventListener('mousedown', (e) => { if (e.target === d) closeOv(); }); document.body.appendChild(d); };
+const LVL = { 1: 'Core', 2: 'Important', 3: 'Growth', 4: 'Premium' };
+async function openBundles() {
+  PLX = await api('GET', '/api/super/plans');
+  const cols = PLX.plans, E = App.esc;
+  const rows = PLX.catalog.slice().sort((a, b) => a.level - b.level).map((c) => '<tr><td><b>' + E(c.en) + '</b><br><span class="lv">' + E(c.id) + ' · ' + c.area + ' · level ' + c.level + ' (' + LVL[c.level] + ')</span></td>' + cols.map((p) => '<td style="text-align:center"><input type="checkbox" data-p="' + p.id + '" data-f="' + c.id + '"' + (p.features.includes(c.id) ? ' checked' : '') + '></td>').join('') + '</tr>').join('');
+  const lim = (p, k) => '<input type="number" min="0" placeholder="unlimited" data-p="' + p.id + '" data-l="' + k + '" value="' + (p.limits[k] == null ? '' : p.limits[k]) + '">';
+  ovShow('<div class="spread"><h2>Bundles</h2><button class="ghost" onclick="closeOv()">Close</button></div><p class="muted">Tick what each bundle includes. Changes apply to every café on that bundle within about 20 seconds. A single café can be unlocked or locked from its "Features" button.</p><div class="scroll"><table class="mx"><tr><th>Feature</th>' + cols.map((p) => '<th style="text-align:center">' + E(p.name) + '</th>').join('') + '</tr>' +
+    '<tr><td>Name</td>' + cols.map((p) => '<td><input style="min-width:130px" data-p="' + p.id + '" data-n="name" value="' + E(p.name) + '"></td>').join('') + '</tr>' +
+    '<tr><td>Price per month (EGP) from / to</td>' + cols.map((p) => '<td><input type="number" min="0" data-p="' + p.id + '" data-pr="0" value="' + p.price[0] + '"> <input type="number" min="0" data-p="' + p.id + '" data-pr="1" value="' + p.price[1] + '"></td>').join('') + '</tr>' +
+    '<tr><td>Max tables</td>' + cols.map((p) => '<td>' + lim(p, 'tables') + '</td>').join('') + '</tr><tr><td>Max staff accounts</td>' + cols.map((p) => '<td>' + lim(p, 'staff') + '</td>').join('') + '</tr><tr><td>Max branches</td>' + cols.map((p) => '<td>' + lim(p, 'branches') + '</td>').join('') + '</tr>' +
+    rows + '</table></div><div class="row" style="margin-top:14px"><button class="primary" onclick="saveBundles()">Save bundles</button><button class="ghost" onclick="resetBundles()">Restore built-in bundles</button><span id="bmsg" class="muted"></span></div>');
+}
+async function saveBundles() {
+  const out = {}; PLX.plans.forEach((p) => { out[p.id] = { features: [], price: [0, 0], limits: {}, name: '' }; });
+  document.querySelectorAll('#ov [data-f]').forEach((i) => { if (i.checked) out[i.dataset.p].features.push(i.dataset.f); });
+  document.querySelectorAll('#ov [data-pr]').forEach((i) => { out[i.dataset.p].price[+i.dataset.pr] = +i.value || 0; });
+  document.querySelectorAll('#ov [data-l]').forEach((i) => { out[i.dataset.p].limits[i.dataset.l] = i.value === '' ? null : +i.value; });
+  document.querySelectorAll('#ov [data-n]').forEach((i) => { out[i.dataset.p].name = i.value; });
+  try { await api('PUT', '/api/super/plans', { plans: out }); document.getElementById('bmsg').textContent = 'Saved ✓'; load(); } catch (e) { document.getElementById('bmsg').textContent = e.message; }
+}
+async function resetBundles() { if (!confirm('Restore the built-in bundles? Your changes to bundles will be lost.')) return; await api('PUT', '/api/super/plans', { reset: true }); openBundles(); load(); }
+
+// ---- Per-café lock / unlock ----
+async function openFeatures(slug) {
+  PLX = await api('GET', '/api/super/plans'); const x = O.tenants.find((t) => t.slug === slug), plan = PLX.plans.find((p) => p.id === x.plan) || PLX.plans[0], E = App.esc, ov = x.feat || {};
+  const rows = PLX.catalog.slice().sort((a, b) => a.level - b.level).map((c) => { const inPlan = plan.features.includes(c.id), v = ov[c.id] === true ? 'on' : ov[c.id] === false ? 'off' : '';
+    return '<tr><td><b>' + E(c.en) + '</b><br><span class="lv">' + E(c.id) + ' · ' + c.area + '</span></td><td>' + (inPlan ? '✔ in bundle' : '— not in bundle') + '</td><td><select data-f="' + c.id + '"><option value=""' + (v === '' ? ' selected' : '') + '>Follow bundle</option><option value="on"' + (v === 'on' ? ' selected' : '') + '>Unlock for this café</option><option value="off"' + (v === 'off' ? ' selected' : '') + '>Lock for this café</option></select></td></tr>'; }).join('');
+  ovShow('<div class="spread"><h2>Features · ' + E(x.name) + '</h2><button class="ghost" onclick="closeOv()">Close</button></div><p class="muted">Bundle: <b>' + E(plan.name) + '</b>. Unlock gives this café a feature its bundle does not include; lock removes one it does. Guests and the café admin see the change right away.</p><div class="scroll"><table class="mx"><tr><th>Feature</th><th>Bundle</th><th>This café</th></tr>' + rows + '</table></div><div class="row" style="margin-top:14px"><button class="primary" onclick="saveFeatures(\'' + slug + '\')">Save</button><span id="bmsg" class="muted"></span></div>');
+}
+async function saveFeatures(slug) {
+  const o = {}; document.querySelectorAll('#ov select[data-f]').forEach((i) => { if (i.value === 'on') o[i.dataset.f] = true; else if (i.value === 'off') o[i.dataset.f] = false; });
+  try { await api('PUT', '/api/super/tenants/' + slug, { feat: o }); document.getElementById('bmsg').textContent = 'Saved ✓'; load(); } catch (e) { document.getElementById('bmsg').textContent = e.message; }
+}
 App.handlers = { render: () => O && draw() };
 load(); setInterval(() => App.tok('super') && load(), 8000);
 </script></body></html>

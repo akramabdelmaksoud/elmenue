@@ -94,6 +94,7 @@ const App = {
   config: null, ws: null, lang: null, mode: null, handlers: {},
   tr(k) { return (DICT[App.lang] && DICT[App.lang][k]) || DICT.en[k] || k; },
   nm(o) { return App.lang === 'ar' && o.name_ar ? o.name_ar : o.name; },
+  opt(o) { return (App.lang === 'ar' && o.opt_ar ? o.opt_ar : o.opt) || ''; },   // chosen options on an order line, e.g. "Large · Oat milk"
   // numbers always use Western digits (0-9), even in Arabic; only the words are Arabic
   money(n) { const cur = App.config ? App.config.settings.currency : ''; return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' ' + (App.lang === 'ar' && cur === 'EGP' ? 'ج.م' : cur); },
   esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); },

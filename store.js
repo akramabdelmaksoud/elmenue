@@ -136,4 +136,4 @@ async function clearHist(id) { await putAux('hist-' + id, { rows: [] }); }
 async function appendHist(id, rows) { if (!rows.length) return; const cur = await getHist(id); await putAux('hist-' + id, { rows: cur.concat(rows).slice(-5000) }); }
 async function putBlob(key, dataUrl) { await putAux('blob-' + key, { d: dataUrl }); }
 async function getBlob(key) { const d = await getAux('blob-' + key); return d ? d.d : null; }
-module.exports = { init, flush, ping, mode, close, listRecs, loadAll, save, remove, getRec, putRec, getHist, clearHist, appendHist, putBlob, getBlob };
+module.exports = { init, flush, ping, mode, close, listRecs, loadAll, save, remove, getRec, putRec, getHist, clearHist, appendHist, putBlob, getBlob, getAux, putAux };

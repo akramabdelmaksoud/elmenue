@@ -97,6 +97,12 @@ function createTenant(rec, persist, onAlert) {
   }
 
 // ---------- Billing ----------
+// one place that turns (item, qty, chosen options) into an order line, so tables, online and staff orders all price options the same way
+function mkLine(it, q, guestId, sel, note) {
+    let add = 0, extra = {};
+    if (it.options && it.options.length && F.has(rec, 'options')) { const r = F.optResolve(it, sel); if (!r.ok) return null; add = r.add; if (r.text) extra = { opt: r.text, opt_ar: r.text_ar, ok: r.key }; }
+    return { id: id('l'), guestId, itemId: it.id, name: it.name, name_ar: it.name_ar, emoji: it.emoji, price: Math.round((it.price + add) * 100) / 100, qty: q, note: note || '', ...extra };
+  }
 function bill(s) {
   const st = db.settings;
   const by = {};
@@ -113,7 +119,7 @@ function bill(s) {
   // coupons / timed offers (flag settings.promo.enabled + tier 'coupons'); stacking is the owner's choice
   let promo = { coupon: 0, offer: 0 }, couponCode = '', offerName = '';
   const pc = F.promoCfg(st);
-  if (pc.enabled && F.has(rec.plan, 'coupons') && gross > 0) {
+  if (pc.enabled && F.has(rec, 'coupons') && gross > 0) {
     const now = Date.now(), cp = s.coupon && db.coupons.find((x) => x.code === s.coupon), ck = cp ? F.couponCheck(cp, gross, now) : null;
     const live = db.offers.filter((o) => F.offerLive(o, now)).map((o) => ({ o, amt: F.cutAmount(o.kind, o.value, gross) })).sort((a, b) => b.amt - a.amt)[0];
     const pk = F.promoPick({ manual: disc, coupon: ck && ck.ok ? ck.amount : 0, offer: live ? live.amt : 0, stack: pc.stack, gross });
@@ -134,7 +140,7 @@ function bill(s) {
   Object.keys(by).forEach((g) => { by[g].gross = by[g].sub; Object.assign(by[g], calc(+(by[g].sub * k).toFixed(2))); });
   const tot = calc(net);
   let gift = 0, giftCode = '';
-  if (s.gift && F.has(rec.plan, 'giftcards') && db.gifts && db.gifts[s.gift]) { const g = db.gifts[s.gift]; if (F.giftBalanceOk(g)) { gift = Math.min(g.balance, tot.total); giftCode = s.gift; } }
+  if (s.gift && F.has(rec, 'giftcards') && db.gifts && db.gifts[s.gift]) { const g = db.gifts[s.gift]; if (F.giftBalanceOk(g)) { gift = Math.min(g.balance, tot.total); giftCode = s.gift; } }
   const onl = +(s.online || []).reduce((n, x) => n + x.amount - (x.tip || 0), 0).toFixed(2);   // food part paid online (tips are separate)
   return { ...tot, online: Math.min(onl, +(tot.total - gift).toFixed(2)), sub: gross, gross, discount: disc, net, redeemEgp: red, redeemPts: redPts, promoCoupon: promo.coupon, promoOffer: promo.offer, couponCode, offerName, gift: +gift.toFixed(2), giftCode, due: +Math.max(0, tot.total - gift - Math.min(onl, +(tot.total - gift).toFixed(2))).toFixed(2), byGuest: by };
 }
@@ -179,7 +185,8 @@ function closeSession(t, method, who, pay) {
   const lines = {};
   s.orders.forEach((o) => o.items.forEach((i) => {
     const m = db.items.find((x) => x.id === i.itemId);
-    const l = (lines[i.itemId] ||= { itemId: i.itemId, cat: m?.cat, name: i.name, qty: 0, price: i.price, cost: m?.cost || 0 });
+    // one history line per item + chosen options (a Large Latte and a Small Latte are different prices)
+    const l = (lines[i.itemId + '|' + (i.ok || '') + '|' + i.price] ||= { itemId: i.itemId, cat: m?.cat, name: i.name, qty: 0, price: i.price, cost: m?.cost || 0, ...(i.opt ? { opt: i.opt, opt_ar: i.opt_ar } : {}) });
     l.qty += i.qty;
   }));
   if (upOn() && s.orders.length && method !== 'unpaid') { const d = upDay(); s.orders.forEach((o) => o.items.forEach((i) => { if (i.up) d.revenue[i.itemId] = +((d.revenue[i.itemId] || 0) + i.qty * i.price).toFixed(2); })); }
@@ -197,7 +204,7 @@ function closeSession(t, method, who, pay) {
   log(s, 'closed', 'Table paid and cleared' + (who ? ' by ' + who : ''));
   let loy = null;
   const mem = s.loyaltyPhone && db.loyalty && db.loyalty.members[s.loyaltyPhone];
-  if (mem && m !== 'unpaid' && F.has(rec.plan, 'loyalty') && s.orders.length) {
+  if (mem && m !== 'unpaid' && F.has(rec, 'loyalty') && s.orders.length) {
     const lc = F.loyaltyCfg(db.settings), earned = lc.enabled ? F.earnPoints(lc, b.net) : 0, at = Date.now();
     mem.points = Math.max(0, mem.points - b.redeemPts) + earned; mem.earned += earned; mem.redeemed += b.redeemPts; mem.visits++; mem.last = at;
     mem.log = [...(b.redeemPts ? [{ at, type: 'redeem', pts: b.redeemPts, egp: b.redeemEgp }] : []), ...(earned ? [{ at, type: 'earn', pts: earned }] : []), ...(mem.log || [])].slice(0, 40);
@@ -212,7 +219,7 @@ function closeSession(t, method, who, pay) {
     });
   }
   // ETA e-receipts (flag settings.eta.enabled): remember the paid sale in a durable pending list; the server turns it into a numbered, chained receipt
-  if (s.orders.length && db.settings.eta && db.settings.eta.enabled && F.has(rec.plan, 'eta') && !(m === 'unpaid' && !(db.history[db.history.length - 1] || {}).online)) {
+  if (s.orders.length && db.settings.eta && db.settings.eta.enabled && F.has(rec, 'eta') && !(m === 'unpaid' && !(db.history[db.history.length - 1] || {}).online)) {
     const h = db.history[db.history.length - 1];
     if (h && h.tableId === t.id) (rec.etaPending ||= []).push({ hid: h.id, snap: { items: h.items.map((l) => ({ itemId: l.itemId, name: l.name, qty: l.qty, price: l.price })), discount: h.discount, service: h.service, tax: h.tax, tip: h.tip, total: h.total, method: h.method, tableNumber: h.tableNumber, closedAt: h.closedAt, taxRate: db.settings.tax } });
   }
@@ -283,11 +290,11 @@ function bestSellers() {
   return Object.entries(tot).sort((a, b) => b[1] - a[1]).slice(0, 20).map((x) => x[0]);
 }
 const upDay = () => { const k = new Date().toISOString().slice(0, 10); return ((db.upsell ||= { days: {}, resetAt: 0 }).days[k] ||= { shown: {}, accepted: {}, revenue: {} }); };
-const upOn = () => F.has(rec.plan, 'upsell') && db.settings.upsell && db.settings.upsell.enabled;
+const upOn = () => F.has(rec, 'upsell') && db.settings.upsell && db.settings.upsell.enabled;
 function snapshotFor(c) {
   // the Google review link is only ever handed out by the feedback endpoint (4-5 stars), never inside the public config
   const pubSettings = c.role === 'admin' || !db.settings.fb ? db.settings : { ...db.settings, fb: { enabled: !!db.settings.fb.enabled } };
-  const config = { best: bestSellers(), settings: pubSettings, categories: db.categories, items: db.items, tables: c.role === 'admin' ? db.tables : db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec.plan), plan: F.planOf(rec.plan) };
+  const config = { best: bestSellers(), settings: pubSettings, categories: db.categories, items: db.items, tables: c.role === 'admin' ? db.tables : db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec), plan: F.planOf(rec.plan) };
   if (c.role !== 'customer') config.reservations = (db.reservations || []).filter((r) => r.at > Date.now() - 3 * 3600000);
   if (c.role === 'customer') {
     const t = db.tables.find((x) => x.number === c.tableNumber);
@@ -320,7 +327,7 @@ function alertCaptains(kind, tableNumber, text) {
 // Everything is validated here; the caller only supplies a random ticket id. Returns { ok, tid, number, total, prepMin } or { error, code }.
 function placeOnline(p) {
   const o = F.onlineCfg(db.settings);
-  if (!F.has(rec.plan, 'online') || !o.enabled) return { error: 'Online ordering is not available at this venue', code: 'off' };
+  if (!F.has(rec, 'online') || !o.enabled) return { error: 'Online ordering is not available at this venue', code: 'off' };
   const kind = p.kind === 'delivery' ? 'delivery' : 'takeaway';
   if (kind === 'delivery' ? !o.delivery : !o.pickup) return { error: kind === 'delivery' ? 'Delivery is not offered' : 'Pickup is not offered', code: 'kind' };
   const name = String(p.name || '').trim().slice(0, 30), phone = String(p.phone || '').replace(/[^\d+]/g, '').slice(0, 20), address = String(p.address || '').trim().slice(0, 140);
@@ -328,13 +335,15 @@ function placeOnline(p) {
   if (phone.replace(/\D/g, '').length < 7) return { error: 'Please enter a valid phone number', code: 'phone' };
   if (kind === 'delivery' && address.length < 6) return { error: 'Please enter your delivery address', code: 'address' };
   if (!/^tk_[a-z0-9]{6,14}$/.test(String(p.tid || '')) || db.sessions[p.tid]) return { error: 'Bad request', code: 'tid' };
-  const want = [], dropped = [];
+  const want = [], dropped = []; let bad = '';
   (Array.isArray(p.items) ? p.items : []).slice(0, 40).forEach((x) => {
     const it = db.items.find((y) => y.id === x.itemId), q = Math.min(20, Math.floor(+x.qty));
     if (it && it.soldOut && q > 0) dropped.push(it.name);
     if (!it || it.soldOut || !(q > 0) || it.id === o.feeItemId) return;
-    want.push({ id: id('l'), guestId: 'cust', itemId: it.id, name: it.name, name_ar: it.name_ar, emoji: it.emoji, price: it.price, qty: q, note: String(x.note || '').slice(0, 140) });
+    const ln = mkLine(it, q, 'cust', x.opts, String(x.note || '').slice(0, 140)); if (!ln) { bad = it.name; return; }
+    want.push(ln);
   });
+  if (bad) return { error: 'Please choose the options for ' + bad, code: 'opt' };
   if (dropped.length) return { error: 'Sold out: ' + dropped.join(', '), code: 'soldout', dropped };
   if (!want.length) return { error: 'Your order is empty', code: 'empty' };
   const food = want.reduce((n, l) => n + l.price * l.qty, 0);
@@ -373,7 +382,7 @@ function handle(c, m) {
   if (m.t === 'join') {
     if (c.joined) return;
     if (m.role !== 'customer' && !c.authed) return;
-    if (m.role === 'kitchen' && !F.has(rec.plan, 'kds')) return c.ws.send(JSON.stringify({ t: 'error', msg: 'The Kitchen Display needs the Operations plan' }));
+    if (m.role === 'kitchen' && !F.has(rec, 'kds')) return c.ws.send(JSON.stringify({ t: 'error', msg: 'The Kitchen Display needs the Operations plan' }));
     c.joined = true;
     c.role = m.role;
     if (m.role === 'customer') {
@@ -383,7 +392,7 @@ function handle(c, m) {
       const known = db.sessions[t.id] && db.sessions[t.id].guests.find((x) => x.id === m.guestId);
       if (!known && !keyOk(t, m.key)) return c.ws.send(JSON.stringify({ t: 'error', msg: 'scan' }));
       // in-cafe lock: a new guest must be physically at the cafe (a table the waiter seated is exempt: staff vouch for it)
-      if (!known && F.has(rec.plan, 'geo') && F.geoLockCfg(db.settings).enabled && !(db.sessions[t.id] && db.sessions[t.id].staffSeated)) { const gc = F.geoCheck(db.settings, m.geo); if (!gc.ok) return c.ws.send(JSON.stringify({ t: 'error', msg: 'geo', code: gc.code, dist: gc.dist })); }
+      if (!known && F.has(rec, 'geo') && F.geoLockCfg(db.settings).enabled && !(db.sessions[t.id] && db.sessions[t.id].staffSeated)) { const gc = F.geoCheck(db.settings, m.geo); if (!gc.ok) return c.ws.send(JSON.stringify({ t: 'error', msg: 'geo', code: gc.code, dist: gc.dist })); }
       const s = openSession(t); s.lastAt = Date.now(); s.idle = false;
       let g = s.guests.find((x) => x.id === m.guestId);
       if (!g) { g = { id: id('g'), name: m.name || 'Guest', avatar: m.avatar || '🙂' }; s.guests.push(g); if (!s.host || !s.guests.some((x) => x.id === s.host)) s.host = g.id; log(s, 'join', `${g.avatar} ${g.name} joined${s.host === g.id ? ' (host)' : ''}`); }
@@ -399,18 +408,18 @@ function handle(c, m) {
     if (!s) return;
     s.lastAt = Date.now(); s.idle = false;
     // Tier 1 (Basic QR Menu) is a scan-only menu: no ordering from the phone
-    if (['cart_add', 'cart_qty', 'cart_note', 'send_order', 'order_item_remove', 'order_item_qty', 'order_cancel'].includes(m.t) && !F.has(rec.plan, 'ordering')) return;
+    if (['cart_add', 'cart_qty', 'cart_note', 'send_order', 'order_item_remove', 'order_item_qty', 'order_cancel'].includes(m.t) && !F.has(rec, 'ordering')) return;
     switch (m.t) {
-      case 'party': { const n = Math.floor(+m.n); if (F.has(rec.plan, 'party') && n >= 1 && n <= 40 && s.party !== n) { s.party = n; log(s, 'party', `Party of ${n}`); } break; }
+      case 'party': { const n = Math.floor(+m.n); if (F.has(rec, 'party') && n >= 1 && n <= 40 && s.party !== n) { s.party = n; log(s, 'party', `Party of ${n}`); } break; }
       case 'loyalty_join': {
-        const lc = F.loyaltyCfg(db.settings), ph = F.cleanPhone(m.phone); if (!F.has(rec.plan, 'loyalty') || !lc.enabled || !ph) break;
+        const lc = F.loyaltyCfg(db.settings), ph = F.cleanPhone(m.phone); if (!F.has(rec, 'loyalty') || !lc.enabled || !ph) break;
         const L = (db.loyalty ||= { members: {} }); let mem = L.members[ph];
         if (!mem) mem = L.members[ph] = { phone: ph, name: String(m.name || '').slice(0, 24), points: 0, earned: 0, redeemed: 0, visits: 0, at: Date.now(), log: [] };
         else if (m.name && !mem.name) mem.name = String(m.name).slice(0, 24);
         s.loyaltyPhone = ph; s.redeem = null; log(s, 'loyalty', `${mem.name || 'Guest'} joined the loyalty card`); break;
       }
       case 'coupon_apply': {
-        if (!F.promoCfg(db.settings).enabled || !F.has(rec.plan, 'coupons')) { c.ws.send(JSON.stringify({ t: 'notice', msg: 'Coupons are not available here' })); break; }
+        if (!F.promoCfg(db.settings).enabled || !F.has(rec, 'coupons')) { c.ws.send(JSON.stringify({ t: 'notice', msg: 'Coupons are not available here' })); break; }
         const code = F.normCode(m.code), cp = db.coupons.find((x) => x.code === code), gross = bill(s).gross, ck = F.couponCheck(cp, gross, Date.now());
         if (!ck.ok) { c.ws.send(JSON.stringify({ t: 'notice', msg: { unknown: 'Code not recognised', inactive: 'This code is not active', notyet: 'This code is not valid yet', expired: 'This code has expired', used: 'This code has been fully used', min: 'Spend at least ' + (ck.min || 0) + ' to use this code' }[ck.reason] || 'Code not valid', code: 'coupon_' + ck.reason })); break; }
         s.coupon = code; log(s, 'coupon', 'Coupon ' + code + ' applied'); break;
@@ -418,7 +427,7 @@ function handle(c, m) {
       case 'coupon_remove': if (s.coupon) { log(s, 'coupon', 'Coupon ' + s.coupon + ' removed'); s.coupon = null; } break;
       case 'gift_apply': {
         const code = F.normCode(m.code), g = db.gifts && db.gifts[code];
-        if (!F.has(rec.plan, 'giftcards') || !F.giftBalanceOk(g)) { c.ws.send(JSON.stringify({ t: 'notice', msg: 'Gift card not valid', code: 'gift_bad' })); break; }
+        if (!F.has(rec, 'giftcards') || !F.giftBalanceOk(g)) { c.ws.send(JSON.stringify({ t: 'notice', msg: 'Gift card not valid', code: 'gift_bad' })); break; }
         s.gift = code; log(s, 'gift', 'Gift card ' + code.slice(0, 4) + '… applied'); break;
       }
       case 'gift_remove': s.gift = null; break;
@@ -456,11 +465,13 @@ function handle(c, m) {
       }
       case 'cart_add': {
         const it = db.items.find((x) => x.id === m.itemId); if (!it || it.soldOut) break;
-        const ex = s.cart.find((l) => l.itemId === it.id && l.guestId === c.guestId && !l.note);
+        const nl = mkLine(it, 1, c.guestId, m.opts, '');
+        if (!nl) { c.ws.send(JSON.stringify({ t: 'notice', msg: 'Please choose the options for this item', code: 'opt', itemId: it.id })); break; }
+        const ex = s.cart.find((l) => l.itemId === it.id && l.guestId === c.guestId && !l.note && (l.ok || '') === (nl.ok || ''));
         if (ex) { if (ex.qty < 20) ex.qty++; }
         else if (s.cart.length < 40) {
           const up = !!m.up && upOn();   // added from the "Add something?" strip
-          s.cart.push({ id: id('l'), guestId: c.guestId, itemId: it.id, name: it.name, name_ar: it.name_ar, emoji: it.emoji, price: it.price, qty: 1, note: '', ...(up ? { up: 1 } : {}) });
+          s.cart.push({ ...nl, ...(up ? { up: 1 } : {}) });
           if (up) { const d = upDay(); d.accepted[it.id] = (d.accepted[it.id] || 0) + 1; }
         }
         break;
@@ -538,7 +549,7 @@ function handle(c, m) {
         db.sessions[m.tid] = s; log(s, 'seated', `${m.kind} ticket ${s.tableNumber} opened` + (c.staffName ? ' by ' + c.staffName : '')); break;
       }
       case 'staff_order': {
-        if (!F.has(rec.plan, 'ordering')) break;
+        if (!F.has(rec, 'ordering')) break;
         const t = db.tables.find((x) => x.id === m.tableId); let s = db.sessions[m.tableId];
         if (!s && t) s = openSession(t); if (!s) break; s.staffSeated = true;
         const want = [], dropped = [];
@@ -546,7 +557,8 @@ function handle(c, m) {
           const it = db.items.find((y) => y.id === x.itemId); const q = Math.min(20, Math.floor(+x.qty));
           if (it && it.soldOut && q > 0) dropped.push(it.name);
           if (!it || it.soldOut || !(q > 0)) return;
-          want.push({ id: id('l'), guestId: null, itemId: it.id, name: it.name, name_ar: it.name_ar, emoji: it.emoji, price: it.price, qty: q, note: String(x.note || '').slice(0, 140) });
+          const ln = mkLine(it, q, null, x.opts, String(x.note || '').slice(0, 140)); if (!ln) { dropped.push(it.name + ' (options)'); return; }
+          want.push(ln);
         });
         if (dropped.length) c.ws.send(JSON.stringify({ t: 'notice', msg: 'Sold out, not added: ' + dropped.join(', '), code: 'conflict' }));
         if (!want.length) break;
@@ -575,11 +587,11 @@ function handle(c, m) {
         const say = (msg) => c.ws.send(JSON.stringify({ t: 'notice', msg }));
         if ('coupon' in m) {
           if (!m.coupon) { s.coupon = null; log(s, 'coupon', 'Coupon removed'); }
-          else { const code = F.normCode(m.coupon), ck = F.promoCfg(db.settings).enabled && F.has(rec.plan, 'coupons') ? F.couponCheck(db.coupons.find((x) => x.code === code), bill(s).gross, Date.now()) : { ok: false, reason: 'off' }; if (!ck.ok) { say('Coupon not valid (' + ck.reason + ')'); break; } s.coupon = code; log(s, 'coupon', 'Coupon ' + code + ' applied by ' + (c.staffName || 'staff')); }
+          else { const code = F.normCode(m.coupon), ck = F.promoCfg(db.settings).enabled && F.has(rec, 'coupons') ? F.couponCheck(db.coupons.find((x) => x.code === code), bill(s).gross, Date.now()) : { ok: false, reason: 'off' }; if (!ck.ok) { say('Coupon not valid (' + ck.reason + ')'); break; } s.coupon = code; log(s, 'coupon', 'Coupon ' + code + ' applied by ' + (c.staffName || 'staff')); }
         }
         if ('gift' in m) {
           if (!m.gift) s.gift = null;
-          else { const code = F.normCode(m.gift), g = db.gifts && db.gifts[code]; if (!F.has(rec.plan, 'giftcards') || !F.giftBalanceOk(g)) { say('Gift card not valid'); break; } s.gift = code; log(s, 'gift', 'Gift card applied by ' + (c.staffName || 'staff')); }
+          else { const code = F.normCode(m.gift), g = db.gifts && db.gifts[code]; if (!F.has(rec, 'giftcards') || !F.giftBalanceOk(g)) { say('Gift card not valid'); break; } s.gift = code; log(s, 'gift', 'Gift card applied by ' + (c.staffName || 'staff')); }
         }
         break;
       }
@@ -740,7 +752,7 @@ function analytics(days = 7) {
     const r = F.copilot(q, { db, analytics, loyaltyStats, setLang: (l) => (db.settings.lang = l) });
     if (r.action) broadcast(); return r;
   }
-  const publicConfig = () => ({ settings: db.settings, categories: db.categories, items: db.items, tables: db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec.plan), plan: F.planOf(rec.plan) });
+  const publicConfig = () => ({ settings: db.settings, categories: db.categories, items: db.items, tables: db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec), plan: F.planOf(rec.plan) });
   return { placeOnline, onlineStatus, applyOnline, notify: alertCaptains, rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
 }
 module.exports = { createTenant, freshData, clone };

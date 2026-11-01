@@ -345,6 +345,17 @@ const origin = (req) => (process.env.PUBLIC_URL || (PROD ? `${req.protocol}://${
 
 app.get('/api/public/demo', (req, res) => res.json(!SINGLE && !PROD && tenants.has('demo') ? { slug: 'demo', email: 'demo@demo.com', password: 'demo123', pin: '1234' } : null));
 
+// ----- Platform bundle configuration (editable by the super admin; stored as one aux document) -----
+let platAt = 0, platLoading = null;
+async function refreshPlatform(force) {
+  if (!force && Date.now() - platAt < 20000) return;
+  if (!platLoading) platLoading = store.getAux('platform').then((d) => { F.configure(d && d.plans ? d : null); platAt = Date.now(); }).catch((e) => { console.error('platform config:', e.message); platAt = Date.now() - 10000; }).finally(() => { platLoading = null; });
+  await platLoading;
+}
+app.use('/api', async (req, res, next) => { try { await refreshPlatform(); next(); } catch (e) { next(e); } });
+const planView = () => ({ catalog: F.CATALOG, plans: F.ORDER.map((id) => { const P = F.PLANS[id]; return { id, name: P.name, name_ar: P.name_ar, price: P.price, limits: P.limits, features: F.FEATURE_IDS.filter((f) => F.featuresOf(id)[f]) }; }) });
+app.get('/api/public/plans', (req, res) => res.json({ plans: F.ORDER.map((id) => ({ id, name: F.PLANS[id].name, name_ar: F.PLANS[id].name_ar, price: F.PLANS[id].price[0], tables: F.PLANS[id].limits.tables, staff: F.PLANS[id].limits.staff })) }));
+
 // ----- Super admin API -----
 app.post('/api/super/login', loginLimit, (req, res) => {
   if (SINGLE) return res.status(404).json({});
@@ -371,11 +382,24 @@ function tenantStats(t, days = 30) {
   const live = Object.values(t.db.sessions);
   return {
     id: t.rec.id, slug: t.rec.slug, name: t.rec.name, plan: F.planOf(t.rec.plan), group: t.rec.group || '', domain: t.rec.domain || '', mrr: t.rec.status === 'active' ? F.monthly(t.rec.plan) : 0, status: t.rec.status, createdAt: t.rec.createdAt, lastActive: t.rec.lastActive,
-    email: t.rec.owner.email, items: t.db.items.length, tables: t.db.tables.length, limits: F.limitsOf(t.rec.plan, t.rec.limits), limitOverride: t.rec.limits || null, staffCount: (t.rec.staff || []).length,
+    email: t.rec.owner.email, items: t.db.items.length, tables: t.db.tables.length, limits: F.limitsOf(t.rec.plan, t.rec.limits), feat: t.rec.feat || {}, limitOverride: t.rec.limits || null, staffCount: (t.rec.staff || []).length,
     revenue, sessions: H.length, avgTicket: H.length ? revenue / H.length : 0, liveTables: live.length, liveRevenue: live.reduce((n, s) => n + t.bill(s).total, 0),
     guestsLive: live.reduce((n, s) => n + s.guests.length, 0), online: t.clients.size, currency: t.db.settings.currency,
   };
 }
+app.get('/api/super/plans', needSuper, async (req, res, next) => { try { await refreshPlatform(true); res.json(planView()); } catch (e) { next(e); } });
+app.put('/api/super/plans', needSuper, async (req, res, next) => { try {
+  const b = req.body || {}, out = { plans: {} };
+  if (b.reset === true) { await store.putAux('platform', { plans: null, at: Date.now() }); await refreshPlatform(true); return res.json(planView()); }
+  for (const id of F.ORDER) {
+    const o = (b.plans || {})[id]; if (!o || typeof o !== 'object') continue;
+    if (!Array.isArray(o.features) || o.features.some((x) => typeof x !== 'string')) return res.status(400).json({ error: 'features must be a list for ' + id });
+    const price = [Math.round(+(o.price || [])[0]), Math.round(+(o.price || [])[1])]; if (!price.every((n) => n >= 0 && n < 1e7)) return res.status(400).json({ error: 'bad price for ' + id });
+    out.plans[id] = { features: o.features.filter((x) => F.FEATURE_IDS.includes(x)), price, limits: o.limits || {}, name: String(o.name || '').slice(0, 60), name_ar: String(o.name_ar || '').slice(0, 60) };
+  }
+  if (!Object.keys(out.plans).length) return res.status(400).json({ error: 'nothing to save' });
+  out.at = Date.now(); await store.putAux('platform', out); await refreshPlatform(true); res.json(planView());
+} catch (e) { next(e); } });
 app.get('/api/super/overview', needSuper, async (req, res, next) => { try {
   const all = await allTenants(), list = all.map((t) => tenantStats(t));
   const daily = {}, hours = Array(24).fill(0), items = {};
@@ -420,6 +444,11 @@ app.post('/api/super/tenants', needSuper, async (req, res, next) => { try {
 app.put('/api/super/tenants/:slug', needSuper, async (req, res, next) => { try {
   const t = await oneTenant(req.params.slug); if (!t) return res.status(404).json({});
   if (req.body.limits !== undefined) { const L = req.body.limits || {}, o = {}; ['tables', 'staff', 'branches'].forEach((k) => { if (L[k] === null || L[k] === '' ) { if (L[k] === null) o[k] = null; } else if (L[k] !== undefined && +L[k] >= 0) o[k] = Math.floor(+L[k]); }); t.rec.limits = Object.keys(o).length ? o : undefined; }
+  if (req.body.feat !== undefined) {   // { featureId: true (force on) | false (force off) | null (follow the bundle) }
+    const o = {}; const src = req.body.feat && typeof req.body.feat === 'object' ? req.body.feat : {};
+    Object.keys(src).forEach((k) => { if (F.FEATURE_IDS.includes(k) && (src[k] === true || src[k] === false)) o[k] = src[k]; });
+    t.rec.feat = o; if (!Object.keys(o).length) delete t.rec.feat;
+  }
   if (req.body.domain !== undefined) { const dom = await checkDomain(req.body.domain, t.rec.slug); if (dom.error) return res.status(dom.status).json({ error: dom.error }); t.rec.domain = dom.value; }
   ['name', 'plan', 'status', 'group'].forEach((k) => { if (req.body[k] === undefined) return; if (k === 'plan' && !F.PLANS[req.body[k]]) return; t.rec[k] = req.body[k]; });
   if (t.rec.status !== 'active') t.clients.forEach((c) => c.ws.close());
@@ -464,7 +493,7 @@ app.post(`${R}/login`, loginLimit, tenantMw, (req, res) => {
   const ok = (token) => { if (fails[key]) { delete fails[key]; persistRec(t); } return res.json({ token }); };
   if (role === 'admin' && String(email).toLowerCase() === t.rec.owner.email && auth.check(password, t.rec.owner.hash)) return ok(auth.sign('admin', t.rec.slug));
   if (role === 'cashier') {
-    if (!F.has(t.rec.plan, 'cashier')) return res.status(402).json({ error: 'The Cashier role needs the Operations plan', upgrade: F.minPlanFor('cashier') });
+    if (!F.has(t.rec, 'cashier')) return res.status(402).json({ error: 'The Cashier role needs the Operations plan', upgrade: F.minPlanFor('cashier') });
     const p = String(pin || '');
     const who = (t.rec.staff || []).find((st) => st.active !== false && st.hash && st.role === 'cashier' && auth.check(p, st.hash));
     if (who) return ok(auth.sign('cashier', t.rec.slug, 2, { u: who.id, n: who.name }));
@@ -588,7 +617,7 @@ const FB_CATS = ['quality', 'portions', 'price', 'service', 'clean'];
 // With the Operations "feedback" flag on (settings.fb.enabled): one rating per guest per visit, 4-5 stars may be offered the venue's Google link,
 // 1-3 stars stay private and alert the team. With the flag off the original behaviour is untouched.
 app.post(`${R}/feedback`, tenantMw, async (req, res, next) => { try {
-  const b = req.body || {}, t = req.tenant, r = t.rec, fb = (t.db.settings.fb || {}), plus = !!fb.enabled && F.has(r.plan, 'feedback');
+  const b = req.body || {}, t = req.tenant, r = t.rec, fb = (t.db.settings.fb || {}), plus = !!fb.enabled && F.has(r, 'feedback');
   // optional per-category ratings (quality, portions, price, service, clean); the overall rating is then their rounded average
   const cats = {}; for (const k of FB_CATS) { const v = Math.round(+(b.cats || {})[k]); if (v >= 1 && v <= 5) cats[k] = v; }
   const cv = Object.values(cats), stars = cv.length ? Math.round(cv.reduce((s, v) => s + v, 0) / cv.length) : Math.round(+b.stars);
@@ -619,7 +648,7 @@ const SHOW_DENY = /\/(image|hero-image|menu\/ocr|menu\/import|copilot|insights\/
 const showGuard = (req, res, next) => (req.tenant.rec.showroom && req.method !== 'GET' && SHOW_DENY.test(req.path) ? res.status(403).json({ error: 'Not available in the demo' }) : next());
 const A = (m, p, ...h) => app[m](`${R}${p}`, tenantMw, needAdmin, showGuard, ...h);
 const bc = (req) => req.tenant.broadcast();
-A('get', '/account', (req, res) => res.json({ name: req.tenant.rec.name, email: req.tenant.rec.owner.email, pin: req.tenant.rec.pin, plan: F.planOf(req.tenant.rec.plan), features: F.featuresOf(req.tenant.rec.plan), group: req.tenant.rec.group || '', limits: F.limitsOf(req.tenant.rec.plan, req.tenant.rec.limits), usage: { tables: req.tenant.db.tables.length, staff: (req.tenant.rec.staff || []).length } }));
+A('get', '/account', (req, res) => res.json({ name: req.tenant.rec.name, email: req.tenant.rec.owner.email, pin: req.tenant.rec.pin, plan: F.planOf(req.tenant.rec.plan), features: F.featuresOf(req.tenant.rec), group: req.tenant.rec.group || '', limits: F.limitsOf(req.tenant.rec.plan, req.tenant.rec.limits), usage: { tables: req.tenant.db.tables.length, staff: (req.tenant.rec.staff || []).length } }));
 A('post', '/account', (req, res) => {
   const r = req.tenant.rec, b = req.body || {};
   if (b.pin) { if (!/^\d{4,8}$/.test(b.pin)) return res.status(400).json({ error: 'PIN must be 4–8 digits' }); r.pin = b.pin; }
@@ -633,7 +662,7 @@ A('post', '/staff', (req, res) => {
   if (!name) return res.status(400).json({ error: 'Name required' });
   { const h = limitHit(req.tenant, 'staff', (r.staff || []).length); if (h) return res.status(402).json(h); }
   if (!['captain', 'kitchen', 'cashier'].includes(b.role)) return res.status(400).json({ error: 'Role must be captain, kitchen or cashier' });
-  if (b.role === 'cashier' && !F.has(r.plan, 'cashier')) return res.status(402).json({ error: 'The Cashier role needs the Operations plan', upgrade: F.minPlanFor('cashier') });
+  if (b.role === 'cashier' && !F.has(r, 'cashier')) return res.status(402).json({ error: 'The Cashier role needs the Operations plan', upgrade: F.minPlanFor('cashier') });
   if (!/^\d{4,8}$/.test(pin)) return res.status(400).json({ error: 'PIN must be 4-8 digits' });
   if (pinTaken(r, pin)) return res.status(400).json({ error: 'That PIN is already used - choose another' });
   const st = { id: newId('u'), name, role: b.role, hash: auth.hash(pin), active: true, createdAt: Date.now() };
@@ -658,7 +687,7 @@ function upStats(t, from, to) {
   const shown = items.reduce((n, x) => n + x.shown, 0), accepted = items.reduce((n, x) => n + x.accepted, 0), revenue = Math.round(items.reduce((n, x) => n + x.revenue, 0) * 100) / 100;
   return { shown, accepted, rate: shown ? Math.round(accepted / shown * 1000) / 10 : 0, revenue, items, resetAt: u.resetAt || 0 };
 }
-const gateUp = (req, res, next) => (F.has(req.tenant.rec.plan, 'upsell') ? next() : res.status(402).json({ error: 'Upsell needs the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }));
+const gateUp = (req, res, next) => (F.has(req.tenant.rec, 'upsell') ? next() : res.status(402).json({ error: 'Upsell needs the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }));
 A('get', '/upsell/stats', gateUp, (req, res) => res.json(upStats(req.tenant, +req.query.from || 0, +req.query.to || Date.now())));
 A('post', '/upsell/clear', gateUp, (req, res) => { const u = (req.tenant.db.upsell ||= { days: {}, resetAt: 0 }), mergeInto = (to, from) => Object.entries(from || {}).forEach(([day, d]) => { const x = (to[day] ||= { shown: {}, accepted: {}, revenue: {} }); ['shown', 'accepted', 'revenue'].forEach((k) => Object.entries(d[k] || {}).forEach(([id, v]) => (x[k][id] = (x[k][id] || 0) + v))); });
   // non-destructive: the counters move to an archive (restorable); sales records are never touched
@@ -742,29 +771,29 @@ A('get', '/export.json', async (req, res) => {
 });
 A('post', '/settings', (req, res) => {
   const d = req.tenant.db; const b = req.body || {}; delete b.presets;
-  if (F.PREMIUM_THEMES.includes(b.theme) && !F.has(req.tenant.rec.plan, 'themes')) return res.status(402).json({ error: 'Custom themes need the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' });
-  if (b.loyalty) { if (!F.has(req.tenant.rec.plan, 'loyalty')) return res.status(402).json({ error: 'Loyalty needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const l = b.loyalty; b.loyalty = { enabled: l.enabled !== false, egpPerPoint: Math.max(1, +l.egpPerPoint || 10), pointsPerRedeem: Math.max(1, +l.pointsPerRedeem || 100), redeemValue: Math.max(0, +l.redeemValue || 0) }; }
-  if (b.upsell) { if (!F.has(req.tenant.rec.plan, 'upsell')) return res.status(402).json({ error: 'Upsell suggestions need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.upsell = F.upCfg({ upsell: b.upsell }); }
-  if (b.fb) { if (!F.has(req.tenant.rec.plan, 'feedback')) return res.status(402).json({ error: 'Guest feedback & Google reviews need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); const u = String(b.fb.googleUrl || '').trim().slice(0, 300); b.fb = { enabled: !!b.fb.enabled, googleUrl: /^https:\/\/[^\s]+$/.test(u) ? u : '' }; }
-  if (b.online) { if (!F.has(req.tenant.rec.plan, 'online')) return res.status(402).json({ error: 'Online ordering needs the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.online = F.onlineCfg({ online: b.online }); }
+  if (F.PREMIUM_THEMES.includes(b.theme) && !F.has(req.tenant.rec, 'themes')) return res.status(402).json({ error: 'Custom themes need the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' });
+  if (b.loyalty) { if (!F.has(req.tenant.rec, 'loyalty')) return res.status(402).json({ error: 'Loyalty needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const l = b.loyalty; b.loyalty = { enabled: l.enabled !== false, egpPerPoint: Math.max(1, +l.egpPerPoint || 10), pointsPerRedeem: Math.max(1, +l.pointsPerRedeem || 100), redeemValue: Math.max(0, +l.redeemValue || 0) }; }
+  if (b.upsell) { if (!F.has(req.tenant.rec, 'upsell')) return res.status(402).json({ error: 'Upsell suggestions need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.upsell = F.upCfg({ upsell: b.upsell }); }
+  if (b.fb) { if (!F.has(req.tenant.rec, 'feedback')) return res.status(402).json({ error: 'Guest feedback & Google reviews need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); const u = String(b.fb.googleUrl || '').trim().slice(0, 300); b.fb = { enabled: !!b.fb.enabled, googleUrl: /^https:\/\/[^\s]+$/.test(u) ? u : '' }; }
+  if (b.online) { if (!F.has(req.tenant.rec, 'online')) return res.status(402).json({ error: 'Online ordering needs the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.online = F.onlineCfg({ online: b.online }); }
   if ('venueGeo' in b) b.venueGeo = F.geoPoint(b.venueGeo);
   if (b.geoLock) {
-    if (!F.has(req.tenant.rec.plan, 'geo')) return res.status(402).json({ error: 'The in-cafe ordering lock needs the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' });
+    if (!F.has(req.tenant.rec, 'geo')) return res.status(402).json({ error: 'The in-cafe ordering lock needs the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' });
     b.geoLock = F.geoLockCfg({ geoLock: b.geoLock });
     if (b.geoLock.enabled && !F.geoPoint('venueGeo' in b ? b.venueGeo : req.tenant.db.settings.venueGeo)) return res.status(400).json({ error: 'Set the cafe location first (use the button while you are at the cafe).' });
   }
-  if (b.offline) { if (!F.has(req.tenant.rec.plan, 'offline')) return res.status(402).json({ error: 'Offline mode needs the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.offline = { enabled: !!b.offline.enabled }; }
+  if (b.offline) { if (!F.has(req.tenant.rec, 'offline')) return res.status(402).json({ error: 'Offline mode needs the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.offline = { enabled: !!b.offline.enabled }; }
   if (b.eta) {
-    if (!F.has(req.tenant.rec.plan, 'eta')) return res.status(402).json({ error: 'E-receipts need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' });
+    if (!F.has(req.tenant.rec, 'eta')) return res.status(402).json({ error: 'E-receipts need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' });
     const env = String(b.eta.env || 'mock'); if (!ETA.envOk(env)) return res.status(400).json({ error: 'Production e-receipts are not available yet. Use the test mode or ETA pre-production.' });
     if (b.eta.enabled && env === 'mock' && !ETA.mockAllowed(req.tenant.rec.slug)) return res.status(400).json({ error: 'The test e-receipt mode is not allowed on a live venue' });
     const c = req.tenant.rec.etaCfg || {}; if (b.eta.enabled && !(c.rin && c.tradeName && (env === 'mock' || (c.deviceSerial && c.activityCode && c.clientId && c.clientSecret)))) return res.status(400).json({ error: 'Save your tax registration details first' });
     b.eta = { enabled: !!b.eta.enabled, env };
   }
-  if (b.onlinePay) { if (!F.has(req.tenant.rec.plan, 'onlinepay')) return res.status(402).json({ error: 'Online payments need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); const p = b.onlinePay.provider === 'paymob' ? 'paymob' : 'sandbox'; if (p === 'sandbox' && b.onlinePay.enabled && !PAY.sandboxAllowed(req.tenant.rec.slug)) return res.status(400).json({ error: 'The test gateway is not allowed on a live venue - connect Paymob' }); if (p === 'paymob' && b.onlinePay.enabled && !(req.tenant.rec.payCfg && req.tenant.rec.payCfg.apiKey && req.tenant.rec.payCfg.hmac && req.tenant.rec.payCfg.integrationId && req.tenant.rec.payCfg.iframeId)) return res.status(400).json({ error: 'Save your Paymob keys first' }); b.onlinePay = { enabled: !!b.onlinePay.enabled, provider: p }; }
-  if (b.promo) { if (!F.has(req.tenant.rec.plan, 'coupons')) return res.status(402).json({ error: 'Coupons & offers need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.promo = { enabled: !!b.promo.enabled, stack: !!b.promo.stack }; }
+  if (b.onlinePay) { if (!F.has(req.tenant.rec, 'onlinepay')) return res.status(402).json({ error: 'Online payments need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); const p = b.onlinePay.provider === 'paymob' ? 'paymob' : 'sandbox'; if (p === 'sandbox' && b.onlinePay.enabled && !PAY.sandboxAllowed(req.tenant.rec.slug)) return res.status(400).json({ error: 'The test gateway is not allowed on a live venue - connect Paymob' }); if (p === 'paymob' && b.onlinePay.enabled && !(req.tenant.rec.payCfg && req.tenant.rec.payCfg.apiKey && req.tenant.rec.payCfg.hmac && req.tenant.rec.payCfg.integrationId && req.tenant.rec.payCfg.iframeId)) return res.status(400).json({ error: 'Save your Paymob keys first' }); b.onlinePay = { enabled: !!b.onlinePay.enabled, provider: p }; }
+  if (b.promo) { if (!F.has(req.tenant.rec, 'coupons')) return res.status(402).json({ error: 'Coupons & offers need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.promo = { enabled: !!b.promo.enabled, stack: !!b.promo.stack }; }
   if ('refreshMin' in b) b.refreshMin = [0, 5, 15, 30, 60, 120, 360].includes(+b.refreshMin) ? +b.refreshMin : 60;
-  if (b.ai) { if (!F.has(req.tenant.rec.plan, 'copilot')) return res.status(402).json({ error: 'The AI assistant needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const a = F.aiCfg({ ai: b.ai }); b.ai = { name: a.name, style: a.style, memory: a.memory.map((m) => ({ ...m, id: m.id || Math.random().toString(36).slice(2, 9), at: m.at || Date.now() })) }; }
+  if (b.ai) { if (!F.has(req.tenant.rec, 'copilot')) return res.status(402).json({ error: 'The AI assistant needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const a = F.aiCfg({ ai: b.ai }); b.ai = { name: a.name, style: a.style, memory: a.memory.map((m) => ({ ...m, id: m.id || Math.random().toString(36).slice(2, 9), at: m.at || Date.now() })) }; }
   if (b.promos) b.promos = (Array.isArray(b.promos) ? b.promos : []).slice(0, 6).map((p) => ({ title: String(p.title || '').slice(0, 60), title_ar: String(p.title_ar || '').slice(0, 60), text: String(p.text || '').slice(0, 140), text_ar: String(p.text_ar || '').slice(0, 140) })); Object.assign(d.settings, b); bc(req); res.json(d.settings); });
 
 A('post', '/categories', (req, res) => { const d = req.tenant.db; const c = { id: newId('c'), name: req.body.name || 'New', name_ar: req.body.name_ar || '', emoji: req.body.emoji || '🍽️' }; d.categories.push(c); bc(req); res.json(c); });
@@ -772,8 +801,21 @@ A('put', '/categories/order', (req, res) => { const d = req.tenant.db, o = req.b
 A('put', '/categories/:id', (req, res) => { const c = req.tenant.db.categories.find((x) => x.id === req.params.id); if (c) Object.assign(c, req.body, { id: c.id }); bc(req); res.json(c); });
 A('delete', '/categories/:id', (req, res) => { const d = req.tenant.db; d.categories = d.categories.filter((x) => x.id !== req.params.id); d.items = d.items.filter((i) => i.cat !== req.params.id); bc(req); res.json({ ok: 1 }); });
 
-A('post', '/items', (req, res) => { const d = req.tenant.db; const b = req.body; const i = { id: newId('i'), cat: b.cat, name: b.name || 'New item', name_ar: b.name_ar || '', price: +b.price || 0, cost: +b.cost || 0, emoji: b.emoji || '🍽️', desc: b.desc || '', img: '' }; if (b.stock !== undefined && b.stock !== null && b.stock !== '') i.stock = Math.max(0, Math.floor(+b.stock) || 0); d.items.push(i); bc(req); res.json(i); });
-A('put', '/items/:id', (req, res) => { const i = req.tenant.db.items.find((x) => x.id === req.params.id); if (i) { Object.assign(i, req.body, { id: i.id }); i.price = +i.price; i.cost = +i.cost; const b = req.body || {}; if ('pairs' in b) i.pairs = (Array.isArray(b.pairs) ? b.pairs : []).filter((p, k, a) => a.indexOf(p) === k && p !== i.id && req.tenant.db.items.some((x) => x.id === p)).slice(0, 6); if ('stock' in b) i.stock = b.stock === null || b.stock === '' ? null : Math.max(0, Math.floor(+b.stock) || 0); if ('lowAt' in b) i.lowAt = Math.max(0, Math.floor(+b.lowAt) || 0); } bc(req); res.json(i); });
+// Item fields the owner may set. Everything is typed and length-limited; options and details go through the shared validators.
+const ITEM_STR = { cat: 40, name: 80, name_ar: 80, desc: 300, desc_ar: 300, emoji: 8 };
+function itemBody(b) {
+  const o = {}; b = b && typeof b === 'object' && !Array.isArray(b) ? b : {};
+  Object.keys(b).forEach((k) => {
+    if (['__proto__', 'constructor', 'prototype', 'id', 'img', 'options', 'allergens', 'cal', 'badge', 'pairs', 'stock', 'lowAt'].includes(k)) return;
+    const v = b[k]; if (v !== null && typeof v === 'object') return;   // plain values only
+    o[k] = ITEM_STR[k] ? String(v == null ? '' : v).slice(0, ITEM_STR[k]) : typeof v === 'string' ? v.slice(0, 200) : v;
+  });
+  if ('options' in b) o.options = F.optClean(b.options);
+  Object.assign(o, F.detailsClean(b));
+  return o;
+}
+A('post', '/items', (req, res) => { const d = req.tenant.db; const b = req.body; const i = { id: newId('i'), cat: b.cat, name: b.name || 'New item', name_ar: b.name_ar || '', price: +b.price || 0, cost: +b.cost || 0, emoji: b.emoji || '🍽️', desc: b.desc || '', img: '' }; { const x = itemBody(b); ['name', 'name_ar', 'desc', 'emoji', 'cat'].forEach((k) => { if (x[k] !== undefined && x[k] !== '') i[k] = x[k]; }); if (x.options) i.options = x.options; ['allergens', 'cal', 'badge'].forEach((k) => { if (x[k] !== undefined) i[k] = x[k]; }); i.price = Math.min(100000, Math.max(0, i.price)); i.cost = Math.min(100000, Math.max(0, i.cost)); } if (b.stock !== undefined && b.stock !== null && b.stock !== '') i.stock = Math.max(0, Math.floor(+b.stock) || 0); d.items.push(i); bc(req); res.json(i); });
+A('put', '/items/:id', (req, res) => { const i = req.tenant.db.items.find((x) => x.id === req.params.id); if (i) { Object.assign(i, itemBody(req.body), { id: i.id }); i.price = Math.min(100000, Math.max(0, +i.price || 0)); i.cost = Math.min(100000, Math.max(0, +i.cost || 0)); const b = req.body || {}; if ('pairs' in b) i.pairs = (Array.isArray(b.pairs) ? b.pairs : []).filter((p, k, a) => a.indexOf(p) === k && p !== i.id && req.tenant.db.items.some((x) => x.id === p)).slice(0, 6); if ('stock' in b) i.stock = b.stock === null || b.stock === '' ? null : Math.max(0, Math.floor(+b.stock) || 0); if ('lowAt' in b) i.lowAt = Math.max(0, Math.floor(+b.lowAt) || 0); } bc(req); res.json(i); });
 A('delete', '/items/:id', (req, res) => { const d = req.tenant.db; d.items = d.items.filter((x) => x.id !== req.params.id); bc(req); res.json({ ok: 1 }); });
 A('post', '/items/:id/image', upLimit, upload.single('image'), async (req, res) => {
   const i = req.tenant.db.items.find((x) => x.id === req.params.id);
@@ -803,7 +845,7 @@ app.get(`${R}/img/:key`, async (req, res) => {
   res.set('Cache-Control', 'public, max-age=31536000, immutable').type(m[1]).send(Buffer.from(m[2], 'base64'));
 });
 // ----- Premium (Tier 3) features: loyalty, AI menu digitizer, admin copilot, multi-branch -----
-const gate = (f) => (req, res, next) => F.has(req.tenant.rec.plan, f) ? next() : res.status(402).json({ error: 'This feature needs the ' + F.PLANS[F.minPlanFor(f)].name + ' plan', upgrade: F.minPlanFor(f) });
+const gate = (f) => (req, res, next) => F.has(req.tenant.rec, f) ? next() : res.status(402).json({ error: 'This feature needs the ' + F.PLANS[F.minPlanFor(f)].name + ' plan', upgrade: F.minPlanFor(f) });
 // ---- coupons, timed offers, gift cards (F5) ----
 const gateC = gate('coupons'), gateG = gate('giftcards'), clean = (v, n) => String(v || '').slice(0, n);
 const num = (v, lo, hi) => Math.min(hi, Math.max(lo, +v || 0));
@@ -836,7 +878,7 @@ A('post', '/offers', gateC, (req, res) => { const d = req.tenant.db; if (d.offer
 A('put', '/offers/:id', gateC, (req, res) => { const d = req.tenant.db, i = d.offers.findIndex((x) => x.id === req.params.id); if (i < 0) return res.status(404).json({ error: 'not found' }); const r = offerIn({ ...d.offers[i], ...(req.body || {}) }, d.offers[i]); if (r.error) return res.status(400).json(r); d.offers[i] = r.o; persistRec(req.tenant); res.json(r.o); });
 A('delete', '/offers/:id', gateC, (req, res) => { const d = req.tenant.db; d.offers = d.offers.filter((x) => x.id !== req.params.id); persistRec(req.tenant); res.json({ ok: 1 }); });
 // guests see the offers that are live right now (public, no codes)
-app.get(`${R}/offers`, tenantMw, (req, res) => { const t = req.tenant, on = F.promoCfg(t.db.settings).enabled && F.has(t.rec.plan, 'coupons'); res.json({ offers: on ? t.db.offers.filter((o) => F.offerLive(o, Date.now())).map((o) => ({ id: o.id, name: o.name, name_ar: o.name_ar, kind: o.kind, value: o.value, end: o.end })) : [] }); });
+app.get(`${R}/offers`, tenantMw, (req, res) => { const t = req.tenant, on = F.promoCfg(t.db.settings).enabled && F.has(t.rec, 'coupons'); res.json({ offers: on ? t.db.offers.filter((o) => F.offerLive(o, Date.now())).map((o) => ({ id: o.id, name: o.name, name_ar: o.name_ar, kind: o.kind, value: o.value, end: o.end })) : [] }); });
 // gift cards: codes are random, server-made; only staff sell them
 const giftCode = () => { const A32 = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', b = require('crypto').randomBytes(12); return 'GC-' + [...b].map((x) => A32[x % 32]).join('').replace(/(.{4})(?=.)/g, '$1-'); };
 app.post(`${R}/gifts`, tenantMw, needCash, gateG, (req, res) => {
@@ -876,7 +918,7 @@ const r2p = (x) => Math.round((+x + Number.EPSILON) * 100) / 100;
 app.post(`${R}/pay/intent`, tenantMw, async (req, res, next) => { try {
   if (payThrottle(req, res, 60)) return;
   const t = req.tenant, b = req.body || {}, op = t.db.settings.onlinePay || {};
-  if (!op.enabled || !F.has(t.rec.plan, 'onlinepay')) return res.status(402).json({ error: 'Online payment is not switched on here' });
+  if (!op.enabled || !F.has(t.rec, 'onlinepay')) return res.status(402).json({ error: 'Online payment is not switched on here' });
   const tbl = t.db.tables.find((x) => x.number === +b.tableNumber), s = tbl && t.db.sessions[tbl.id];
   if (!s || !s.orders.length) return res.status(404).json({ error: 'Nothing to pay yet' });
   if (t.db.settings.requireKey !== false && !(tbl.key && b.key === tbl.key)) return res.status(403).json({ error: 'Scan the table QR again' });
@@ -1034,9 +1076,9 @@ A('post', '/copilot', gate('copilot'), async (req, res) => {
 const gateI = gate('insights');
 async function insightsFor(t, days) {
   const r = t.rec, hist = STATELESS ? await store.getHist(r.id) : t.db.history;
-  return INS.analyze({ history: hist, reviews: r.reviews || [], staffLog: r.staffLog || {}, staffStats: (r.stats || {}).staff || {}, staffList: (r.staff || []).map((x) => ({ id: x.id, name: x.name, role: x.role })), days: +days || 14, now: Date.now(), onlineEnabled: !!(t.db.settings.online || {}).enabled && F.has(r.plan, 'online') });
+  return INS.analyze({ history: hist, reviews: r.reviews || [], staffLog: r.staffLog || {}, staffStats: (r.stats || {}).staff || {}, staffList: (r.staff || []).map((x) => ({ id: x.id, name: x.name, role: x.role })), days: +days || 14, now: Date.now(), onlineEnabled: !!(t.db.settings.online || {}).enabled && F.has(r, 'online') });
 }
-A('get', '/insights', gateI, async (req, res, next) => { try { res.json({ ...(await insightsFor(req.tenant, req.query.days)), ai: { available: !!aiKey() && F.has(req.tenant.rec.plan, 'copilot'), key: !!aiKey() } }); } catch (e) { next(e); } });
+A('get', '/insights', gateI, async (req, res, next) => { try { res.json({ ...(await insightsFor(req.tenant, req.query.days)), ai: { available: !!aiKey() && F.has(req.tenant.rec, 'copilot'), key: !!aiKey() } }); } catch (e) { next(e); } });
 // the per-captain "log file": one row per person per hour with activity (local time), ready for Excel
 A('get', '/insights/staff.csv', gateI, (req, res) => {
   const r = req.tenant.rec, days = Math.min(90, Math.max(1, +req.query.days || 14)), from = Date.now() - days * 86400000, q = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"', two = (n) => String(n).padStart(2, '0'), rows = [];

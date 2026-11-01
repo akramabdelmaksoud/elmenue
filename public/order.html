@@ -25,7 +25,7 @@ label { display: block; margin: 12px 0 4px; font-weight: 700; font-size: 14px; }
 .err { color: #d62828; margin-top: 10px; font-weight: 600; }
 </style></head>
 <body><div class="wrap" id="root"></div><div class="bar" id="bar"></div><div class="panel" id="panel" hidden></div>
-<script src="/shared.js"></script>
+<script src="/shared.js"></script><script src="/opts.js"></script>
 <script>
 const T = {
   en: { title: 'Order online', pickup: 'Pickup', delivery: 'Delivery', all: 'All', view: 'View order', items: 'items', add: '+ Add', sold: 'Sold out', your: 'Your order', name: 'Your name', phone: 'Phone number', addr: 'Delivery address', note: 'Notes for the kitchen (optional)', place: 'Place order', sub: 'Items', fee: 'Delivery', total: 'Total', payNote: 'Pay when you receive your order.', min: 'Minimum order', off: 'Online ordering is not available right now.', back: '← Back', thanks: 'Order received!', num: 'Your order number', received: 'Received', preparing: 'Preparing', ready: 'Ready', ready_t: 'Your order is ready', prep_t: 'Estimated time', min_s: 'min', done: 'Thank you - enjoy!', again: 'Order again', busy: 'Could not send the order. Please try again.', tracking: 'Track your order', share: '📍 Share my location', locating: 'Finding you…', located: 'Location found', away: 'away', zoneFee: 'Delivery fee', needLoc: 'Share your location so we can price delivery.', far: 'Sorry, we deliver up to', locFail: 'Could not get your location. Allow location access and try again, or choose Pickup.', km: 'km', empty: 'Your cart is empty', closed: 'Not available at this hour' },
@@ -40,14 +40,18 @@ let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEY()) || '{}') ||
 const open = (c) => { const h = c && c.hours; if (!h || !h.from || !h.to) return true; const d = new Date(), m = d.getHours() * 60 + d.getMinutes(), [a1, a2] = h.from.split(':').map(Number), [b1, b2] = h.to.split(':').map(Number), a = a1 * 60 + a2, b = b1 * 60 + b2; return a <= b ? m >= a && m < b : m >= a || m < b; };
 const O = () => (cfg.settings.online || {}), feeItem = () => O().feeItemId && cfg.items.find((i) => i.id === O().feeItemId);
 const visible = () => cfg.items.filter((i) => i.id !== O().feeItemId);
-const food = () => Object.entries(cart).reduce((n, [id, q]) => n + (cfg.items.find((i) => i.id === id) || { price: 0 }).price * q, 0);
+const itemOf = (id) => cfg.items.find((i) => i.id === id) || { price: 0 };
+const lineKey = (id, sel) => id + '|' + JSON.stringify(sel || {}, Object.keys(sel || {}).sort());
+const unit = (l) => { const i = itemOf(l.itemId); return i.price + (Opts.has(i) ? Opts.calc(i, l.sel).add : 0); };
+const food = () => Object.values(cart).reduce((n, l) => n + unit(l) * l.qty, 0);
+const qtyOf = (id) => Object.values(cart).filter((l) => l.itemId === id).reduce((n, l) => n + l.qty, 0);
 const zones = () => (O().zones || []), hasZones = () => zones().length > 0 && !!cfg.settings.venueGeo;
 const hav = (a, b) => { const r = (x) => x * Math.PI / 180, h = Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lng - a.lng) / 2) ** 2; return 2 * 6371 * Math.asin(Math.sqrt(h)); };
 // the server prices delivery again from the shared coordinates; this only previews the fee
 const zoneNow = () => { if (kind !== 'delivery' || !hasZones()) return null; if (!geoPos) return { need: true }; const km = Math.round(hav(cfg.settings.venueGeo, geoPos) * 10) / 10, z = zones().find((x) => km <= x.km); return z ? { km, fee: z.fee } : { far: true, km, max: zones()[zones().length - 1].km }; };
 const fee = () => { if (kind !== 'delivery') return 0; const z = zoneNow(); if (z) return z.fee || 0; return feeItem() ? feeItem().price : 0; };
 function locate() { geoMsg = t('locating'); openCart(); if (!navigator.geolocation) { geoMsg = t('locFail'); return openCart(); } navigator.geolocation.getCurrentPosition((p) => { geoPos = { lat: p.coords.latitude, lng: p.coords.longitude }; geoMsg = ''; openCart(); }, () => { geoMsg = t('locFail'); openCart(); }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }); }
-const count = () => Object.values(cart).reduce((n, q) => n + q, 0);
+const count = () => Object.values(cart).reduce((n, l) => n + l.qty, 0);
 
 function render() {
   document.documentElement.dir = App.lang === 'ar' ? 'rtl' : 'ltr';
@@ -66,17 +70,24 @@ function render() {
   bar.innerHTML = n ? `<button onclick="openCart()">${t('view')} · ${n} ${t('items')} · ${App.money(food() + fee())}</button>` : '';
 }
 function row(i, isOpen) {
-  const q = cart[i.id] || 0, out = i.soldOut || !isOpen;
-  return `<div class="it ${out ? 'out' : ''}"><div class="e">${i.emoji || '🍽️'}</div><div class="i"><b>${App.esc(App.nm(i))}</b>${i.desc ? `<small>${App.esc(i.desc)}</small><br>` : ''}<small>${App.money(i.price)}</small></div>
+  const q = qtyOf(i.id), out = i.soldOut || !isOpen;
+  return `<div class="it ${out ? 'out' : ''}"><div class="e">${i.emoji || '🍽️'}</div><div class="i"><b>${App.esc(App.nm(i))}</b>${i.desc ? `<small>${App.esc(i.desc)}</small><br>` : ''}<small>${App.money(i.price)}</small>${Opts.chips(i)}</div>
   ${out ? `<small>${t('sold')}</small>` : q ? `<div class="step"><button onclick="qty('${i.id}',-1)">−</button><b>${q}</b><button onclick="qty('${i.id}',1)">+</button></div>` : `<button class="ghost" onclick="qty('${i.id}',1)">${t('add')}</button>`}</div>`;
 }
 function setKind(k) { kind = k; render(); if (!panel.hidden) openCart(); }
 function setCat(c) { cat = c; render(); }
-function qty(id, d) { const q = Math.max(0, Math.min(20, (cart[id] || 0) + d)); if (q) cart[id] = q; else delete cart[id]; render(); }
+function bump(key, d) { const l = cart[key]; if (!l) return; l.qty = Math.max(0, Math.min(20, l.qty + d)); if (!l.qty) delete cart[key]; render(); if (!panel.hidden) openCart(); }
+function bumpAt(n, d) { bump(Object.keys(cart)[n], d); }
+function addLine(id, sel) { const k = lineKey(id, sel); if (cart[k]) cart[k].qty = Math.min(20, cart[k].qty + 1); else cart[k] = { itemId: id, qty: 1, sel }; render(); }
+function qty(id, d) {
+  const i = itemOf(id);
+  if (d > 0) { if (Opts.has(i)) return Opts.open(i, (sel) => addLine(id, sel)); return addLine(id, {}); }
+  const ks = Object.keys(cart).filter((k) => cart[k].itemId === id); if (ks.length) bump(ks[ks.length - 1], -1);
+}
 
 function openCart() {
   panel.hidden = false; const o = O(), f = fee(), fd = food(), zn = zoneNow(), blocked = zn && (zn.need || zn.far);
-  const lines = Object.entries(cart).map(([id, q]) => { const i = cfg.items.find((x) => x.id === id); return `<div class="line"><span>${q} × ${App.esc(App.nm(i))}</span><span>${App.money(i.price * q)}</span></div>`; }).join('');
+  const lines = Object.entries(cart).map(([k, l], n) => { const i = itemOf(l.itemId), lab = Opts.has(i) ? Opts.calc(i, l.sel).label : ''; return `<div class="line"><span>${l.qty} × ${App.esc(App.nm(i))}${lab ? ` <small class="muted">[${App.esc(lab)}]</small>` : ''}</span><span>${App.money(unit(l) * l.qty)} <button class="ghost" style="padding:2px 10px" onclick="bumpAt(${n},-1)" aria-label="-">−</button></span></div>`; }).join('');
   const short = o.minOrder && fd < o.minOrder;
   panel.innerHTML = `<div class="wrap"><button class="ghost" onclick="closeCart()">${t('back')}</button><h2 class="serif">${t('your')}</h2>
   <div class="seg">${o.pickup !== false ? `<button class="${kind === 'takeaway' ? 'on' : ''}" onclick="setKind('takeaway')">🛍️ ${t('pickup')}</button>` : ''}${o.delivery ? `<button class="${kind === 'delivery' ? 'on' : ''}" onclick="setKind('delivery')">🛵 ${t('delivery')}</button>` : ''}</div>
@@ -96,7 +107,7 @@ function closeCart() { save(); panel.hidden = true; err = ''; render(); }
 
 async function submitOrder(tries = 0) {
   if (busy && !tries) return; busy = true; err = ''; $('#go').disabled = true;
-  const body = { kind, name: $('#fn').value, phone: $('#fp').value, address: $('#fa') ? $('#fa').value : '', note: $('#fo').value, items: Object.entries(cart).map(([itemId, q]) => ({ itemId, qty: q })), geo: kind === 'delivery' && geoPos ? geoPos : undefined };
+  const body = { kind, name: $('#fn').value, phone: $('#fp').value, address: $('#fa') ? $('#fa').value : '', note: $('#fo').value, items: Object.values(cart).map((l) => ({ itemId: l.itemId, qty: l.qty, opts: l.sel })), geo: kind === 'delivery' && geoPos ? geoPos : undefined };
   saved = { name: body.name, phone: body.phone, address: body.address };
   try {
     const r = await fetch('/api/online/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), j = await r.json().catch(() => ({}));

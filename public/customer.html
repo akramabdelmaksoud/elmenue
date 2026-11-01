@@ -249,7 +249,7 @@ html[data-view="only"] .addb, html[data-view="only"] .addb2, html[data-view="onl
 <body>
 <div class="amb"><i>🌿</i><i>☕</i><i>🍃</i><i>🫘</i></div>
 <div id="app"></div><div id="layer"></div>
-<script src="/shared.js"></script><script src="/i18n.js"></script>
+<script src="/shared.js"></script><script src="/i18n.js"></script><script src="/opts.js"></script>
 <script>
 const tableNumber = +location.pathname.split('/').pop();
 const SLUG = App.slug;
@@ -532,7 +532,7 @@ function addCtl(i, s) {
   return n ? `<span class="stp2"><button aria-label="less" onclick="App.send({t:'cart_qty',id:'${ls[0].id}',d:-1})">−</button><b>${n}</b><button aria-label="more" onclick="add('${i.id}',this)">+</button></span>`
     : `<button class="addb2 rp" onclick="add('${i.id}',this)">+ ${App.tr('addLbl')}</button>`;
 }
-const tagsHTML = (i) => ((i.tags || []).length ? `<div class="tgs">${i.tags.map((t) => `<em class="tg">${tagLabel(t)}</em>`).join('')}</div>` : '');
+const tagsHTML = (i) => ((i.tags || []).length ? `<div class="tgs">${i.tags.map((t) => `<em class="tg">${tagLabel(t)}</em>`).join('')}</div>` : '') + Opts.chips(i);
 const IT = {
   cards: (cfg, s, i, k) => `<div class="c pc tilt rise ${i.soldOut ? 'so' : ''} ${i.featured ? 'wide' : ''}" style="--i:${Math.min(k, 9)}">${i.soldOut ? `<span class="ribbon">${App.tr('soldOut')}</span>` : ''}${artOf(cfg, i, '', k)}<b>${App.esc(App.nm(i))}</b><small>${App.esc(i.desc)}</small>${tagsHTML(i)}<div class="foot"><span class="pr">${App.money(i.price)}</span>${addCtl(i, s)}</div></div>`,
   list: (cfg, s, i, k) => `<div class="c lr rise ${i.soldOut ? 'so' : ''}" style="--i:${Math.min(k, 9)}"><div class="tx"><b>${App.esc(App.nm(i))}</b><small>${App.esc(i.desc)}</small>${tagsHTML(i)}<div class="foot"><span class="pr">${App.money(i.price)}</span>${addCtl(i, s)}</div></div>${artOf(cfg, i, '', k)}</div>`,
@@ -607,7 +607,7 @@ function tableTab(cfg, s) {
   const mine = s.cart.filter((l) => l.guestId === me.id), others = s.cart.filter((l) => l.guestId !== me.id);
   const ITEM = (id) => cfg.items.find((x) => x.id === id) || { cat: '', emoji: '🍽️' };
   const line = (l, edit, k) => { const it = ITEM(l.itemId); return `<div class="c li rise" style="--i:${k}"><div class="l"><div class="art" style="--h:${hue(cfg, it)};${it.img ? `background-image:url('${it.img}')` : ''}">${it.img ? '' : `<span class="e">${l.emoji}</span>`}</div>
-   <div style="flex:1;min-width:0"><b>${App.esc(App.nm(l))}</b><div class="sub">${guestOf(s, l.guestId).avatar} ${App.esc(guestOf(s, l.guestId).name)} · ${App.money(l.price * l.qty)}</div></div>
+   <div style="flex:1;min-width:0"><b>${App.esc(App.nm(l))}</b>${l.opt ? `<div class="sub">${App.esc(App.opt(l))}</div>` : ''}<div class="sub">${guestOf(s, l.guestId).avatar} ${App.esc(guestOf(s, l.guestId).name)} · ${App.money(l.price * l.qty)}</div></div>
    ${edit ? `<div class="stp"><button onclick="App.send({t:'cart_qty',id:'${l.id}',d:-1})">${ic('minus')}</button><b>${l.qty}</b><button onclick="App.send({t:'cart_qty',id:'${l.id}',d:1})">${ic('plus')}</button></div>` : `<b>×${l.qty}</b>`}</div>
    ${edit ? `<input style="margin-top:10px;border-radius:14px;padding:10px 14px" placeholder="📝 ${App.tr('note')}" value="${App.esc(l.note)}" onchange="App.send({t:'cart_note',id:'${l.id}',note:this.value})">` : (l.note ? `<div class="sub" style="margin-top:6px">📝 ${App.esc(l.note)}</div>` : '')}</div>`; };
   const STEPS = ['received', 'kitchen', 'served'];
@@ -615,7 +615,7 @@ function tableTab(cfg, s) {
   const orders = s.orders.slice().reverse().map((o, k) => { const idx = Math.max(0, STEPS.indexOf(o.status)); return `<div class="c order rise" style="--i:${k}"><div class="row2"><b>#${o.id.slice(-4)}</b><span class="muted" style="font-size:12px">${App.ago(o.at)}</span></div>
    <div class="track" style="--p:${o.status === 'closed' ? 1 : idx / 2}"><i class="fill"></i>${['statusPending', 'statusInKitchen', 'statusReady'].map((kk, j) => `<span class="${j <= idx || o.status === 'closed' ? 'd' : ''} ${j === idx && o.status !== 'closed' ? 'cur' : ''}"><b>${j <= idx ? ic('check') : ''}</b>${App.tr(kk)}</span>`).join('')}</div>
    ${etaBox(o)}${orderBanner(o)}
-   ${o.items.map((i) => { const im = (App.config.items.find((x) => x.id === i.itemId) || {}).img; return `<div class="line"><span>${im ? `<img class="othumb" src="${App.esc(im)}" alt="" loading="lazy">` : guestOf(s, i.guestId).avatar} ${i.qty}× ${App.esc(App.nm(i))}${i.note ? ` <small class="muted">(${App.esc(i.note)})</small>` : ''}</span><span>${App.money(i.price * i.qty)}${i.guestId === me.id && o.status === 'received' ? ` ${editBtns(i)}` : ''}</span></div>`; }).join('')}${cancelBtn(o)}</div>`; }).join('');
+   ${o.items.map((i) => { const im = (App.config.items.find((x) => x.id === i.itemId) || {}).img; return `<div class="line"><span>${im ? `<img class="othumb" src="${App.esc(im)}" alt="" loading="lazy">` : guestOf(s, i.guestId).avatar} ${i.qty}× ${App.esc(App.nm(i))}${i.opt ? ` <small class="muted">[${App.esc(App.opt(i))}]</small>` : ''}${i.note ? ` <small class="muted">(${App.esc(i.note)})</small>` : ''}</span><span>${App.money(i.price * i.qty)}${i.guestId === me.id && o.status === 'received' ? ` ${editBtns(i)}` : ''}</span></div>`; }).join('')}${cancelBtn(o)}</div>`; }).join('');
   const mineTotal = mine.reduce((n, l) => n + l.qty * l.price, 0), othersTotal = others.reduce((n, l) => n + l.qty * l.price, 0);
   return `<h2 class="ptitle rise">${App.tr('tableFor')} ${tableNumber}</h2><div class="people rise" style="--i:1">${s.guests.map((g, k) => `<div class="person ${g.id === me.id ? 'me' : ''}"><div class="av">${g.avatar}${g.id === (hostOf(s) || {}).id ? '<i class="crown">👑</i>' : ''}</div>${App.esc(g.name)}</div>`).join('')}</div>
   ${hostCard(s)}
@@ -684,7 +684,7 @@ function pickAv(a) { me.avatar = a; $('#mav').textContent = a; document.querySel
 function saveProfile() { me.name = $('#pn').value.trim() || me.name; App.ls('name', me.name); App.ls('avatar', me.avatar); App.send({ t: 'profile', name: me.name, avatar: me.avatar }); App.toast('✓ ' + App.tr('save')); }
 
 /* ---------------- actions & effects ---------------- */
-function add(id, el) { if (!can('ordering')) return App.toast(App.tr('viewOnly')); const it = S.config.items.find((x) => x.id === id); if (it && it.soldOut) return App.toast(App.tr('soldSorry')); App.send({ t: 'cart_add', itemId: id }); App.toast(App.tr('addToCart')); if (it) fly(el, it.emoji); }
+function add(id, el) { if (!can('ordering')) return App.toast(App.tr('viewOnly')); const it = S.config.items.find((x) => x.id === id); if (it && it.soldOut) return App.toast(App.tr('soldSorry')); if (it && Opts.has(it)) return Opts.open(it, (sel) => { App.send({ t: 'cart_add', itemId: id, opts: sel }); App.toast(App.tr('addToCart')); fly(el, it.emoji); }); App.send({ t: 'cart_add', itemId: id }); App.toast(App.tr('addToCart')); if (it) fly(el, it.emoji); }
 function req(type) { App.send({ t: 'request', type }); App.toast(App.tr('requestSent')); const b = $('#bellb'); b.classList.remove('ring'); void b.offsetWidth; b.classList.add('ring'); closeSheet(); }
 function sendMine(el) { burstAt(el); App.send({ t: 'send_order' }); App.toast(App.tr('orderSent')); }
 function sendAll(el) { burstAt(el); App.send({ t: 'send_order', scope: 'all' }); App.toast(App.tr('orderSent')); }

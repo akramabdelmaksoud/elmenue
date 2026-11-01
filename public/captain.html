@@ -78,7 +78,7 @@ h3 { margin:6px 0 10px; }
 <span><i style="background:#8884"></i>Empty</span><span><i style="background:#7c3aed"></i>Reserved</span><span><i style="background:#1f9d55"></i>Seated</span><span><i style="background:#e08a1a"></i>Order in progress</span><span><i style="background:#d62828"></i>Urgent</span><span><i style="background:linear-gradient(135deg,#2563eb,#ffcc33)"></i>Check</span></div>
 <div class="layout"><div class="floorwrap"><div class="fl-stage" id="stage"></div><div class="tickets" id="tickets"></div><div id="chips"></div><div id="inl"></div></div><div class="side" id="side"></div></div>
 <div id="bar"></div><div id="sheet"></div><div id="banners"></div><div id="modal"></div><div id="dlg"></div>
-<script src="/shared.js"></script><script src="/ar-ui.js"></script><script src="/pos.js"></script>
+<script src="/shared.js"></script><script src="/ar-ui.js"></script><script src="/opts.js"></script><script src="/pos.js"></script>
 <script>
 let listView = App.ls('cview') === 'list';
 function toggleView() { listView = !listView; App.ls('cview', listView ? 'list' : 'map'); render(); }
@@ -178,7 +178,7 @@ function orderCard(s, o, tools) {
   const g = (id) => (s.guests.find((x) => x.id === id) || {}).avatar || '🙂';
   const nxt = NEXT[o.status];
   return `<div class="ocard"><div class="spread"><b>Table ${s.tableNumber} <span class="muted">· ${s.guests.map((x) => x.avatar).join('')}</span></b><span class="st ${o.status}">${STL[o.status] || o.status}</span></div>
-  ${o.items.map((i) => `<div class="line"><span>${g(i.guestId)} ${i.qty}× ${App.esc(i.name)}${i.note ? `<br><small style="color:var(--accent)">📝 ${App.esc(i.note)}</small>` : ''}</span><span>${App.money(i.qty * i.price)}${tools ? ` <button class="vx" title="Remove item" onclick="PX.voidDlg('${s.tableId}','${i.id}')">✕</button>` : ''}</span></div>`).join('')}
+  ${o.items.map((i) => `<div class="line"><span>${g(i.guestId)} ${i.qty}× ${App.esc(i.name)}${i.opt ? ` <b style="color:var(--accent)">[${App.esc(i.opt)}]</b>` : ''}${i.note ? `<br><small style="color:var(--accent)">📝 ${App.esc(i.note)}</small>` : ''}</span><span>${App.money(i.qty * i.price)}${tools ? ` <button class="vx" title="Remove item" onclick="PX.voidDlg('${s.tableId}','${i.id}')">✕</button>` : ''}</span></div>`).join('')}
   <div class="spread" style="margin-top:6px"><span class="muted">${App.ago(o.at)} ago · ${App.money(o.items.reduce((n, i) => n + i.qty * i.price, 0))}</span>${nxt ? `<button class="primary" onclick="App.send({t:'order_status',orderId:'${o.id}',status:'${nxt}'})">${NXL[nxt] || '→ ' + nxt}</button>` : ''}</div></div>`;
 }
 function openT(id) { open = id; renderModal(); }

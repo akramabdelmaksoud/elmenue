@@ -33,7 +33,7 @@ const PX = (() => {
   }
   function cartHTML() {
     const s = S.sessions[PO.tid], total = PO.cart.reduce((n, c) => n + c.qty * (item(c.itemId) || { price: 0 }).price, 0);
-    return `${PO.cart.map((c, i) => { const it = item(c.itemId) || {}; return `<div class="pcl"><div class="spread"><span>${E(it.emoji || '')} <b>${E(it.name)}</b></span><span class="step"><button onclick="PX.qty(${i},-1)">−</button><b>${c.qty}</b><button onclick="PX.qty(${i},1)">+</button></span></div><input placeholder="Note (no sugar, extra hot…)" value="${E(c.note)}" oninput="PX.note(${i},this.value)"></div>`; }).join('') || '<p class="muted">Tap items to add them.</p>'}
+    return `${PO.cart.map((c, i) => { const it = item(c.itemId) || {}; return `<div class="pcl"><div class="spread"><span>${E(it.emoji || '')} <b>${E(it.name)}</b>${it.options && it.options.length && Opts.has(it) ? ` <small class="muted">[${E(Opts.calc(it, c.opts).label)}]</small>` : ''}</span><span class="step"><button onclick="PX.qty(${i},-1)">−</button><b>${c.qty}</b><button onclick="PX.qty(${i},1)">+</button></span></div><input placeholder="Note (no sugar, extra hot…)" value="${E(c.note)}" oninput="PX.note(${i},this.value)"></div>`; }).join('') || '<p class="muted">Tap items to add them.</p>'}
       ${s && s.guests.length > 1 ? `<label class="muted" style="font-size:12px">Charge to</label><select onchange="PX.guest(this.value)">${s.guests.map((g) => `<option value="${g.id}" ${g.id === PO.guestId ? 'selected' : ''}>${g.avatar} ${E(g.name)}</option>`).join('')}</select>` : ''}
       <div class="spread" style="margin:12px 0 8px"><b>Subtotal</b><b style="font-size:20px">${M(total)}</b></div>
       <div class="row wrap"><button class="primary" ${PO.cart.length ? '' : 'disabled'} onclick="PX.send(false)">🔥 Send to kitchen</button><button class="ghost" ${PO.cart.length ? '' : 'disabled'} onclick="PX.send(true)">💳 Send &amp; pay</button></div>`;
@@ -48,7 +48,7 @@ const PX = (() => {
     if (!PO || !PO.cart.length) return;
     const tid = PO.tid, isNew = PO.isNew;
     if (isNew) App.send({ t: 'open_ticket', ...isNew, tid });
-    App.send({ t: 'staff_order', tableId: tid, guestId: PO.guestId, items: PO.cart.map((c) => ({ itemId: c.itemId, qty: c.qty, note: c.note })) });
+    App.send({ t: 'staff_order', tableId: tid, guestId: PO.guestId, items: PO.cart.map((c) => ({ itemId: c.itemId, qty: c.qty, note: c.note, opts: c.opts })) });
     App.toast('Sent to the kitchen 🔥'); close();
     if (payNow) waitFor(() => S.sessions[tid] && S.sessions[tid].orders.length, () => openPay(tid));
   }
@@ -165,7 +165,8 @@ const PX = (() => {
 
   return {
     close, openPOS, newTicket, startTicket, openPay, voidDlg, doVoid, moveDlg, doMove, mergeDlg, doMerge, resDlg, addRes, printBill, confirmPay,
-    add(id) { const c = PO.cart.find((x) => x.itemId === id); if (c) { if (c.qty < 20) c.qty++; } else PO.cart.push({ itemId: id, qty: 1, note: '' }); drawCart(); },
+    add(id) { const it = item(id); if (it && Opts.has(it)) return Opts.open(it, (sel) => PX.addLine(id, sel)); PX.addLine(id, {}); },
+    addLine(id, sel) { const k = JSON.stringify(sel || {}, Object.keys(sel || {}).sort()), c = PO.cart.find((x) => x.itemId === id && x.k === k); if (c) { if (c.qty < 20) c.qty++; } else PO.cart.push({ itemId: id, qty: 1, note: '', opts: sel, k }); drawCart(); },
     qty(i, d) { PO.cart[i].qty += d; if (PO.cart[i].qty <= 0) PO.cart.splice(i, 1); drawCart(); },
     note(i, v) { PO.cart[i].note = v; }, guest(v) { PO.guestId = v; }, search(v) { PO.q = v; $('pogrid').innerHTML = posGrid(); }, cat(c) { PO.cat = c; drawPOS(); },
     send, dtype(v) { PY.dtype = v; },

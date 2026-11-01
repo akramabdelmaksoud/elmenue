@@ -5,22 +5,62 @@ const LUX_THEMES = ['onyx', 'ivory', 'noir', 'champagne', 'emerald', 'bordeaux',
 const PRO_THEMES = ['slate', 'nordic', 'bistro', 'zen', 'trattoria', 'roast', 'steakhouse', 'rooftop'];
 const SIG_THEMES = ['aurum', 'ember', 'sunset', 'platinum', 'rosegold', 'sapphire', 'jade', 'amethyst'];
 const PREMIUM_THEMES = ['neon', 'luxury', 'vibrant'].concat(LUX_THEMES, PRO_THEMES, SIG_THEMES);
+// Every switch a bundle can contain. area: who sees it (guest / staff / admin). level: 1 = core, 2 = important, 3 = growth, 4 = premium.
+const CATALOG = [
+  { id: 'menu', area: 'guest', level: 1, en: 'Digital menu', ar: 'المنيو الرقمي' }, { id: 'qr', area: 'guest', level: 1, en: 'Table QR codes', ar: 'أكواد QR للطاولات' },
+  { id: 'admin', area: 'admin', level: 1, en: 'Owner dashboard', ar: 'لوحة المالك' }, { id: 'micro', area: 'guest', level: 1, en: 'Call waiter / requests', ar: 'نداء الويتر' },
+  { id: 'ordering', area: 'guest', level: 1, en: 'Ordering from the table', ar: 'الطلب من الطاولة' }, { id: 'options', area: 'guest', level: 1, en: 'Item options (size, extras, milk, sugar)', ar: 'خيارات الصنف' },
+  { id: 'itemdetails', area: 'guest', level: 2, en: 'Allergens, calories, badges', ar: 'مسببات الحساسية والسعرات والشارات' },
+  { id: 'staff', area: 'staff', level: 2, en: 'Named staff accounts', ar: 'حسابات موظفين بأسمائهم' }, { id: 'kds', area: 'staff', level: 2, en: 'Kitchen display', ar: 'شاشة المطبخ' },
+  { id: 'cashier', area: 'staff', level: 2, en: 'Cashier screen and shifts', ar: 'شاشة الكاشير والورديات' }, { id: 'party', area: 'guest', level: 3, en: 'Party size', ar: 'عدد الأفراد' },
+  { id: 'lock', area: 'staff', level: 3, en: 'Order approval lock', ar: 'قفل اعتماد الطلب' }, { id: 'trilingual', area: 'guest', level: 3, en: 'Third language', ar: 'لغة ثالثة' },
+  { id: 'online', area: 'guest', level: 2, en: 'Online ordering (pickup and delivery)', ar: 'الطلب أونلاين' }, { id: 'geo', area: 'guest', level: 2, en: 'In-cafe lock and delivery zones', ar: 'قفل الكافيه ومناطق التوصيل' },
+  { id: 'feedback', area: 'guest', level: 2, en: 'Guest reviews', ar: 'تقييم الضيوف' }, { id: 'insights', area: 'admin', level: 2, en: 'Insights and staff performance', ar: 'التحليلات وأداء الموظفين' },
+  { id: 'instapay', area: 'guest', level: 2, en: 'InstaPay and wallet payment at the table', ar: 'الدفع بإنستاباي والمحافظ' }, { id: 'acctexport', area: 'admin', level: 2, en: 'Accounting export (daily sales, VAT)', ar: 'تصدير محاسبي' },
+  { id: 'reservations', area: 'guest', level: 3, en: 'Reservations and waitlist', ar: 'الحجوزات وقائمة الانتظار' }, { id: 'recipes', area: 'admin', level: 3, en: 'Recipes, ingredient stock and food cost', ar: 'الوصفات والمخزون وتكلفة الأكل' },
+  { id: 'upsell', area: 'guest', level: 3, en: 'Upsell suggestions', ar: 'اقتراحات إضافية' }, { id: 'coupons', area: 'guest', level: 3, en: 'Coupons and timed offers', ar: 'كوبونات وعروض' },
+  { id: 'onlinepay', area: 'guest', level: 3, en: 'Card payment online (Paymob)', ar: 'الدفع بالكارت أونلاين' }, { id: 'eta', area: 'admin', level: 3, en: 'Egypt e-receipt (ETA)', ar: 'الإيصال الإلكتروني' },
+  { id: 'offline', area: 'staff', level: 3, en: 'Offline mode', ar: 'العمل بدون إنترنت' },
+  { id: 'loyalty', area: 'guest', level: 4, en: 'Loyalty points', ar: 'نقاط الولاء' }, { id: 'giftcards', area: 'guest', level: 4, en: 'Gift cards', ar: 'كروت الهدايا' },
+  { id: 'themes', area: 'guest', level: 4, en: 'Premium and luxury themes', ar: 'ثيمات فاخرة' }, { id: 'ocr', area: 'admin', level: 4, en: 'Menu photo import (AI)', ar: 'استيراد المنيو من صورة' },
+  { id: 'copilot', area: 'admin', level: 4, en: 'AI assistant', ar: 'مساعد الذكاء الاصطناعي' }, { id: 'branches', area: 'admin', level: 4, en: 'Multi-branch reports', ar: 'تقارير الفروع' },
+];
+const FEATURE_IDS = CATALOG.map((c) => c.id);
 const PLANS = {
-  basic: { id: 'basic', tier: 1, name: 'Starter QR Ordering', name_ar: 'منيو QR الأساسي', price: [600, 800], limits: { branches: 1, tables: 10, staff: 0 }, features: ['menu', 'qr', 'ordering', 'micro', 'admin'] },
-  operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [1200, 1500], limits: { branches: 1, tables: 30, staff: 10 }, features: ['staff', 'kds', 'cashier', 'lock', 'party', 'trilingual', 'feedback', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline', 'online', 'insights', 'geo'] },
-  vip: { id: 'vip', tier: 3, name: 'Enterprise VIP & AI', name_ar: 'VIP والذكاء الاصطناعي', price: [2000, 2000], limits: { branches: 3, tables: null, staff: null }, features: ['loyalty', 'ocr', 'copilot', 'themes', 'branches', 'giftcards'] },
+  basic: { id: 'basic', tier: 1, name: 'Starter QR Ordering', name_ar: 'منيو QR الأساسي', price: [600, 800], limits: { branches: 1, tables: 10, staff: 0 }, features: ['menu', 'qr', 'ordering', 'options', 'itemdetails', 'micro', 'admin'] },
+  operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [1200, 1500], limits: { branches: 1, tables: 30, staff: 10 }, features: ['staff', 'kds', 'cashier', 'lock', 'party', 'trilingual', 'feedback', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline', 'online', 'insights', 'geo', 'instapay', 'acctexport', 'reservations'] },
+  vip: { id: 'vip', tier: 3, name: 'Enterprise VIP & AI', name_ar: 'VIP والذكاء الاصطناعي', price: [2000, 2000], limits: { branches: 3, tables: null, staff: null }, features: ['loyalty', 'ocr', 'copilot', 'themes', 'branches', 'giftcards', 'recipes'] },
 };
 // older plan names keep working: they map onto the new tiers
 const LEGACY = { standard: 'operations', pro: 'vip', enterprise: 'vip', demo: 'vip' };
 const ORDER = ['basic', 'operations', 'vip'];
 const planOf = (p) => (PLANS[p] ? p : LEGACY[p] || 'operations');
+// p = plan name OR a café record ({ plan, feat }): the super admin can lock/unlock single features per café (rec.feat = { id: true|false }).
 function featuresOf(p) {
-  const out = {}, upto = ORDER.indexOf(planOf(p));
-  ORDER.forEach((id, i) => PLANS[id].features.forEach((f) => (out[f] = i <= upto)));
+  const rec = p && typeof p === 'object' ? p : null, plan = planOf(rec ? rec.plan : p), out = {};
+  FEATURE_IDS.forEach((k) => (out[k] = false));   // explicit false: the pages treat a missing key as allowed
+  PLANS[plan].features.forEach((f) => (out[f] = true));
+  if (rec && rec.feat) Object.keys(rec.feat).forEach((k) => { if (rec.feat[k] === true || rec.feat[k] === false) out[k] = rec.feat[k]; });
   return out;
 }
 const has = (p, f) => !!featuresOf(p)[f];
-const minPlanFor = (f) => ORDER.find((id) => PLANS[id].features.includes(f));
+const minPlanFor = (f) => ORDER.find((id) => featuresOf(id)[f]) || 'vip';
+// Platform-wide bundle editing (super admin). cfg = { plans: { basic: { features:[], price:[a,b], limits:{}, name, name_ar }, ... } }; null restores the built-in plans.
+// Every bundle lists ALL of its features (the built-in tiers are flattened here: higher tiers include the lower ones), so editing one bundle never changes another.
+ORDER.forEach((id, i) => { PLANS[id].features = [...new Set(ORDER.slice(0, i + 1).flatMap((k) => PLANS[k].features))]; });
+const DEFAULT_PLANS = JSON.parse(JSON.stringify(PLANS));
+function configure(cfg) {
+  ORDER.forEach((id) => { PLANS[id] = JSON.parse(JSON.stringify(DEFAULT_PLANS[id])); });
+  const pl = (cfg && cfg.plans) || {};
+  ORDER.forEach((id) => {
+    const o = pl[id], P = PLANS[id]; if (!o || typeof o !== 'object') return;
+    if (Array.isArray(o.features)) { P.features = [...new Set(o.features.filter((x) => FEATURE_IDS.includes(x)))]; }
+    if (Array.isArray(o.price) && o.price.length === 2 && o.price.every((n) => +n >= 0 && +n < 1e7)) P.price = o.price.map((n) => Math.round(+n));
+    if (o.limits && typeof o.limits === 'object') Object.keys(P.limits).forEach((k) => { const v = o.limits[k]; if (v === null) P.limits[k] = null; else if (v !== undefined && v !== '' && +v >= 0 && +v < 1e6) P.limits[k] = Math.floor(+v); });
+    if (typeof o.name === 'string' && o.name.trim()) P.name = o.name.trim().slice(0, 60);
+    if (typeof o.name_ar === 'string' && o.name_ar.trim()) P.name_ar = o.name_ar.trim().slice(0, 60);
+  });
+}
 // Plan limits (null = unlimited). Enforced only when CREATING something new; a venue already over a limit keeps everything it has.
 // override: per-tenant numbers set by the super admin (null/undefined = use the plan's).
 function limitsOf(p, override) {
@@ -30,6 +70,56 @@ function limitsOf(p, override) {
 }
 const limitCheck = (kind, used, p, override) => { const limit = limitsOf(p, override)[kind]; return { kind, used, limit, ok: limit === null || used < limit, over: limit !== null && used > limit, upgrade: limit === null ? null : ORDER.find((id) => { const l = PLANS[id].limits[kind]; return l === null || l > limit; }) || null }; };
 const monthly = (p) => PLANS[planOf(p)].price[0];
+
+// ---------- Item options (size, extras, milk, sugar) and item details ----------
+// item.options = [{ id, name, name_ar, type: 'one' | 'many', required, max, choices: [{ id, name, name_ar, price, def }] }]
+const OPT_MAX = { groups: 8, choices: 16 };
+const idSafe = (v, fb) => String(v == null ? '' : v).replace(/[^\w-]/g, '').slice(0, 24) || fb;
+const money = (n) => Math.min(100000, Math.max(0, Math.round((+n || 0) * 100) / 100));
+function optClean(list) {
+  const seen = new Set(), out = [];
+  (Array.isArray(list) ? list : []).slice(0, OPT_MAX.groups).forEach((g, gi) => {
+    if (!g || typeof g !== 'object') return;
+    const name = String(g.name || '').trim().slice(0, 40); if (!name) return;
+    let gid = idSafe(g.id, 'g' + (gi + 1)); while (seen.has(gid)) gid += 'x'; seen.add(gid);
+    const cs = new Set(), choices = [];
+    (Array.isArray(g.choices) ? g.choices : []).slice(0, OPT_MAX.choices).forEach((c, ci) => {
+      if (!c || typeof c !== 'object') return; const cn = String(c.name || '').trim().slice(0, 40); if (!cn) return;
+      let cid = idSafe(c.id, 'c' + (ci + 1)); while (cs.has(cid)) cid += 'x'; cs.add(cid);
+      choices.push({ id: cid, name: cn, name_ar: String(c.name_ar || '').trim().slice(0, 40), price: money(c.price), ...(c.def ? { def: 1 } : {}) });
+    });
+    if (!choices.length) return;
+    const type = g.type === 'many' ? 'many' : 'one';
+    if (type === 'one') { let d = false; choices.forEach((c) => { if (c.def && d) delete c.def; if (c.def) d = true; }); }
+    out.push({ id: gid, name, name_ar: String(g.name_ar || '').trim().slice(0, 40), type, required: !!g.required, max: type === 'many' ? Math.min(choices.length, Math.max(1, Math.floor(+g.max) || choices.length)) : 1, choices });
+  });
+  return out;
+}
+// sel = { groupId: choiceId | [choiceIds] } -> { ok, add, text, text_ar, key } or { ok:false, group } when a required group is missing / a choice is invalid
+function optResolve(it, sel) {
+  const groups = (it && it.options) || []; if (!groups.length) return { ok: true, add: 0, text: '', text_ar: '', key: '' };
+  sel = sel && typeof sel === 'object' ? sel : {};
+  let add = 0; const en = [], ar = [], key = [];
+  for (const g of groups) {
+    let want = sel[g.id]; want = want === undefined || want === null ? [] : Array.isArray(want) ? want : [want];
+    want = [...new Set(want.map(String))];
+    if (!want.length) { const d = g.choices.filter((c) => c.def); if (g.type === 'one' && d.length) want = [d[0].id]; }
+    const picked = want.map((cid) => g.choices.find((c) => c.id === cid));
+    if (picked.some((c) => !c)) return { ok: false, group: g.id };
+    if (picked.length > (g.type === 'many' ? g.max : 1)) return { ok: false, group: g.id };
+    if (g.required && !picked.length) return { ok: false, group: g.id };
+    picked.forEach((c) => { add += c.price; en.push(c.name); ar.push(c.name_ar || c.name); key.push(g.id + ':' + c.id); });
+  }
+  return { ok: true, add: Math.round(add * 100) / 100, text: en.join(' · '), text_ar: ar.join(' · '), key: key.sort().join('|') };
+}
+const ALLERGENS = ['gluten', 'dairy', 'nuts', 'peanuts', 'eggs', 'soy', 'fish', 'shellfish', 'sesame'], BADGES = ['new', 'spicy', 'vegan', 'veg', 'chef', 'popular'];
+function detailsClean(b) {   // allergens (known codes only), calories, one badge
+  const o = {};
+  if ('allergens' in b) o.allergens = (Array.isArray(b.allergens) ? b.allergens : []).filter((a, i, arr) => ALLERGENS.includes(a) && arr.indexOf(a) === i);
+  if ('cal' in b) { const c = Math.round(+b.cal); o.cal = c > 0 && c <= 5000 ? c : ''; }
+  if ('badge' in b) o.badge = BADGES.includes(b.badge) ? b.badge : '';
+  return o;
+}
 
 // ---------- Upsell suggestions ----------
 // Which dishes to offer next to what is already in the cart. Pure: the guest page and the tests call the same function.
@@ -245,5 +335,5 @@ function zoneFor(settings, g) {
 
 
 const STAFF_LOG_KEYS = ['taken', 'handled', 'started', 'served', 'closed', 'respMs'];   // column order of rec.staffLog[id].b[hour]
-const api = { geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
+const api = { OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
 if (typeof module !== 'undefined') module.exports = api;
