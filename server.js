@@ -16,6 +16,7 @@ const ETA = require('./eta');
 const { createTenant, freshData } = require('./tenant');
 const F = require('./features');
 const INS = require('./insights');
+const REPORT = require('./report');
 const { rateLimit, messageBudget } = require('./ratelimit');
 const HOSTS = require('./hosts');
 const { securityHeaders } = require('./security');
@@ -193,7 +194,7 @@ const SINGLE = envOn(process.env.SINGLE_RESTAURANT), MAIN = 'main';
 // ---------- Host-based tenants: <slug>.BASE_DOMAIN and custom domains serve the restaurant's pages (rewrite, not redirect) ----------
 // /r/<slug>/... keeps working on every host, so printed QR codes, ?k= table keys and demo mode are untouched.
 const hostIndex = HOSTS.createHostIndex({ base: BASE_DOMAIN, ttlMs: STATELESS ? 30000 : 2000, load: async () => (STATELESS ? store.listRecs() : [...tenants.values()].map((t) => t.rec)) });
-const HOST_PAGES = { '/': 'tenant.html', '/captain': 'captain.html', '/admin': 'admin.html', '/kitchen': 'kitchen.html', '/cashier': 'cashier.html', '/order': 'order.html', '/book': 'book.html', '/desk': 'captain.html' };
+const HOST_PAGES = { '/': 'tenant.html', '/captain': 'captain.html', '/admin': 'admin.html', '/kitchen': 'kitchen.html', '/cashier': 'cashier.html', '/order': 'order.html', '/book': 'book.html', '/desk': 'captain.html', '/ownerreport': 'ownerreport.html' };
 const pageCache = {};
 function pageFor(file, slug) {   // the page plus <meta name="elm-slug"> so shared.js knows the restaurant without a /r/<slug> prefix
   let h = pageCache[file];
@@ -332,6 +333,7 @@ app.get('/r/:slug/t/:n', page('customer.html'));
 app.get('/r/:slug/order', page('order.html'));
 app.get('/r/:slug/book', page('book.html'));
 app.get('/r/:slug/desk', page('captain.html'));
+app.get('/r/:slug/ownerreport', page('ownerreport.html'));
 app.get('/r/:slug/captain', page('captain.html'));
 app.get('/r/:slug/admin', page('admin.html'));
 app.get('/r/:slug/kitchen', page('kitchen.html'));
@@ -386,7 +388,7 @@ function tenantStats(t, days = 30) {
   const live = Object.values(t.db.sessions);
   return {
     id: t.rec.id, slug: t.rec.slug, name: t.rec.name, plan: F.planOf(t.rec.plan), group: t.rec.group || '', domain: t.rec.domain || '', mrr: t.rec.status === 'active' ? F.monthly(t.rec.plan) : 0, status: t.rec.status, createdAt: t.rec.createdAt, lastActive: t.rec.lastActive,
-    email: t.rec.owner.email, items: t.db.items.length, tables: t.db.tables.length, limits: F.limitsOf(t.rec.plan, t.rec.limits), feat: t.rec.feat || {}, limitOverride: t.rec.limits || null, staffCount: (t.rec.staff || []).length,
+    email: t.rec.owner.email, items: t.db.items.length, tables: t.db.tables.length, limits: F.limitsOf(t.rec.plan, t.rec.limits), feat: t.rec.feat || {}, limitOverride: t.rec.limits || null, staffCount: (t.rec.staff || []).length, advice: t.rec.advice || '',
     revenue, sessions: H.length, avgTicket: H.length ? revenue / H.length : 0, liveTables: live.length, liveRevenue: live.reduce((n, s) => n + t.bill(s).total, 0),
     guestsLive: live.reduce((n, s) => n + s.guests.length, 0), online: t.clients.size, currency: t.db.settings.currency,
   };
@@ -453,6 +455,7 @@ app.put('/api/super/tenants/:slug', needSuper, async (req, res, next) => { try {
     Object.keys(src).forEach((k) => { if (F.FEATURE_IDS.includes(k) && (src[k] === true || src[k] === false)) o[k] = src[k]; });
     t.rec.feat = o; if (!Object.keys(o).length) delete t.rec.feat;
   }
+  if (req.body.advice !== undefined) t.rec.advice = String(req.body.advice || '').replace(/[<>]/g, '').slice(0, 4000);
   if (req.body.domain !== undefined) { const dom = await checkDomain(req.body.domain, t.rec.slug); if (dom.error) return res.status(dom.status).json({ error: dom.error }); t.rec.domain = dom.value; }
   ['name', 'plan', 'status', 'group'].forEach((k) => { if (req.body[k] === undefined) return; if (k === 'plan' && !F.PLANS[req.body[k]]) return; t.rec[k] = req.body[k]; });
   if (t.rec.status !== 'active') t.clients.forEach((c) => c.ws.close());
@@ -505,17 +508,38 @@ app.post(`${R}/login`, loginLimit, tenantMw, (req, res) => {
     if (!F.has(t.rec, 'cashier')) return res.status(402).json({ error: 'The Cashier role needs the Operations plan', upgrade: F.minPlanFor('cashier') });
     const p = String(pin || '');
     const who = (t.rec.staff || []).find((st) => st.active !== false && st.hash && st.role === 'cashier' && auth.check(p, st.hash));
-    if (who) return ok(auth.sign('cashier', t.rec.slug, 0.5, { u: who.id, n: who.name }));
+    if (who) { clockIn(t, who); return ok(auth.sign('cashier', t.rec.slug, 0.5, { u: who.id, n: who.name })); }
   }
   if (role === 'captain' || role === 'kitchen') {
     const p = String(pin || ''); let who = null;
     for (const st of t.rec.staff || []) if (st.active !== false && st.hash && auth.check(p, st.hash)) { who = st; break; }
-    if (who && (role === 'kitchen' || who.role === 'captain')) return ok(auth.sign(role, t.rec.slug, 0.5, { u: who.id, n: who.name }));
+    if (who && (role === 'kitchen' || who.role === 'captain')) { clockIn(t, who); return ok(auth.sign(role, t.rec.slug, 0.5, { u: who.id, n: who.name })); }
     if (!who && p && p === String(t.rec.pin)) return ok(auth.sign(role, t.rec.slug, 0.5, { u: 'owner-pin', n: 'Captain' }));
   }
   fails[key] = { n: f.n + 1, t: Date.now() };
   for (const k of Object.keys(fails)) if (Date.now() - fails[k].t > 3600000) delete fails[k];
   persistRec(t); res.status(401).json({ error: 'Invalid credentials' });
+});
+// ----- Staff attendance: signing in with a PIN clocks the person in, "Clock out" ends the shift -----
+const attOn = (t) => F.has(t.rec, 'attendance');
+function clockIn(t, who) {
+  if (!attOn(t) || !who || !who.id) return;
+  const a = (t.rec.attendance ||= []); if (a.some((x) => x.staffId === who.id && !x.out)) return;
+  a.push({ id: newId('a'), staffId: who.id, name: who.name, role: who.role, in: Date.now(), out: 0 });
+  if (a.length > 4000) t.rec.attendance = a.slice(-3000);
+  persistRec(t);
+}
+const AUTO_CLOSE_MS = 16 * 3600000;
+// a forgotten clock-out is closed after 16 hours at an 8 hour shift and flagged, so payroll is never inflated silently
+function sweepAtt(t) { let ch = false; for (const x of t.rec.attendance || []) if (!x.out && Date.now() - x.in > AUTO_CLOSE_MS) { x.out = x.in + 8 * 3600000; x.auto = true; ch = true; } if (ch) persistRec(t); }
+app.get(`${R}/clock`, tenantMw, needStaff, (req, res) => {
+  const t = req.tenant; if (!attOn(t) || !req.claims.u) return res.json({ enabled: false }); sweepAtt(t);
+  const open = (t.rec.attendance || []).find((x) => x.staffId === req.claims.u && !x.out); res.json({ enabled: true, on: !!open, since: open ? open.in : 0 });
+});
+app.post(`${R}/clock`, tenantMw, needStaff, (req, res) => {
+  const t = req.tenant; if (!attOn(t) || !req.claims.u) return res.status(400).json({ error: 'Attendance is not on' });
+  const open = (t.rec.attendance || []).find((x) => x.staffId === req.claims.u && !x.out); if (open) { open.out = Date.now(); persistRec(t); }
+  res.json({ ok: 1 });
 });
 app.get(`${R}/me`, tenantMw, (req, res) => {
   const d = auth.verify(bearer(req)); const want = req.query.role;
@@ -696,8 +720,51 @@ A('put', '/staff/:id', (req, res) => {
   if (b.name !== undefined) st.name = String(b.name).trim().slice(0, 30) || st.name;
   if (['captain', 'kitchen', 'cashier'].includes(b.role)) st.role = b.role;
   if (b.active !== undefined) st.active = !!b.active;
+  if (b.wage !== undefined) st.wage = F.wageClean(b.wage);
+  if (b.shifts !== undefined) st.shifts = F.shiftsClean(b.shifts);
   if (b.pin) { if (!/^\d{4,8}$/.test(String(b.pin))) return res.status(400).json({ error: 'PIN must be 4-8 digits' }); if (pinTaken(r, String(b.pin), st.id)) return res.status(400).json({ error: 'That PIN is already used' }); st.hash = auth.hash(String(b.pin)); }
   bc(req); res.json({ ok: 1 });
+});
+const gateOR = (req, res, next) => (F.has(req.tenant.rec, 'ownerreport') ? next() : res.status(402).json({ error: 'The owner report needs the ' + F.PLANS[F.minPlanFor('ownerreport')].name + ' plan', upgrade: F.minPlanFor('ownerreport') }));
+// the owner report pack: the café's own numbers turned into KPIs, a scorecard, risks, opportunities and decisions
+A('get', '/ownerreport', gateOR, async (req, res, next) => { try {
+  const t = req.tenant, days = [7, 14, 30, 60, 90].includes(+req.query.days) ? +req.query.days : 30, now = Date.now(), hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history;
+  const ins = INS.analyze({ history: hist, reviews: t.rec.reviews || [], staffLog: t.rec.staffLog || {}, staffStats: (t.rec.stats || {}).staff || {}, staffList: (t.rec.staff || []).map((x) => ({ id: x.id, name: x.name, role: x.role })), days, now, onlineEnabled: !!(t.db.settings.online || {}).enabled });
+  const att = F.has(t.rec, 'attendance') ? await attFor(t, now - days * 86400000, now) : null, L = t.loyaltyStats(), mem = Object.values((t.db.loyalty && t.db.loyalty.members) || {});
+  res.json(REPORT.build({ days, now, hist, ins, att, stock: { ingredients: t.db.ingredients || [], items: t.db.items }, loyalty: { members: mem.length, repeatPct: mem.length ? Math.round(mem.filter((m) => m.visits > 1).length / mem.length * 100) : 0 }, settings: t.db.settings, name: t.rec.name, currency: t.db.settings.currency, advisor: t.rec.advice || '' }));
+} catch (e) { next(e); } });
+const gateAt = (req, res, next) => (F.has(req.tenant.rec, 'attendance') ? next() : res.status(402).json({ error: 'Attendance needs the ' + F.PLANS[F.minPlanFor('attendance')].name + ' plan', upgrade: F.minPlanFor('attendance') }));
+// hours, days, lateness and labour cost per person for a period
+async function attFor(t, from, to) {
+  sweepAtt(t); const rec = t.rec, tz = /^[A-Za-z_]+\/[A-Za-z_]+$/.test(t.db.settings.timezone || '') ? t.db.settings.timezone : 'Africa/Cairo';
+  const parts = (ms) => { try { const p = new Intl.DateTimeFormat('en-GB', { timeZone: tz, weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(ms)), g = (k) => p.find((x) => x.type === k).value; return { wd: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(g('weekday')), min: (+g('hour') % 24) * 60 + +g('minute'), day: g('year') + '-' + g('month') + '-' + g('day') }; } catch { const d = new Date(ms); return { wd: d.getDay(), min: d.getHours() * 60 + d.getMinutes(), day: d.toISOString().slice(0, 10) }; } };
+  const rows = (rec.attendance || []).filter((x) => x.in >= from && x.in <= to).sort((a, b) => b.in - a.in), by = {};
+  for (const s of rec.staff || []) by[s.id] = { id: s.id, name: s.name, role: s.role, wage: s.wage || 0, hours: 0, days: new Set(), late: 0, lateMin: 0, shifts: 0, cost: 0, scheduled: s.shifts || {}, active: s.active !== false };
+  const recs = rows.map((x) => {
+    const end = x.out || Date.now(), hrs = Math.max(0, (end - x.in) / 3600000), P = parts(x.in), s = by[x.staffId], sc = s && s.scheduled[P.wd];
+    let late = 0; if (sc) { const d = P.min - F.hmMin(sc.from); if (d > 10) late = d; }
+    if (s) { s.hours += hrs; s.days.add(P.day); s.shifts++; if (late) { s.late++; s.lateMin += late; } s.cost += hrs * s.wage; }
+    return { id: x.id, staffId: x.staffId, name: x.name, role: x.role, in: x.in, out: x.out, open: !x.out, auto: !!x.auto, hours: Math.round(hrs * 100) / 100, lateMin: late, day: P.day };
+  });
+  const staff = Object.values(by).map((s) => ({ ...s, days: s.days.size, hours: Math.round(s.hours * 100) / 100, cost: Math.round(s.cost * 100) / 100 })), cost = staff.reduce((n, s) => n + s.cost, 0);
+  const hist = STATELESS ? await store.getHist(rec.id) : t.db.history, sales = hist.filter((h) => h.closedAt >= from && h.closedAt <= to && !h.unpaid).reduce((n, h) => n + h.total, 0);
+  return { from, to, tz, staff, records: recs, here: recs.filter((r) => r.open), laborCost: Math.round(cost * 100) / 100, hours: Math.round(staff.reduce((n, s) => n + s.hours, 0) * 100) / 100, sales: Math.round(sales * 100) / 100, laborPct: sales > 0 ? Math.round(cost / sales * 1000) / 10 : 0, currency: t.db.settings.currency };
+}
+A('get', '/attendance', gateAt, async (req, res) => { const [f, t2] = range(req.query); res.json(await attFor(req.tenant, f, t2)); });
+A('post', '/attendance', gateAt, (req, res) => {
+  const t = req.tenant, b = req.body || {}, s = (t.rec.staff || []).find((x) => x.id === b.staffId), tin = +b.in, tout = +b.out || 0;
+  if (!s) return res.status(400).json({ error: 'Pick a staff member' }); if (!(tin > 0) || (tout && tout <= tin) || tout > Date.now() + 3600000 || tin > Date.now() + 3600000) return res.status(400).json({ error: 'Check the times' });
+  (t.rec.attendance ||= []).push({ id: newId('a'), staffId: s.id, name: s.name, role: s.role, in: tin, out: tout, manual: true }); persistRec(t); res.json({ ok: 1 });
+});
+A('put', '/attendance/:id', gateAt, (req, res) => {
+  const t = req.tenant, x = (t.rec.attendance || []).find((y) => y.id === req.params.id), b = req.body || {}; if (!x) return res.status(404).json({ error: 'Not found' });
+  const tin = b.in !== undefined ? +b.in : x.in, tout = b.out !== undefined ? +b.out || 0 : x.out; if (!(tin > 0) || (tout && tout <= tin)) return res.status(400).json({ error: 'Check the times' });
+  x.in = tin; x.out = tout; x.auto = false; x.manual = true; persistRec(t); res.json({ ok: 1 });
+});
+A('delete', '/attendance/:id', gateAt, (req, res) => { const t = req.tenant; t.rec.attendance = (t.rec.attendance || []).filter((y) => y.id !== req.params.id); persistRec(t); res.json({ ok: 1 }); });
+A('get', '/attendance.csv', gateAt, async (req, res) => {
+  const [f, t2] = range(req.query), a = await attFor(req.tenant, f, t2), d = (x) => (x ? new Date(x).toLocaleString('en-GB', { timeZone: a.tz }) : '');
+  res.type('text/csv').set('Content-Disposition', 'attachment; filename="attendance.csv"').send(csv([['Name', 'Role', 'Day', 'Clock in', 'Clock out', 'Hours', 'Late (min)', 'Note'], ...a.records.map((r) => [r.name, r.role, r.day, d(r.in), d(r.out), r.hours, r.lateMin, r.auto ? 'forgot to clock out (auto-closed)' : r.open ? 'still on shift' : '']), [], ['Name', 'Hourly wage', 'Days', 'Hours', 'Late shifts', 'Cost'], ...a.staff.map((s) => [s.name, s.wage, s.days, s.hours, s.late, s.cost]), [], ['Total labour cost', a.laborCost, 'Sales', a.sales, 'Labour %', a.laborPct]]));
 });
 A('delete', '/staff/:id', (req, res) => { const r = req.tenant.rec; r.staff = (r.staff || []).filter((x) => x.id !== req.params.id); bc(req); res.json({ ok: 1 }); });
 A('get', '/feedback', (req, res) => res.json({ reviews: req.tenant.rec.reviews || [] }));

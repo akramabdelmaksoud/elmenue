@@ -266,9 +266,20 @@ const App = {
       const sc = document.createElement('script'); sc.src = '/auth.js'; sc.onload = res; sc.onerror = res; document.head.appendChild(sc);
     });
   },
+  // staff pages: a small pill shows the shift is running; tapping it clocks out and signs this device out
+  async clockPill(role) {
+    try {
+      const r = await fetch(`/api/r/${App.slug}/clock`, { headers: { Authorization: 'Bearer ' + App.tok(role) } }); if (!r.ok) return; const j = await r.json(); if (!j.enabled || !j.on) return;
+      const b = document.createElement('button'); b.id = 'clockpill'; b.style.cssText = 'position:fixed;left:10px;bottom:10px;z-index:80;border:1px solid var(--line);background:var(--card);color:inherit;border-radius:99px;padding:6px 12px;font-size:12px;box-shadow:var(--shadow);opacity:.85';
+      b.textContent = '⏱ ' + new Date(j.since).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' + (App.lang === 'ar' ? 'تسجيل الخروج' : 'Clock out');
+      b.onclick = async () => { if (!confirm(App.lang === 'ar' ? 'إنهاء الوردية وتسجيل الخروج؟' : 'End your shift and sign out?')) return; await fetch(`/api/r/${App.slug}/clock`, { method: 'POST', headers: { Authorization: 'Bearer ' + App.tok(role) } }).catch(() => {}); try { localStorage.removeItem(`tok:${App.slug}:${role}`); } catch {} location.reload(); };
+      document.body.appendChild(b);
+    } catch {}
+  },
   // Luxury sign-in for admin (email + password) or captain (PIN). Calls go() once authenticated.
   async gate(role, go) {
     App.authRole = role;
+    if (role !== 'admin' && !App.demo) { const go0 = go; go = () => { App.clockPill(role); return go0(); }; }
     if (App.demo) { await App.loadDemo(); return go(); }
     // the shared showroom café opens without a password when reached from the /demo launcher (?auto=1)
     if (!App.tok(role) && App.slug === 'showroom' && /[?&]auto=1/.test(location.search)) { try { const r = await fetch(location.origin + '/api/demo/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role }) }); if (r.ok) App.ls('tok:showroom:' + role, (await r.json()).token); } catch {} }

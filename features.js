@@ -17,7 +17,7 @@ const CATALOG = [
   { id: 'online', area: 'guest', level: 2, en: 'Online ordering (pickup and delivery)', ar: 'الطلب أونلاين' }, { id: 'geo', area: 'guest', level: 2, en: 'In-cafe lock and delivery zones', ar: 'قفل الكافيه ومناطق التوصيل' },
   { id: 'feedback', area: 'guest', level: 2, en: 'Guest reviews', ar: 'تقييم الضيوف' }, { id: 'insights', area: 'admin', level: 2, en: 'Insights and staff performance', ar: 'التحليلات وأداء الموظفين' },
   { id: 'instapay', area: 'guest', level: 2, en: 'InstaPay and wallet payment at the table', ar: 'الدفع بإنستاباي والمحافظ' }, { id: 'acctexport', area: 'admin', level: 2, en: 'Accounting export (daily sales, VAT)', ar: 'تصدير محاسبي' },
-  { id: 'reservations', area: 'guest', level: 3, en: 'Reservations and waitlist', ar: 'الحجوزات وقائمة الانتظار' }, { id: 'recipes', area: 'admin', level: 3, en: 'Recipes, ingredient stock and food cost', ar: 'الوصفات والمخزون وتكلفة الأكل' },
+  { id: 'ownerreport', area: 'admin', level: 3, en: 'Owner report pack (analysis, risks, decisions)', ar: 'تقرير المالك (تحليل ومخاطر وقرارات)' }, { id: 'attendance', area: 'staff', level: 2, en: 'Staff attendance, schedules and labour cost', ar: 'حضور الموظفين والجداول وتكلفة العمالة' }, { id: 'reservations', area: 'guest', level: 3, en: 'Reservations and waitlist', ar: 'الحجوزات وقائمة الانتظار' }, { id: 'recipes', area: 'admin', level: 3, en: 'Recipes, ingredient stock and food cost', ar: 'الوصفات والمخزون وتكلفة الأكل' },
   { id: 'upsell', area: 'guest', level: 3, en: 'Upsell suggestions', ar: 'اقتراحات إضافية' }, { id: 'coupons', area: 'guest', level: 3, en: 'Coupons and timed offers', ar: 'كوبونات وعروض' },
   { id: 'onlinepay', area: 'guest', level: 3, en: 'Card payment online (Paymob)', ar: 'الدفع بالكارت أونلاين' }, { id: 'eta', area: 'admin', level: 3, en: 'Egypt e-receipt (ETA)', ar: 'الإيصال الإلكتروني' },
   { id: 'offline', area: 'staff', level: 3, en: 'Offline mode', ar: 'العمل بدون إنترنت' },
@@ -28,8 +28,8 @@ const CATALOG = [
 const FEATURE_IDS = CATALOG.map((c) => c.id);
 const PLANS = {
   basic: { id: 'basic', tier: 1, name: 'Starter QR Ordering', name_ar: 'منيو QR الأساسي', price: [600, 800], limits: { branches: 1, tables: 10, staff: 0 }, features: ['menu', 'qr', 'ordering', 'options', 'itemdetails', 'micro', 'admin'] },
-  operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [1200, 1500], limits: { branches: 1, tables: 30, staff: 10 }, features: ['staff', 'kds', 'cashier', 'lock', 'party', 'trilingual', 'feedback', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline', 'online', 'insights', 'geo', 'instapay', 'acctexport', 'reservations'] },
-  vip: { id: 'vip', tier: 3, name: 'Enterprise VIP & AI', name_ar: 'VIP والذكاء الاصطناعي', price: [2000, 2000], limits: { branches: 3, tables: null, staff: null }, features: ['loyalty', 'ocr', 'copilot', 'themes', 'branches', 'giftcards', 'recipes'] },
+  operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [1200, 1500], limits: { branches: 1, tables: 30, staff: 10 }, features: ['staff', 'attendance', 'kds', 'cashier', 'lock', 'party', 'trilingual', 'feedback', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline', 'online', 'insights', 'geo', 'instapay', 'acctexport', 'reservations'] },
+  vip: { id: 'vip', tier: 3, name: 'Enterprise VIP & AI', name_ar: 'VIP والذكاء الاصطناعي', price: [2000, 2000], limits: { branches: 3, tables: null, staff: null }, features: ['ownerreport', 'loyalty', 'ocr', 'copilot', 'themes', 'branches', 'giftcards', 'recipes'] },
 };
 // older plan names keep working: they map onto the new tiers
 const LEGACY = { standard: 'operations', pro: 'vip', enterprise: 'vip', demo: 'vip' };
@@ -175,6 +175,16 @@ function pinCheck(mem, pin, now) {
   mem.tries = (mem.tries || 0) + 1; if (mem.tries >= PIN_TRIES) { mem.lockUntil = now + PIN_LOCK_MS; mem.tries = 0; return { ok: false, code: 'locked' }; }
   return { ok: false, code: 'wrong', left: PIN_TRIES - mem.tries };
 }
+
+// ---------- Staff attendance: weekly shifts and wages ----------
+// shifts: { 0..6 (Sunday = 0): { from: 'HH:MM', to: 'HH:MM' } }; a day without both times is a day off
+function shiftsClean(v) {
+  const out = {}; v = v && typeof v === 'object' ? v : {};
+  for (let d = 0; d < 7; d++) { const x = v[d]; if (x && hmOk(x.from, '') && hmOk(x.to, '')) out[d] = { from: x.from, to: x.to }; }
+  return out;
+}
+const wageClean = (n) => Math.min(100000, Math.max(0, Math.round((+n || 0) * 100) / 100));
+const hmMin = (x) => { const [h, m] = String(x).split(':').map(Number); return h * 60 + m; };
 
 // ---------- Upsell suggestions ----------
 // Which dishes to offer next to what is already in the cart. Pure: the guest page and the tests call the same function.
@@ -390,5 +400,5 @@ function zoneFor(settings, g) {
 
 
 const STAFF_LOG_KEYS = ['taken', 'handled', 'started', 'served', 'closed', 'respMs'];   // column order of rec.staffLog[id].b[hour]
-const api = { pinOk, pinHash, pinCheck, UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
+const api = { shiftsClean, wageClean, hmMin, pinOk, pinHash, pinCheck, UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
 if (typeof module !== 'undefined') module.exports = api;

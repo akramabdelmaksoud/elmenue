@@ -1,0 +1,60 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Owner report</title><link rel="stylesheet" href="/shared.css">
+<style>
+body { background: var(--bg); padding: 16px; }
+.doc { max-width: 900px; margin: 0 auto; }
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+h1 { margin: 0; font-size: 28px; } h2 { margin: 28px 0 10px; font-size: 20px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.sub { color: var(--muted); margin: 4px 0 0; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
+.k { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; } .k span { color: var(--muted); font-size: 12px; display: block; } .k b { font-size: 22px; } .k small { color: var(--muted); }
+.up { color: #1f9d55; } .down { color: #d62828; }
+.sc { display: grid; grid-template-columns: 150px 1fr 110px; gap: 10px; align-items: center; margin: 6px 0; font-size: 14px; } .bar { height: 12px; border-radius: 8px; background: var(--line); overflow: hidden; } .bar i { display: block; height: 100%; border-radius: 8px; }
+.f { border: 1px solid var(--line); border-inline-start-width: 5px; border-radius: 12px; background: var(--card); padding: 12px 14px; margin: 8px 0; break-inside: avoid; }
+.f.risk { border-inline-start-color: #d62828; } .f.opportunity { border-inline-start-color: #e08a1a; } .f.win { border-inline-start-color: #1f9d55; }
+.f b { display: block; } .f .d { color: var(--muted); font-size: 14px; margin: 3px 0; } .f .a { font-size: 14px; } .tag { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.dec { counter-reset: d; } .dec li { margin: 8px 0; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; } th, td { text-align: start; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.adv { background: color-mix(in srgb, var(--accent) 12%, var(--card)); border: 1px solid var(--accent); border-radius: 14px; padding: 14px; white-space: pre-wrap; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; } @media (max-width: 640px) { .two { grid-template-columns: 1fr; } .sc { grid-template-columns: 110px 1fr 70px; } }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; } button, .btn { padding: 8px 14px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: inherit; cursor: pointer; text-decoration: none; font-size: 14px; }
+@media print { .noprint { display: none !important; } body { background: #fff; padding: 0; } .f, .k { break-inside: avoid; } }
+</style></head>
+<body><div class="doc" id="root"><p class="muted">Loading report…</p></div>
+<script src="/shared.js"></script>
+<script>
+const E = (s) => App.esc(s), root = document.getElementById('root');
+const days = [7, 14, 30, 60, 90].includes(+new URLSearchParams(location.search).get('days')) ? +new URLSearchParams(location.search).get('days') : 30;
+let R, M = (n) => (Math.round(n * 100) / 100).toLocaleString();
+const dt = (x) => new Date(x).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+const delta = (d) => (d === null || d === undefined ? '' : `<small class="${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d)}% vs previous</small>`);
+const color = (s) => (s >= 75 ? '#1f9d55' : s >= 50 ? '#e08a1a' : '#d62828');
+const TYPE = { risk: ['Risks to deal with', '⚠️'], opportunity: ['Opportunities', '💡'], win: ['What is working', '✅'] };
+function render() {
+  const k = R.kpis, c = R.currency, kp = (l, v, extra) => `<div class="k"><span>${l}</span><b>${v}</b> ${extra || ''}</div>`;
+  root.innerHTML = `<div class="top"><div><h1 class="serif">${E(R.name)}</h1><p class="sub">Owner report · ${dt(R.from)} to ${dt(R.to)} (${R.days} days) · ${R.orders} paid orders</p></div>
+    <div class="btns noprint">${[7, 30, 90].map((d) => `<a class="btn" href="?days=${d}" ${d === R.days ? 'style="border-color:var(--accent)"' : ''}>${d} days</a>`).join('')}<button onclick="window.print()">🖨 Print / save PDF</button></div></div>
+    ${R.advisor ? `<h2>From your TableTab advisor</h2><div class="adv">${E(R.advisor)}</div>` : ''}
+    ${R.ready ? '' : '<div class="f risk"><b>Early report</b><div class="d">There is not much data yet, so some sections are limited. It improves as you use the system daily.</div></div>'}
+    ${R.overall !== null ? `<h2>Scorecard</h2><div style="display:flex;align-items:baseline;gap:10px"><b style="font-size:46px;color:${color(R.overall)}">${R.overall}</b><span class="muted">overall health out of 100</span></div>${R.scorecard.map((s) => `<div class="sc"><span>${E(s.area)}</span><div class="bar"><i style="width:${s.score}%;background:${color(s.score)}"></i></div><span class="muted" style="font-size:12px">${s.score} · ${E(s.why)}</span></div>`).join('')}` : ''}
+    <h2>Key numbers</h2><div class="kpis">
+     ${kp('Sales', M(k.revenue) + ' ' + c, delta(k.revDelta))}${kp('Orders', k.orders)}${kp('Average ticket', M(k.avgTicket) + ' ' + c)}${kp('Guests', k.guests)}
+     ${kp('Gross profit', M(k.grossProfit) + ' ' + c)}${kp('Food cost', k.foodCostPct === null ? 'add costs' : k.foodCostPct + '%')}${kp('Discounts', M(k.discounts) + ' ' + c)}${kp('Voids', M(k.voids) + ' ' + c)}
+     ${kp('Guest rating', k.rating === null ? '-' : k.rating + ' / 5', `<small class="muted">${k.ratingCount} ratings</small>`)}${kp('Labour', k.laborPct === null ? 'not tracked' : k.laborPct + '%', k.laborCost ? `<small class="muted">${M(k.laborCost)} ${c}</small>` : '')}${kp('Time at table', k.avgMinutes + ' min')}${kp('Tips', M(k.tips) + ' ' + c)}</div>
+    ${R.decisions.length ? `<h2>The ${R.decisions.length} decisions that matter most</h2><ol class="dec">${R.decisions.map((d) => `<li><b>${E(d.title)}</b><br><span class="muted">${E(d.action)}</span></li>`).join('')}</ol>` : ''}
+    ${['risk', 'opportunity', 'win'].map((t) => { const L = R.findings.filter((f) => f.type === t); return L.length ? `<h2>${TYPE[t][1]} ${TYPE[t][0]} (${L.length})</h2>${L.map((f) => `<div class="f ${t}"><span class="tag">${E(f.area)} · ${E(f.impact)} impact</span><b>${E(f.title)}</b><div class="d">${E(f.detail)}</div><div class="a"><b style="display:inline">Do this:</b> ${E(f.action)}</div></div>`).join('')}` : ''; }).join('')}
+    <h2>Menu performance</h2><div class="two">${[['⭐ Stars (popular and profitable)', R.menu.stars], ['🐴 Popular but low margin', R.menu.plowhorses], ['🧩 Profitable but under-sold', R.menu.puzzles], ['🐶 Low sales and low margin', R.menu.dogs]].map(([t, L]) => `<div><b>${t}</b>${L.length ? `<table>${L.map((x) => `<tr><td>${E(x.name)}</td><td>${x.qty} sold</td><td>${x.marginPct}%</td></tr>`).join('')}</table>` : '<p class="muted">None</p>'}</div>`).join('')}</div>
+    <p class="muted" style="font-size:12px">Classes need item costs. Popular means above the median number sold; profitable means above the median margin.</p>
+    <h2>Top sellers</h2><table><tr><th>Dish</th><th>Sold</th><th>Sales</th><th>Margin</th></tr>${R.menu.top.map((x) => `<tr><td>${E(x.name)}</td><td>${x.qty}</td><td>${M(x.revenue)}</td><td>${x.marginPct === null ? '-' : x.marginPct + '%'}</td></tr>`).join('')}</table>
+    ${R.staff.length ? `<h2>Team</h2><table><tr><th>Name</th><th>Tables</th><th>Sales</th><th>Avg ticket</th><th>Response</th><th>Discounts</th><th>Rating</th></tr>${R.staff.map((s) => `<tr><td>${E(s.name)}</td><td>${s.tables}</td><td>${M(s.sales)}</td><td>${M(s.avgTicket)}</td><td>${s.avgResponseSec ? s.avgResponseSec + 's' : '-'}</td><td>${s.discountPct}%</td><td>${s.rating ? s.rating.avg : '-'}</td></tr>`).join('')}</table>` : ''}
+    ${R.attendance ? `<h2>Attendance</h2><table><tr><th>Name</th><th>Days</th><th>Hours</th><th>Late</th></tr>${R.attendance.people.map((p) => `<tr><td>${E(p.name)}</td><td>${p.days}</td><td>${p.hours}</td><td>${p.late || '-'}</td></tr>`).join('')}</table>` : ''}
+    <p class="muted" style="margin-top:30px;font-size:12px">Generated ${new Date().toLocaleString()} by TableTab from your own sales, ratings, stock and attendance records. Figures are only as complete as the data entered.</p>`;
+}
+(async () => {
+  const tk = App.tok('admin'); if (!tk) { root.innerHTML = '<p>Please sign in to the admin page first, then open this report again.</p>'; return; }
+  const r = await fetch(`/api/r/${App.slug}/ownerreport?days=${days}`, { headers: { Authorization: 'Bearer ' + tk } }), j = await r.json().catch(() => ({}));
+  if (!r.ok) { root.innerHTML = `<p>${E(j.error || 'Could not load the report')}</p>`; return; }
+  R = j; document.title = R.name + ' · Owner report'; render();
+})();
+</script></body></html>
