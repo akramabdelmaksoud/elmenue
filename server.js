@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const QRCode = require('qrcode');
 const XLSX = require('xlsx');
+const parseSheet = require('./sheetparse');
 const multer = require('multer');
 let webpush = null; try { webpush = require('web-push'); } catch {}
 const store = require('./store');
@@ -308,7 +309,8 @@ app.post('/api/demo/login', async (req, res, next) => { try {
   const who = (t.rec.staff || []).find((x) => x.role === role);
   res.json({ slug: SHOW, token: auth.sign(role, SHOW, 4, { u: who ? who.id : 'demo', n: names[role] }) });
 } catch (e) { next(e); } });
-app.post('/api/demo/reset', async (req, res, next) => { try {
+const demoReset = rateLimit({ windowMs: 3600000, max: 12, message: 'Demo was reset recently, wait a while' });
+app.post('/api/demo/reset', demoReset, async (req, res, next) => { try {
   if (!showOn()) return res.status(404).json({ error: 'off' });
   const t = await ensureShowroom(true); res.json({ ok: !!t });
 } catch (e) { next(e); } });
@@ -400,9 +402,10 @@ async function checkDomain(input, selfSlug) {
 }
 app.post('/api/super/tenants', needSuper, async (req, res, next) => { try {
   const b = req.body || {}; const slug = String(b.slug || '').toLowerCase().trim();
-  if (!SLUG.test(slug) || ['super', 'api', 'admin', 'vendor', 'uploads'].includes(slug) || HOSTS.RESERVED.has(slug)) return res.status(400).json({ error: 'Slug must be 2–30 chars: a-z, 0-9, dashes' });
+  if (!SLUG.test(slug) || ['super', 'api', 'admin', 'vendor', 'uploads', 'showroom', 'demo', 'r', 'health'].includes(slug) || HOSTS.RESERVED.has(slug)) return res.status(400).json({ error: 'Slug must be 2–30 chars: a-z, 0-9, dashes' });
   if (STATELESS ? !!(await store.getRec('r_' + slug)) : tenants.has(slug)) return res.status(400).json({ error: 'That slug is taken' });
-  if (!b.name || !/^\S+@\S+$/.test(b.email || '')) return res.status(400).json({ error: 'Name and valid owner email required' });
+  if (typeof b.name !== 'string' || !b.name.trim() || b.name.length > 80 || typeof b.email !== 'string' || b.email.length > 120 || !/^\S+@\S+$/.test(b.email)) return res.status(400).json({ error: 'Name and valid owner email required' });
+  if (b.password !== undefined && (typeof b.password !== 'string' || b.password.length < 8 || b.password.length > 200)) return res.status(400).json({ error: 'Password must be 8-200 characters' });
   const dom = await checkDomain(b.domain, null); if (dom.error) return res.status(dom.status).json({ error: dom.error });
   const password = b.password || auth.randomPassword();
   const plan0 = F.PLANS[b.plan] ? b.plan : 'operations';
@@ -610,7 +613,11 @@ app.post(`${R}/feedback`, tenantMw, async (req, res, next) => { try {
 } catch (e) { next(e); } });
 
 // ----- Admin API (owner of this restaurant, or superadmin) -----
-const A = (m, p, ...h) => app[m](`${R}${p}`, tenantMw, needAdmin, ...h);
+// The public showroom hands out an admin token to anyone, so it must not reach anything that costs money or stores files:
+// uploads, AI calls, payment/e-invoice settings, staff and account changes.
+const SHOW_DENY = /\/(image|hero-image|menu\/ocr|menu\/import|copilot|insights\/ai|pay\/config|eta|staff|account|loyalty\/adjust)(\/|$)/;
+const showGuard = (req, res, next) => (req.tenant.rec.showroom && req.method !== 'GET' && SHOW_DENY.test(req.path) ? res.status(403).json({ error: 'Not available in the demo' }) : next());
+const A = (m, p, ...h) => app[m](`${R}${p}`, tenantMw, needAdmin, showGuard, ...h);
 const bc = (req) => req.tenant.broadcast();
 A('get', '/account', (req, res) => res.json({ name: req.tenant.rec.name, email: req.tenant.rec.owner.email, pin: req.tenant.rec.pin, plan: F.planOf(req.tenant.rec.plan), features: F.featuresOf(req.tenant.rec.plan), group: req.tenant.rec.group || '', limits: F.limitsOf(req.tenant.rec.plan, req.tenant.rec.limits), usage: { tables: req.tenant.db.tables.length, staff: (req.tenant.rec.staff || []).length } }));
 A('post', '/account', (req, res) => {
@@ -1068,24 +1075,27 @@ A('get', '/branches', gate('branches'), async (req, res, next) => { try {
   const sum = (f) => list.reduce((n, x) => n + f(x), 0);
   res.json({ group: g || '', branches: list.map((x) => ({ slug: x.slug, name: x.name, revenue: x.revenue, sessions: x.sessions, avgTicket: x.avgTicket, liveTables: x.liveTables, guestsLive: x.guestsLive })), totals: { revenue: sum((x) => x.revenue), sessions: sum((x) => x.sessions), liveTables: sum((x) => x.liveTables) }, currency: req.tenant.db.settings.currency });
 } catch (e) { next(e); } });
-A('post', '/menu/import', upLimit, upload.single('file'), (req, res) => {
+A('post', '/menu/import', upLimit, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
+  const buf = req.file.buffer, zip = buf.length > 3 && buf[0] === 0x50 && buf[1] === 0x4b;   // .xlsx is a zip; anything else must be plain CSV text
+  if (buf.length > 1024 * 1024) return res.status(413).json({ error: 'File too large (max 1 MB)' });
+  if (!zip && buf.includes(0)) return res.status(400).json({ error: 'Upload the .xlsx template or a CSV file' });
   const d = req.tenant.db;
   try {
-    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
-    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+    const rows = await parseSheet(buf, { max: 500 });
     let added = 0;
+    const lim = (v, n) => String(v == null ? '' : v).trim().slice(0, n), num = (v, max) => { const x = +v; return x >= 0 && x <= max ? x : 0; };
     const key = (r, k) => { const f = Object.keys(r).find((x) => x.trim().toLowerCase() === k); return f ? r[f] : ''; };
     rows.forEach((r) => {
-      const name = String(key(r, 'name')).trim(); if (!name) return;
-      const cn = String(key(r, 'category')).trim() || 'Imported';
+      const name = lim(key(r, 'name'), 60); if (!name) return;
+      const cn = lim(key(r, 'category'), 40) || 'Imported';
       let cat = d.categories.find((c) => c.name.toLowerCase() === cn.toLowerCase());
-      if (!cat) { cat = { id: newId('c'), name: cn, name_ar: String(key(r, 'category_ar')), emoji: '🍽️' }; d.categories.push(cat); }
-      d.items.push({ id: newId('i'), cat: cat.id, name, name_ar: String(key(r, 'name_ar')), price: +key(r, 'price') || 0, cost: +key(r, 'cost') || 0, emoji: String(key(r, 'emoji')) || '🍽️', desc: String(key(r, 'description')), img: '' });
+      if (!cat) { cat = { id: newId('c'), name: cn, name_ar: lim(key(r, 'category_ar'), 40), emoji: '🍽️' }; d.categories.push(cat); }
+      d.items.push({ id: newId('i'), cat: cat.id, name, name_ar: lim(key(r, 'name_ar'), 60), price: num(key(r, 'price'), 100000), cost: num(key(r, 'cost'), 100000), emoji: lim(key(r, 'emoji'), 8) || '🍽️', desc: lim(key(r, 'description'), 140), img: '' });
       added++;
     });
     bc(req); res.json({ added });
-  } catch (e) { res.status(400).json({ error: 'Could not parse file: ' + e.message }); }
+  } catch (e) { res.status(400).json({ error: 'Could not read the file: ' + String(e.message).slice(0, 80) }); }
 });
 
 // Plan limits: block only the creation of NEW things; venues already over a limit keep working (grandfathered)
@@ -1172,6 +1182,10 @@ app.post(`${R}/rpc`, rpcLimit, async (req, res) => {
 // ---------- WebSocket ----------
 // Never leak storage status codes; give a readable hint when the Supabase table has not been created yet
 app.use((err, req, res, next) => {
+  // client mistakes (bad JSON, body too large, upload too big) are 4xx, not server errors, and are not logged as crashes
+  if (res.headersSent) return next(err);
+  const cs = err && (err.status || err.statusCode); if (cs >= 400 && cs < 500) return res.status(cs).json({ error: cs === 413 ? 'Request too large' : cs === 400 ? 'Bad request' : 'Request refused' });
+  if (err && err.name === 'MulterError') return res.status(400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'File too large' : 'Bad upload' });
   console.error(err);
   const msg = /PGRST205|public\.tenants/.test(String(err.message)) ? 'Database not ready: run the setup SQL in Supabase (see README), then reload.' : 'Server error';
   res.status(500).json({ error: msg });

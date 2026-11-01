@@ -722,7 +722,7 @@ function analytics(days = 7) {
   function importParsed(list) {
     let nc = 0, ni = 0;
     (Array.isArray(list) ? list : []).slice(0, 300).forEach((x) => {
-      const name = String(x.name || '').trim().slice(0, 60), price = +x.price; if (!name || !(price >= 0)) return;
+      if (!x || typeof x !== 'object') return; const name = String(x.name || '').trim().slice(0, 60), price = +x.price; if (!name || !(price >= 0 && price <= 100000)) return;
       const cn = String(x.cat || 'Menu').trim().slice(0, 40) || 'Menu';
       let c = db.categories.find((k) => k.name.toLowerCase() === cn.toLowerCase());
       if (!c) { c = { id: id('c'), name: cn, name_ar: String(x.cat_ar || '').slice(0, 40), emoji: '🍽️' }; db.categories.push(c); nc++; }

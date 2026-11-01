@@ -75,3 +75,14 @@ One Vercel deployment serves four addresses, chosen by `ROOT_DOMAIN=tabletab-tt.
 | demo.tabletab-tt.com | Live showroom (separate flagged cafe `showroom`) | Prospects |
 
 Subdomains cost nothing; they are domains added to the same Vercel project. Plan prices and contact email on the marketing site are edited at the top of `site.html` (`TXT.plans`, `CONTACT_EMAIL`).
+
+## Security measures in place
+
+- Output escaping on every page; a hostile-payload browser probe (names, notes, addresses, reviews, menu text) found no script execution. CSP is enforced (`CSP=on`).
+- Bad JSON is a 400, oversized bodies a 413, all 103 routes fuzzed with hostile bodies without a 5xx or prototype pollution.
+- Admin routes refuse anonymous, cross-café and tampered tokens. The platform console exists only on `admin.<ROOT_DOMAIN>`.
+- Menu import runs the spreadsheet reader in a time-limited worker (the `xlsx` package has unpatched read bugs), 1 MB, 500 rows, clamped fields.
+- The public showroom's admin token cannot upload files, call AI, or change staff, payments or accounts, and demo reset is rate limited.
+- Café creation validates slug (reserved names), name, email and password length (8+).
+- Known limit: rate-limit counters live in each serverless instance's memory, so they slow abuse but are not a hard global cap. Cloudflare in front of the domain would add one.
+- Keep rotating: Supabase secret key, SECRET, super password. Never paste them in chat.
