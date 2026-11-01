@@ -110,5 +110,15 @@ const Office = (() => {
     const got = po.lines.map((l, i) => { const left = Math.round((l.qty - l.got) * 1000) / 1000; if (left <= 0) return null; const v = prompt(`${l.desc}: how many ${l.unit || 'units'} arrived? (ordered ${l.qty}, already received ${l.got})`, String(left)); return v === null ? 'stop' : { i, qty: +v || 0 }; });
     if (got.includes('stop')) return; const r = await api('POST', `/api/pos/${id}/receive`, { got: got.filter(Boolean) }); App.toast(r.error || 'Stock updated'); purchasing();
   }
-  return { invoices, search, saveBrand, logo, logoDel, fromOrder, newInvoice, saveInvoice, void: voidInv, closeM, draft: () => IV.draft, paint: paintDraft, purchasing, addSupplier, supSet, supDel, ingSet, newPo, poFromSug, pd: () => PU.draft, paintPo, pickIng, savePo, poSet, poDel, receive };
+  async function vat() {
+    const d = new Date(), def = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'), m = prompt('Which month? (YYYY-MM)', def); if (!m) return;
+    const r = await api('GET', '/api/vat-summary?month=' + encodeURIComponent(m)); if (r.error) return App.toast(r.error);
+    const c = E(r.currency || ''), n = (x) => (Math.round((+x || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2 });
+    modal('vatdlg', () => { document.getElementById('vatdlg').innerHTML = `<div class="card" style="max-width:560px;width:100%"><div class="spread"><h2 style="margin:0">VAT summary · ${E(r.month)}</h2><button class="ghost" onclick="Office.closeM('vatdlg')">✕</button></div>
+      <table style="margin-top:10px"><tr><td>Sales (${r.sales.orders} paid tables), before VAT</td><td class="r">${n(r.sales.net)} ${c}</td></tr><tr><td>Service charge</td><td class="r">${n(r.sales.service)} ${c}</td></tr><tr><td><b>VAT collected</b> (output)</td><td class="r"><b>${n(r.sales.vat)} ${c}</b></td></tr>
+      <tr><td>Supplier orders received (${r.purchases.orders}), before VAT</td><td class="r">${n(r.purchases.net)} ${c}</td></tr><tr><td><b>VAT paid on purchases</b> (input)</td><td class="r"><b>${n(r.purchases.vat)} ${c}</b></td></tr>
+      <tr><td style="border-top:2px solid var(--line)"><b>${r.payable >= 0 ? 'VAT to pay' : 'VAT to claim back'}</b></td><td class="r" style="border-top:2px solid var(--line)"><b>${n(Math.abs(r.payable))} ${c}</b></td></tr></table>
+      <p class="muted" style="font-size:12px;margin-bottom:0">Purchases count only if the supplier order has VAT entered and was received this month. Check with your accountant before filing.</p><div class="row" style="margin-top:10px"><button class="ghost" onclick="window.print()">🖨 Print</button></div></div>`; });
+  }
+  return { vat, invoices, search, saveBrand, logo, logoDel, fromOrder, newInvoice, saveInvoice, void: voidInv, closeM, draft: () => IV.draft, paint: paintDraft, purchasing, addSupplier, supSet, supDel, ingSet, newPo, poFromSug, pd: () => PU.draft, paintPo, pickIng, savePo, poSet, poDel, receive };
 })();

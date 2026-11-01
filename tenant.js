@@ -626,11 +626,13 @@ function handle(c, m) {
   }
   if (c.role === 'kitchen') {
     if (m.t === 'order_status' && ['kitchen', 'served'].includes(m.status)) setStatus(c, m);
+    if (m.t === 'order_lane') setLane(c, m);
     return broadcast();
   }
   if (c.role === 'captain') {
     switch (m.t) {
       case 'order_status': setStatus(c, m); break;
+      case 'order_lane': setLane(c, m); break;
       case 'host_set': { const t = tableOf(m.tableId), s = t && db.sessions[t.id], to = s && s.guests.find((x) => x.id === m.guestId); if (to) { s.host = to.id; log(s, 'host', `${to.avatar} ${to.name} is now the table host (set by staff)`); } break; }
       case 'resolve_request': {
         const s = db.sessions[m.tableId]; const r = s?.requests.find((x) => x.id === m.id);
@@ -735,6 +737,16 @@ function handle(c, m) {
       case 'sim': simulate = !!m.on; break;
     }
     return broadcast();
+  }
+}
+// priority lanes in the kitchen: normal, rush, VIP (VIP first, then rush, then oldest)
+function setLane(c, m) {
+  const lane = ['normal', 'rush', 'vip'].includes(m.lane) ? m.lane : '';
+  for (const s of Object.values(db.sessions)) {
+    const o = s.orders.find((x) => x.id === m.orderId); if (!o || !lane) continue;
+    if (o.status === 'served' || o.status === 'closed') return;
+    if (lane === 'normal') delete o.lane; else o.lane = lane;
+    log(s, 'lane', `Order marked ${lane}` + (c.staffName ? ' by ' + c.staffName : '')); return;
   }
 }
 function setStatus(c, m) {

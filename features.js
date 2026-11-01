@@ -149,7 +149,7 @@ const UNITS = ['g', 'kg', 'ml', 'l', 'pcs'];
 const num2 = (x, hi) => Math.min(hi, Math.max(0, Math.round((+x || 0) * 1000) / 1000));
 function ingClean(v) {
   v = v && typeof v === 'object' ? v : {};
-  return { name: String(v.name || '').replace(/[<>]/g, '').trim().slice(0, 40), unit: UNITS.includes(v.unit) ? v.unit : 'g', stock: num2(v.stock, 1e7), cost: num2(v.cost, 1e5), low: num2(v.low, 1e7), par: num2(v.par, 1e7), supplier: String(v.supplier || '').replace(/[^\w-]/g, '').slice(0, 24) };
+  return { name: String(v.name || '').replace(/[<>]/g, '').trim().slice(0, 40), unit: UNITS.includes(v.unit) ? v.unit : 'g', stock: num2(v.stock, 1e7), cost: num2(v.cost, 1e5), low: num2(v.low, 1e7), par: num2(v.par, 1e7), supplier: String(v.supplier || '').replace(/[^\w-]/g, '').slice(0, 24), expiry: /^\d{4}-\d{2}-\d{2}$/.test(String(v.expiry || '')) ? String(v.expiry) : '' };
 }
 // keeps only known ingredients, positive quantities, no duplicates
 function recipeClean(arr, ings) {
@@ -420,5 +420,6 @@ function zoneFor(settings, g) {
 
 
 const STAFF_LOG_KEYS = ['taken', 'handled', 'started', 'served', 'closed', 'respMs'];   // column order of rec.staffLog[id].b[hour]
-const api = { invoiceBrandClean, docLines, docTotals, partyClean, supplierClean, INV_STYLES, shiftsClean, wageClean, hmMin, pinOk, pinHash, pinCheck, UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
+const WASTE_CAUSES = ['expired', 'spoiled', 'spilled', 'overprep', 'staffmeal', 'returned', 'other'];
+const api = { WASTE_CAUSES, invoiceBrandClean, docLines, docTotals, partyClean, supplierClean, INV_STYLES, shiftsClean, wageClean, hmMin, pinOk, pinHash, pinCheck, UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
 if (typeof module !== 'undefined') module.exports = api;

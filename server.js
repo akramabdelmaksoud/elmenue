@@ -911,9 +911,32 @@ A('post', '/ingredients/:id/adjust', gateR, (req, res) => {
   const next = type === 'restock' ? g.stock + q : type === 'waste' ? Math.max(0, g.stock - q) : q, delta = Math.round((next - g.stock) * 1000) / 1000;
   if (type === 'restock' && b.cost !== undefined && b.cost !== '' && +b.cost >= 0) { g.cost = F.ingClean({ cost: b.cost }).cost; F.recost(t.db.items, t.db.ingredients); }
   g.stock = Math.round(next * 1000) / 1000;
+  if (type === 'restock' && /^\d{4}-\d{2}-\d{2}$/.test(String(b.expiry || ''))) g.expiry = String(b.expiry);
+  if (type === 'waste') { const cause = F.WASTE_CAUSES.includes(b.cause) ? b.cause : 'other'; t.rec.wasteLog = [{ at: Date.now(), ingId: g.id, ing: g.name, unit: g.unit, qty: -delta, value: Math.round(-delta * g.cost * 100) / 100, cause }, ...(t.rec.wasteLog || [])].slice(0, 2000); }
   t.rec.ingLog = [{ at: Date.now(), ingId: g.id, ing: g.name, unit: g.unit, delta, type, item: '', who: 'owner' + (b.reason ? ': ' + String(b.reason).replace(/[<>]/g, '').slice(0, 60) : ''), left: g.stock }, ...(t.rec.ingLog || [])].slice(0, 400);
   bc(req); res.json({ ok: 1, stock: g.stock });
 });
+// a stocktake: count everything on the shelf, the system shows what is missing or extra and what it is worth
+A('post', '/stocktake', gateR, (req, res) => {
+  const t = req.tenant, d = t.db, body = req.body || {}, counts = Array.isArray(body.counts) ? body.counts.slice(0, 300) : [], lines = [];
+  for (const c of counts) { const g = (d.ingredients || []).find((x) => x.id === String(c && c.id)); const q = +(c && c.qty); if (!g || c.qty === '' || c.qty === null || !(q >= 0) || q > 1e7) continue; const counted = Math.round(q * 1000) / 1000, diff = Math.round((counted - g.stock) * 1000) / 1000; lines.push({ id: g.id, ing: g.name, unit: g.unit, expected: g.stock, counted, diff, value: Math.round(diff * g.cost * 100) / 100 }); }
+  if (!lines.length) return res.status(400).json({ error: 'Enter the counted quantity for at least one ingredient' });
+  for (const l of lines) { const g = d.ingredients.find((x) => x.id === l.id); g.stock = l.counted; if (l.diff) t.rec.ingLog = [{ at: Date.now(), ingId: g.id, ing: g.name, unit: g.unit, delta: l.diff, type: 'count', item: '', who: 'stocktake', left: g.stock }, ...(t.rec.ingLog || [])].slice(0, 400); }
+  const take = { id: newId('st'), at: Date.now(), note: String(body.note || '').replace(/[<>]/g, '').slice(0, 120), lines, short: Math.round(-lines.filter((l) => l.value < 0).reduce((n, l) => n + l.value, 0) * 100) / 100, extra: Math.round(lines.filter((l) => l.value > 0).reduce((n, l) => n + l.value, 0) * 100) / 100 };
+  t.rec.stockTakes = [take, ...(t.rec.stockTakes || [])].slice(0, 100); persistRec(t); bc(req); res.json(take);
+});
+A('get', '/stocktakes', gateR, (req, res) => res.json({ takes: (req.tenant.rec.stockTakes || []).map(({ lines, ...x }) => ({ ...x, count: lines.length, worst: lines.filter((l) => l.value < 0).sort((a, c) => a.value - c.value).slice(0, 3) })) }));
+// planned food cost (what the recipes say was used) against what really left the kitchen (plus waste and stocktake shortages)
+A('get', '/food-cost', gateR, async (req, res, next) => { try {
+  const t = req.tenant, days = [7, 14, 30, 60, 90].includes(+req.query.days) ? +req.query.days : 30, to = Date.now(), from = to - days * DAY, hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history;
+  const H = hist.filter((h) => h.closedAt >= from && h.closedAt <= to && !h.unpaid), lines = H.flatMap((h) => h.items || []), r2 = (n) => Math.round(n * 100) / 100;
+  const revenue = H.reduce((n, h) => n + h.total, 0), planned = lines.reduce((n, l) => n + l.qty * (l.cost || 0), 0), costedRev = lines.filter((l) => l.cost > 0).reduce((n, l) => n + l.qty * l.price, 0);
+  const W = (t.rec.wasteLog || []).filter((w) => w.at >= from), waste = W.reduce((n, w) => n + w.value, 0), byCause = {}, byIng = {}; W.forEach((w) => { byCause[w.cause] = r2((byCause[w.cause] || 0) + w.value); const a = (byIng[w.ing] ||= { ing: w.ing, unit: w.unit, qty: 0, value: 0 }); a.qty = r2(a.qty + w.qty); a.value = r2(a.value + w.value); });
+  const T = (t.rec.stockTakes || []).filter((x) => x.at >= from), shrink = T.reduce((n, x) => n + x.short, 0), found = T.reduce((n, x) => n + x.extra, 0), actual = planned + waste + Math.max(0, shrink - found);
+  const today = new Date().toISOString().slice(0, 10), soon = new Date(Date.now() + 3 * DAY).toISOString().slice(0, 10), ex = (t.db.ingredients || []).filter((g) => g.expiry && g.stock > 0);
+  res.json({ days, revenue: r2(revenue), planned: r2(planned), plannedPct: costedRev > 0 ? r2(planned / costedRev * 100) : null, waste: r2(waste), shrink: r2(shrink), found: r2(found), actual: r2(actual), actualPct: costedRev > 0 ? r2(actual / costedRev * 100) : null,
+    byCause, topWaste: Object.values(byIng).sort((a, c) => c.value - a.value).slice(0, 6), stocktakes: T.length, expired: ex.filter((g) => g.expiry < today).map((g) => ({ id: g.id, name: g.name, expiry: g.expiry, stock: g.stock, unit: g.unit, value: r2(g.stock * g.cost) })), expiring: ex.filter((g) => g.expiry >= today && g.expiry <= soon).map((g) => ({ id: g.id, name: g.name, expiry: g.expiry, stock: g.stock, unit: g.unit, value: r2(g.stock * g.cost) })) });
+} catch (e) { next(e); } });
 A('put', '/items/:id/recipe', gateR, (req, res) => {
   const d = req.tenant.db, it = d.items.find((x) => x.id === req.params.id); if (!it) return res.status(404).json({ error: 'Not found' });
   it.recipe = F.recipeClean((req.body || {}).recipe, d.ingredients); if (!it.recipe.length) delete it.recipe; F.recost(d.items, d.ingredients); bc(req); res.json({ ok: 1, cost: it.cost, recipe: it.recipe || [] });
@@ -971,6 +994,14 @@ async function acctFor(t, from, to) {
 const ACCT_HEAD = ['Date', 'Orders', 'Guests', 'Gross sales', 'Discounts', 'Net sales', 'Service charge', 'VAT / tax', 'Tips', 'Total collected', 'Cash', 'Card', 'InstaPay', 'Wallet', 'Online (card gateway)', 'Gift card', 'Voided value'];
 const acctRow = (r) => [r.date, r.orders, r.guests, r.gross, r.discounts, r.net, r.service, r.vat, r.tips, r.total, r.cash, r.card, r.instapay, r.wallet, r.online, r.gift, r.voids];
 A('get', '/accounting', gateAc, async (req, res) => { const [f, t2] = range(req.query); res.json(await acctFor(req.tenant, f, t2)); });
+// VAT for one month: tax collected on sales, tax paid on supplier orders received that month, and what is left to pay
+A('get', '/vat-summary', gateAc, async (req, res, next) => { try {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(req.query.month || '')), now = new Date(), y = m ? +m[1] : now.getFullYear(), mo = m ? +m[2] : now.getMonth() + 1; if (mo < 1 || mo > 12 || y < 2020 || y > 2100) return res.status(400).json({ error: 'Pick a month like 2026-05' });
+  const from = new Date(y, mo - 1, 1).getTime(), to = new Date(y, mo, 1).getTime() - 1, a = await acctFor(req.tenant, from, to), r2 = (n) => Math.round((+n || 0) * 100) / 100;
+  const pos = (req.tenant.db.pos || []).filter((p) => p.status !== 'cancelled' && p.status !== 'draft' && (p.receivedAt || p.date) >= from && (p.receivedAt || p.date) <= to);
+  const inNet = pos.reduce((n, p) => n + (p.sub || 0), 0), vatIn = pos.reduce((n, p) => n + (p.tax || 0), 0);
+  res.json({ month: y + '-' + String(mo).padStart(2, '0'), currency: a.currency, taxRate: a.taxRate, sales: { orders: a.total.orders, net: a.total.net, service: a.total.service, vat: a.total.vat, total: a.total.total }, purchases: { orders: pos.length, net: r2(inNet), vat: r2(vatIn) }, payable: r2(a.total.vat - vatIn), days: a.rows.map((x) => ({ date: x.date, net: x.net, vat: x.vat })) });
+} catch (e) { next(e); } });
 A('get', '/accounting.csv', gateAc, async (req, res) => { const [f, t2] = range(req.query), a = await acctFor(req.tenant, f, t2); res.type('text/csv').set('Content-Disposition', 'attachment; filename="accounting.csv"').send(csv([ACCT_HEAD, ...a.rows.map(acctRow), acctRow(a.total)])); });
 A('get', '/accounting.xlsx', gateAc, async (req, res) => {
   const [f, t2] = range(req.query), a = await acctFor(req.tenant, f, t2), wb = XLSX.utils.book_new(), d = (x) => new Date(x).toLocaleDateString('en-GB', { timeZone: a.tz });

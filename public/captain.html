@@ -183,7 +183,7 @@ function orderCard(s, o, tools) {
   const nxt = NEXT[o.status];
   return `<div class="ocard"><div class="spread"><b>Table ${s.tableNumber} <span class="muted">· ${s.guests.map((x) => x.avatar).join('')}</span></b><span class="st ${o.status}">${STL[o.status] || o.status}</span></div>
   ${o.items.map((i) => `<div class="line"><span>${g(i.guestId)} ${i.qty}× ${App.esc(i.name)}${i.opt ? ` <b style="color:var(--accent)">[${App.esc(i.opt)}]</b>` : ''}${i.note ? `<br><small style="color:var(--accent)">📝 ${App.esc(i.note)}</small>` : ''}</span><span>${App.money(i.qty * i.price)}${tools ? ` <button class="vx" title="Remove item" onclick="PX.voidDlg('${s.tableId}','${i.id}')">✕</button>` : ''}</span></div>`).join('')}
-  <div class="spread" style="margin-top:6px"><span class="muted">${App.ago(o.at)} ago · ${App.money(o.items.reduce((n, i) => n + i.qty * i.price, 0))}</span>${nxt ? `<button class="primary" onclick="App.send({t:'order_status',orderId:'${o.id}',status:'${nxt}'})">${NXL[nxt] || '→ ' + nxt}</button>` : ''}</div></div>`;
+  <div class="spread" style="margin-top:6px"><span class="muted">${App.ago(o.at)} ago · ${App.money(o.items.reduce((n, i) => n + i.qty * i.price, 0))}${o.lane ? ' · ' + (o.lane === 'vip' ? '⭐ VIP' : '⚡ rush') : ''}</span>${o.status !== 'served' ? `<button class="ghost" onclick="App.send({t:'order_lane',orderId:'${o.id}',lane:'${o.lane === 'rush' ? 'normal' : 'rush'}'})">⚡</button>` : ''}${nxt ? `<button class="primary" onclick="App.send({t:'order_status',orderId:'${o.id}',status:'${nxt}'})">${NXL[nxt] || '→ ' + nxt}</button>` : ''}</div></div>`;
 }
 function openT(id) { open = id; renderModal(); }
 function closeM() { open = null; document.getElementById('modal').innerHTML = ''; }
