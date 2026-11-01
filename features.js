@@ -6,9 +6,9 @@ const PRO_THEMES = ['slate', 'nordic', 'bistro', 'zen', 'trattoria', 'roast', 's
 const SIG_THEMES = ['aurum', 'ember', 'sunset', 'platinum', 'rosegold', 'sapphire', 'jade', 'amethyst'];
 const PREMIUM_THEMES = ['neon', 'luxury', 'vibrant'].concat(LUX_THEMES, PRO_THEMES, SIG_THEMES);
 const PLANS = {
-  basic: { id: 'basic', tier: 1, name: 'Basic QR Menu', name_ar: 'منيو QR الأساسي', price: [350, 500], limits: { branches: 1, tables: 10, staff: 0 }, features: ['menu', 'qr', 'micro', 'admin'] },
-  operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [850, 1000], limits: { branches: 1, tables: 30, staff: 10 }, features: ['ordering', 'staff', 'kds', 'cashier', 'lock', 'party', 'trilingual', 'feedback', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline', 'online', 'insights', 'geo'] },
-  vip: { id: 'vip', tier: 3, name: 'Enterprise VIP & AI', name_ar: 'VIP والذكاء الاصطناعي', price: [1450, 1450], limits: { branches: 3, tables: null, staff: null }, features: ['loyalty', 'ocr', 'copilot', 'themes', 'branches', 'giftcards'] },
+  basic: { id: 'basic', tier: 1, name: 'Starter QR Ordering', name_ar: 'منيو QR الأساسي', price: [600, 800], limits: { branches: 1, tables: 10, staff: 0 }, features: ['menu', 'qr', 'ordering', 'micro', 'admin'] },
+  operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [1200, 1500], limits: { branches: 1, tables: 30, staff: 10 }, features: ['staff', 'kds', 'cashier', 'lock', 'party', 'trilingual', 'feedback', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline', 'online', 'insights', 'geo'] },
+  vip: { id: 'vip', tier: 3, name: 'Enterprise VIP & AI', name_ar: 'VIP والذكاء الاصطناعي', price: [2000, 2000], limits: { branches: 3, tables: null, staff: null }, features: ['loyalty', 'ocr', 'copilot', 'themes', 'branches', 'giftcards'] },
 };
 // older plan names keep working: they map onto the new tiers
 const LEGACY = { standard: 'operations', pro: 'vip', enterprise: 'vip', demo: 'vip' };

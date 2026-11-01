@@ -6,9 +6,9 @@ The project already existed as a plain Node + Express app (no build step). The s
 
 | Tier | Plan id | Price (EGP / month) | Unlocks |
 |---|---|---|---|
-| 1 Basic QR Menu | `basic` | 350–500 | scan-only menu, table QR codes, micro-service requests, basic admin. Guests **cannot order**. |
-| 2 Operations & POS | `operations` | 850–1,000 | guest ordering, waiter view + KDS, pending/kitchen lock, party size, trilingual |
-| 3 Enterprise VIP & AI | `vip` | 1,450+ | loyalty, EGP↔points ratios, AI photo OCR, admin copilot, Fasheekh themes, multi-branch analytics |
+| 1 Starter QR Ordering | `basic` | 600–800 | QR menu, table ordering, one shared captain PIN screen, micro-service requests, basic admin. No kitchen screen or named staff. |
+| 2 Operations & POS | `operations` | 1,200–1,500 | waiter view + KDS, pending/kitchen lock, party size, trilingual |
+| 3 Enterprise VIP & AI | `vip` | 2,000+ | loyalty, EGP↔points ratios, AI photo OCR, admin copilot, Fasheekh themes, multi-branch analytics |
 
 Higher tiers include the lower ones. Old plan names still work: `standard→operations`, `pro/enterprise/demo→vip`.
 `featuresOf(plan)` is sent to every client as `config.features`; the engine (`tenant.js`) and the API (`server.js`, `402` + `upgrade`) both enforce it, the UIs only hide/lock.
