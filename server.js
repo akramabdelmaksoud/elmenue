@@ -193,7 +193,7 @@ const SINGLE = envOn(process.env.SINGLE_RESTAURANT), MAIN = 'main';
 // ---------- Host-based tenants: <slug>.BASE_DOMAIN and custom domains serve the restaurant's pages (rewrite, not redirect) ----------
 // /r/<slug>/... keeps working on every host, so printed QR codes, ?k= table keys and demo mode are untouched.
 const hostIndex = HOSTS.createHostIndex({ base: BASE_DOMAIN, ttlMs: STATELESS ? 30000 : 2000, load: async () => (STATELESS ? store.listRecs() : [...tenants.values()].map((t) => t.rec)) });
-const HOST_PAGES = { '/': 'tenant.html', '/captain': 'captain.html', '/admin': 'admin.html', '/kitchen': 'kitchen.html', '/cashier': 'cashier.html', '/order': 'order.html', '/book': 'book.html' };
+const HOST_PAGES = { '/': 'tenant.html', '/captain': 'captain.html', '/admin': 'admin.html', '/kitchen': 'kitchen.html', '/cashier': 'cashier.html', '/order': 'order.html', '/book': 'book.html', '/desk': 'captain.html' };
 const pageCache = {};
 function pageFor(file, slug) {   // the page plus <meta name="elm-slug"> so shared.js knows the restaurant without a /r/<slug> prefix
   let h = pageCache[file];
@@ -243,6 +243,7 @@ if (SINGLE) {
   app.get('/cashier', (req, res) => res.redirect('/r/' + MAIN + '/cashier'));
   app.get('/order', (req, res) => res.redirect('/r/' + MAIN + '/order'));
   app.get('/book', (req, res) => res.redirect('/r/' + MAIN + '/book'));
+  app.get('/desk', (req, res) => res.redirect('/r/' + MAIN + '/desk'));
   app.get('/t/:n', (req, res) => res.redirect('/r/' + MAIN + '/t/' + encodeURIComponent(req.params.n) + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')));
   app.get('/index.html', (req, res) => res.redirect('/'));
   app.get('/api/setup/status', async (req, res) => { try { res.json({ setup: await isSetup(), needsKey: !!process.env.SETUP_KEY }); } catch (e) { res.status(500).json({ error: 'Server error' }); } });
@@ -330,6 +331,7 @@ app.get('/r/:slug', page('tenant.html'));
 app.get('/r/:slug/t/:n', page('customer.html'));
 app.get('/r/:slug/order', page('order.html'));
 app.get('/r/:slug/book', page('book.html'));
+app.get('/r/:slug/desk', page('captain.html'));
 app.get('/r/:slug/captain', page('captain.html'));
 app.get('/r/:slug/admin', page('admin.html'));
 app.get('/r/:slug/kitchen', page('kitchen.html'));
@@ -473,8 +475,8 @@ app.delete('/api/super/tenants/:slug', needSuper, async (req, res, next) => { tr
 const R = '/api/r/:slug';
 // item costs and recipes are the owner's business: only an admin token sees them
 app.get(`${R}/config`, tenantMw, (req, res) => {
-  const c = req.tenant.publicConfig(), d = auth.verify(bearer(req));
-  if (!(d && (d.r === 'super' || (d.s === req.params.slug && d.r === 'admin')))) c.items = c.items.map(({ cost, recipe, ...i }) => i);
+  const d = auth.verify(bearer(req)), adm = !!(d && (d.r === 'super' || (d.s === req.params.slug && d.r === 'admin'))), c = req.tenant.publicConfig(adm);
+  if (!adm) c.items = c.items.map(({ cost, recipe, ...i }) => i);
   res.json(c);
 });
 // Canonical public address: its own domain, else <slug>.BASE_DOMAIN (production), else the /r/<slug> form. Old /r/<slug> links keep working either way.
@@ -1263,6 +1265,7 @@ A('get', '/analytics', async (req, res) => { if (STATELESS) req.tenant.db.histor
 
 // ---------- Polling transport (used when websockets are unavailable, e.g. Vercel) ----------
 // One call = optional message + fresh snapshot. Retries automatically on write conflicts.
+const scanFails = {};
 app.post(`${R}/rpc`, rpcLimit, async (req, res) => {
   const j = req.body || {}, jn = j.join || {};
   try {
@@ -1287,7 +1290,11 @@ app.post(`${R}/rpc`, rpcLimit, async (req, res) => {
         else t.handle(c, { t: 'join', role: 'customer', tableNumber: jn.tableNumber, guestId: jn.guestId, name: jn.name, avatar: jn.avatar, key: jn.key, geo: jn.geo, resume: jn.resume });
       } else t.handle(c, { t: 'join', role: jn.role === 'cashier' ? 'captain' : jn.role });
       if (j.msg) t.handle(c, j.msg);
-      const er = out.find((m) => m.t === 'error'); if (er) return res.status(403).json({ error: er.msg });
+      const er = out.find((m) => m.t === 'error');
+      if (er) {   // guessing table keys: a few wrong scans per connection are fine, a stream of them is an attack
+        if (er.msg === 'scan' || er.msg === 'geo') { const k = req.ip + ':' + req.params.slug, now = Date.now(), h = (scanFails[k] = (scanFails[k] || []).filter((x) => now - x < 600000)); h.push(now); if (h.length > 15) return res.status(429).json({ error: 'Too many wrong scans. Please wait a few minutes.' }); for (const x of Object.keys(scanFails)) if (!scanFails[x].length || now - scanFails[x][scanFails[x].length - 1] > 600000) delete scanFails[x]; }
+        return res.status(403).json({ error: er.msg });
+      }
       if (t.dirty && !(await commit(t))) continue;     // conflict -> reload and replay
       if (STATELESS && t.pending && t.pending.length) {
         const dead = await sendPush(t.rec, t.pending).catch(() => []);

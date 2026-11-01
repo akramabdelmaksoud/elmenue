@@ -360,8 +360,8 @@ function copilot(q, ctx) {
 }
 
 // ---------- Online ordering (guest storefront: pickup + delivery, pay on receipt) ----------
-const ONLINE_DEFAULT = { enabled: false, pickup: true, delivery: false, minOrder: 0, feeItemId: '', prepMin: 20, note: '', zones: [] };
-const onlineCfg = (settings) => { const o = { ...ONLINE_DEFAULT, ...((settings && settings.online) || {}) }; o.enabled = !!o.enabled; o.pickup = o.pickup !== false; o.delivery = !!o.delivery; o.minOrder = Math.max(0, +o.minOrder || 0); o.prepMin = Math.min(180, Math.max(5, Math.floor(+o.prepMin) || 20)); o.feeItemId = String(o.feeItemId || '').slice(0, 40); o.note = String(o.note || '').slice(0, 200); o.zones = zonesCfg(o.zones); return o; };
+const ONLINE_DEFAULT = { enabled: false, pickup: true, delivery: false, minOrder: 0, feeItemId: '', prepMin: 20, note: '', zones: [], desk: false };
+const onlineCfg = (settings) => { const o = { ...ONLINE_DEFAULT, ...((settings && settings.online) || {}) }; o.enabled = !!o.enabled; o.pickup = o.pickup !== false; o.delivery = !!o.delivery; o.minOrder = Math.max(0, +o.minOrder || 0); o.prepMin = Math.min(180, Math.max(5, Math.floor(+o.prepMin) || 20)); o.feeItemId = String(o.feeItemId || '').slice(0, 40); o.note = String(o.note || '').slice(0, 200); o.zones = zonesCfg(o.zones); o.desk = !!o.desk; return o; };
 
 // ---------- Location: delivery zones + "order only from inside the cafe" ----------
 const geoPoint = (g) => { if (!g || g.lat === '' || g.lng === '' || g.lat == null || g.lng == null) return null; const lat = +g.lat, lng = +g.lng; return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0) ? { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6 } : null; };

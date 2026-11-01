@@ -101,9 +101,12 @@ async function refreshPush() { const st = await App.push.state(), b = document.g
 async function togglePush() { try { const st = await App.push.state(); if (st === 'on') await App.push.disable(); else await App.push.enable(); App.toast(st === 'on' ? 'Phone alerts off' : 'Phone alerts on ✓'); } catch (e) { alert(e.message); } refreshPush(); }
 document.addEventListener('app-installable', () => (document.getElementById('inst').style.display = ''));
 if (App.installEvt) document.getElementById('inst').style.display = '';
+const DESK = /[/]desk[/]?$/.test(location.pathname);
+if (DESK) { document.addEventListener('DOMContentLoaded', () => { const t = document.querySelector('.ttl'); if (t) t.textContent = 'Online desk'; }); }
 function start() { document.getElementById('who').textContent = App.who() ? '· ' + App.who() : ''; refreshPush(); App.connect({ t: 'join', role: 'captain' }, {
   render(m) { if (m) S = m; render(); },
   alert(m) {
+    { const tk = /^(TA|DL)-/.test(String(m.tableNumber || '')); if (DESK ? !tk : tk && ((S && S.config.settings.online) || {}).desk) return; }
     beep(m.kind);
     try { navigator.vibrate && navigator.vibrate(m.kind === 'urgent' ? [250, 100, 250, 100, 250] : [180, 80, 180]); } catch {}
     const b = document.createElement('div'); b.className = 'banner ' + (m.kind === 'urgent' ? 'urgent' : m.kind === 'check' ? 'check' : '');
@@ -143,17 +146,18 @@ function render() {
   if (!S) return;
   const cfg = S.config, F = App.floor();
   document.getElementById('sim').classList.toggle('sel', !!S.simulate);
-  const sessions = Object.values(S.sessions);
+  // /desk shows only pickup and delivery tickets; with the owner's 'separate screen' switch the floor view hides them
+  const sessions = Object.values(S.sessions).filter((s) => (DESK ? !!s.kind : !(cfg.settings.online || {}).desk || !s.kind));
   const orders = sessions.flatMap((s) => s.orders.filter((o) => o.status !== 'closed').map((o) => ({ s, o }))).sort((a, b) => a.o.at - b.o.at);
   const reqs = sessions.flatMap((s) => s.requests.filter((r) => !r.done).map((r) => ({ s, r }))).sort((a, b) => a.r.at - b.r.at);
   const rev = sessions.reduce((n, s) => n + s.bill.total, 0);
   const tks = sessions.filter((s) => s.kind), tbls = sessions.length - tks.length;
   document.getElementById('stats').textContent = `${tbls}/${cfg.tables.length} tables${tks.length ? ' · ' + tks.length + ' takeaway/delivery' : ''} · ${orders.length} orders · ${App.money(rev)}`;
   document.getElementById('tickets').innerHTML = tks.map((s) => `<button class="tk" onclick="openT('${s.tableId}')"><b>${s.kind === 'delivery' ? '🛵' : '🛍️'} ${App.esc(s.tableNumber)}${s.customer && s.customer.name ? ' · ' + App.esc(s.customer.name) : ''}</b><small>${s.orders.reduce((n, o) => n + o.items.reduce((m, i) => m + i.qty, 0), 0)} items · ${App.money(s.bill.total)} · ${mins(s.startedAt)}</small></button>`).join('');
-  document.title = (reqs.length ? `(${reqs.length}) ` : '') + 'Captain';
+  document.title = (reqs.length ? `(${reqs.length}) ` : '') + (DESK ? 'Online desk' : 'Captain');
   const stage = document.getElementById('stage');
   stage.style.setProperty('--cols', F.cols); stage.style.setProperty('--rows', F.rows); stage.style.aspectRatio = `${F.cols} / ${F.rows}`;
-  stage.style.display = listView ? 'none' : ''; document.getElementById('vwi').textContent = listView ? '🗺️' : '☰'; document.getElementById('vwl').textContent = listView ? 'Map' : 'List';
+  stage.style.display = listView || DESK ? 'none' : ''; document.getElementById('vwi').textContent = listView ? '🗺️' : '☰'; document.getElementById('vwl').textContent = listView ? 'Map' : 'List';
   let zl = document.getElementById('zones'); if (!zl) { zl = document.createElement('div'); zl.id = 'zones'; stage.after(zl); }
   zl.style.display = listView ? '' : 'none'; zl.innerHTML = listView ? zonesHTML(cfg) : '';
   if (!listView) stage.innerHTML = stageHTML(cfg);

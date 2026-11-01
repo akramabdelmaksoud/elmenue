@@ -18,7 +18,17 @@ function createTenant(rec, persist, onAlert) {
   const id = (p) => p + (uid++).toString(36);
   const save = () => persist(rec);
   const touch = () => (rec.lastActive = Date.now());
-  const rkey = () => Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6);
+  // unguessable tokens (table keys, guest ids, booking ids): crypto randomness, never the counter above
+  const rnd = (n) => { try { const a = new Uint8Array(n); globalThis.crypto.getRandomValues(a); return Array.from(a, (x) => (x % 36).toString(36)).join(''); } catch { let s = ''; while (s.length < n) s += Math.random().toString(36).slice(2); return s.slice(0, n); } };
+  const rid = (p) => p + rnd(12);
+  const rkey = () => rnd(12);
+  // what each kind of screen may read from the settings: no AI notes or fiscal setup for guests and floor staff, no wifi password or payment details for the open web
+  const settingsFor = (role, open) => {
+    const s = db.settings; if (role === 'admin') return s;
+    const o = { ...s }; delete o.ai; if (o.eta) o.eta = { enabled: !!o.eta.enabled }; if (o.fb) o.fb = { enabled: !!o.fb.enabled }; if (o.onlinePay) o.onlinePay = { enabled: !!o.onlinePay.enabled };
+    if (open) { delete o.wifiPass; delete o.instapay; }
+    return o;
+  };
   // Every table gets a secret key that is printed inside its QR code; returns true if anything was added
   function ensure() {
     let ch = false;
@@ -310,7 +320,7 @@ const upDay = () => { const k = new Date().toISOString().slice(0, 10); return ((
 const upOn = () => F.has(rec, 'upsell') && db.settings.upsell && db.settings.upsell.enabled;
 function snapshotFor(c) {
   // the Google review link is only ever handed out by the feedback endpoint (4-5 stars), never inside the public config
-  const pubSettings = c.role === 'admin' || !db.settings.fb ? db.settings : { ...db.settings, fb: { enabled: !!db.settings.fb.enabled } };
+  const pubSettings = settingsFor(c.role, false);
   const config = { best: bestSellers(), settings: pubSettings, categories: db.categories, items: c.role === 'customer' ? db.items.map(({ cost, recipe, ...i }) => i) : db.items, tables: c.role === 'admin' ? db.tables : db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec), plan: F.planOf(rec.plan) };
   if (c.role !== 'customer') { config.reservations = (db.reservations || []).filter((r) => r.at > Date.now() - 3 * 3600000 && r.status !== 'declined'); config.waitlist = db.waitlist || []; }
   if (c.role === 'customer') {
@@ -359,7 +369,7 @@ function placeBooking(p) {
   if (wait) {
     if ((db.waitlist || []).some((w) => phoneKey(w.phone) === mine && w.status !== 'seated')) return { error: 'You are already on the waitlist', code: 'dupe' };
     if ((db.waitlist || []).length >= 60) return { error: 'The waitlist is full', code: 'full' };
-    const n = Math.max(0, ...(db.waitlist || []).map((w) => w.n || 0)) + 1, w = { id: id('wl'), n, name, phone, guests, note, at: now, status: 'waiting' };
+    const n = Math.max(0, ...(db.waitlist || []).map((w) => w.n || 0)) + 1, w = { id: rid('wl'), n, name, phone, guests, note, at: now, status: 'waiting' };
     db.waitlist.push(w); alertCaptains('order', 0, `Waitlist: ${name} (${guests}) joined as #${n}`); save(); broadcast();
     return { ok: 1, id: w.id, n, kind: 'wait' };
   }
@@ -370,7 +380,7 @@ function placeBooking(p) {
   if (!F.reserveHoursOk(cfg, at)) return { error: 'We are open ' + cfg.from + ' to ' + cfg.to, code: 'hours' };
   const cap = cfg.capacity || db.tables.length * 4, taken = live.filter((r) => Math.abs(r.at - at) < 90 * 60000).reduce((n, r) => n + (r.guests || 0), 0);
   if (taken + guests > cap) return { error: 'We are fully booked around that time. Try another time or join the waitlist.', code: 'full' };
-  const r = { id: id('rv'), tableId: null, tableNumber: '', name, phone, guests, at, note, status: 'pending', source: 'online', createdAt: now };
+  const r = { id: rid('rv'), tableId: null, tableNumber: '', name, phone, guests, at, note, status: 'pending', source: 'online', createdAt: now };
   db.reservations.push(r); db.reservations = db.reservations.filter((x) => x.at > now - 3 * 3600000).slice(-300);
   alertCaptains('order', 0, `New booking request: ${name} (${guests}) ${new Date(at).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`); save(); broadcast();
   return { ok: 1, id: r.id, kind: 'booking', at };
@@ -470,7 +480,7 @@ function handle(c, m) {
       if (!known && F.has(rec, 'geo') && F.geoLockCfg(db.settings).enabled && !(db.sessions[t.id] && db.sessions[t.id].staffSeated)) { const gc = F.geoCheck(db.settings, m.geo); if (!gc.ok) return c.ws.send(JSON.stringify({ t: 'error', msg: 'geo', code: gc.code, dist: gc.dist })); }
       const s = openSession(t); s.lastAt = Date.now(); s.idle = false;
       let g = s.guests.find((x) => x.id === m.guestId);
-      if (!g) { g = { id: id('g'), name: m.name || 'Guest', avatar: m.avatar || '🙂' }; s.guests.push(g); if (!s.host || !s.guests.some((x) => x.id === s.host)) s.host = g.id; log(s, 'join', `${g.avatar} ${g.name} joined${s.host === g.id ? ' (host)' : ''}`); }
+      if (!g) { g = { id: rid('g'), name: m.name || 'Guest', avatar: m.avatar || '🙂' }; s.guests.push(g); if (!s.host || !s.guests.some((x) => x.id === s.host)) s.host = g.id; log(s, 'join', `${g.avatar} ${g.name} joined${s.host === g.id ? ' (host)' : ''}`); }
       else { g.name = m.name || g.name; g.avatar = m.avatar || g.avatar; }
       c.guestId = g.id;
       c.ws.send(JSON.stringify({ t: 'you', guestId: g.id }));
@@ -840,7 +850,7 @@ function analytics(days = 7) {
     const r = F.copilot(q, { db, analytics, loyaltyStats, setLang: (l) => (db.settings.lang = l) });
     if (r.action) broadcast(); return r;
   }
-  const publicConfig = () => ({ settings: db.settings, categories: db.categories, items: db.items, tables: db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec), plan: F.planOf(rec.plan) });
+  const publicConfig = (asAdmin) => ({ settings: settingsFor(asAdmin ? 'admin' : 'guest', true), categories: db.categories, items: db.items, tables: db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec), plan: F.planOf(rec.plan) });
   return { placeBooking, bookingStatus, bookingAct, placeOnline, onlineStatus, applyOnline, notify: alertCaptains, rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
 }
 module.exports = { createTenant, freshData, clone };

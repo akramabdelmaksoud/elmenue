@@ -9,7 +9,7 @@ for (const mode of ['ws', 'rpc']) test(`F18 InstaPay and wallet at the table [${
   // plan gate + sanitising
   assert.equal((await B.api('POST', '/settings', { instapay: { enabled: true, handle: 'x@instapay' } })).s, 402);
   const sv = await T.api('POST', '/settings', { instapay: { enabled: true, handle: 'cafe@instapay<script>', phone: '010 1234 5678abc', wallet: 'Vodafone Cash', name: 'Café <b>X</b>', note: 'n'.repeat(500), qr: 'https://evil.example/x.png' } });
-  assert.equal(sv.s, 200); const ip = (await cfg()).settings.instapay;
+  assert.equal(sv.s, 200); const ip = (await T.api('GET', '/config')).j.settings.instapay; assert.equal((await cfg()).settings.instapay, undefined, 'payment details are not on the open web');
   assert.equal(ip.enabled, true); assert.ok(!/[<>]/.test(ip.handle + ip.name)); assert.equal(ip.phone, '010 1234 5678'); assert.equal(ip.note.length, 140); assert.equal(ip.qr, '', 'qr can only be an own uploaded image');
 
   // guest asks for the bill with InstaPay, says they paid

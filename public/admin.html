@@ -358,6 +358,7 @@ function onlineCard() {
   const link = location.origin + '/r/' + App.slug + '/order', num = (id, v, w) => '<input id="' + id + '" type="number" min="0" style="width:' + (w || 90) + 'px" value="' + v + '">';
   return '<div class="card"><h3>🌐 Online ordering (pickup + delivery)</h3><p class="muted" style="margin:0 0 8px">Guests order from their phone, you see it as a TA-/DL- ticket on the captain and kitchen screens. Payment is on receipt.</p>'
    + '<div class="row wrap" style="gap:14px"><label class="row" style="gap:6px"><input type="checkbox" style="width:auto" id="ol_en" ' + (o.enabled ? 'checked' : '') + '> Accept online orders</label><label class="row" style="gap:6px"><input type="checkbox" style="width:auto" id="ol_pk" ' + (o.pickup !== false ? 'checked' : '') + '> Pickup</label><label class="row" style="gap:6px"><input type="checkbox" style="width:auto" id="ol_dl" ' + (o.delivery ? 'checked' : '') + '> Delivery</label></div>'
+   + '<label class="row" style="gap:6px;margin-top:10px"><input type="checkbox" style="width:auto" id="ol_desk" ' + (o.desk ? 'checked' : '') + '> Handle pickup &amp; delivery on a separate screen (hide them from the floor captains). Open <b>' + location.origin + '/r/' + App.slug + '/desk</b> on that device.</label>'
    + '<div class="row wrap" style="gap:12px;margin-top:10px"><label class="muted">Minimum order ' + num('ol_min', o.minOrder) + '</label><label class="muted">Prep time (min) ' + num('ol_prep', o.prepMin, 70) + '</label>'
    + '<label class="muted">Delivery fee item <select id="ol_fee" style="width:auto"><option value="">None</option>' + App.config.items.map((i) => '<option value="' + i.id + '" ' + (i.id === o.feeItemId ? 'selected' : '') + '>' + App.esc(i.name) + ' (' + App.money(i.price) + ')</option>').join('') + '</select></label></div>'
    + '<div class="muted" style="font-size:12px;margin-top:4px">Tip: add a menu item called “Delivery fee” with your fee as its price, mark it sold out (so tables cannot order it), then pick it here. It is added automatically to delivery orders.</div>'
@@ -387,7 +388,7 @@ async function geoSave() {
   const r = await api('POST', '/api/settings', body); App.toast(r.error || 'Saved'); if (!r.error) reportsTab();
 }
 async function onlineSave() {
-  const v = (id) => document.getElementById(id), r = await api('POST', '/api/settings', { online: { enabled: v('ol_en').checked, pickup: v('ol_pk').checked, delivery: v('ol_dl').checked, minOrder: +v('ol_min').value || 0, prepMin: +v('ol_prep').value || 20, feeItemId: v('ol_fee').value, note: v('ol_note').value, zones: (App.config.settings.online || {}).zones || [] } });
+  const v = (id) => document.getElementById(id), r = await api('POST', '/api/settings', { online: { enabled: v('ol_en').checked, pickup: v('ol_pk').checked, delivery: v('ol_dl').checked, minOrder: +v('ol_min').value || 0, prepMin: +v('ol_prep').value || 20, feeItemId: v('ol_fee').value, note: v('ol_note').value, zones: (App.config.settings.online || {}).zones || [], desk: v('ol_desk').checked } });
   App.toast(r.error || 'Saved'); if (!r.error) reportsTab();
 }
 /* ---------------- Insights: peaks / drops, captain logs, review analysis, suggestions ---------------- */
