@@ -523,14 +523,14 @@ function needStaff(req, res, next) {
 // A closed shift (Z report) is immutable: nothing below edits rec.shifts.list entries, and Z numbers come from the persistent counter rec.zSeq.
 const needCash = (req, res, next) => needStaff(req, res, () => (['admin', 'cashier', 'super'].includes(req.claims.r) ? next() : res.status(403).json({ error: 'forbidden' })));
 const r2 = (n) => Math.round((+n || 0) * 100) / 100;
-const METHODS = ['cash', 'card', 'online', 'gift'];
+const METHODS = ['cash', 'card', 'online', 'gift', 'instapay', 'wallet'];
 // Everything a shift report shows, computed from the closed sessions of the period (unpaid clears are excluded from revenue, as everywhere else)
 function shiftReport(t, from, to, hist) {
   const all = hist.filter((h) => h.closedAt >= from && h.closedAt <= to), H = all.filter((h) => !h.unpaid);
   const sum = (f) => r2(H.reduce((n, h) => n + (f(h) || 0), 0)), by = Object.fromEntries(METHODS.map((m) => [m, 0])), kinds = {}, items = {}, voids = [];
   H.forEach((h) => {
     const p = h.pay || {};
-    if (h.method === 'online') by.online += h.total; else if (h.method === 'gift') by.gift += h.total; else { by.cash += p.cash || 0; by.card += p.card || 0; by.online += p.online || 0; by.gift += p.gift || 0; }
+    if (h.method === 'online') by.online += h.total; else if (h.method === 'gift') by.gift += h.total; else { by.cash += p.cash || 0; by.card += p.card || 0; by.online += p.online || 0; if (p.digital) by[p.via === 'wallet' ? 'wallet' : 'instapay'] += p.digital; by.gift += p.gift || 0; }
     const k = (kinds[h.kind || 'table'] ||= { count: 0, total: 0 }); k.count++; k.total = r2(k.total + h.total);
     (h.items || []).forEach((l) => { const x = (items[l.name] ||= { name: l.name, qty: 0, revenue: 0 }); x.qty += l.qty; x.revenue = r2(x.revenue + l.qty * l.price); });
     (h.voids || []).forEach((v) => voids.push({ table: h.tableNumber, name: v.name, qty: v.qty, value: r2(v.qty * v.price), reason: v.reason || '', waste: !!v.waste, by: v.by || '' }));
@@ -644,7 +644,7 @@ app.post(`${R}/feedback`, tenantMw, async (req, res, next) => { try {
 // ----- Admin API (owner of this restaurant, or superadmin) -----
 // The public showroom hands out an admin token to anyone, so it must not reach anything that costs money or stores files:
 // uploads, AI calls, payment/e-invoice settings, staff and account changes.
-const SHOW_DENY = /\/(image|hero-image|menu\/ocr|menu\/import|copilot|insights\/ai|pay\/config|eta|staff|account|loyalty\/adjust)(\/|$)/;
+const SHOW_DENY = /\/(image|hero-image|pay-qr|menu\/ocr|menu\/import|copilot|insights\/ai|pay\/config|eta|staff|account|loyalty\/adjust)(\/|$)/;
 const showGuard = (req, res, next) => (req.tenant.rec.showroom && req.method !== 'GET' && SHOW_DENY.test(req.path) ? res.status(403).json({ error: 'Not available in the demo' }) : next());
 const A = (m, p, ...h) => app[m](`${R}${p}`, tenantMw, needAdmin, showGuard, ...h);
 const bc = (req) => req.tenant.broadcast();
@@ -726,9 +726,9 @@ app.get(`${R}/receipts`, tenantMw, needCash, async (req, res) => { const hist = 
 async function reportFor(t, from, to) {
   const hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history;
   const H = hist.filter((h) => h.closedAt >= from && h.closedAt <= to && !h.unpaid);
-  const sum = (a, f) => a.reduce((n, x) => n + f(x), 0), cats = {}, items = {}, hours = Array(24).fill(0), methods = { cash: 0, card: 0, online: 0 }, splits = {}, byWho = {}, salesBy = {}, kinds = {}; let voidN = 0, voidV = 0, wasteV = 0;
+  const sum = (a, f) => a.reduce((n, x) => n + f(x), 0), cats = {}, items = {}, hours = Array(24).fill(0), methods = { cash: 0, card: 0, online: 0, digital: 0 }, splits = {}, byWho = {}, salesBy = {}, kinds = {}; let voidN = 0, voidV = 0, wasteV = 0;
   H.forEach((h) => {
-    methods.cash += h.pay ? h.pay.cash : h.method === 'cash' ? h.total : 0; methods.card += h.pay ? h.pay.card : h.method === 'card' ? h.total : 0; methods.online += h.pay ? h.pay.online || 0 : 0; splits[h.split] = (splits[h.split] || 0) + 1; hours[new Date(h.startedAt).getHours()]++;
+    methods.cash += h.pay ? h.pay.cash : h.method === 'cash' ? h.total : 0; methods.card += h.pay ? h.pay.card : h.method === 'card' ? h.total : 0; methods.online += h.pay ? h.pay.online || 0 : 0; methods.digital += h.pay ? h.pay.digital || 0 : 0; splits[h.split] = (splits[h.split] || 0) + 1; hours[new Date(h.startedAt).getHours()]++;
     if (h.closedBy) { byWho[h.closedBy] = (byWho[h.closedBy] || 0) + 1; salesBy[h.closedBy] = (salesBy[h.closedBy] || 0) + h.total; }
     kinds[h.kind || 'table'] = (kinds[h.kind || 'table'] || 0) + h.total; (h.voids || []).forEach((v) => { voidN += v.qty; voidV += v.qty * v.price; if (v.waste) wasteV += v.qty * v.price; });
     h.items.forEach((l) => {
@@ -755,7 +755,7 @@ A('get', '/report.xlsx', async (req, res) => {
   const money = (n) => Math.round(n * 100) / 100;
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
     [r.name + ' - sales report'], ['From', d(f)], ['To', d(t2)], [], ['Table sessions', r.sessions], ['Guests', r.guests], ['Gross sales (before service/tax)', money(r.gross)], ['Discounts given', money(r.discounts)], ['Voided items (value)', money(r.voids.value)], ['Estimated profit (after discounts)', money(r.profit)], ['Service charge', money(r.service)], ['Tax collected', money(r.tax)], ['Tips', money(r.tips)], ['Total collected', money(r.total)],
-    ['Cash', money(r.methods.cash || 0)], ['Card', money(r.methods.card || 0)], ['Average ticket', money(r.avgTicket)], ['Average minutes at table', Math.round(r.avgMinutes)], ['Currency', r.currency], ['Guest rating (avg)', r.reviews.count ? Math.round(r.reviews.avg * 10) / 10 : 'n/a'],
+    ['Cash', money(r.methods.cash || 0)], ['Card', money(r.methods.card || 0)], ['InstaPay / wallet', money(r.methods.digital || 0)], ['Average ticket', money(r.avgTicket)], ['Average minutes at table', Math.round(r.avgMinutes)], ['Currency', r.currency], ['Guest rating (avg)', r.reviews.count ? Math.round(r.reviews.avg * 10) / 10 : 'n/a'],
   ]), 'Summary');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.sessionsList.map((x) => ({ Table: x.table, Guests: x.guests, Opened: d(x.opened), Closed: d(x.closed), Minutes: x.minutes, Type: x.kind, Subtotal: money(x.sub), Discount: money(x.discount), Service: money(x.service), Tax: money(x.tax), Tip: money(x.tip), Total: money(x.total), Payment: x.method, Cash: money(x.cash), Card: money(x.card), Split: x.split, 'Closed by': x.closedBy }))), 'Sessions');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.items.map((x) => ({ Item: x.name, Category: x.category, Quantity: x.qty, Revenue: money(x.revenue), Profit: money(x.profit) }))), 'Items');
@@ -791,6 +791,7 @@ A('post', '/settings', (req, res) => {
     b.eta = { enabled: !!b.eta.enabled, env };
   }
   if (b.onlinePay) { if (!F.has(req.tenant.rec, 'onlinepay')) return res.status(402).json({ error: 'Online payments need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); const p = b.onlinePay.provider === 'paymob' ? 'paymob' : 'sandbox'; if (p === 'sandbox' && b.onlinePay.enabled && !PAY.sandboxAllowed(req.tenant.rec.slug)) return res.status(400).json({ error: 'The test gateway is not allowed on a live venue - connect Paymob' }); if (p === 'paymob' && b.onlinePay.enabled && !(req.tenant.rec.payCfg && req.tenant.rec.payCfg.apiKey && req.tenant.rec.payCfg.hmac && req.tenant.rec.payCfg.integrationId && req.tenant.rec.payCfg.iframeId)) return res.status(400).json({ error: 'Save your Paymob keys first' }); b.onlinePay = { enabled: !!b.onlinePay.enabled, provider: p }; }
+  if (b.instapay) { if (!F.has(req.tenant.rec, 'instapay')) return res.status(402).json({ error: 'InstaPay & wallet payment needs the ' + F.PLANS[F.minPlanFor('instapay')].name + ' plan', upgrade: F.minPlanFor('instapay') }); const cur = req.tenant.db.settings.instapay || {}; b.instapay = F.ipClean({ ...b.instapay, qr: cur.qr || '' }); }
   if (b.promo) { if (!F.has(req.tenant.rec, 'coupons')) return res.status(402).json({ error: 'Coupons & offers need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.promo = { enabled: !!b.promo.enabled, stack: !!b.promo.stack }; }
   if ('refreshMin' in b) b.refreshMin = [0, 5, 15, 30, 60, 120, 360].includes(+b.refreshMin) ? +b.refreshMin : 60;
   if (b.ai) { if (!F.has(req.tenant.rec, 'copilot')) return res.status(402).json({ error: 'The AI assistant needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const a = F.aiCfg({ ai: b.ai }); b.ai = { name: a.name, style: a.style, memory: a.memory.map((m) => ({ ...m, id: m.id || Math.random().toString(36).slice(2, 9), at: m.at || Date.now() })) }; }
@@ -837,6 +838,8 @@ const putImage = async (req, res, label) => {
 };
 A('post', '/categories/:id/image', upLimit, upload.single('image'), async (req, res) => { const c = req.tenant.db.categories.find((x) => x.id === req.params.id); if (!c) return res.status(404).json({ error: 'not found' }); const u = await putImage(req, res, 'c' + c.id); if (!u) return; c.img = u; bc(req); res.json({ ok: 1 }); });
 A('delete', '/categories/:id/image', (req, res) => { const c = req.tenant.db.categories.find((x) => x.id === req.params.id); if (c) c.img = ''; bc(req); res.json({ ok: 1 }); });
+A('post', '/pay-qr', upLimit, (req, res, next) => (F.has(req.tenant.rec, 'instapay') ? next() : res.status(402).json({ error: 'InstaPay & wallet payment is not in this plan', upgrade: F.minPlanFor('instapay') })), upload.single('image'), async (req, res) => { const u = await putImage(req, res, 'payqr'); if (!u) return; const st = req.tenant.db.settings; st.instapay = F.ipClean({ ...(st.instapay || {}), qr: u }); bc(req); res.json({ ok: 1, qr: u }); });
+A('delete', '/pay-qr', (req, res) => { const st = req.tenant.db.settings; if (st.instapay) st.instapay.qr = ''; bc(req); res.json({ ok: 1 }); });
 A('post', '/hero-image', upLimit, upload.single('image'), async (req, res) => { const u = await putImage(req, res, 'hero'); if (!u) return; req.tenant.db.settings.heroImg = u; bc(req); res.json({ ok: 1 }); });
 A('delete', '/hero-image', (req, res) => { req.tenant.db.settings.heroImg = ''; bc(req); res.json({ ok: 1 }); });
 app.get(`${R}/img/:key`, async (req, res) => {

@@ -88,6 +88,7 @@ function createTenant(rec, persist, onAlert) {
   function settle(method, total, pay) {
     pay = pay || {};
     if (method === 'card') return { cash: 0, card: total, tendered: 0, change: 0 };
+    if (F.DIGITAL.includes(method)) return { cash: 0, card: 0, digital: total, via: method, tendered: 0, change: 0 };   // InstaPay / wallet: money is in the bank, not the drawer
     if (method === 'mixed') {
       const card = +Math.min(total, Math.max(0, +pay.card || 0)).toFixed(2), cash = +(total - card).toFixed(2), tendered = Math.max(cash, +pay.tendered || cash);
       return { cash, card, tendered, change: +(tendered - cash).toFixed(2) };
@@ -194,7 +195,7 @@ function closeSession(t, method, who, pay) {
   const tip = pay && pay.tip !== undefined && pay.tip !== null && pay.tip !== '' ? Math.max(0, +(+pay.tip).toFixed(2)) : Math.max((s.online || []).reduce((n, x) => n + (x.tip || 0), 0), Math.round(b.net * (s.check?.tipPct || 0) / 100));
   const total = +(b.total + tip).toFixed(2), giftUsed = m0 => m0 === 'unpaid' ? 0 : Math.min(b.gift || 0, total);
   const onlineAll = +(s.online || []).reduce((n, x) => n + x.amount, 0).toFixed(2), onlineTips = +(s.online || []).reduce((n, x) => n + (x.tip || 0), 0).toFixed(2);
-  const m = ['cash', 'card', 'mixed', 'unpaid', 'online'].includes(method) ? method : (s.check?.method || 'cash');
+  const m = ['cash', 'card', 'mixed', 'unpaid', 'online', 'instapay', 'wallet'].includes(method) ? method : (s.check?.method || 'cash');
   const gUsed = giftUsed(m), onlineUsed = +Math.min(onlineAll, total - gUsed).toFixed(2), payTotal = +(total - gUsed - onlineUsed).toFixed(2);
   if (m !== 'unpaid' && s.orders.length) {
     if (b.couponCode) { const cp = db.coupons.find((x) => x.code === b.couponCode); if (cp) { cp.uses = (cp.uses || 0) + 1; cp.saved = +((cp.saved || 0) + b.promoCoupon).toFixed(2); } }
@@ -513,9 +514,17 @@ function handle(c, m) {
         alertCaptains(m.type === 'urgent' || m.type === 'waiter' ? 'urgent' : 'request', t.number, `Table ${t.number}: ${labels[m.type]}`);
         break;
       }
+      case 'pay_claim': {   // the guest says they sent the money (InstaPay / wallet); the cashier still confirms before the table closes
+        if (!F.has(rec, 'instapay') || !F.ipCfg(db.settings).enabled || !s || !s.orders.length || !F.DIGITAL.includes(m.method)) break;
+        const ref = String(m.ref || '').replace(/[^\w\- .#]/g, '').trim().slice(0, 40), g = s.guests.find((x) => x.id === c.guestId);
+        s.payClaim = { method: m.method, ref, by: c.guestId, name: g ? g.name : '', at: Date.now(), amount: +(+m.amount || 0).toFixed(2) };
+        log(s, 'check', `Guest says paid by ${m.method}${ref ? ' ref ' + ref : ''}`);
+        alertCaptains('check', t.number, `Table ${t.number}: guest says paid by ${m.method === 'wallet' ? 'wallet' : 'InstaPay'}${ref ? ' (' + ref + ')' : ''} - please confirm`);
+        break;
+      }
       case 'check': {
         if (!s.orders.length) break;
-        s.check = { method: m.method === 'card' ? 'card' : 'cash', split: ['self', 'table', 'custom'].includes(m.split) ? m.split : 'table', tipPct: +m.tipPct || 0, custom: m.custom || null, by: c.guestId, at: Date.now() };
+        s.check = { method: ['card', 'instapay', 'wallet'].includes(m.method) && (m.method === 'card' || (F.has(rec, 'instapay') && F.ipCfg(db.settings).enabled)) ? m.method : 'cash', split: ['self', 'table', 'custom'].includes(m.split) ? m.split : 'table', tipPct: +m.tipPct || 0, custom: m.custom || null, by: c.guestId, at: Date.now() };
         if (!s.requests.some((r) => r.type === 'bill' && !r.done)) s.requests.push({ id: id('r'), type: 'bill', at: Date.now(), done: false });
         log(s, 'check', `Check requested (${s.check.split}, ${s.check.method})`);
         alertCaptains('check', t.number, `Table ${t.number} requests the check (${s.check.method}, ${s.check.split})`);
@@ -693,7 +702,7 @@ function analytics(days = 7) {
   const HD = HB('details');
   const revenue = {
     gross: sum(HD, (h) => h.sub), service: sum(HD, (h) => h.service), tax: sum(HD, (h) => h.tax), tips: sum(HD, (h) => h.tip), total: sum(HD, (h) => h.total),
-    online: sum(HD, (h) => (h.pay ? h.pay.online || 0 : 0)), gift: sum(HD, (h) => (h.pay ? h.pay.gift || 0 : 0)), cash: sum(HD, (h) => (h.pay ? h.pay.cash : h.method === 'cash' ? h.total : 0)), card: sum(HD, (h) => (h.pay ? h.pay.card : h.method === 'card' ? h.total : 0)), discounts: sum(HD, (h) => h.discount || 0), sessions: HD.length,
+    online: sum(HD, (h) => (h.pay ? h.pay.online || 0 : 0)), gift: sum(HD, (h) => (h.pay ? h.pay.gift || 0 : 0)), digital: sum(HD, (h) => (h.pay ? h.pay.digital || 0 : 0)), cash: sum(HD, (h) => (h.pay ? h.pay.cash : h.method === 'cash' ? h.total : 0)), card: sum(HD, (h) => (h.pay ? h.pay.card : h.method === 'card' ? h.total : 0)), discounts: sum(HD, (h) => h.discount || 0), sessions: HD.length,
   };
   const itemMap = {}, catMap = {};
   const item = (h, l) => {

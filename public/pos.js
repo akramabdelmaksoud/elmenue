@@ -10,6 +10,7 @@ const PX = (() => {
   const close = () => { PO = null; PY = null; host().innerHTML = ''; };
   const head = (t) => `<div class="spread"><h2>${t}</h2><button onclick="PX.close()" aria-label="close">✕</button></div>`;
   const item = (id) => S.config.items.find((i) => i.id === id);
+  const dgOn = (k) => { const f = App.config.features || {}, i = (App.config.settings || {}).instapay || {}; return !!(f.instapay && i.enabled && i[k]); };
   const waitFor = (cond, fn) => { let n = 0; const t = setInterval(() => { if (cond()) { clearInterval(t); fn(); } else if (++n > 40) clearInterval(t); }, 150); };
 
   /* ---------- order taking ---------- */
@@ -77,9 +78,10 @@ const PX = (() => {
     const tip = PY.tipCustom !== null ? Math.max(0, +PY.tipCustom || 0) : Math.round(b.net * PY.tipPct / 100), onl = (s.online || []).reduce((n, x) => n + x.amount, 0), total = r2(Math.max(0, b.total + tip - (b.gift || 0) - Math.min(onl, b.total + tip - (b.gift || 0))));   // a gift card and any online payment already received pay part of the bill
     let pay;
     if (PY.method === 'card') pay = { cash: 0, card: total, tendered: 0, change: 0 };
+    else if (PY.method === 'instapay' || PY.method === 'wallet') pay = { cash: 0, card: 0, digital: total, via: PY.method, tendered: 0, change: 0 };
     else if (PY.method === 'mixed') { const card = r2(Math.min(total, Math.max(0, +PY.card || 0))), cash = r2(total - card), tendered = Math.max(cash, +PY.tendered || cash); pay = { cash, card, tendered, change: r2(tendered - cash) }; }
     else { const tendered = Math.max(total, +PY.tendered || total); pay = { cash: total, card: 0, tendered, change: r2(tendered - total) }; }
-    const due = PY.method === 'card' ? 0 : pay.cash, short = PY.method !== 'card' && (+PY.tendered || 0) > 0 && +PY.tendered < due;
+    const noCash = PY.method === 'card' || PY.method === 'instapay' || PY.method === 'wallet', due = noCash ? 0 : pay.cash, short = !noCash && (+PY.tendered || 0) > 0 && +PY.tendered < due;
     return { s, b, tip, total, pay, short };
   }
   function totalsHTML() {
@@ -100,9 +102,10 @@ const PX = (() => {
         <button class="ghost" onclick="PX.applyDisc()">Apply</button>${s.discount ? '<button class="ghost" onclick="PX.removeDisc()">Remove</button>' : ''}</div>
       ${(App.config.features || {}).coupons || (App.config.features || {}).giftcards ? `<h3>Code / gift card</h3><div class="row wrap"><input id="pcp" placeholder="Coupon code" style="width:150px;text-transform:uppercase" value="${E(s.coupon || '')}"><button class="ghost" onclick="PX.coupon()">Apply</button>${s.coupon ? '<button class="ghost" onclick="PX.couponOff()">Remove</button>' : ''}<input id="pgf" placeholder="Gift card code" style="width:190px;text-transform:uppercase" value="${E(s.gift || '')}"><button class="ghost" onclick="PX.giftOn()">Redeem</button>${s.gift ? '<button class="ghost" onclick="PX.giftOff()">Remove</button>' : ''}</div>` : ''}
       <h3>Tip</h3><div class="row wrap">${[0, 5, 10, 15].map((p) => chip(PY.tipCustom === null && PY.tipPct === p, `PX.tip(${p})`, p + '%')).join('')}<input id="ptc" type="number" min="0" step="any" placeholder="Custom" style="width:100px" value="${PY.tipCustom === null ? '' : PY.tipCustom}" oninput="PX.tipC(this.value)"></div>
-      <h3>Payment</h3><div class="row wrap">${chip(PY.method === 'cash', "PX.method('cash')", '💵 Cash')}${chip(PY.method === 'card', "PX.method('card')", '💳 Card')}${chip(PY.method === 'mixed', "PX.method('mixed')", '➗ Cash + card')}</div>
+      <h3>Payment</h3><div class="row wrap">${chip(PY.method === 'cash', "PX.method('cash')", '💵 Cash')}${chip(PY.method === 'card', "PX.method('card')", '💳 Card')}${chip(PY.method === 'mixed', "PX.method('mixed')", '➗ Cash + card')}${dgOn('handle') ? chip(PY.method === 'instapay', "PX.method('instapay')", '📲 InstaPay') : ''}${dgOn('phone') ? chip(PY.method === 'wallet', "PX.method('wallet')", '📱 ' + E((App.config.settings.instapay || {}).wallet || 'Wallet')) : ''}</div>
+      ${s.payClaim ? `<div class="card" style="margin-top:8px;border-color:var(--accent)">🔔 ${E(s.payClaim.name || 'Guest')} says they paid by <b>${s.payClaim.method === 'wallet' ? 'wallet' : 'InstaPay'}</b>${s.payClaim.ref ? ' · ref <b>' + E(s.payClaim.ref) + '</b>' : ''}${s.payClaim.amount ? ' · ' + M(s.payClaim.amount) : ''}<br><small class="muted">Check your InstaPay / wallet app, then confirm below.</small></div>` : ''}
       ${PY.method === 'mixed' ? `<div class="field" style="margin-top:8px"><label>Card amount</label><input id="pcd" type="number" min="0" step="any" value="${PY.card}" oninput="PX.setv('card',this.value)"></div>` : ''}
-      ${PY.method !== 'card' ? `<div class="field" style="margin-top:8px"><label>Cash received</label><input id="pcv" type="number" min="0" step="any" placeholder="exact" value="${PY.tendered}" oninput="PX.setv('tendered',this.value)"></div><div class="row wrap">${quick.map((q) => `<button class="ghost" onclick="PX.cash(${q})">${M(q)}</button>`).join('')}</div>` : ''}
+      ${!(PY.method === 'card' || PY.method === 'instapay' || PY.method === 'wallet') ? `<div class="field" style="margin-top:8px"><label>Cash received</label><input id="pcv" type="number" min="0" step="any" placeholder="exact" value="${PY.tendered}" oninput="PX.setv('tendered',this.value)"></div><div class="row wrap">${quick.map((q) => `<button class="ghost" onclick="PX.cash(${q})">${M(q)}</button>`).join('')}</div>` : ''}
       <div id="pytot">${totalsHTML()}</div>
       <div class="row wrap" style="margin-top:8px"><label class="row" style="gap:6px"><input type="checkbox" ${PY.print ? 'checked' : ''} onchange="PX.setv('print',this.checked)" style="width:auto"> Print receipt</label><button class="ghost" onclick="PX.printBill()">🖨 Print bill only</button></div>`);
   }

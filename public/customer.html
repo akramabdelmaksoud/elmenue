@@ -651,7 +651,7 @@ function billTab(cfg, s) {
   let due = base.total + tipOf(pay.split === 'self' ? my.sub : b.net);
   if (pay.split === 'custom') due = +pay.custom[me.id] || 0;
   const sum = pay.split === 'custom' ? G.reduce((n, g) => n + (+pay.custom[g.id] || 0), 0) : 0;
-  const withTip = b.total + tipOf(b.net), st = cfg.settings;
+  const withTip = b.total + tipOf(b.net), st = cfg.settings, ip = (cfg.features || {}).instapay && st.instapay && st.instapay.enabled ? st.instapay : null;
   return `<h2 class="ptitle rise">${App.tr('sessionTotal')}</h2>
   ${G.map((g, k) => { const x = b.byGuest[g.id] || { sub: 0, service: 0, tax: 0, total: 0, items: [] }; return `<div class="c li guestbill rise" style="--i:${k + 1}"><div class="row2"><b style="font-size:16px"><span style="font-size:22px">${g.avatar}</span> ${App.esc(g.name)}${g.id === me.id ? ' · ' + App.tr('youLabel') : ''}</b><b class="serif" style="font-size:19px">${App.money(x.total)}</b></div>
    ${x.items.map((i) => `<div class="line muted"><span>${i.qty}× ${App.esc(App.nm(i))}</span><span>${App.money(i.price * i.qty)}</span></div>`).join('')}</div>`; }).join('')}
@@ -664,10 +664,22 @@ function billTab(cfg, s) {
   <div class="h3">${App.tr('bill')}</div><div class="seg"><button class="rp ${pay.split === 'self' ? 'on' : ''}" onclick="pay.split='self';draw(true)">👤 ${App.tr('payMine')}</button><button class="rp ${pay.split === 'table' ? 'on' : ''}" onclick="pay.split='table';draw(true)">👥 ${App.tr('payTable')}</button><button class="rp ${pay.split === 'custom' ? 'on' : ''}" onclick="pay.split='custom';draw(true)">✂️ ${App.tr('payCustom')}</button></div>
   ${pay.split === 'custom' ? `<div class="c li" style="margin-top:12px"><p class="muted" style="margin:0 0 8px">${App.tr('assign')}</p>${G.map((g) => `<div class="row" style="margin-bottom:8px;gap:10px"><span style="font-size:22px">${g.avatar}</span><span style="flex:1">${App.esc(g.name)}</span><input type="number" style="width:120px;border-radius:14px" value="${pay.custom[g.id] ?? ''}" placeholder="${Math.round(withTip / G.length)}" onchange="pay.custom['${g.id}']=this.value;draw(true)"></div>`).join('')}
    <div class="muted">${App.money(sum)} / ${App.money(withTip)}</div><button class="lnk" style="margin-top:6px" onclick="splitEq(${withTip})">= ${App.tr('perPerson')}</button></div>` : ''}
-  <div class="seg" style="margin-top:12px"><button class="rp ${pay.method === 'cash' ? 'on' : ''}" onclick="pay.method='cash';draw(true)">💵 ${App.tr('cash')}</button><button class="rp ${pay.method === 'card' ? 'on' : ''}" onclick="pay.method='card';draw(true)">💳 ${App.tr('card')}</button></div>
+  <div class="seg" style="margin-top:12px"><button class="rp ${pay.method === 'cash' ? 'on' : ''}" onclick="pay.method='cash';draw(true)">💵 ${App.tr('cash')}</button><button class="rp ${pay.method === 'card' ? 'on' : ''}" onclick="pay.method='card';draw(true)">💳 ${App.tr('card')}</button>${ip && ip.handle ? `<button class="rp ${pay.method === 'instapay' ? 'on' : ''}" onclick="pay.method='instapay';draw(true)">📲 InstaPay</button>` : ''}${ip && ip.phone ? `<button class="rp ${pay.method === 'wallet' ? 'on' : ''}" onclick="pay.method='wallet';draw(true)">📱 ${App.esc(ip.wallet || 'Wallet')}</button>` : ''}</div>
+  ${ip && (pay.method === 'instapay' || pay.method === 'wallet') ? digitalBox(ip, s, due) : ''}
   <div class="c due"><span>${App.tr('total_due')}</span><span class="bigp" style="color:var(--accent)">${cnt(due, 'due')}</span></div>
   ${s.check ? `<div class="c li gold" style="text-align:center;line-height:1.7">${checkBanner(s)}<br>✅ ${App.tr('checkSent')}<br><button class="lnk" style="margin-top:8px" onclick="App.send({t:'check_cancel'})">${App.tr('cancel')}</button></div>`
    : `<button class="send rp" onclick="App.send({t:'check',method:pay.method,split:pay.split,tipPct:pay.tip,custom:pay.custom});burstAt(this)">${ic('receipt')}${App.tr('reqBill')}</button>`}`;
+}
+const DG = { en: { title: 'Pay by', send: 'Send', to: 'to', copy: 'Copy', copied: 'Copied', ref: 'Transfer reference (optional)', paid: "I've paid", sent: 'Thanks! Your cashier will confirm shortly.', how: 'Send the amount, then tap the button so the cashier knows.', name: 'Account name' },
+  ar: { title: 'الدفع عبر', send: 'حوّل', to: 'إلى', copy: 'نسخ', copied: 'تم النسخ', ref: 'رقم العملية (اختياري)', paid: 'تم الدفع', sent: 'شكراً! الكاشير هيأكد الدفع حالاً.', how: 'حوّل المبلغ ثم اضغط الزر عشان الكاشير يعرف.', name: 'اسم الحساب' } };
+function digitalBox(ip, s, due) {
+  const L = DG[App.lang === 'ar' ? 'ar' : 'en'], isW = pay.method === 'wallet', dest = isW ? ip.phone : ip.handle, label = isW ? (ip.wallet || 'Wallet') : 'InstaPay', claim = s.payClaim;
+  return `<div class="c li gold" style="text-align:center;line-height:1.7"><b>${L.title} ${App.esc(label)}</b><br>${L.send} <b class="bigp" style="color:var(--accent)">${App.money(due)}</b> ${L.to}
+   <div style="font-size:20px;font-weight:700;direction:ltr;margin:4px 0">${App.esc(dest)}</div>${ip.name ? `<div class="muted">${L.name}: ${App.esc(ip.name)}</div>` : ''}
+   ${ip.qr ? `<img src="${App.esc(ip.qr)}" alt="QR" style="width:200px;max-width:70%;border-radius:12px;background:#fff;padding:6px;margin:8px auto;display:block">` : ''}
+   <button class="lnk" onclick="navigator.clipboard && navigator.clipboard.writeText('${App.esc(dest).replace(/'/g, '')}').then(() => App.toast('${L.copied}'))">${L.copy}</button>
+   ${ip.note ? `<div class="muted" style="font-size:13px">${App.esc(ip.note)}</div>` : ''}
+   ${claim && claim.by === me.id ? `<div style="margin-top:8px;color:var(--ok)">✅ ${L.sent}</div>` : `<p class="muted" style="font-size:13px;margin:8px 0">${L.how}</p><input id="dgref" maxlength="40" placeholder="${L.ref}" style="border-radius:14px;text-align:center"><button class="send rp" style="margin-top:8px" onclick="App.send({t:'pay_claim',method:pay.method,ref:document.getElementById('dgref').value,amount:${+due.toFixed(2)}});App.toast('${L.sent}')">${L.paid}</button>`}</div>`;
 }
 function splitEq(total) { const n = S.session.guests.length; S.session.guests.forEach((g) => (pay.custom[g.id] = Math.round(total / n))); draw(true); }
 function profileTab(cfg, s) {

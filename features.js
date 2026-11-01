@@ -121,6 +121,15 @@ function detailsClean(b) {   // allergens (known codes only), calories, one badg
   return o;
 }
 
+// ---------- InstaPay / wallet at the table ----------
+// Guests send the bill to the cafe's InstaPay address or wallet number and tell the cashier; the cashier confirms and closes the table.
+const DIGITAL = ['instapay', 'wallet'];
+const ipClean = (v) => {
+  v = v && typeof v === 'object' ? v : {}; const s = (x, n) => String(x == null ? '' : x).replace(/[<>]/g, '').trim().slice(0, n);
+  return { enabled: !!v.enabled, handle: s(v.handle, 60), phone: s(v.phone, 20).replace(/[^\d+ ]/g, ''), wallet: s(v.wallet, 30) || 'Vodafone Cash', name: s(v.name, 60), note: s(v.note, 140), qr: /^\/api\/r\/[a-z0-9-]+\/img\/[\w-]+$/.test(String(v.qr || '')) ? String(v.qr) : '' };
+};
+const ipCfg = (settings) => { const c = ipClean(settings && settings.instapay); c.instapay = !!c.handle; c.walletOn = !!c.phone; return c; };
+
 // ---------- Upsell suggestions ----------
 // Which dishes to offer next to what is already in the cart. Pure: the guest page and the tests call the same function.
 // cfg = { items, categories, best: [itemId...], settings }, cartIds = item ids in the cart, o.isOpen(item) = timed-category check, o.skip = ids the guest dismissed
@@ -335,5 +344,5 @@ function zoneFor(settings, g) {
 
 
 const STAFF_LOG_KEYS = ['taken', 'handled', 'started', 'served', 'closed', 'respMs'];   // column order of rec.staffLog[id].b[hour]
-const api = { OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
+const api = { DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
 if (typeof module !== 'undefined') module.exports = api;
