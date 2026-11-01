@@ -62,3 +62,16 @@ Written for: the owner. Do these in order. Steps marked **YOU** need your Pro lo
 - Timed menu categories (e.g. breakfast) are respected on the online page; the venue's open/closed hours are not yet enforced (turn online ordering off when closed).
 - Captain activity is logged from the day this version goes live; earlier history has no hourly breakdown.
 - The browser checks I ran live outside the repo; `npm run test:ui` still points to a folder that does not exist.
+
+## Sites and addresses (production)
+
+One Vercel deployment serves four addresses, chosen by `ROOT_DOMAIN=tabletab-tt.com`:
+
+| Address | Shows | Who |
+|---|---|---|
+| tabletab-tt.com / www | Marketing site (`public/site.html`: features, what's new, plans, about, FAQ) | Everyone |
+| app.tabletab-tt.com | Cafe login and every cafe (`/r/<slug>/...`, QR codes use this via `PUBLIC_URL`) | Cafes and guests |
+| admin.tabletab-tt.com | Platform console (`/super`) - answers 404 on every other host | Owner only |
+| demo.tabletab-tt.com | Live showroom (separate flagged cafe `showroom`) | Prospects |
+
+Subdomains cost nothing; they are domains added to the same Vercel project. Plan prices and contact email on the marketing site are edited at the top of `site.html` (`TXT.plans`, `CONTACT_EMAIL`).
