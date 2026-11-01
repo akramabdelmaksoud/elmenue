@@ -193,7 +193,7 @@ const SINGLE = envOn(process.env.SINGLE_RESTAURANT), MAIN = 'main';
 // ---------- Host-based tenants: <slug>.BASE_DOMAIN and custom domains serve the restaurant's pages (rewrite, not redirect) ----------
 // /r/<slug>/... keeps working on every host, so printed QR codes, ?k= table keys and demo mode are untouched.
 const hostIndex = HOSTS.createHostIndex({ base: BASE_DOMAIN, ttlMs: STATELESS ? 30000 : 2000, load: async () => (STATELESS ? store.listRecs() : [...tenants.values()].map((t) => t.rec)) });
-const HOST_PAGES = { '/': 'tenant.html', '/captain': 'captain.html', '/admin': 'admin.html', '/kitchen': 'kitchen.html', '/cashier': 'cashier.html', '/order': 'order.html' };
+const HOST_PAGES = { '/': 'tenant.html', '/captain': 'captain.html', '/admin': 'admin.html', '/kitchen': 'kitchen.html', '/cashier': 'cashier.html', '/order': 'order.html', '/book': 'book.html' };
 const pageCache = {};
 function pageFor(file, slug) {   // the page plus <meta name="elm-slug"> so shared.js knows the restaurant without a /r/<slug> prefix
   let h = pageCache[file];
@@ -242,6 +242,7 @@ if (SINGLE) {
   app.get('/kitchen', (req, res) => res.redirect('/r/' + MAIN + '/kitchen'));
   app.get('/cashier', (req, res) => res.redirect('/r/' + MAIN + '/cashier'));
   app.get('/order', (req, res) => res.redirect('/r/' + MAIN + '/order'));
+  app.get('/book', (req, res) => res.redirect('/r/' + MAIN + '/book'));
   app.get('/t/:n', (req, res) => res.redirect('/r/' + MAIN + '/t/' + encodeURIComponent(req.params.n) + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')));
   app.get('/index.html', (req, res) => res.redirect('/'));
   app.get('/api/setup/status', async (req, res) => { try { res.json({ setup: await isSetup(), needsKey: !!process.env.SETUP_KEY }); } catch (e) { res.status(500).json({ error: 'Server error' }); } });
@@ -328,6 +329,7 @@ if (!SINGLE) app.get('/super', page('super.html'));
 app.get('/r/:slug', page('tenant.html'));
 app.get('/r/:slug/t/:n', page('customer.html'));
 app.get('/r/:slug/order', page('order.html'));
+app.get('/r/:slug/book', page('book.html'));
 app.get('/r/:slug/captain', page('captain.html'));
 app.get('/r/:slug/admin', page('admin.html'));
 app.get('/r/:slug/kitchen', page('kitchen.html'));
@@ -469,7 +471,12 @@ app.delete('/api/super/tenants/:slug', needSuper, async (req, res, next) => { tr
 
 // ----- Per-restaurant public API -----
 const R = '/api/r/:slug';
-app.get(`${R}/config`, tenantMw, (req, res) => res.json(req.tenant.publicConfig()));
+// item costs and recipes are the owner's business: only an admin token sees them
+app.get(`${R}/config`, tenantMw, (req, res) => {
+  const c = req.tenant.publicConfig(), d = auth.verify(bearer(req));
+  if (!(d && (d.r === 'super' || (d.s === req.params.slug && d.r === 'admin')))) c.items = c.items.map(({ cost, recipe, ...i }) => i);
+  res.json(c);
+});
 // Canonical public address: its own domain, else <slug>.BASE_DOMAIN (production), else the /r/<slug> form. Old /r/<slug> links keep working either way.
 const tenantBase = (req, rec) => (rec.domain ? 'https://' + rec.domain : BASE_DOMAIN && PROD && !SINGLE ? 'https://' + rec.slug + '.' + BASE_DOMAIN : origin(req) + '/r/' + rec.slug);
 app.get(`${R}/info`, tenantMw, (req, res) => res.json({ base: tenantBase(req, req.tenant.rec) }));
@@ -610,6 +617,19 @@ app.post(`${R}/online/order`, tenantMw, (req, res, next) => { try {
   hits.push(now); for (const x of Object.keys(rate)) if (!rate[x].length || now - rate[x][rate[x].length - 1] > 3600000) delete rate[x];
   persistRec(t); res.json(out);
 } catch (e) { next(e); } });
+// ----- Table reservations and waitlist (public) -----
+app.get(`${R}/book/info`, tenantMw, (req, res) => { const t = req.tenant, c = F.reserveCfg(t.db.settings), on = F.has(t.rec, 'reservations') && c.enabled; res.json({ name: t.db.settings.name || t.rec.name, on, ...(on ? { cfg: { waitlist: c.waitlist, maxParty: c.maxParty, leadMin: c.leadMin, daysAhead: c.daysAhead, from: c.from, to: c.to, note: c.note }, ahead: (t.db.waitlist || []).filter((w) => w.status === 'waiting').length } : {}) }); });
+app.post(`${R}/book`, tenantMw, (req, res, next) => { try {
+  const t = req.tenant, r = t.rec, b = req.body || {}, now = Date.now(), k = String(req.ip).replace(/[^\w.:]/g, '').slice(0, 45);
+  const rate = (r.bkRate ||= {}), hits = (rate[k] = (rate[k] || []).filter((x) => now - x < 600000));
+  if (!F.has(r, 'reservations') || !F.reserveCfg(t.db.settings).enabled) return res.status(403).json({ error: 'Reservations are not available here', code: 'off' });
+  if (hits.length >= 5) return res.status(429).json({ error: 'Too many requests from this connection. Please call the venue.', code: 'rate' });
+  const out = t.placeBooking(b);
+  if (out.error) return res.status(out.code === 'off' ? 403 : 400).json(out);
+  hits.push(now); for (const x of Object.keys(rate)) if (!rate[x].length || now - rate[x][rate[x].length - 1] > 3600000) delete rate[x];
+  persistRec(t); res.json(out);
+} catch (e) { next(e); } });
+app.get(`${R}/book/status/:id`, tenantMw, (req, res) => { const o = req.tenant.bookingStatus(String(req.params.id).slice(0, 24)); o ? res.json(o) : res.status(404).json({ error: 'Not found' }); });
 app.get(`${R}/online/status/:tid`, tenantMw, (req, res) => res.json(req.tenant.onlineStatus(String(req.params.tid).slice(0, 20))));
 
 const FB_CATS = ['quality', 'portions', 'price', 'service', 'clean'];
@@ -717,6 +737,37 @@ A('post', '/items/:id/adjust', (req, res) => {
   t.rec.stockLog = [{ at: Date.now(), itemId: i.id, item: i.name, delta: next - cur, type, reason: String(b.reason || '').slice(0, 60), who: 'owner', left: next }, ...(t.rec.stockLog || [])].slice(0, 400);
   bc(req); res.json({ id: i.id, stock: next });
 });
+// ----- Recipes and ingredient stock -----
+const gateR = (req, res, next) => (F.has(req.tenant.rec, 'recipes') ? next() : res.status(402).json({ error: 'Recipes & ingredient stock need the ' + F.PLANS[F.minPlanFor('recipes')].name + ' plan', upgrade: F.minPlanFor('recipes') }));
+const ingView = (t) => ({ ingredients: t.db.ingredients || [], log: t.rec.ingLog || [] });
+A('get', '/ingredients', gateR, (req, res) => res.json(ingView(req.tenant)));
+A('post', '/ingredients', gateR, (req, res) => {
+  const d = req.tenant.db, c = F.ingClean(req.body); if (!c.name) return res.status(400).json({ error: 'Give the ingredient a name' });
+  if ((d.ingredients ||= []).length >= 300) return res.status(400).json({ error: 'Too many ingredients' });
+  const g = { id: newId('g'), ...c }; d.ingredients.push(g); bc(req); res.json(g);
+});
+A('put', '/ingredients/:id', gateR, (req, res) => {
+  const d = req.tenant.db, g = (d.ingredients || []).find((x) => x.id === req.params.id); if (!g) return res.status(404).json({ error: 'Not found' });
+  const c = F.ingClean({ ...g, ...req.body, stock: g.stock }); if (!c.name) return res.status(400).json({ error: 'Give the ingredient a name' });
+  Object.assign(g, c); F.recost(d.items, d.ingredients); bc(req); res.json(g);
+});
+A('delete', '/ingredients/:id', gateR, (req, res) => {
+  const d = req.tenant.db; d.ingredients = (d.ingredients || []).filter((x) => x.id !== req.params.id);
+  for (const it of d.items) if (it.recipe) it.recipe = it.recipe.filter((r) => r.ing !== req.params.id); bc(req); res.json({ ok: 1 });
+});
+A('post', '/ingredients/:id/adjust', gateR, (req, res) => {
+  const t = req.tenant, g = (t.db.ingredients || []).find((x) => x.id === req.params.id); if (!g) return res.status(404).json({ error: 'Not found' });
+  const b = req.body || {}, type = ['restock', 'waste', 'count'].includes(b.type) ? b.type : '', q = +b.qty; if (!type || !(q >= 0) || q > 1e7 || (type !== 'count' && q === 0)) return res.status(400).json({ error: 'Enter a quantity' });
+  const next = type === 'restock' ? g.stock + q : type === 'waste' ? Math.max(0, g.stock - q) : q, delta = Math.round((next - g.stock) * 1000) / 1000;
+  if (type === 'restock' && b.cost !== undefined && b.cost !== '' && +b.cost >= 0) { g.cost = F.ingClean({ cost: b.cost }).cost; F.recost(t.db.items, t.db.ingredients); }
+  g.stock = Math.round(next * 1000) / 1000;
+  t.rec.ingLog = [{ at: Date.now(), ingId: g.id, ing: g.name, unit: g.unit, delta, type, item: '', who: 'owner' + (b.reason ? ': ' + String(b.reason).replace(/[<>]/g, '').slice(0, 60) : ''), left: g.stock }, ...(t.rec.ingLog || [])].slice(0, 400);
+  bc(req); res.json({ ok: 1, stock: g.stock });
+});
+A('put', '/items/:id/recipe', gateR, (req, res) => {
+  const d = req.tenant.db, it = d.items.find((x) => x.id === req.params.id); if (!it) return res.status(404).json({ error: 'Not found' });
+  it.recipe = F.recipeClean((req.body || {}).recipe, d.ingredients); if (!it.recipe.length) delete it.recipe; F.recost(d.items, d.ingredients); bc(req); res.json({ ok: 1, cost: it.cost, recipe: it.recipe || [] });
+});
 A('get', '/stock-log', (req, res) => res.json({ log: req.tenant.rec.stockLog || [] }));
 A('get', '/orders', async (req, res) => {
   const [f, t2] = range(req.query), hist = STATELESS ? await store.getHist(req.tenant.rec.id) : req.tenant.db.history;
@@ -750,6 +801,35 @@ async function reportFor(t, from, to) {
 }
 const range = (q) => { const to = +q.to || Date.now(), from = +q.from || to - 86400000; return [from, to]; };
 A('get', '/report', async (req, res) => { const [f, t2] = range(req.query); const r = await reportFor(req.tenant, f, t2); delete r.sessionsList; res.json(r); });
+// ----- Accounting export: one row per day with sales, service, VAT, tips and how it was paid; for the accountant -----
+const gateAc = (req, res, next) => (F.has(req.tenant.rec, 'acctexport') ? next() : res.status(402).json({ error: 'Accounting export needs the ' + F.PLANS[F.minPlanFor('acctexport')].name + ' plan', upgrade: F.minPlanFor('acctexport') }));
+async function acctFor(t, from, to) {
+  const hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history, tz = /^[A-Za-z_]+\/[A-Za-z_]+$/.test(t.db.settings.timezone || '') ? t.db.settings.timezone : 'Africa/Cairo';
+  const day = (ms) => { try { return new Date(ms).toLocaleDateString('en-CA', { timeZone: tz }); } catch { return new Date(ms).toISOString().slice(0, 10); } };
+  const m2 = (n) => Math.round((+n || 0) * 100) / 100, days = new Map(), blank = (d) => ({ date: d, orders: 0, guests: 0, gross: 0, discounts: 0, net: 0, service: 0, vat: 0, tips: 0, total: 0, cash: 0, card: 0, instapay: 0, wallet: 0, online: 0, gift: 0, voids: 0 });
+  for (const h of hist) {
+    if (h.closedAt < from || h.closedAt > to || h.unpaid) continue;
+    const d = day(h.closedAt), r = days.get(d) || blank(d); days.set(d, r); const p = h.pay || {};
+    r.orders++; r.guests += h.guests || 0; r.gross += h.sub || 0; r.discounts += h.discount || 0; r.net += (h.sub || 0) - (h.discount || 0); r.service += h.service || 0; r.vat += h.tax || 0; r.tips += h.tip || 0; r.total += h.total || 0;
+    if (h.pay) { r.cash += p.cash || 0; r.card += p.card || 0; if (p.digital) r[p.via === 'wallet' ? 'wallet' : 'instapay'] += p.digital; r.online += p.online || 0; r.gift += p.gift || 0; } else if (h.method === 'cash') r.cash += h.total; else if (h.method === 'card') r.card += h.total;
+    (h.voids || []).forEach((v) => { r.voids += v.qty * v.price; });
+  }
+  const rows = [...days.values()].sort((a, b) => (a.date < b.date ? -1 : 1)).map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v === 'number' ? m2(v) : v])));
+  const tot = blank('Total'); for (const r of rows) for (const k of Object.keys(tot)) if (k !== 'date') tot[k] = m2(tot[k] + r[k]);
+  return { name: t.rec.name, currency: t.db.settings.currency, tz, from, to, taxRate: t.db.settings.taxRate, serviceRate: t.db.settings.serviceRate, rows, total: tot };
+}
+const ACCT_HEAD = ['Date', 'Orders', 'Guests', 'Gross sales', 'Discounts', 'Net sales', 'Service charge', 'VAT / tax', 'Tips', 'Total collected', 'Cash', 'Card', 'InstaPay', 'Wallet', 'Online (card gateway)', 'Gift card', 'Voided value'];
+const acctRow = (r) => [r.date, r.orders, r.guests, r.gross, r.discounts, r.net, r.service, r.vat, r.tips, r.total, r.cash, r.card, r.instapay, r.wallet, r.online, r.gift, r.voids];
+A('get', '/accounting', gateAc, async (req, res) => { const [f, t2] = range(req.query); res.json(await acctFor(req.tenant, f, t2)); });
+A('get', '/accounting.csv', gateAc, async (req, res) => { const [f, t2] = range(req.query), a = await acctFor(req.tenant, f, t2); res.type('text/csv').set('Content-Disposition', 'attachment; filename="accounting.csv"').send(csv([ACCT_HEAD, ...a.rows.map(acctRow), acctRow(a.total)])); });
+A('get', '/accounting.xlsx', gateAc, async (req, res) => {
+  const [f, t2] = range(req.query), a = await acctFor(req.tenant, f, t2), wb = XLSX.utils.book_new(), d = (x) => new Date(x).toLocaleDateString('en-GB', { timeZone: a.tz });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[a.name + ' - accounting export'], ['Period', d(f) + ' to ' + d(t2)], ['Currency', a.currency], ['Time zone', a.tz], [], ACCT_HEAD, ...a.rows.map(acctRow), acctRow(a.total)]), 'Daily sales');
+  const T = a.total;
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Payment method', 'Amount'], ['Cash', T.cash], ['Card', T.card], ['InstaPay', T.instapay], ['Wallet', T.wallet], ['Online (card gateway)', T.online], ['Gift card', T.gift], [], ['Total collected', T.total]]), 'Payment methods');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Item', 'Amount'], ['Net sales (after discounts)', T.net], ['Service charge', T.service], ['VAT / tax', T.vat], ['Tips', T.tips], [], ['Total collected', T.total], [], ['Tax rate %', a.taxRate], ['Service rate %', a.serviceRate]]), 'VAT summary');
+  res.setHeader('Content-Disposition', 'attachment; filename=accounting-' + new Date(f).toISOString().slice(0, 10) + '.xlsx'); res.send(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+});
 A('get', '/report.xlsx', async (req, res) => {
   const [f, t2] = range(req.query), r = await reportFor(req.tenant, f, t2), wb = XLSX.utils.book_new(), d = (x) => new Date(x).toLocaleString('en-GB');
   const money = (n) => Math.round(n * 100) / 100;
@@ -791,6 +871,7 @@ A('post', '/settings', (req, res) => {
     b.eta = { enabled: !!b.eta.enabled, env };
   }
   if (b.onlinePay) { if (!F.has(req.tenant.rec, 'onlinepay')) return res.status(402).json({ error: 'Online payments need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); const p = b.onlinePay.provider === 'paymob' ? 'paymob' : 'sandbox'; if (p === 'sandbox' && b.onlinePay.enabled && !PAY.sandboxAllowed(req.tenant.rec.slug)) return res.status(400).json({ error: 'The test gateway is not allowed on a live venue - connect Paymob' }); if (p === 'paymob' && b.onlinePay.enabled && !(req.tenant.rec.payCfg && req.tenant.rec.payCfg.apiKey && req.tenant.rec.payCfg.hmac && req.tenant.rec.payCfg.integrationId && req.tenant.rec.payCfg.iframeId)) return res.status(400).json({ error: 'Save your Paymob keys first' }); b.onlinePay = { enabled: !!b.onlinePay.enabled, provider: p }; }
+  if (b.reserve) { if (!F.has(req.tenant.rec, 'reservations')) return res.status(402).json({ error: 'Reservations need the ' + F.PLANS[F.minPlanFor('reservations')].name + ' plan', upgrade: F.minPlanFor('reservations') }); b.reserve = F.reserveClean(b.reserve); }
   if (b.instapay) { if (!F.has(req.tenant.rec, 'instapay')) return res.status(402).json({ error: 'InstaPay & wallet payment needs the ' + F.PLANS[F.minPlanFor('instapay')].name + ' plan', upgrade: F.minPlanFor('instapay') }); const cur = req.tenant.db.settings.instapay || {}; b.instapay = F.ipClean({ ...b.instapay, qr: cur.qr || '' }); }
   if (b.promo) { if (!F.has(req.tenant.rec, 'coupons')) return res.status(402).json({ error: 'Coupons & offers need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.promo = { enabled: !!b.promo.enabled, stack: !!b.promo.stack }; }
   if ('refreshMin' in b) b.refreshMin = [0, 5, 15, 30, 60, 120, 360].includes(+b.refreshMin) ? +b.refreshMin : 60;

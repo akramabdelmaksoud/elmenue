@@ -41,7 +41,7 @@ aside button[data-locked="true"]::after { content: ' 🔒'; opacity: .7; }
 </style></head>
 <body><div class="shell"><aside>
 <h2>⚙️ Admin</h2>
-<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="inventory">📦 Inventory</button><button data-t="floor">🪑 Floor plan</button><button data-t="staff" data-lock="staff">👥 Staff</button><button data-t="orders">🧾 Orders</button><button data-t="reports">📈 Reports</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button><button data-t="insights" data-lock="insights">🧠 Insights</button><button data-t="offers" data-lock="coupons">🎟️ Offers & gift cards</button><button data-t="loyalty" data-lock="loyalty">💳 Loyalty</button><button data-t="ocr" data-lock="ocr">📷 AI menu scan</button><button data-t="branches" data-lock="branches">🏢 Branches</button><button onclick="copilotToggle()" data-lock="copilot">🤖 AI Copilot</button>
+<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="inventory">📦 Inventory</button><button data-t="recipes" data-lock="recipes">🧪 Recipes & costing</button><button data-t="floor">🪑 Floor plan</button><button data-t="staff" data-lock="staff">👥 Staff</button><button data-t="orders">🧾 Orders</button><button data-t="reports">📈 Reports</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button><button data-t="insights" data-lock="insights">🧠 Insights</button><button data-t="offers" data-lock="coupons">🎟️ Offers & gift cards</button><button data-t="loyalty" data-lock="loyalty">💳 Loyalty</button><button data-t="ocr" data-lock="ocr">📷 AI menu scan</button><button data-t="branches" data-lock="branches">🏢 Branches</button><button onclick="copilotToggle()" data-lock="copilot">🤖 AI Copilot</button>
 <span style="flex:1"></span><button onclick="App.toggleLang()">🌐 EN / عربي</button><button onclick="App.roleMenu(event)">⇄ Switch role</button><button onclick="App.skinMenu(event)">🎨 Look (Maison)</button><button onclick="App.toggleMode(event)">◐ Light / Dark</button><button onclick="App.logout()">⏻ Sign out</button></aside>
 <div class="mainwrap"><div id="rfbar"></div><main id="main"></main></div></div>
 <script src="/vendor/sortable.js"></script><script src="/vendor/chart.js"></script><script src="/shared.js"></script><script src="/itemdlg.js"></script><script src="/ar-ui.js"></script>
@@ -214,7 +214,7 @@ function render(m, force) {
   if (key === cfgKey && !force) { if (tab === 'analytics') {} return; }   // ignore live-session noise
   cfgKey = key;
   const focus = document.activeElement; if (focus && focus.closest('#main') && focus.tagName === 'INPUT' && !force) return;  // don't clobber typing
-  ({ analytics, menu, inventory: inventoryTab, orders: ordersTab, floor: floorTab, staff: () => (FEAT().staff === false ? lockedCard('👥 Staff', 'staff') : staffTab()), reports: reportsTab, insights: () => (FEAT().insights === false ? lockedCard('🧠 Insights', 'insights') : insightsTab()), theme, qr, audit, offers: offersTab, loyalty: loyaltyTab, ocr: ocrTab, branches: branchesTab })[tab]();
+  ({ analytics, menu, inventory: inventoryTab, recipes: () => (FEAT().recipes === false ? lockedCard('🧪 Recipes & costing', 'recipes') : recipesTab()), orders: ordersTab, floor: floorTab, staff: () => (FEAT().staff === false ? lockedCard('👥 Staff', 'staff') : staffTab()), reports: reportsTab, insights: () => (FEAT().insights === false ? lockedCard('🧠 Insights', 'insights') : insightsTab()), theme, qr, audit, offers: offersTab, loyalty: loyaltyTab, ocr: ocrTab, branches: branchesTab })[tab]();
 }
 App.handlers.render = (m) => render(m, true);
 
@@ -314,6 +314,25 @@ function fbCard(S, all) {
 async function fbSet(p) { const cur = App.config.settings.fb || {}, r = await api('POST', '/api/settings', { fb: { ...cur, ...p } }); App.toast(r.error || 'Saved'); if (!r.error) reportsTab(); }
 async function fbDone(id) { await api('PUT', '/api/feedback/' + id, { handled: true }); reportsTab(); }
 function pairsSet(id, txt) { const ids = txt.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean).map((n) => (App.config.items.find((i) => i.name.toLowerCase() === n) || {}).id).filter(Boolean); return upd('items', id, { pairs: ids }); }
+function reserveCard() {
+  if (!App.config.features.reservations) return '<div class="card"><h3>📅 Table booking and waitlist</h3><p class="muted">Not included in this café\'s plan.</p></div>';
+  const o = Object.assign({ enabled: false, waitlist: false, maxParty: 10, leadMin: 45, daysAhead: 14, from: '', to: '', capacity: 0, note: '' }, App.config.settings.reserve || {}), link = location.origin + (App.base == null ? '/r/' + App.slug : '') + '/book';
+  return '<div class="card"><h3>📅 Table booking and waitlist</h3><p class="muted" style="margin:0 0 8px">Guests book a table or join the waitlist from a link. Requests show up on the captain and cashier screens under Reservations, where staff confirm, decline or seat them.</p>'
+   + '<label class="row" style="gap:6px"><input type="checkbox" style="width:auto" id="rv_en" ' + (o.enabled ? 'checked' : '') + '> Accept online bookings</label>'
+   + '<label class="row" style="gap:6px;margin-top:6px"><input type="checkbox" style="width:auto" id="rv_wl" ' + (o.waitlist ? 'checked' : '') + '> Also offer the waitlist (walk-ins when full)</label>'
+   + '<div class="row wrap" style="gap:12px;margin-top:10px"><label class="muted">Biggest party<br><input id="rv_mp" type="number" min="1" max="50" value="' + o.maxParty + '" style="width:90px"></label>'
+   + '<label class="muted">Book at least (minutes ahead)<br><input id="rv_lm" type="number" min="0" max="1440" value="' + o.leadMin + '" style="width:110px"></label>'
+   + '<label class="muted">Days ahead<br><input id="rv_da" type="number" min="1" max="90" value="' + o.daysAhead + '" style="width:90px"></label>'
+   + '<label class="muted">Seats for bookings (0 = 4 per table)<br><input id="rv_cp" type="number" min="0" max="5000" value="' + o.capacity + '" style="width:110px"></label></div>'
+   + '<div class="row wrap" style="gap:12px;margin-top:10px"><label class="muted">Open from<br><input id="rv_f" type="time" value="' + App.esc(o.from) + '"></label><label class="muted">Until<br><input id="rv_t" type="time" value="' + App.esc(o.to) + '"></label></div>'
+   + '<label class="muted" style="display:block;margin-top:10px">Message shown on the booking page<br><input id="rv_n" maxlength="160" value="' + App.esc(o.note) + '" style="width:min(420px,100%)"></label>'
+   + '<p class="muted" style="margin:10px 0 0">Booking link: <b style="direction:ltr;unicode-bidi:embed">' + App.esc(link) + '</b></p>'
+   + '<div class="row" style="margin-top:12px"><button class="primary" onclick="reserveSave()">Save</button></div></div>';
+}
+async function reserveSave() {
+  const v = (id) => document.getElementById(id), r = await api('POST', '/api/settings', { reserve: { enabled: v('rv_en').checked, waitlist: v('rv_wl').checked, maxParty: +v('rv_mp').value, leadMin: +v('rv_lm').value, daysAhead: +v('rv_da').value, capacity: +v('rv_cp').value, from: v('rv_f').value, to: v('rv_t').value, note: v('rv_n').value } });
+  App.toast(r.error || 'Saved'); if (!r.error) reportsTab();
+}
 function instapayCard() {
   if (!App.config.features.instapay) return '<div class="card"><h3>📲 InstaPay and wallet at the table</h3><p class="muted">Not included in this café\'s plan.</p></div>';
   const o = Object.assign({ enabled: false, handle: '', phone: '', wallet: 'Vodafone Cash', name: '', note: '', qr: '' }, App.config.settings.instapay || {}), E = App.esc;
@@ -489,7 +508,7 @@ async function reportsTab() {
   const K = (l, v, sub) => `<div class="card kpi"><span>${l}</span><b>${v}</b>${sub ? `<small class="muted">${sub}</small>` : ''}</div>`, tk = App.tok('admin');
   const chip = (k, l) => `<button class="${RP.preset === k ? 'sel' : ''}" onclick="RP.preset='${k}';reportsTab()">${l}</button>`;
   $('#main').innerHTML = `<div class="spread wrap"><h1>📈 Reports</h1><div class="row wrap noprint">${chip('today', 'Today')}${chip('yesterday', 'Yesterday')}${chip('7', '7 days')}${chip('30', '30 days')}<input type="date" style="width:150px" value="${RP.from || ''}" onchange="RP.preset='c';RP.from=this.value;reportsTab()"><input type="date" style="width:150px" value="${RP.to || ''}" onchange="RP.preset='c';RP.to=this.value;reportsTab()"></div></div>
-  <div class="row wrap noprint" style="margin:6px 0 14px"><a href="/api/r/${App.slug}/report.xlsx?from=${f}&to=${t}&token=${tk}"><button class="primary">⬇ Excel report</button></a><button class="ghost" onclick="window.print()">🖨 Print / PDF</button><a href="/api/r/${App.slug}/export.json?token=${tk}"><button class="ghost">💾 Backup all data</button></a></div>
+  <div class="row wrap noprint" style="margin:6px 0 14px"><a href="/api/r/${App.slug}/report.xlsx?from=${f}&to=${t}&token=${tk}"><button class="primary">⬇ Excel report</button></a>${App.config.features.acctexport ? `<a href="/api/r/${App.slug}/accounting.xlsx?from=${f}&to=${t}&token=${tk}"><button class="primary">🧮 Accounting (Excel)</button></a><a href="/api/r/${App.slug}/accounting.csv?from=${f}&to=${t}&token=${tk}"><button class="ghost">CSV</button></a>` : ''}<button class="ghost" onclick="window.print()">🖨 Print / PDF</button><a href="/api/r/${App.slug}/export.json?token=${tk}"><button class="ghost">💾 Backup all data</button></a></div>
   <div class="muted" style="margin-bottom:10px">${new Date(f).toLocaleString()} → ${new Date(t).toLocaleString()}</div>
   <div class="grid">${K('Table sessions', r.sessions, r.guests + ' guests')}${K('Gross sales', App.money(r.gross))}${K('Service charge', App.money(r.service))}${K('Tax collected', App.money(r.tax))}${K('Tips', App.money(r.tips))}${K('Total collected', App.money(r.total), 'avg ticket ' + App.money(r.avgTicket))}${K('Cash', App.money(r.methods.cash || 0))}${K('Card', App.money(r.methods.card || 0))}${K('Discounts given', App.money(r.discounts || 0))}${K('Voided items', (r.voids || {}).count || 0, App.money((r.voids || {}).value || 0) + ((r.voids || {}).waste ? ' · wasted ' + App.money(r.voids.waste) : ''))}${K('Est. profit', App.money(r.profit || 0), 'after cost of goods and discounts')}${K('Guest rating', r.reviews.count ? '⭐ ' + r.reviews.avg.toFixed(1) : '-', r.reviews.count + ' ratings' + (r.reviews.low ? ' · ' + r.reviews.low + ' low' : ''))}</div>
   <div class="row2"><div class="card" style="overflow:auto"><h3>Top items</h3><table><tr><th>Item</th><th>Qty</th><th>Revenue</th><th>Profit</th></tr>${r.items.slice(0, 12).map((x) => `<tr><td>${App.esc(x.name)}</td><td>${x.qty}</td><td>${App.money(x.revenue)}</td><td>${App.money(x.profit)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No sales in this period</td></tr>'}</table></div>
@@ -497,7 +516,7 @@ async function reportsTab() {
   <div class="card" style="overflow:auto"><h3>Sales by staff</h3><table><tr><th>Staff</th><th>Tables closed</th><th>Collected</th></tr>${Object.keys(r.salesBy || {}).map((n) => `<tr><td>${App.esc(n)}</td><td>${r.closedBy[n]}</td><td>${App.money(r.salesBy[n])}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Sales are attributed when staff sign in with their own PIN</td></tr>'}</table>
   <h3 style="margin-top:14px">By order type</h3>${Object.keys(r.kinds || {}).map((k) => `<div class="spread"><span>${{ table: '🪑 Dine-in', takeaway: '🛍️ Takeaway', delivery: '🛵 Delivery' }[k] || k}</span><b>${App.money(r.kinds[k])}</b></div>`).join('') || '<p class="muted">-</p>'}</div>
   <div class="card" style="overflow:auto"><h3>🧾 Recent receipts</h3><table>${RC.map((h, i) => `<tr><td>${new Date(h.closedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td><td>${h.kind && h.kind !== 'table' ? App.esc(h.kind) + ' ' : 'T'}${App.esc(h.tableNumber)}</td><td>${App.money(h.total)}${h.unpaid ? ' <span class="pill" style="color:#ff6b6b">unpaid</span>' : ''}</td><td><button class="ghost" onclick="rpPrint(${i})">🖨</button></td></tr>`).join('') || '<tr><td class="muted">Nothing yet</td></tr>'}</table></div>
-  ${await etaCard()}${await payCard()}${await offlineCard()}${await upsellCard()}${instapayCard()}${onlineCard()}${geoCard()}${fbCard(FBS, fb)}<div class="card" style="overflow:auto"><h3>💬 Latest ratings</h3>${fb.length ? fb.slice(0, 25).map((x) => `<div style="padding:8px 0;border-bottom:1px solid var(--line);${x.handled ? 'opacity:.55' : ''}"><b>${'⭐'.repeat(x.stars)}</b> <span class="muted">· table ${x.table || '?'}${x.name ? ' · ' + App.esc(x.name) : ''} · ${new Date(x.at).toLocaleString()}</span>${x.stars <= 3 && x.handled === false ? `  <span class="pill" style="color:#ff6b6b">needs attention</span> <button class="ghost" onclick="fbDone('${x.id}')">✔ handled</button>` : ''}<div>${App.esc(x.comment)}</div></div>`).join('') : '<p class="muted">No ratings yet. Guests are asked after they pay.</p>'}</div></div>`;
+  ${await etaCard()}${await payCard()}${await offlineCard()}${await upsellCard()}${reserveCard()}${instapayCard()}${onlineCard()}${geoCard()}${fbCard(FBS, fb)}<div class="card" style="overflow:auto"><h3>💬 Latest ratings</h3>${fb.length ? fb.slice(0, 25).map((x) => `<div style="padding:8px 0;border-bottom:1px solid var(--line);${x.handled ? 'opacity:.55' : ''}"><b>${'⭐'.repeat(x.stars)}</b> <span class="muted">· table ${x.table || '?'}${x.name ? ' · ' + App.esc(x.name) : ''} · ${new Date(x.at).toLocaleString()}</span>${x.stars <= 3 && x.handled === false ? `  <span class="pill" style="color:#ff6b6b">needs attention</span> <button class="ghost" onclick="fbDone('${x.id}')">✔ handled</button>` : ''}<div>${App.esc(x.comment)}</div></div>`).join('') : '<p class="muted">No ratings yet. Guests are asked after they pay.</p>'}</div></div>`;
 }
 
 /* ---------------- Menu builder ---------------- */
@@ -605,6 +624,64 @@ async function inventoryTab() {
    <td>${tr(i) ? `<input type="number" min="0" style="width:64px" value="${i.lowAt === undefined ? 5 : i.lowAt}" onchange="upd('items','${i.id}',{lowAt:this.value})">` : ''}</td>
    <td>${tr(i) ? `<div class="row wrap"><input id="q_${i.id}" type="number" min="0" placeholder="qty" style="width:70px"><input id="r_${i.id}" placeholder="note" style="width:110px"><button class="primary" onclick="adj('${i.id}','restock')">＋ Restock</button><button class="ghost" onclick="adj('${i.id}','waste')">Waste</button><button class="ghost" onclick="adj('${i.id}','count')">Set count</button></div>` : ''}</td></tr>`).join('')}</table></div>
   <div class="card" style="overflow:auto;margin-top:14px"><h3>Stock movements</h3><table><tr><th>When</th><th>Item</th><th>Change</th><th>Left</th><th>Type</th><th>Who / note</th></tr>${lg.slice(0, 60).map((l) => `<tr><td>${new Date(l.at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td><td>${App.esc(l.item)}</td><td style="color:${l.delta < 0 ? '#ff6b6b' : 'var(--ok,#1f9d55)'}">${l.delta > 0 ? '+' : ''}${l.delta}</td><td>${l.left}</td><td>${App.esc(l.type)}</td><td class="muted">${App.esc(l.who || '')} ${App.esc(l.reason || '')}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nothing yet</td></tr>'}</table></div>`;
+}
+/* ---------------- Recipes, ingredient stock and food cost ---------------- */
+let RCP = { ings: [], log: [], edit: null };
+async function recipesTab() {
+  const r = await api('GET', '/api/ingredients'); if (r.error) return lockedCard('🧪 Recipes & costing', 'recipes');
+  RCP.ings = r.ingredients || []; RCP.log = r.log || []; const E = App.esc, I = App.config.items, G = RCP.ings;
+  const low = (g) => g.low > 0 && g.stock <= g.low, lows = G.filter(low), val = G.reduce((n, g) => n + g.stock * g.cost, 0);
+  const withR = I.filter((i) => i.recipe && i.recipe.length), pct = (i) => (i.price > 0 ? Math.round((i.cost || 0) / i.price * 100) : 0);
+  const avg = withR.length ? Math.round(withR.reduce((n, i) => n + pct(i), 0) / withR.length) : 0;
+  $('#main').innerHTML = '<h1>🧪 Recipes & costing</h1>'
+   + '<div class="grid"><div class="card kpi"><span>Ingredients</span><b>' + G.length + '</b><small class="muted">' + (lows.length ? lows.length + ' low or out' : 'all stocked') + '</small></div>'
+   + '<div class="card kpi"><span>Dishes with a recipe</span><b>' + withR.length + '</b><small class="muted">of ' + I.length + ' on the menu</small></div>'
+   + '<div class="card kpi"><span>Average food cost</span><b>' + (withR.length ? avg + '%' : '-') + '</b><small class="muted">cost ÷ price</small></div>'
+   + '<div class="card kpi"><span>Stock value</span><b>' + App.money(val) + '</b></div></div>'
+   + '<div class="card" style="overflow:auto;margin-top:14px"><h3>Ingredients</h3><p class="muted" style="margin-top:0">Add what you buy (coffee beans in g, milk in ml...) with its price per unit. Then give each dish a recipe. Every sale takes the ingredients from stock and the dish cost is worked out for you.</p>'
+   + '<div class="row wrap" style="gap:8px;margin-bottom:10px"><input id="gn" maxlength="40" placeholder="Name (e.g. Coffee beans)" style="width:200px"><select id="gu" style="width:auto">' + ['g', 'kg', 'ml', 'l', 'pcs'].map((u) => '<option>' + u + '</option>').join('') + '</select><input id="gc" type="number" min="0" step="0.001" placeholder="Cost per unit" style="width:120px"><input id="gs" type="number" min="0" placeholder="In stock" style="width:100px"><input id="gl" type="number" min="0" placeholder="Alert at" style="width:90px"><button class="primary" onclick="ingAdd()">＋ Add</button></div>'
+   + '<table><tr><th>Ingredient</th><th>Unit</th><th>Cost / unit</th><th>Left</th><th>Alert at</th><th>Add / remove</th><th></th></tr>'
+   + G.map((g) => '<tr style="' + (low(g) ? 'background:color-mix(in srgb,#d62828 10%,transparent)' : '') + '"><td>' + E(g.name) + '</td><td class="muted">' + g.unit + '</td>'
+     + '<td><input type="number" min="0" step="0.001" style="width:90px" value="' + g.cost + '" onchange="ingSet(\'' + g.id + '\',{cost:this.value})"></td>'
+     + '<td><b style="color:' + (g.stock <= 0 ? '#ff6b6b' : low(g) ? 'var(--warn,#e08a1a)' : 'inherit') + '">' + g.stock + '</b>' + (g.stock <= 0 ? ' <span class="pill">out</span>' : low(g) ? ' <span class="pill">low</span>' : '') + '</td>'
+     + '<td><input type="number" min="0" style="width:80px" value="' + g.low + '" onchange="ingSet(\'' + g.id + '\',{low:this.value})"></td>'
+     + '<td><div class="row wrap"><input id="gq_' + g.id + '" type="number" min="0" placeholder="qty" style="width:80px"><input id="gk_' + g.id + '" type="number" min="0" step="0.001" placeholder="new cost" style="width:90px"><button class="primary" onclick="ingAdj(\'' + g.id + '\',\'restock\')">＋ Restock</button><button class="ghost" onclick="ingAdj(\'' + g.id + '\',\'waste\')">Waste</button><button class="ghost" onclick="ingAdj(\'' + g.id + '\',\'count\')">Set count</button></div></td>'
+     + '<td><button class="ghost" onclick="ingDel(\'' + g.id + '\')">✕</button></td></tr>').join('') + (G.length ? '' : '<tr><td colspan="7" class="muted">No ingredients yet</td></tr>') + '</table></div>'
+   + '<div class="card" style="overflow:auto;margin-top:14px"><h3>Dish recipes and food cost</h3><table><tr><th>Dish</th><th>Price</th><th>Recipe</th><th>Cost</th><th>Food cost</th><th>Margin</th><th></th></tr>'
+   + I.map((i) => { const has = i.recipe && i.recipe.length, p = pct(i), bad = has && p > 35; return '<tr><td>' + E(i.emoji || '') + ' ' + E(i.name) + '</td><td>' + App.money(i.price) + '</td><td class="muted">' + (has ? i.recipe.map((x) => { const g = G.find((y) => y.id === x.ing); return g ? E(g.name) + ' ' + x.qty + g.unit : ''; }).filter(Boolean).join(', ') : '-') + '</td><td>' + (i.cost ? App.money(i.cost) : '-') + '</td><td style="color:' + (bad ? '#ff6b6b' : 'inherit') + '">' + (i.cost ? p + '%' : '-') + '</td><td>' + (i.cost ? App.money(i.price - i.cost) : '-') + '</td><td><button class="ghost" onclick="recEdit(\'' + i.id + '\')">' + (has ? 'Edit' : 'Add') + ' recipe</button></td></tr>'; }).join('') + '</table></div>'
+   + '<div class="card" style="overflow:auto;margin-top:14px"><h3>Ingredient movements</h3><table><tr><th>When</th><th>Ingredient</th><th>Change</th><th>Left</th><th>Type</th><th>Dish / note</th></tr>' + (RCP.log.slice(0, 50).map((l) => '<tr><td>' + new Date(l.at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + '</td><td>' + E(l.ing) + '</td><td style="color:' + (l.delta < 0 ? '#ff6b6b' : 'var(--ok,#1f9d55)') + '">' + (l.delta > 0 ? '+' : '') + l.delta + ' ' + l.unit + '</td><td>' + l.left + '</td><td>' + E(l.type) + '</td><td class="muted">' + E(l.item || l.who || '') + '</td></tr>').join('') || '<tr><td colspan="6" class="muted">Nothing yet</td></tr>') + '</table></div>';
+}
+async function ingAdd() {
+  const v = (id) => document.getElementById(id).value, r = await api('POST', '/api/ingredients', { name: v('gn'), unit: v('gu'), cost: v('gc'), stock: v('gs'), low: v('gl') });
+  App.toast(r.error || 'Added'); if (!r.error) recipesTab();
+}
+async function ingSet(id, b) { const r = await api('PUT', '/api/ingredients/' + id, b); if (r.error) App.toast(r.error); cfgKey = ''; await refreshCfg(); recipesTab(); }
+async function ingAdj(id, type) {
+  const q = document.getElementById('gq_' + id).value; if (q === '') return App.toast('Enter a quantity');
+  const r = await api('POST', '/api/ingredients/' + id + '/adjust', { type, qty: q, cost: document.getElementById('gk_' + id).value });
+  App.toast(r.error || 'Stock updated'); if (!r.error) { await refreshCfg(); recipesTab(); }
+}
+async function ingDel(id) { if (!confirm('Delete this ingredient? It is removed from every recipe.')) return; await api('DELETE', '/api/ingredients/' + id); await refreshCfg(); recipesTab(); }
+function recEdit(id) {
+  const it = App.config.items.find((x) => x.id === id); if (!it) return;
+  if (!RCP.ings.length) return App.toast('Add your ingredients first');
+  RCP.edit = { id, rows: (it.recipe || []).map((r) => ({ ing: r.ing, qty: r.qty })) }; if (!RCP.edit.rows.length) RCP.edit.rows.push({ ing: RCP.ings[0].id, qty: '' });
+  const d = document.createElement('div'); d.id = 'recdlg'; d.style.cssText = 'position:fixed;inset:0;background:#000a;z-index:60;overflow:auto;padding:20px;display:grid;place-items:start center';
+  d.addEventListener('mousedown', (e) => { if (e.target === d) recClose(); }); document.body.appendChild(d); recPaint();
+}
+function recClose() { const e = document.getElementById('recdlg'); if (e) e.remove(); RCP.edit = null; }
+function recPaint() {
+  const d = document.getElementById('recdlg'); if (!d || !RCP.edit) return; const it = App.config.items.find((x) => x.id === RCP.edit.id), G = RCP.ings, E = App.esc;
+  const cost = RCP.edit.rows.reduce((n, r) => { const g = G.find((x) => x.id === r.ing); return n + (g ? g.cost * (+r.qty || 0) : 0); }, 0);
+  d.innerHTML = '<div class="card" style="max-width:560px;width:100%"><div class="spread"><h2 style="margin:0">' + E(it.name) + ' recipe</h2><button class="ghost" onclick="recClose()">✕</button></div><p class="muted">How much of each ingredient goes into one portion.</p>'
+   + RCP.edit.rows.map((r, i) => '<div class="row" style="gap:8px;margin-bottom:6px"><select style="flex:1" onchange="RCP.edit.rows[' + i + '].ing=this.value;recPaint()">' + G.map((g) => '<option value="' + g.id + '" ' + (g.id === r.ing ? 'selected' : '') + '>' + E(g.name) + ' (' + g.unit + ')</option>').join('') + '</select><input type="number" min="0" step="0.001" style="width:100px" placeholder="qty" value="' + r.qty + '" oninput="RCP.edit.rows[' + i + '].qty=this.value" onchange="recPaint()"><button class="ghost" onclick="RCP.edit.rows.splice(' + i + ',1);recPaint()">✕</button></div>').join('')
+   + '<button class="ghost" onclick="RCP.edit.rows.push({ing:RCP.ings[0].id,qty:\'\'});recPaint()">＋ Ingredient</button>'
+   + '<p style="margin:12px 0 0">Cost per portion: <b>' + App.money(cost) + '</b> · Price ' + App.money(it.price) + (it.price > 0 && cost > 0 ? ' · Food cost <b>' + Math.round(cost / it.price * 100) + '%</b>' : '') + '</p>'
+   + '<div class="row" style="margin-top:12px"><button class="primary" onclick="recSave()">Save</button></div></div>';
+}
+async function recSave() {
+  const r = await api('PUT', '/api/items/' + RCP.edit.id + '/recipe', { recipe: RCP.edit.rows.map((x) => ({ ing: x.ing, qty: +x.qty })) });
+  if (r.error) return App.toast(r.error); recClose(); App.toast('Recipe saved'); await refreshCfg(); recipesTab();
 }
 async function adj(id, type) {
   const q = $('#q_' + id).value; if (q === '') return App.toast('Enter a quantity');

@@ -1,0 +1,89 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Book a table</title><link rel="stylesheet" href="/shared.css">
+<style>
+html { -webkit-tap-highlight-color: transparent; }
+body { background: var(--bg); min-height: 100vh; }
+.wrap { max-width: 520px; margin: 0 auto; padding: 16px 16px 40px; }
+.top { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.top h1 { margin: 0; font-size: 22px; }
+.seg { display: flex; gap: 8px; margin: 14px 0; } .seg button { flex: 1; padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); color: inherit; font-weight: 700; } .seg button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--card)); }
+label { display: block; margin: 12px 0 4px; font-weight: 700; font-size: 14px; } input, textarea { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: inherit; font: inherit; }
+.btn { width: 100%; margin-top: 18px; padding: 15px; border-radius: 16px; border: 0; background: var(--accent); color: #fff; font-weight: 800; font-size: 16px; } .btn:disabled { opacity: .45; }
+.ok { text-align: center; padding-top: 30px; } .ok .big { font-size: 64px; }
+.err { color: #d62828; margin-top: 10px; font-weight: 600; }
+.note { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+</style></head>
+<body><div class="wrap" id="root"></div>
+<script src="/shared.js"></script>
+<script>
+const T = {
+  en: { title: 'Book a table', book: 'Reserve', wait: 'Join waitlist', name: 'Your name', phone: 'Phone number', guests: 'Guests', when: 'Date and time', note: 'Anything we should know? (optional)', send: 'Send request', join: 'Join the waitlist', off: 'Online booking is not available right now. Please call us.', open: 'Open', sent: 'Request sent', sentTxt: 'We will confirm your table shortly. Keep this page open or come back to see the status.', pending: 'Waiting for confirmation', confirmed: 'Confirmed! See you soon.', declined: 'Sorry, we could not take this booking. Please try another time.', table: 'Table', onList: 'You are on the waitlist', pos: 'Your number', ahead: 'Parties ahead of you', notified: 'Your table is ready! Please come to the host.', seated: 'Enjoy your meal!', another: 'Make another booking', wrong: 'Something went wrong, please try again', ahead2: 'waiting now' },
+  ar: { title: 'احجز طاولة', book: 'حجز', wait: 'قائمة الانتظار', name: 'اسمك', phone: 'رقم الموبايل', guests: 'عدد الأفراد', when: 'التاريخ والوقت', note: 'أي ملاحظات؟ (اختياري)', send: 'ابعت الطلب', join: 'انضم لقائمة الانتظار', off: 'الحجز أونلاين غير متاح حالياً. من فضلك كلمنا.', open: 'مواعيدنا', sent: 'تم إرسال الطلب', sentTxt: 'هنأكد حجزك قريب. سيب الصفحة مفتوحة أو ارجع تشوف الحالة.', pending: 'في انتظار التأكيد', confirmed: 'تم التأكيد! في انتظارك.', declined: 'آسفين، مقدرناش نقبل الحجز ده. جرب وقت تاني.', table: 'طاولة', onList: 'أنت في قائمة الانتظار', pos: 'رقمك', ahead: 'عدد قبلك', notified: 'طاولتك جاهزة! من فضلك تعالى للاستقبال.', seated: 'بالهنا والشفا!', another: 'حجز جديد', wrong: 'حصل خطأ، حاول تاني', ahead2: 'في الانتظار الآن' }
+};
+const t = (k) => (T[App.lang] || T.en)[k] || T.en[k] || k;
+const root = document.getElementById('root'), KEY = () => 'bk:' + App.slug;
+let info, tab = 'book', err = '', busy = false, mine = null, poll = null, saved = {};
+try { saved = JSON.parse(localStorage.getItem(KEY()) || '{}') || {}; } catch {}
+const persist = () => { try { localStorage.setItem(KEY(), JSON.stringify({ name: val('bn') || saved.name || '', phone: val('bp') || saved.phone || '', mine })); } catch {} };
+const val = (id) => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
+const localMin = () => { const d = new Date(Date.now() + ((info.cfg.leadMin || 0) + 15) * 60000); d.setSeconds(0, 0); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
+const localMax = () => { const d = new Date(Date.now() + info.cfg.daysAhead * 86400000); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
+const fmt = (at) => new Date(at).toLocaleString(App.lang === 'ar' ? 'ar-EG' : [], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+function head() { return `<div class="top"><h1 class="serif">${App.esc(info.name)}</h1><button class="ghost" onclick="App.toggleLang(event)">${App.langLabel(App.nextLang())}</button></div>`; }
+function render() {
+  document.documentElement.dir = App.lang === 'ar' ? 'rtl' : 'ltr';
+  if (!info.on) { root.innerHTML = `${head()}<div class="ok"><div class="big">🛑</div><p class="muted">${t('off')}</p></div>`; return; }
+  if (mine) return renderMine();
+  const c = info.cfg, wl = tab === 'wait';
+  root.innerHTML = `${head()}<h3 style="margin:14px 0 0">${t('title')}</h3>${c.note ? `<p class="note">${App.esc(c.note)}</p>` : ''}${c.from && c.to ? `<p class="note">${t('open')}: ${App.esc(c.from)} – ${App.esc(c.to)}</p>` : ''}
+    ${c.waitlist ? `<div class="seg"><button class="${wl ? '' : 'on'}" onclick="tab='book';render()">📅 ${t('book')}</button><button class="${wl ? 'on' : ''}" onclick="tab='wait';render()">⏳ ${t('wait')}${info.ahead ? ` (${info.ahead} ${t('ahead2')})` : ''}</button></div>` : ''}
+    <label>${t('name')}</label><input id="bn" maxlength="30" autocomplete="name" value="${App.esc(saved.name || '')}">
+    <label>${t('phone')}</label><input id="bp" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" value="${App.esc(saved.phone || '')}">
+    <label>${t('guests')}</label><input id="bg" type="number" min="1" max="${c.maxParty}" value="2">
+    ${wl ? '' : `<label>${t('when')}</label><input id="bw" type="datetime-local" min="${localMin()}" max="${localMax()}" value="${localMin()}">`}
+    <label>${t('note')}</label><input id="bt" maxlength="100">
+    ${err ? `<div class="err">${App.esc(err)}</div>` : ''}
+    <button class="btn" id="go" ${busy ? 'disabled' : ''} onclick="submit()">${wl ? t('join') : t('send')}</button>`;
+}
+async function submit() {
+  const wl = tab === 'wait', at = wl ? 0 : new Date(val('bw')).getTime();
+  busy = true; err = ''; document.getElementById('go').disabled = true;
+  try {
+    const r = await fetch('/api/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: wl ? 'wait' : 'book', name: val('bn'), phone: val('bp'), guests: +val('bg'), at, note: val('bt') }) }), j = await r.json().catch(() => ({}));
+    busy = false;
+    if (!r.ok || j.error) { err = j.error || t('wrong'); const keep = { n: val('bn'), p: val('bp') }; saved.name = keep.n; saved.phone = keep.p; return render(); }
+    saved.name = val('bn'); saved.phone = val('bp'); mine = { id: j.id, kind: j.kind, n: j.n, at: j.at, status: wl ? 'waiting' : 'pending' }; persist(); render(); startPoll();
+  } catch { busy = false; err = t('wrong'); render(); }
+}
+function renderMine() {
+  const m = mine, w = m.kind === 'wait', st = m.status;
+  const done = st === 'declined' || st === 'seated';
+  const icon = { pending: '⏳', confirmed: '✅', declined: '😔', waiting: '⏳', notified: '🔔', seated: '🍽️' }[st] || '⏳';
+  const msg = { pending: t('pending'), confirmed: t('confirmed'), declined: t('declined'), waiting: t('onList'), notified: t('notified'), seated: t('seated') }[st] || '';
+  root.innerHTML = `${head()}<div class="ok"><div class="big">${icon}</div><h2>${msg}</h2>
+    ${w ? `<p>${t('pos')}: <b style="font-size:28px">#${m.n}</b></p>${st === 'waiting' && m.ahead != null ? `<p class="muted">${t('ahead')}: ${m.ahead}</p>` : ''}` : `${m.at ? `<p><b>${fmt(m.at)}</b></p>` : ''}${st === 'pending' ? `<p class="muted">${t('sentTxt')}</p>` : ''}${m.table ? `<p>${t('table')} ${App.esc(m.table)}</p>` : ''}`}
+    ${done ? `<button class="btn" onclick="again()">${t('another')}</button>` : ''}</div>`;
+}
+function again() { mine = null; persist(); clearInterval(poll); poll = null; err = ''; render(); }
+function startPoll() {
+  clearInterval(poll); if (!mine) return;
+  const tick = async () => {
+    if (!mine) return;
+    try {
+      const r = await fetch('/api/book/status/' + encodeURIComponent(mine.id));
+      if (r.status === 404) return again();
+      const j = await r.json(); Object.assign(mine, { status: j.status, ahead: j.ahead, table: j.table, at: j.at || mine.at, n: j.n || mine.n }); persist(); renderMine();
+    } catch {}
+  };
+  poll = setInterval(tick, 8000); tick();
+}
+(async function init() {
+  try { const r = await fetch('/api/book/info'); if (!r.ok) throw 0; info = await r.json(); } catch { root.innerHTML = '<h2>Restaurant not found or suspended</h2>'; return; }
+  try { const c = await (await fetch('/api/config')).json(); App.config = c; App.applyTheme(); } catch {}
+  App.handlers = { render }; document.title = info.name + ' · ' + t('title');
+  if (saved.mine) mine = saved.mine;
+  render(); if (mine) startPoll();
+})();
+</script></body></html>

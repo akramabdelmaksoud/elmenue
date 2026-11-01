@@ -39,6 +39,8 @@ function createTenant(rec, persist, onAlert) {
     if (!db.itemDaily) { db.itemDaily = {}; (db.history || []).forEach((h) => { if (h.unpaid) return; const k = new Date(h.closedAt).toISOString().slice(0, 10); const d = (db.itemDaily[k] ||= {}); h.items.forEach((l) => (d[l.itemId] = (d[l.itemId] || 0) + l.qty)); }); ch = true; }
     if (!rec.stats) { rec.stats = { staff: {} }; ch = true; }
     if (!db.reservations) { db.reservations = []; ch = true; }
+    if (!db.waitlist) { db.waitlist = []; ch = true; }
+    if (!db.ingredients) { db.ingredients = []; ch = true; }
     return ch;
   }
   const keyOk = (t, key) => db.settings.requireKey === false || (!!t.key && key === t.key);
@@ -69,17 +71,31 @@ function createTenant(rec, persist, onAlert) {
     rec.stockLog = [{ at: Date.now(), itemId: it.id, item: it.name, delta, type, reason: reason || '', who: who || '', left: it.stock }, ...(rec.stockLog || [])].slice(0, 400);
   }
   // takes stock for the given lines (mutates qty down when there is not enough); returns the lines that remain
+  // ingredient stock follows the recipes: sell 2 lattes, take 2x the recipe (never below zero)
+  function useIng(itemId, qty, who, back) {
+    if (!F.has(rec, 'recipes')) return;
+    const it = db.items.find((x) => x.id === itemId); if (!it || !it.recipe || !it.recipe.length) return;
+    for (const r of it.recipe) {
+      const g = (db.ingredients || []).find((x) => x.id === r.ing); if (!g) continue;
+      const d = (back ? 1 : -1) * r.qty * qty, next = Math.max(0, Math.round((g.stock + d) * 1000) / 1000);
+      if (next === g.stock) continue; const delta = next - g.stock; g.stock = next;
+      rec.ingLog = [{ at: Date.now(), ingId: g.id, ing: g.name, unit: g.unit, delta, type: back ? 'return' : 'sale', item: it.name, who: who || '', left: g.stock }, ...(rec.ingLog || [])].slice(0, 400);
+    }
+  }
   function takeStock(lines, who) {
     lines.forEach((l) => {
-      const it = db.items.find((x) => x.id === l.itemId); if (!tracked(it)) return;
-      const have = Math.max(0, Math.floor(+it.stock)); if (l.qty > have) l.qty = have;
+      const it = db.items.find((x) => x.id === l.itemId);
+      if (tracked(it)) { const have = Math.max(0, Math.floor(+it.stock)); if (l.qty > have) l.qty = have; }
       if (l.qty <= 0) return;
-      it.stock = have - l.qty; slog(it, -l.qty, 'sale', '', who);
+      useIng(l.itemId, l.qty, who);
+      if (!tracked(it)) return;
+      it.stock = Math.max(0, Math.floor(+it.stock)) - l.qty; slog(it, -l.qty, 'sale', '', who);
       if (it.stock <= 0) it.soldOut = true;
     });
     return lines.filter((l) => l.qty > 0);
   }
   function putStock(itemId, qty, type, reason, who) {
+    if (qty > 0) useIng(itemId, qty, who, true);
     const it = db.items.find((x) => x.id === itemId); if (!tracked(it) || qty <= 0) return;
     it.stock = Math.floor(+it.stock) + qty; slog(it, qty, type, reason, who);
     if (it.stock > 0) it.soldOut = false;
@@ -295,8 +311,8 @@ const upOn = () => F.has(rec, 'upsell') && db.settings.upsell && db.settings.ups
 function snapshotFor(c) {
   // the Google review link is only ever handed out by the feedback endpoint (4-5 stars), never inside the public config
   const pubSettings = c.role === 'admin' || !db.settings.fb ? db.settings : { ...db.settings, fb: { enabled: !!db.settings.fb.enabled } };
-  const config = { best: bestSellers(), settings: pubSettings, categories: db.categories, items: db.items, tables: c.role === 'admin' ? db.tables : db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec), plan: F.planOf(rec.plan) };
-  if (c.role !== 'customer') config.reservations = (db.reservations || []).filter((r) => r.at > Date.now() - 3 * 3600000);
+  const config = { best: bestSellers(), settings: pubSettings, categories: db.categories, items: c.role === 'customer' ? db.items.map(({ cost, recipe, ...i }) => i) : db.items, tables: c.role === 'admin' ? db.tables : db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec), plan: F.planOf(rec.plan) };
+  if (c.role !== 'customer') { config.reservations = (db.reservations || []).filter((r) => r.at > Date.now() - 3 * 3600000 && r.status !== 'declined'); config.waitlist = db.waitlist || []; }
   if (c.role === 'customer') {
     const t = db.tables.find((x) => x.number === c.tableNumber);
     const s = t && db.sessions[t.id];
@@ -326,6 +342,63 @@ function alertCaptains(kind, tableNumber, text) {
 // ---------- WebSocket logic ----------
 // ---------- Online ordering: a guest places a pickup / delivery ticket from the venue's public page (no login; pay on receipt) ----------
 // Everything is validated here; the caller only supplies a random ticket id. Returns { ok, tid, number, total, prepMin } or { error, code }.
+// ---------- Guest reservations and waitlist ----------
+const phoneKey = (v) => String(v || '').replace(/\D/g, '').slice(-9);
+function placeBooking(p) {
+  const cfg = F.reserveCfg(db.settings);
+  if (!F.has(rec, 'reservations') || !cfg.enabled) return { error: 'Reservations are not available here', code: 'off' };
+  const wait = p.kind === 'wait';
+  if (wait && !cfg.waitlist) return { error: 'The waitlist is not open right now', code: 'off' };
+  const name = String(p.name || '').replace(/[<>]/g, '').trim().slice(0, 30), phone = String(p.phone || '').replace(/[^\d+]/g, '').slice(0, 20), guests = Math.floor(+p.guests), now = Date.now();
+  if (!name) return { error: 'Please enter your name', code: 'name' };
+  if (phone.replace(/\D/g, '').length < 7) return { error: 'Please enter a valid phone number', code: 'phone' };
+  if (!(guests >= 1 && guests <= cfg.maxParty)) return { error: 'We take parties of 1 to ' + cfg.maxParty + ' here. For bigger groups please call us.', code: 'party' };
+  const note = String(p.note || '').replace(/[<>]/g, '').trim().slice(0, 100), mine = phoneKey(phone);
+  const live = (db.reservations || []).filter((r) => r.at > now - 3 * 3600000 && r.status !== 'declined');
+  if (live.filter((r) => phoneKey(r.phone) === mine).length + (db.waitlist || []).filter((w) => phoneKey(w.phone) === mine).length >= 3) return { error: 'You already have bookings with us. Please call to change them.', code: 'limit' };
+  if (wait) {
+    if ((db.waitlist || []).some((w) => phoneKey(w.phone) === mine && w.status !== 'seated')) return { error: 'You are already on the waitlist', code: 'dupe' };
+    if ((db.waitlist || []).length >= 60) return { error: 'The waitlist is full', code: 'full' };
+    const n = Math.max(0, ...(db.waitlist || []).map((w) => w.n || 0)) + 1, w = { id: id('wl'), n, name, phone, guests, note, at: now, status: 'waiting' };
+    db.waitlist.push(w); alertCaptains('order', 0, `Waitlist: ${name} (${guests}) joined as #${n}`); save(); broadcast();
+    return { ok: 1, id: w.id, n, kind: 'wait' };
+  }
+  const at = Math.floor(+p.at);
+  if (!(at > 0)) return { error: 'Please choose a date and time', code: 'time' };
+  if (at < now + cfg.leadMin * 60000) return { error: cfg.leadMin ? 'Please book at least ' + cfg.leadMin + ' minutes ahead' : 'That time has passed', code: 'lead' };
+  if (at > now + cfg.daysAhead * 86400000) return { error: 'We take bookings up to ' + cfg.daysAhead + ' days ahead', code: 'far' };
+  if (!F.reserveHoursOk(cfg, at)) return { error: 'We are open ' + cfg.from + ' to ' + cfg.to, code: 'hours' };
+  const cap = cfg.capacity || db.tables.length * 4, taken = live.filter((r) => Math.abs(r.at - at) < 90 * 60000).reduce((n, r) => n + (r.guests || 0), 0);
+  if (taken + guests > cap) return { error: 'We are fully booked around that time. Try another time or join the waitlist.', code: 'full' };
+  const r = { id: id('rv'), tableId: null, tableNumber: '', name, phone, guests, at, note, status: 'pending', source: 'online', createdAt: now };
+  db.reservations.push(r); db.reservations = db.reservations.filter((x) => x.at > now - 3 * 3600000).slice(-300);
+  alertCaptains('order', 0, `New booking request: ${name} (${guests}) ${new Date(at).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`); save(); broadcast();
+  return { ok: 1, id: r.id, kind: 'booking', at };
+}
+function bookingStatus(bid) {
+  const r = (db.reservations || []).find((x) => x.id === bid);
+  if (r) return { kind: 'booking', status: r.status || 'confirmed', at: r.at, guests: r.guests, table: r.tableNumber || '' };
+  const w = (db.waitlist || []).find((x) => x.id === bid);
+  if (w) return { kind: 'wait', status: w.status, n: w.n, guests: w.guests, ahead: (db.waitlist || []).filter((x) => x.status === 'waiting' && x.n < w.n).length };
+  return null;
+}
+function bookingAct(act, bid, extra, who) {
+  extra = extra || {}; const r = (db.reservations || []).find((x) => x.id === bid), w = (db.waitlist || []).find((x) => x.id === bid);
+  if (!r && !w) return { error: 'Not found', code: 'nf' };
+  const tbl = extra.tableId ? db.tables.find((x) => x.id === extra.tableId) : null;
+  if (act === 'confirm' && r) { r.status = 'confirmed'; if (tbl) { r.tableId = tbl.id; r.tableNumber = tbl.number; } }
+  else if (act === 'decline' && r) r.status = 'declined';
+  else if (act === 'notify' && w) { w.status = 'notified'; w.notifiedAt = Date.now(); }
+  else if (act === 'seat') {
+    const t = tbl || (r && db.tables.find((x) => x.id === r.tableId)); if (!t) return { error: 'Choose a table', code: 'table' };
+    const s = openSession(t); s.lastAt = Date.now(); if (!s.guests.length) s.guests.push({ id: 'cust', name: (r || w).name, avatar: '📅' });
+    log(s, 'seated', (r ? 'Reservation' : 'Waitlist') + ' for ' + (r || w).name + ' seated' + (who ? ' by ' + who : ''));
+    if (r) db.reservations = db.reservations.filter((x) => x !== r); else w.status = 'seated';
+  } else if (act === 'remove') { if (r) db.reservations = db.reservations.filter((x) => x !== r); else db.waitlist = db.waitlist.filter((x) => x !== w); }
+  else return { error: 'Bad action', code: 'act' };
+  db.waitlist = (db.waitlist || []).filter((x) => x.status !== 'seated' || Date.now() - x.at < 3600000).slice(-80);
+  save(); broadcast(); return { ok: 1 };
+}
 function placeOnline(p) {
   const o = F.onlineCfg(db.settings);
   if (!F.has(rec, 'online') || !o.enabled) return { error: 'Online ordering is not available at this venue', code: 'off' };
@@ -635,8 +708,9 @@ function handle(c, m) {
         db.reservations = db.reservations.filter((r) => r.at > Date.now() - 3 * 3600000).slice(-300); break;
       }
       case 'res_del': db.reservations = (db.reservations || []).filter((r) => r.id !== m.id); break;
+      case 'res_confirm': case 'res_decline': case 'wl_notify': case 'wl_seat': case 'wl_del': bookingAct({ res_confirm: 'confirm', res_decline: 'decline', wl_notify: 'notify', wl_seat: 'seat', wl_del: 'remove' }[m.t], m.id, { tableId: m.tableId }, c.staffName || ''); break;
       case 'res_seat': {
-        const r = (db.reservations || []).find((x) => x.id === m.id), t = r && db.tables.find((x) => x.id === r.tableId); if (!t) break;
+        const r = (db.reservations || []).find((x) => x.id === m.id), t = r && db.tables.find((x) => x.id === (r.tableId || m.tableId)); if (!t) break;
         const s = openSession(t); s.lastAt = Date.now(); if (!s.guests.length) s.guests.push({ id: 'cust', name: r.name, avatar: '📅' });
         log(s, 'seated', `Reservation for ${r.name} seated`); db.reservations = db.reservations.filter((x) => x !== r); break;
       }
@@ -762,6 +836,6 @@ function analytics(days = 7) {
     if (r.action) broadcast(); return r;
   }
   const publicConfig = () => ({ settings: db.settings, categories: db.categories, items: db.items, tables: db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec), plan: F.planOf(rec.plan) });
-  return { placeOnline, onlineStatus, applyOnline, notify: alertCaptains, rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
+  return { placeBooking, bookingStatus, bookingAct, placeOnline, onlineStatus, applyOnline, notify: alertCaptains, rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
 }
 module.exports = { createTenant, freshData, clone };
