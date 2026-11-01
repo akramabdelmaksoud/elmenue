@@ -17,6 +17,7 @@ const { createTenant, freshData } = require('./tenant');
 const F = require('./features');
 const INS = require('./insights');
 const REPORT = require('./report');
+const CHAIN = require('./chain');
 const { rateLimit, messageBudget } = require('./ratelimit');
 const HOSTS = require('./hosts');
 const { securityHeaders } = require('./security');
@@ -1346,9 +1347,16 @@ A('post', '/menu/ocr', gate('ocr'), upLimit, upload.single('image'), async (req,
 });
 A('post', '/menu/ocr/import', gate('ocr'), (req, res) => res.json(req.tenant.importParsed((req.body || {}).items)));
 A('get', '/branches', gate('branches'), async (req, res, next) => { try {
-  const g = req.tenant.rec.group, list = (await allTenants()).filter((t) => t.rec.id === req.tenant.rec.id || (g && t.rec.group === g)).map((t) => tenantStats(t, +req.query.days || 30));
-  const sum = (f) => list.reduce((n, x) => n + f(x), 0);
-  res.json({ group: g || '', branches: list.map((x) => ({ slug: x.slug, name: x.name, revenue: x.revenue, sessions: x.sessions, avgTicket: x.avgTicket, liveTables: x.liveTables, guestsLive: x.guestsLive })), totals: { revenue: sum((x) => x.revenue), sessions: sum((x) => x.sessions), liveTables: sum((x) => x.liveTables) }, currency: req.tenant.db.settings.currency });
+  const days = [7, 14, 30, 60, 90].includes(+req.query.days) ? +req.query.days : 30, now = Date.now(), g = req.tenant.rec.group;
+  const mine = (await allTenants()).filter((t) => t.rec.id === req.tenant.rec.id || (g && t.rec.group === g));
+  const branches = await Promise.all(mine.map(async (t) => {
+    const hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history, live = Object.values(t.db.sessions);
+    const ins = INS.analyze({ history: hist, reviews: t.rec.reviews || [], staffLog: {}, staffStats: {}, staffList: [], days, now, onlineEnabled: !!(t.db.settings.online || {}).enabled });
+    const att = F.has(t.rec, 'attendance') ? await attFor(t, now - days * 86400000, now).catch(() => null) : null;
+    return { slug: t.rec.slug, name: t.rec.name, hist, ins, att, currency: t.db.settings.currency, live: { tables: live.length, guests: live.reduce((n, s) => n + s.guests.length, 0) } };
+  }));
+  const out = CHAIN.build({ days, now, branches });
+  res.json({ ...out, group: g || '', current: req.tenant.rec.slug, branches: out.branches.map((x) => ({ ...x, sessions: x.orders, liveTables: x.live.tables, guestsLive: x.live.guests })) });
 } catch (e) { next(e); } });
 A('post', '/menu/import', upLimit, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
