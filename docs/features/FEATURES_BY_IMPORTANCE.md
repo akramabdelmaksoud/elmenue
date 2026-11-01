@@ -8,8 +8,8 @@ The super console lets you move any feature between bundles and lock it per caf�
 | Bundle | Monthly price (from - to) | Features |
 |---|---|---|
 | Starter QR Ordering | 600 to 800 EGP | 7 |
-| Full Operations & Staff POS | 1200 to 1500 EGP | 25 |
-| Enterprise VIP & AI | 2000 to 2000 EGP | 32 |
+| Full Operations & Staff POS | 1200 to 1500 EGP | 27 |
+| Enterprise VIP & AI | 2000 to 2000 EGP | 36 |
 
 ## Features by importance
 
@@ -40,6 +40,8 @@ Features most cafés notice and value within the first month.
 | **Insights and staff performance** | Owner dashboard | Period comparison, best sellers, peak hours, staff performance, low stock. | Decisions from data instead of gut feeling. | None | - | yes | yes |
 | **InstaPay and wallet payment at the table** | Guest side | InstaPay or wallet payment at the table with the café's QR/number and an "I paid" notice to the cashier. | Most Egyptian guests prefer it to cash or card. No gateway fee. | None | - | yes | yes |
 | **Accounting export (daily sales, VAT)** | Owner dashboard | Daily sales, service, VAT, tips and payment-method totals as Excel/CSV. | Saves the accountant hours every month. | None | - | yes | yes |
+| **Branded invoices and purchase orders** | Owner dashboard | Formal numbered invoices with your own letterhead, template and language, from a paid order or blank. | Satisfies companies and authorities that ask for a proper invoice. | None | - | yes | yes |
+| **Staff attendance, schedules and labour cost** | Staff side | Staff clock in when they sign in; schedules, lateness, hours and labour cost per person. | Shows what each person really costs and who is reliable. | None | - | yes | yes |
 
 ### Level 3 - Growth tools
 Features that raise revenue or control for busier venues.
@@ -49,6 +51,8 @@ Features that raise revenue or control for busier venues.
 | **Party size** | Guest side | Guests say how many people are at the table; helps the host and bill splitting. | Better table planning. | None | - | yes | yes |
 | **Order approval lock** | Staff side | Staff approve orders before they reach the kitchen (anti prank, anti walk-out). | Safer for open tables and busy venues. | None | - | yes | yes |
 | **Third language** | Guest side | A third menu language (for example French or Franco-Arab). | Tourist areas, expat cafés. | None | - | yes | yes |
+| **Suppliers and purchase orders** | Owner dashboard | Suppliers, reorder suggestions from low stock, purchase orders, receiving that updates stock and cost. | Stops stock-outs and keeps ingredient costs current. | Recipes & ingredient stock | - | - | yes |
+| **Owner report pack (analysis, risks, decisions)** | Owner dashboard | A one-page report for the owner: KPIs, staff scorecard, findings, decisions and menu engineering. | Lets you advise the owner from his own numbers. | None | - | - | yes |
 | **Reservations and waitlist** | Guest side | Guests book a table or join a waitlist from a link; staff confirm, decline or seat them. | Fills quiet hours and removes the phone-call burden. | None | - | yes | yes |
 | **Recipes, ingredient stock and food cost** | Owner dashboard | Ingredients, recipes, stock that drops with every sale, food-cost % per dish. | The owner sees real margin and what to reorder. Strong upsell to VIP. | None | - | - | yes |
 | **Upsell suggestions** | Guest side | Smart suggestions ("add a cake?") by time of day and basket. | Raises average ticket with no staff effort. | None | - | yes | yes |

@@ -194,11 +194,15 @@ const SINGLE = envOn(process.env.SINGLE_RESTAURANT), MAIN = 'main';
 // ---------- Host-based tenants: <slug>.BASE_DOMAIN and custom domains serve the restaurant's pages (rewrite, not redirect) ----------
 // /r/<slug>/... keeps working on every host, so printed QR codes, ?k= table keys and demo mode are untouched.
 const hostIndex = HOSTS.createHostIndex({ base: BASE_DOMAIN, ttlMs: STATELESS ? 30000 : 2000, load: async () => (STATELESS ? store.listRecs() : [...tenants.values()].map((t) => t.rec)) });
-const HOST_PAGES = { '/': 'tenant.html', '/captain': 'captain.html', '/admin': 'admin.html', '/kitchen': 'kitchen.html', '/cashier': 'cashier.html', '/order': 'order.html', '/book': 'book.html', '/desk': 'captain.html', '/ownerreport': 'ownerreport.html' };
+const HOST_PAGES = { '/': 'tenant.html', '/captain': 'captain.html', '/admin': 'admin.html', '/kitchen': 'kitchen.html', '/cashier': 'cashier.html', '/order': 'order.html', '/book': 'book.html', '/desk': 'captain.html', '/ownerreport': 'ownerreport.html', '/invoice': 'invoice.html' };
 const pageCache = {};
+// Asset versioning: every page references its scripts and styles as /x.js?v=<build>. A versioned file never changes, so browsers keep it
+// for a year and a repeat visit makes no round trips for it (before, each file was re-checked on every page load, about 0.3 s each on a phone).
+const BUILD = (() => { try { const h = require('crypto').createHash('sha1'); for (const f of fs.readdirSync(path.join(__dirname, 'public')).filter((x) => /[.](js|css)$/.test(x)).sort()) h.update(f).update(fs.readFileSync(path.join(__dirname, 'public', f))); return h.digest('hex').slice(0, 10); } catch { return String(Date.now()); } })();
+const versioned = (h) => h.replace(/(src|href)="([/][A-Za-z0-9_.-]+[.](?:js|css))"/g, '$1="$2?v=' + BUILD + '"');
+function readPage(file) { let h = pageCache[file]; if (!h) { h = versioned(fs.readFileSync(path.join(__dirname, 'public', file), 'utf8')); if (PROD) pageCache[file] = h; } return h; }
 function pageFor(file, slug) {   // the page plus <meta name="elm-slug"> so shared.js knows the restaurant without a /r/<slug> prefix
-  let h = pageCache[file];
-  if (!h) { h = fs.readFileSync(path.join(__dirname, 'public', file), 'utf8'); if (PROD) pageCache[file] = h; }
+  const h = readPage(file);
   return h.replace('<head>', '<head><meta name="elm-slug" content="' + slug + '">');
 }
 const hostOf = (req) => String(req.headers.host || '').toLowerCase().replace(/:\d+$/, '');
@@ -210,7 +214,7 @@ const ZONE_HOME = { site: 'site.html', admin: 'super.html', demo: 'showroom.html
 if (ROOT) app.use((req, res, next) => {
   const z = zoneOf(req);
   if (/^\/(super|api\/super)(\/|$)|^\/super\.html$/.test(req.path) && z !== 'admin') return res.status(404).end();
-  if ((req.method === 'GET' || req.method === 'HEAD') && z && req.path === '/') return res.set('Cache-Control', 'no-cache').sendFile(path.join(__dirname, 'public', ZONE_HOME[z]));
+  if ((req.method === 'GET' || req.method === 'HEAD') && z && req.path === '/') return res.set('Cache-Control', 'no-cache').type('html').send(readPage(ZONE_HOME[z]));
   next();
 });
 if (!SINGLE) app.use(async (req, res, next) => {
@@ -264,12 +268,12 @@ if (SINGLE) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 }
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { setHeaders: (res, p) => { if (res.req.query && res.req.query.v) res.set('Cache-Control', 'public, max-age=31536000, immutable'); else if (/[\/](icons|menu)[\/]/.test(p)) res.set('Cache-Control', 'public, max-age=86400'); } }));
 app.use('/vendor/sortable.js', express.static(require.resolve('sortablejs/Sortable.min.js'), { maxAge: '7d' }));
 app.use('/vendor/chart.js', express.static(path.join(__dirname, 'node_modules/chart.js/dist/chart.umd.js'), { maxAge: '7d' }));
 if (!SINGLE) app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'platform.html')));
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: (+process.env.UPLOAD_MAX_MB || 5) * 1024 * 1024, files: 1 } });
-const page = (f) => (req, res) => res.sendFile(path.join(__dirname, 'public', f));
+const page = (f) => (req, res) => res.set('Cache-Control', 'no-cache').type('html').send(readPage(f));
 // the order engine is plain JS, so the in-browser demo can run the exact same code with nothing saved
 app.get('/engine/:f', (req, res, next) => ['tenant.js', 'data.js', 'features.js'].includes(req.params.f) ? res.type('js').sendFile(path.join(__dirname, req.params.f)) : next());
 // ---------- Showroom: one shared, server-backed demo café (opens from any browser / device) ----------
@@ -514,7 +518,7 @@ app.post(`${R}/login`, loginLimit, tenantMw, (req, res) => {
     const p = String(pin || ''); let who = null;
     for (const st of t.rec.staff || []) if (st.active !== false && st.hash && auth.check(p, st.hash)) { who = st; break; }
     if (who && (role === 'kitchen' || who.role === 'captain')) { clockIn(t, who); return ok(auth.sign(role, t.rec.slug, 0.5, { u: who.id, n: who.name })); }
-    if (!who && p && p === String(t.rec.pin)) return ok(auth.sign(role, t.rec.slug, 0.5, { u: 'owner-pin', n: 'Captain' }));
+    if (!who && p && p === String(t.rec.pin) && !t.rec.legacyPinOff) return ok(auth.sign(role, t.rec.slug, 0.5, { u: 'owner-pin', n: 'Captain' }));
   }
   fails[key] = { n: f.n + 1, t: Date.now() };
   for (const k of Object.keys(fails)) if (Date.now() - fails[k].t > 3600000) delete fails[k];
@@ -701,7 +705,9 @@ A('post', '/account', (req, res) => {
   if (b.password) { if (String(b.password).length < 6) return res.status(400).json({ error: 'Password must be 6+ characters' }); r.owner.hash = auth.hash(b.password); }
   req.tenant.broadcast(); res.json({ ok: 1, pin: r.pin });
 });
-A('get', '/staff', (req, res) => res.json({ staff: (req.tenant.rec.staff || []).map(({ hash, ...x }) => x), stats: (req.tenant.rec.stats || {}).staff || {}, legacyPin: req.tenant.rec.pin }));
+A('post', '/legacy-pin', (req, res) => { req.tenant.rec.legacyPinOff = !!(req.body || {}).off; persistRec(req.tenant); res.json({ ok: 1, off: !!req.tenant.rec.legacyPinOff }); });
+A('get', '/staff', (req, res) => res.json({ legacyOff: !!req.tenant.rec.legacyPinOff, staff: (req.tenant.rec.staff || []).map(({ hash, ...x }) => x), stats: (req.tenant.rec.stats || {}).staff || {}, legacyPin: req.tenant.rec.pin }));
+const nameTaken = (rec, name, exceptId) => (rec.staff || []).some((x) => x.id !== exceptId && x.active !== false && String(x.name).trim().toLowerCase() === String(name).trim().toLowerCase());
 const pinTaken = (rec, pin, exceptId) => String(rec.pin) === pin || (rec.staff || []).some((x) => x.id !== exceptId && x.hash && auth.check(pin, x.hash));
 A('post', '/staff', (req, res) => {
   const r = req.tenant.rec, b = req.body || {}, name = String(b.name || '').trim().slice(0, 30), pin = String(b.pin || '');
@@ -710,6 +716,7 @@ A('post', '/staff', (req, res) => {
   if (!['captain', 'kitchen', 'cashier'].includes(b.role)) return res.status(400).json({ error: 'Role must be captain, kitchen or cashier' });
   if (b.role === 'cashier' && !F.has(r, 'cashier')) return res.status(402).json({ error: 'The Cashier role needs the Operations plan', upgrade: F.minPlanFor('cashier') });
   if (!/^\d{4,8}$/.test(pin)) return res.status(400).json({ error: 'PIN must be 4-8 digits' });
+  if (nameTaken(r, name)) return res.status(400).json({ error: 'Another person already has this name. Use a different name so reports keep them apart (for example Ahmed K.)' });
   if (pinTaken(r, pin)) return res.status(400).json({ error: 'That PIN is already used - choose another' });
   const st = { id: newId('u'), name, role: b.role, hash: auth.hash(pin), active: true, createdAt: Date.now() };
   (r.staff ||= []).push(st); bc(req); const { hash, ...pub } = st; res.json(pub);
@@ -717,7 +724,7 @@ A('post', '/staff', (req, res) => {
 A('put', '/staff/:id', (req, res) => {
   const r = req.tenant.rec, st = (r.staff || []).find((x) => x.id === req.params.id), b = req.body || {};
   if (!st) return res.status(404).json({ error: 'not found' });
-  if (b.name !== undefined) st.name = String(b.name).trim().slice(0, 30) || st.name;
+  if (b.name !== undefined) { const nn = String(b.name).trim().slice(0, 30); if (nn && nameTaken(r, nn, st.id)) return res.status(400).json({ error: 'Another person already has this name' }); st.name = nn || st.name; }
   if (['captain', 'kitchen', 'cashier'].includes(b.role)) st.role = b.role;
   if (b.active !== undefined) st.active = !!b.active;
   if (b.wage !== undefined) st.wage = F.wageClean(b.wage);
@@ -733,6 +740,79 @@ A('get', '/ownerreport', gateOR, async (req, res, next) => { try {
   const att = F.has(t.rec, 'attendance') ? await attFor(t, now - days * 86400000, now) : null, L = t.loyaltyStats(), mem = Object.values((t.db.loyalty && t.db.loyalty.members) || {});
   res.json(REPORT.build({ days, now, hist, ins, att, stock: { ingredients: t.db.ingredients || [], items: t.db.items }, loyalty: { members: mem.length, repeatPct: mem.length ? Math.round(mem.filter((m) => m.visits > 1).length / mem.length * 100) : 0 }, settings: t.db.settings, name: t.rec.name, currency: t.db.settings.currency, advisor: t.rec.advice || '' }));
 } catch (e) { next(e); } });
+// ----- Branded invoices, suppliers and purchase orders -----
+const gateInv = (req, res, next) => (F.has(req.tenant.rec, 'invoicing') ? next() : res.status(402).json({ error: 'Invoices need the ' + F.PLANS[F.minPlanFor('invoicing')].name + ' plan', upgrade: F.minPlanFor('invoicing') }));
+const gatePur = (req, res, next) => (F.has(req.tenant.rec, 'purchasing') ? next() : res.status(402).json({ error: 'Purchasing needs the ' + F.PLANS[F.minPlanFor('purchasing')].name + ' plan', upgrade: F.minPlanFor('purchasing') }));
+const brandOf = (t) => { const b = F.invoiceBrandClean(t.rec.invoiceBrand || {}, t.rec.invoiceBrand || {}); if (!b.tradeName) b.tradeName = t.db.settings.name || t.rec.name; return b; };
+const money2 = (n) => Math.round((+n || 0) * 100) / 100;
+const docNo = (t, kind, brand) => { const q = (t.rec.docSeq ||= {}); q[kind] = (q[kind] || 0) + 1; return (kind === 'po' ? brand.poPrefix : brand.prefix) + String(q[kind]).padStart(5, '0'); };
+A('get', '/invoice-brand', gateInv, (req, res) => res.json(brandOf(req.tenant)));
+A('put', '/invoice-brand', gateInv, (req, res) => { const t = req.tenant, cur = t.rec.invoiceBrand || {}; t.rec.invoiceBrand = F.invoiceBrandClean(req.body, cur); persistRec(t); res.json(brandOf(t)); });
+A('post', '/invoice-logo', upLimit, gateInv, upload.single('image'), async (req, res) => { const u = await putImage(req, res, 'logo'); if (!u) return; const t = req.tenant; t.rec.invoiceBrand = { ...F.invoiceBrandClean(t.rec.invoiceBrand || {}, {}), logo: u }; persistRec(t); res.json({ ok: 1, logo: u }); });
+A('delete', '/invoice-logo', gateInv, (req, res) => { const t = req.tenant; if (t.rec.invoiceBrand) t.rec.invoiceBrand.logo = ''; persistRec(t); res.json({ ok: 1 }); });
+A('get', '/invoices', gateInv, (req, res) => { const q = String(req.query.q || '').toLowerCase().slice(0, 40); res.json({ invoices: (req.tenant.rec.invoices || []).filter((x) => !q || (x.no + ' ' + x.to.name).toLowerCase().includes(q)).slice(-300).reverse().map(({ lines, ...x }) => x) }); });
+A('get', '/invoices/:id', gateInv, (req, res) => { const t = req.tenant, d = (t.rec.invoices || []).find((x) => x.id === req.params.id) || (t.db.pos || []).find((x) => x.id === req.params.id); if (!d) return res.status(404).json({ error: 'Not found' }); res.json({ doc: d, brand: brandOf(t), currency: t.db.settings.currency, tax: t.db.settings.tax, service: t.db.settings.service }); });
+// last paid orders, so a guest or company who asks for a formal invoice gets one from the real order
+A('get', '/invoice-source', gateInv, async (req, res) => { const t = req.tenant, hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history; res.json({ orders: hist.filter((h) => !h.unpaid).slice(-80).reverse().map((h) => ({ id: h.id, at: h.closedAt, table: h.tableNumber, kind: h.kind || 'table', total: h.total, items: (h.items || []).reduce((n, l) => n + l.qty, 0), invoiced: (t.rec.invoices || []).some((x) => x.ref === h.id && x.status !== 'void') })) }); });
+A('post', '/invoices', gateInv, async (req, res, next) => { try {
+  const t = req.tenant, b = req.body || {}, brand = brandOf(t), st = t.db.settings; let lines, tot, ref = '';
+  if (b.fromOrder) {
+    const hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history, h = hist.find((x) => x.id === String(b.fromOrder)); if (!h) return res.status(404).json({ error: 'Order not found' });
+    if ((t.rec.invoices || []).some((x) => x.ref === h.id && x.status !== 'void')) return res.status(400).json({ error: 'This order already has an invoice. Cancel it first to issue another.' });
+    lines = F.docLines((h.items || []).map((l) => ({ desc: l.name + (l.opt ? ' (' + l.opt + ')' : ''), qty: l.qty, unit: '', price: l.price })));
+    tot = { sub: money2(h.sub), discount: money2(h.discount || 0), service: money2(h.service || 0), tax: money2(h.tax || 0), total: money2(h.total - (h.tip || 0)) }; ref = h.id;
+  } else {
+    lines = F.docLines(b.lines); if (!lines.length) return res.status(400).json({ error: 'Add at least one line with a description and quantity' });
+    tot = F.docTotals(lines, b.discount, b.servicePct, b.taxPct === undefined ? st.tax : b.taxPct);
+  }
+  const to = F.partyClean(b.to); if (!to.name) return res.status(400).json({ error: 'Who is the invoice for? Enter a name' });
+  const date = +b.date > 0 && +b.date < Date.now() + 86400000 * 365 ? +b.date : Date.now();
+  const inv = { id: newId('inv'), no: docNo(t, 'inv', brand), kind: b.proforma ? 'proforma' : 'invoice', status: 'issued', date, dueDays: Math.min(365, Math.max(0, Math.floor(+b.dueDays) || 0)), to, lines, ...tot, taxPct: b.fromOrder ? (st.tax || 0) : Math.min(100, Math.max(0, +(b.taxPct === undefined ? st.tax : b.taxPct) || 0)), servicePct: b.fromOrder ? (st.service || 0) : Math.min(100, Math.max(0, +b.servicePct || 0)), note: String(b.note || '').replace(/[<>]/g, '').slice(0, 300), ref, by: req.claims ? (req.claims.n || 'Owner') : 'Owner', createdAt: Date.now(), snapshot: { legalName: brand.legalName, taxId: brand.taxId } };
+  (t.rec.invoices ||= []).push(inv); if (t.rec.invoices.length > 3000) t.rec.invoices = t.rec.invoices.slice(-3000); persistRec(t); res.json(inv);
+} catch (e) { next(e); } });
+// numbers are never reused or removed: a wrong invoice is cancelled and stays in the list
+A('post', '/invoices/:id/void', gateInv, (req, res) => { const t = req.tenant, d = (t.rec.invoices || []).find((x) => x.id === req.params.id); if (!d) return res.status(404).json({ error: 'Not found' }); d.status = 'void'; d.voidReason = String((req.body || {}).reason || '').replace(/[<>]/g, '').slice(0, 120); d.voidedAt = Date.now(); persistRec(t); res.json({ ok: 1 }); });
+// ---- suppliers ----
+A('get', '/suppliers', gatePur, (req, res) => res.json({ suppliers: req.tenant.db.suppliers || [] }));
+A('post', '/suppliers', gatePur, (req, res) => { const d = req.tenant.db, c = F.supplierClean(req.body); if (!c.name) return res.status(400).json({ error: 'Give the supplier a name' }); if ((d.suppliers ||= []).length >= 200) return res.status(400).json({ error: 'Too many suppliers' }); const s = { id: newId('s'), ...c }; d.suppliers.push(s); bc(req); res.json(s); });
+A('put', '/suppliers/:id', gatePur, (req, res) => { const d = req.tenant.db, s = (d.suppliers || []).find((x) => x.id === req.params.id); if (!s) return res.status(404).json({ error: 'Not found' }); const c = F.supplierClean({ ...s, ...req.body }); if (!c.name) return res.status(400).json({ error: 'Give the supplier a name' }); Object.assign(s, c); bc(req); res.json(s); });
+A('delete', '/suppliers/:id', gatePur, (req, res) => { const d = req.tenant.db; d.suppliers = (d.suppliers || []).filter((x) => x.id !== req.params.id); for (const g of d.ingredients || []) if (g.supplier === req.params.id) g.supplier = ''; bc(req); res.json({ ok: 1 }); });
+// ---- purchase orders ----
+const poLines = (arr, d) => (Array.isArray(arr) ? arr : []).slice(0, 60).map((l) => { const g = (d.ingredients || []).find((x) => x.id === (l && l.ing)); return { ing: g ? g.id : '', desc: String(l && l.desc || (g ? g.name : '')).replace(/[<>]/g, '').trim().slice(0, 140), unit: g ? g.unit : String(l && l.unit || '').replace(/[<>]/g, '').slice(0, 10), qty: Math.min(1e7, Math.max(0, +(l && l.qty) || 0)), price: Math.min(1e7, Math.max(0, money2(l && l.price))), got: 0 }; }).filter((l) => l.desc && l.qty > 0);
+A('get', '/pos', gatePur, (req, res) => res.json({ pos: (req.tenant.db.pos || []).slice().reverse() }));
+// what is below its reorder level, grouped by supplier, with the quantity that brings it back to its par level
+A('get', '/pos/suggest', gatePur, (req, res) => {
+  const d = req.tenant.db, open = (d.pos || []).filter((p) => p.status === 'draft' || p.status === 'sent' || p.status === 'partial'), onOrder = (id) => open.reduce((n, p) => n + p.lines.filter((l) => l.ing === id).reduce((m, l) => m + Math.max(0, l.qty - l.got), 0), 0), by = {};
+  for (const g of d.ingredients || []) { const target = g.par || (g.low > 0 ? g.low * 3 : 0); if (!(target > 0) || g.stock > Math.max(g.low || 0, 0) && g.stock >= target) continue; if (g.low > 0 ? g.stock > g.low : g.stock >= target) continue; const need = Math.ceil((target - g.stock - onOrder(g.id)) * 1000) / 1000; if (need > 0) (by[g.supplier || ''] ||= []).push({ ing: g.id, desc: g.name, unit: g.unit, qty: need, price: g.cost, stock: g.stock }); }
+  res.json({ groups: Object.entries(by).map(([supplier, lines]) => ({ supplier, lines })) });
+});
+A('post', '/pos', gatePur, (req, res) => {
+  const t = req.tenant, d = t.db, b = req.body || {}, s = (d.suppliers || []).find((x) => x.id === b.supplier); if (!s) return res.status(400).json({ error: 'Pick a supplier' });
+  const lines = poLines(b.lines, d); if (!lines.length) return res.status(400).json({ error: 'Add at least one line' });
+  const brand = brandOf(t), tax = Math.min(100, Math.max(0, +(b.taxPct === undefined ? 0 : b.taxPct) || 0)), tot = F.docTotals(lines.map((l) => ({ qty: l.qty, price: l.price })), 0, 0, tax);
+  const po = { id: newId('po'), no: docNo(t, 'po', brand), kind: 'po', status: 'draft', date: Date.now(), expected: +b.expected > 0 ? +b.expected : 0, supplier: s.id, to: F.partyClean(s), lines, ...tot, taxPct: tax, note: String(b.note || '').replace(/[<>]/g, '').slice(0, 300), paid: false, createdAt: Date.now() };
+  (d.pos ||= []).push(po); if (d.pos.length > 500) d.pos = d.pos.slice(-500); persistRec(t); bc(req); res.json(po);
+});
+A('put', '/pos/:id', gatePur, (req, res) => {
+  const t = req.tenant, d = t.db, po = (d.pos || []).find((x) => x.id === req.params.id), b = req.body || {}; if (!po) return res.status(404).json({ error: 'Not found' });
+  if (b.status && ['draft', 'sent', 'cancelled'].includes(b.status) && po.status !== 'received') po.status = b.status;
+  if (b.paid !== undefined) po.paid = !!b.paid; if (b.billNo !== undefined) po.billNo = String(b.billNo).replace(/[<>]/g, '').slice(0, 30);
+  if (b.lines && po.status === 'draft') { const lines = poLines(b.lines, d); if (lines.length) { po.lines = lines; Object.assign(po, F.docTotals(lines.map((l) => ({ qty: l.qty, price: l.price })), 0, 0, po.taxPct)); } }
+  if (b.note !== undefined) po.note = String(b.note).replace(/[<>]/g, '').slice(0, 300);
+  bc(req); res.json(po);
+});
+// receiving: stock goes up, the ingredient cost follows the price paid, and recipes are re-costed
+A('post', '/pos/:id/receive', gatePur, (req, res) => {
+  const t = req.tenant, d = t.db, po = (d.pos || []).find((x) => x.id === req.params.id); if (!po) return res.status(404).json({ error: 'Not found' }); if (po.status === 'cancelled' || po.status === 'received') return res.status(400).json({ error: 'This order is already ' + po.status });
+  const got = Array.isArray((req.body || {}).got) ? req.body.got : []; let any = false;
+  po.lines.forEach((l, i) => { const q = got.length ? Math.max(0, +(got.find((x) => +x.i === i) || {}).qty || 0) : Math.max(0, l.qty - l.got); const add = Math.min(q, Math.max(0, l.qty - l.got)); if (!(add > 0)) return; l.got = Math.round((l.got + add) * 1000) / 1000; any = true;
+    const g = l.ing && (d.ingredients || []).find((x) => x.id === l.ing); if (g) { g.stock = Math.round((g.stock + add) * 1000) / 1000; if (l.price > 0) g.cost = F.ingClean({ cost: l.price }).cost; t.rec.ingLog = [{ at: Date.now(), ingId: g.id, ing: g.name, unit: g.unit, delta: add, type: 'purchase', item: '', who: 'PO ' + po.no, left: g.stock }, ...(t.rec.ingLog || [])].slice(0, 400); } });
+  if (!any) return res.status(400).json({ error: 'Enter what arrived' });
+  po.status = po.lines.every((l) => l.got >= l.qty) ? 'received' : 'partial'; if (po.status === 'received') po.receivedAt = Date.now(); F.recost(d.items, d.ingredients);
+  persistRec(t); bc(req); res.json(po);
+});
+A('delete', '/pos/:id', gatePur, (req, res) => { const d = req.tenant.db, po = (d.pos || []).find((x) => x.id === req.params.id); if (po && po.status !== 'draft') return res.status(400).json({ error: 'Only drafts can be deleted. Cancel it instead.' }); d.pos = (d.pos || []).filter((x) => x.id !== req.params.id); bc(req); res.json({ ok: 1 }); });
+app.get('/r/:slug/invoice', page('invoice.html'));
 const gateAt = (req, res, next) => (F.has(req.tenant.rec, 'attendance') ? next() : res.status(402).json({ error: 'Attendance needs the ' + F.PLANS[F.minPlanFor('attendance')].name + ' plan', upgrade: F.minPlanFor('attendance') }));
 // hours, days, lateness and labour cost per person for a period
 async function attFor(t, from, to) {
@@ -849,7 +929,7 @@ async function reportFor(t, from, to) {
   const sum = (a, f) => a.reduce((n, x) => n + f(x), 0), cats = {}, items = {}, hours = Array(24).fill(0), methods = { cash: 0, card: 0, online: 0, digital: 0 }, splits = {}, byWho = {}, salesBy = {}, kinds = {}; let voidN = 0, voidV = 0, wasteV = 0;
   H.forEach((h) => {
     methods.cash += h.pay ? h.pay.cash : h.method === 'cash' ? h.total : 0; methods.card += h.pay ? h.pay.card : h.method === 'card' ? h.total : 0; methods.online += h.pay ? h.pay.online || 0 : 0; methods.digital += h.pay ? h.pay.digital || 0 : 0; splits[h.split] = (splits[h.split] || 0) + 1; hours[new Date(h.startedAt).getHours()]++;
-    if (h.closedBy) { byWho[h.closedBy] = (byWho[h.closedBy] || 0) + 1; salesBy[h.closedBy] = (salesBy[h.closedBy] || 0) + h.total; }
+    { const w = h.servedBy || h.closedBy; if (w) { byWho[w] = (byWho[w] || 0) + 1; salesBy[w] = (salesBy[w] || 0) + h.total; } }
     kinds[h.kind || 'table'] = (kinds[h.kind || 'table'] || 0) + h.total; (h.voids || []).forEach((v) => { voidN += v.qty; voidV += v.qty * v.price; if (v.waste) wasteV += v.qty * v.price; });
     h.items.forEach((l) => {
       const c = t.db.categories.find((x) => x.id === l.cat), cn = c ? c.name : 'Other';

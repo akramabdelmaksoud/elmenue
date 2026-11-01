@@ -17,7 +17,7 @@ const CATALOG = [
   { id: 'online', area: 'guest', level: 2, en: 'Online ordering (pickup and delivery)', ar: 'الطلب أونلاين' }, { id: 'geo', area: 'guest', level: 2, en: 'In-cafe lock and delivery zones', ar: 'قفل الكافيه ومناطق التوصيل' },
   { id: 'feedback', area: 'guest', level: 2, en: 'Guest reviews', ar: 'تقييم الضيوف' }, { id: 'insights', area: 'admin', level: 2, en: 'Insights and staff performance', ar: 'التحليلات وأداء الموظفين' },
   { id: 'instapay', area: 'guest', level: 2, en: 'InstaPay and wallet payment at the table', ar: 'الدفع بإنستاباي والمحافظ' }, { id: 'acctexport', area: 'admin', level: 2, en: 'Accounting export (daily sales, VAT)', ar: 'تصدير محاسبي' },
-  { id: 'ownerreport', area: 'admin', level: 3, en: 'Owner report pack (analysis, risks, decisions)', ar: 'تقرير المالك (تحليل ومخاطر وقرارات)' }, { id: 'attendance', area: 'staff', level: 2, en: 'Staff attendance, schedules and labour cost', ar: 'حضور الموظفين والجداول وتكلفة العمالة' }, { id: 'reservations', area: 'guest', level: 3, en: 'Reservations and waitlist', ar: 'الحجوزات وقائمة الانتظار' }, { id: 'recipes', area: 'admin', level: 3, en: 'Recipes, ingredient stock and food cost', ar: 'الوصفات والمخزون وتكلفة الأكل' },
+  { id: 'invoicing', area: 'admin', level: 2, en: 'Branded invoices and purchase orders', ar: 'فواتير رسمية بهوية المكان وأوامر الشراء' }, { id: 'purchasing', area: 'admin', level: 3, en: 'Suppliers and purchase orders', ar: 'الموردون وأوامر الشراء' }, { id: 'ownerreport', area: 'admin', level: 3, en: 'Owner report pack (analysis, risks, decisions)', ar: 'تقرير المالك (تحليل ومخاطر وقرارات)' }, { id: 'attendance', area: 'staff', level: 2, en: 'Staff attendance, schedules and labour cost', ar: 'حضور الموظفين والجداول وتكلفة العمالة' }, { id: 'reservations', area: 'guest', level: 3, en: 'Reservations and waitlist', ar: 'الحجوزات وقائمة الانتظار' }, { id: 'recipes', area: 'admin', level: 3, en: 'Recipes, ingredient stock and food cost', ar: 'الوصفات والمخزون وتكلفة الأكل' },
   { id: 'upsell', area: 'guest', level: 3, en: 'Upsell suggestions', ar: 'اقتراحات إضافية' }, { id: 'coupons', area: 'guest', level: 3, en: 'Coupons and timed offers', ar: 'كوبونات وعروض' },
   { id: 'onlinepay', area: 'guest', level: 3, en: 'Card payment online (Paymob)', ar: 'الدفع بالكارت أونلاين' }, { id: 'eta', area: 'admin', level: 3, en: 'Egypt e-receipt (ETA)', ar: 'الإيصال الإلكتروني' },
   { id: 'offline', area: 'staff', level: 3, en: 'Offline mode', ar: 'العمل بدون إنترنت' },
@@ -28,8 +28,8 @@ const CATALOG = [
 const FEATURE_IDS = CATALOG.map((c) => c.id);
 const PLANS = {
   basic: { id: 'basic', tier: 1, name: 'Starter QR Ordering', name_ar: 'منيو QR الأساسي', price: [600, 800], limits: { branches: 1, tables: 10, staff: 0 }, features: ['menu', 'qr', 'ordering', 'options', 'itemdetails', 'micro', 'admin'] },
-  operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [1200, 1500], limits: { branches: 1, tables: 30, staff: 10 }, features: ['staff', 'attendance', 'kds', 'cashier', 'lock', 'party', 'trilingual', 'feedback', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline', 'online', 'insights', 'geo', 'instapay', 'acctexport', 'reservations'] },
-  vip: { id: 'vip', tier: 3, name: 'Enterprise VIP & AI', name_ar: 'VIP والذكاء الاصطناعي', price: [2000, 2000], limits: { branches: 3, tables: null, staff: null }, features: ['ownerreport', 'loyalty', 'ocr', 'copilot', 'themes', 'branches', 'giftcards', 'recipes'] },
+  operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [1200, 1500], limits: { branches: 1, tables: 30, staff: 10 }, features: ['staff', 'attendance', 'invoicing', 'kds', 'cashier', 'lock', 'party', 'trilingual', 'feedback', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline', 'online', 'insights', 'geo', 'instapay', 'acctexport', 'reservations'] },
+  vip: { id: 'vip', tier: 3, name: 'Enterprise VIP & AI', name_ar: 'VIP والذكاء الاصطناعي', price: [2000, 2000], limits: { branches: 3, tables: null, staff: null }, features: ['purchasing', 'ownerreport', 'loyalty', 'ocr', 'copilot', 'themes', 'branches', 'giftcards', 'recipes'] },
 };
 // older plan names keep working: they map onto the new tiers
 const LEGACY = { standard: 'operations', pro: 'vip', enterprise: 'vip', demo: 'vip' };
@@ -149,7 +149,7 @@ const UNITS = ['g', 'kg', 'ml', 'l', 'pcs'];
 const num2 = (x, hi) => Math.min(hi, Math.max(0, Math.round((+x || 0) * 1000) / 1000));
 function ingClean(v) {
   v = v && typeof v === 'object' ? v : {};
-  return { name: String(v.name || '').replace(/[<>]/g, '').trim().slice(0, 40), unit: UNITS.includes(v.unit) ? v.unit : 'g', stock: num2(v.stock, 1e7), cost: num2(v.cost, 1e5), low: num2(v.low, 1e7) };
+  return { name: String(v.name || '').replace(/[<>]/g, '').trim().slice(0, 40), unit: UNITS.includes(v.unit) ? v.unit : 'g', stock: num2(v.stock, 1e7), cost: num2(v.cost, 1e5), low: num2(v.low, 1e7), par: num2(v.par, 1e7), supplier: String(v.supplier || '').replace(/[^\w-]/g, '').slice(0, 24) };
 }
 // keeps only known ingredients, positive quantities, no duplicates
 function recipeClean(arr, ings) {
@@ -185,6 +185,26 @@ function shiftsClean(v) {
 }
 const wageClean = (n) => Math.min(100000, Math.max(0, Math.round((+n || 0) * 100) / 100));
 const hmMin = (x) => { const [h, m] = String(x).split(':').map(Number); return h * 60 + m; };
+
+// ---------- Branded invoices, suppliers and purchase orders ----------
+const INV_STYLES = ['classic', 'modern', 'minimal'];
+const clip = (v, n) => String(v == null ? '' : v).replace(/[<>]/g, '').trim().slice(0, n);
+function invoiceBrandClean(v, cur) {
+  v = v && typeof v === 'object' ? v : {}; cur = cur || {};
+  const pre = (x, d) => { const s = String(x || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 8); return s || d; };
+  return { legalName: clip(v.legalName, 80), tradeName: clip(v.tradeName, 80), address: clip(v.address, 200), phone: clip(v.phone, 30), email: clip(v.email, 80), taxId: clip(v.taxId, 30), commercialReg: clip(v.commercialReg, 30),
+    logo: cur.logo || '', accent: /^#[0-9a-fA-F]{6}$/.test(v.accent || '') ? v.accent : '#8a6d3b', style: INV_STYLES.includes(v.style) ? v.style : 'classic', lang: ['en', 'ar', 'both'].includes(v.lang) ? v.lang : 'en',
+    footer: clip(v.footer, 300), terms: clip(v.terms, 500), bank: clip(v.bank, 200), prefix: pre(v.prefix, 'INV-'), poPrefix: pre(v.poPrefix, 'PO-'), paper: v.paper === 'A5' ? 'A5' : 'A4' };
+}
+const money2 = (n) => Math.round((+n || 0) * 100) / 100;
+function docLines(arr) { return (Array.isArray(arr) ? arr : []).slice(0, 60).map((l) => ({ desc: clip(l && l.desc, 140), qty: Math.min(1e6, Math.max(0, +(l && l.qty) || 0)), unit: clip(l && l.unit, 10), price: Math.min(1e7, Math.max(0, money2(l && l.price))) })).filter((l) => l.desc && l.qty > 0); }
+// totals for a document: lines - discount, service charge, then tax on the result
+function docTotals(lines, discount, servicePct, taxPct) {
+  const sub = money2(lines.reduce((n, l) => n + l.qty * l.price, 0)), disc = Math.min(sub, money2(discount)), net = money2(sub - disc), service = money2(net * Math.min(100, Math.max(0, +servicePct || 0)) / 100), base = money2(net + service), tax = money2(base * Math.min(100, Math.max(0, +taxPct || 0)) / 100);
+  return { sub, discount: disc, service, tax, total: money2(base + tax) };
+}
+const partyClean = (v) => { v = v && typeof v === 'object' ? v : {}; return { name: clip(v.name, 80), taxId: clip(v.taxId, 30), address: clip(v.address, 200), phone: clip(v.phone, 30), email: clip(v.email, 80) }; };
+const supplierClean = (v) => ({ ...partyClean(v), notes: clip(v && v.notes, 300), terms: clip(v && v.terms, 100) });
 
 // ---------- Upsell suggestions ----------
 // Which dishes to offer next to what is already in the cart. Pure: the guest page and the tests call the same function.
@@ -400,5 +420,5 @@ function zoneFor(settings, g) {
 
 
 const STAFF_LOG_KEYS = ['taken', 'handled', 'started', 'served', 'closed', 'respMs'];   // column order of rec.staffLog[id].b[hour]
-const api = { shiftsClean, wageClean, hmMin, pinOk, pinHash, pinCheck, UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
+const api = { invoiceBrandClean, docLines, docTotals, partyClean, supplierClean, INV_STYLES, shiftsClean, wageClean, hmMin, pinOk, pinHash, pinCheck, UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
 if (typeof module !== 'undefined') module.exports = api;

@@ -19,6 +19,7 @@ table { width: 100%; border-collapse: collapse; font-size: 14px; } th, td { text
 .adv { background: color-mix(in srgb, var(--accent) 12%, var(--card)); border: 1px solid var(--accent); border-radius: 14px; padding: 14px; white-space: pre-wrap; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; } @media (max-width: 640px) { .two { grid-template-columns: 1fr; } .sc { grid-template-columns: 110px 1fr 70px; } }
 .btns { display: flex; gap: 8px; flex-wrap: wrap; } button, .btn { padding: 8px 14px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: inherit; cursor: pointer; text-decoration: none; font-size: 14px; }
+@media (max-width: 640px) { table { display: block; overflow-x: auto; } }
 @media print { .noprint { display: none !important; } body { background: #fff; padding: 0; } .f, .k { break-inside: avoid; } }
 </style></head>
 <body><div class="doc" id="root"><p class="muted">Loading report…</p></div>

@@ -206,7 +206,9 @@ function openSession(t) {
   return db.sessions[t.id];
 }
 
-function closeSession(t, method, who, pay) {
+// the first captain who works on a table owns its sales in the reports, whoever finally closes the bill
+function own(s, c) { if (s && !s.owner && c && c.staffId && c.role === 'captain') s.owner = { id: c.staffId, name: c.staffName || '' }; }
+function closeSession(t, method, who, pay, whoId) {
   const s = db.sessions[t.id]; if (!s) return;
   const b = bill(s);
   const lines = {};
@@ -242,7 +244,7 @@ function closeSession(t, method, who, pay) {
       id: id('h'), tableId: t.id, tableNumber: t.number, kind: s.kind || 'table', customer: s.customer || null, startedAt: s.startedAt,
       orderedAt: s.orders[0].at, checkAt: s.check?.at || Date.now(), closedAt: Date.now(),
       guests: s.party || s.guests.filter((g) => s.orders.some((o) => o.items.some((i) => i.guestId === g.id))).length || 1, party: s.party || 0, loyalty: loy, items: Object.values(lines), sub: b.gross, discount: b.discount, discountNote: [s.discount ? (s.discount.reason || '') : '', b.couponCode ? 'Coupon ' + b.couponCode : '', b.offerName || ''].filter(Boolean).join(' · '), coupon: b.couponCode || '', offer: b.offerName || '', gift: gUsed, giftCode: gUsed ? b.giftCode : '', service: b.service, tax: b.tax, tip,
-      total, method: payTotal <= 0 && onlineUsed > 0 && m !== 'unpaid' ? 'online' : m, unpaid: m === 'unpaid' && onlineUsed <= 0, online: onlineUsed, onlineRefs: (s.online || []).map((x) => x.ref), pay: m === 'unpaid' ? { cash: 0, card: 0, tendered: 0, change: 0, gift: 0, online: onlineUsed } : { ...settle(m === 'online' ? 'cash' : m, payTotal, pay), gift: gUsed, online: onlineUsed }, split: s.check?.split || 'table', source: s.source || '', closedBy: who || '', voids: s.voids || [], log: s.log,
+      total, method: payTotal <= 0 && onlineUsed > 0 && m !== 'unpaid' ? 'online' : m, unpaid: m === 'unpaid' && onlineUsed <= 0, online: onlineUsed, onlineRefs: (s.online || []).map((x) => x.ref), pay: m === 'unpaid' ? { cash: 0, card: 0, tendered: 0, change: 0, gift: 0, online: onlineUsed } : { ...settle(m === 'online' ? 'cash' : m, payTotal, pay), gift: gUsed, online: onlineUsed }, split: s.check?.split || 'table', source: s.source || '', closedBy: who || '', closedById: whoId || '', servedBy: s.owner ? s.owner.name : (who || ''), servedById: s.owner ? s.owner.id : (whoId || ''), voids: s.voids || [], log: s.log,
     });
   }
   // ETA e-receipts (flag settings.eta.enabled): remember the paid sale in a durable pending list; the server turns it into a numbered, chained receipt
@@ -632,10 +634,10 @@ function handle(c, m) {
       case 'host_set': { const t = tableOf(m.tableId), s = t && db.sessions[t.id], to = s && s.guests.find((x) => x.id === m.guestId); if (to) { s.host = to.id; log(s, 'host', `${to.avatar} ${to.name} is now the table host (set by staff)`); } break; }
       case 'resolve_request': {
         const s = db.sessions[m.tableId]; const r = s?.requests.find((x) => x.id === m.id);
-        if (r) { r.done = true; log(s, 'handled', `Request ${r.type} handled` + (c.staffName ? ' by ' + c.staffName : '')); bump(c, 'handled'); bump(c, 'respMs', Math.max(0, Date.now() - r.at)); }
+        if (r) { own(s, c); r.done = true; log(s, 'handled', `Request ${r.type} handled` + (c.staffName ? ' by ' + c.staffName : '')); bump(c, 'handled'); bump(c, 'respMs', Math.max(0, Date.now() - r.at)); }
         break;
       }
-      case 'close_table': { const t = tableOf(m.tableId); if (t) { bump(c, 'closed'); closeSession(t, m.unpaid ? 'unpaid' : m.method, c.staffName, m.pay); } break; }
+      case 'close_table': { const t = tableOf(m.tableId); if (t) { bump(c, 'closed'); closeSession(t, m.unpaid ? 'unpaid' : m.method, c.staffName, m.pay, c.staffId); } break; }
       case 'open_ticket': {
         // takeaway / delivery order that is not tied to a table
         if (!['takeaway', 'delivery'].includes(m.kind) || !/^tk_[a-z0-9]{6,14}$/.test(String(m.tid || '')) || db.sessions[m.tid]) break;
@@ -648,7 +650,7 @@ function handle(c, m) {
       case 'staff_order': {
         if (!F.has(rec, 'ordering')) break;
         const t = db.tables.find((x) => x.id === m.tableId); let s = db.sessions[m.tableId];
-        if (!s && t) s = openSession(t); if (!s) break; s.staffSeated = true;
+        if (!s && t) s = openSession(t); if (!s) break; s.staffSeated = true; own(s, c);
         const want = [], dropped = [];
         (Array.isArray(m.items) ? m.items : []).slice(0, 40).forEach((x) => {
           const it = db.items.find((y) => y.id === x.itemId); const q = Math.min(20, Math.floor(+x.qty));
@@ -729,7 +731,7 @@ function handle(c, m) {
         const s = openSession(t); s.lastAt = Date.now(); if (!s.guests.length) s.guests.push({ id: 'cust', name: r.name, avatar: '📅' });
         log(s, 'seated', `Reservation for ${r.name} seated`); db.reservations = db.reservations.filter((x) => x !== r); break;
       }
-      case 'seat_table': { const t = db.tables.find((x) => x.id === m.tableId); if (t) { const s = openSession(t); s.lastAt = Date.now(); s.staffSeated = true; } break; }
+      case 'seat_table': { const t = db.tables.find((x) => x.id === m.tableId); if (t) { const s = openSession(t); s.lastAt = Date.now(); s.staffSeated = true; own(s, c); } break; }
       case 'sim': simulate = !!m.on; break;
     }
     return broadcast();

@@ -1,0 +1,59 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Invoice</title><link rel="stylesheet" href="/shared.css">
+<style>
+body { background: #e9e7e2; margin: 0; padding: 16px; color: #1a1a1a; font-family: Inter, system-ui, sans-serif; }
+.bar { max-width: 794px; margin: 0 auto 12px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: space-between; align-items: center; }
+.bar button, .bar a { padding: 9px 16px; border-radius: 99px; border: 1px solid #bbb; background: #fff; color: #222; cursor: pointer; text-decoration: none; font-size: 14px; }
+.sheet { --accent: #8a6d3b; width: 794px; max-width: 100%; min-height: 1000px; margin: 0 auto; background: #fff; padding: 48px 52px; box-sizing: border-box; position: relative; box-shadow: 0 6px 30px rgba(0,0,0,.15); font-size: 13.5px; line-height: 1.5; }
+.sheet.A5 { width: 560px; min-height: 780px; padding: 34px 36px; font-size: 12.5px; }
+.head { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; }
+.logo { max-height: 74px; max-width: 200px; object-fit: contain; display: block; margin-bottom: 8px; }
+.biz b.n { font-size: 20px; display: block; } .biz div { color: #555; }
+.title { text-align: end; } .title h1 { margin: 0; font-size: 26px; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); } .title .no { font-size: 15px; font-weight: 700; margin-top: 4px; } .title div { color: #555; }
+.meta { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 30px 0 18px; } .meta h4 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
+table { width: 100%; border-collapse: collapse; margin-top: 8px; } th { text-align: start; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding: 8px 10px; } td { padding: 8px 10px; border-bottom: 1px solid #e7e4dd; vertical-align: top; } th.r, td.r { text-align: end; white-space: nowrap; }
+.tot { width: 300px; margin-inline-start: auto; margin-top: 14px; } .tot div { display: flex; justify-content: space-between; padding: 4px 10px; } .tot .g { font-size: 17px; font-weight: 800; border-top: 2px solid var(--accent); margin-top: 6px; padding-top: 8px; color: var(--accent); }
+.note, .terms { margin-top: 18px; color: #444; white-space: pre-wrap; } .terms h4, .note h4 { margin: 0 0 3px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
+.foot { position: absolute; left: 52px; right: 52px; bottom: 28px; text-align: center; color: #777; font-size: 12px; border-top: 1px solid #e7e4dd; padding-top: 8px; }
+.stamp { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%) rotate(-18deg); font-size: 90px; font-weight: 900; letter-spacing: .1em; color: rgba(214, 40, 40, .18); border: 8px solid rgba(214, 40, 40, .18); padding: 0 24px; pointer-events: none; }
+/* styles */
+.classic th { background: var(--accent); color: #fff; } .classic .head { border-bottom: 3px solid var(--accent); padding-bottom: 14px; }
+.modern .head { background: var(--accent); color: #fff; margin: -48px -52px 0; padding: 30px 52px; } .modern .biz div, .modern .title div { color: rgba(255,255,255,.85); } .modern .title h1 { color: #fff; } .modern th { border-bottom: 2px solid var(--accent); color: var(--accent); } .A5.modern .head { margin: -34px -36px 0; padding: 22px 36px; }
+.minimal th { border-bottom: 1px solid #222; color: #222; } .minimal .title h1 { color: #111; font-weight: 300; } .minimal .tot .g { border-top: 1px solid #222; color: #111; }
+[dir=rtl] { text-align: right; }
+@media (max-width: 700px) { .sheet { padding: 22px 16px; font-size: 12.5px; } .meta { grid-template-columns: 1fr; } .head { flex-direction: column; } .title { text-align: start; } .modern .head { margin: -22px -16px 0; padding: 18px 16px; } .foot { position: static; margin-top: 24px; } table { display: block; overflow-x: auto; } }
+@media print { body { background: #fff; padding: 0; } .bar { display: none; } .sheet { box-shadow: none; margin: 0; width: auto; } .modern .head, .classic th { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style></head>
+<body><div class="bar" id="bar"></div><div class="sheet" id="sheet"><p>Loading…</p></div>
+<script src="/shared.js"></script>
+<script>
+const E = (s) => App.esc(s), id = new URLSearchParams(location.search).get('id');
+const L = { en: { invoice: 'Tax invoice', proforma: 'Proforma invoice', po: 'Purchase order', no: 'No.', date: 'Date', due: 'Due', billto: 'Bill to', supplier: 'Supplier', from: 'From', desc: 'Description', qty: 'Qty', price: 'Unit price', amount: 'Amount', sub: 'Subtotal', disc: 'Discount', service: 'Service charge', tax: 'VAT', total: 'Total', note: 'Notes', terms: 'Terms and conditions', bank: 'Bank / payment details', tid: 'Tax ID', cr: 'Commercial reg.', expected: 'Expected delivery', void: 'CANCELLED', paid: 'PAID', days: 'days' },
+  ar: { invoice: 'فاتورة ضريبية', proforma: 'فاتورة مبدئية', po: 'أمر شراء', no: 'رقم', date: 'التاريخ', due: 'الاستحقاق', billto: 'فاتورة إلى', supplier: 'المورد', from: 'من', desc: 'البيان', qty: 'الكمية', price: 'سعر الوحدة', amount: 'القيمة', sub: 'الإجمالي الفرعي', disc: 'الخصم', service: 'رسوم الخدمة', tax: 'ضريبة القيمة المضافة', total: 'الإجمالي', note: 'ملاحظات', terms: 'الشروط والأحكام', bank: 'بيانات الدفع / البنك', tid: 'الرقم الضريبي', cr: 'السجل التجاري', expected: 'موعد التسليم', void: 'ملغاة', paid: 'مدفوعة', days: 'يوم' } };
+const M = (n, c) => (Math.round((+n || 0) * 100) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + c;
+const D = (x) => new Date(x).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+function lab(brand, k) { const a = L.ar[k], e = L.en[k]; return brand.lang === 'ar' ? a : brand.lang === 'both' ? e + ' / ' + a : e; }
+function render(d) {
+  const { doc, brand, currency } = d, c = currency || 'EGP', po = doc.kind === 'po', kind = po ? 'po' : doc.kind === 'proforma' ? 'proforma' : 'invoice', t = (k) => lab(brand, k);
+  const sh = document.getElementById('sheet'); sh.className = 'sheet ' + brand.style + ' ' + brand.paper; sh.style.setProperty('--accent', brand.accent); sh.dir = brand.lang === 'ar' ? 'rtl' : 'ltr';
+  const name = brand.legalName || brand.tradeName;
+  const to = doc.to || {}, party = (p) => `<b>${E(p.name)}</b>${p.address ? '<br>' + E(p.address) : ''}${p.phone ? '<br>' + E(p.phone) : ''}${p.email ? '<br>' + E(p.email) : ''}${p.taxId ? `<br>${t('tid')}: ${E(p.taxId)}` : ''}`;
+  document.title = (doc.no || 'Invoice') + ' · ' + name;
+  sh.innerHTML = `${doc.status === 'void' ? `<div class="stamp">${t('void')}</div>` : doc.paid ? `<div class="stamp" style="color:rgba(31,157,85,.2);border-color:rgba(31,157,85,.2)">${t('paid')}</div>` : ''}
+   <div class="head"><div class="biz">${brand.logo ? `<img class="logo" src="${E(brand.logo)}" alt="">` : ''}<b class="n">${E(brand.tradeName || name)}</b>${brand.legalName && brand.legalName !== brand.tradeName ? `<div>${E(brand.legalName)}</div>` : ''}${brand.address ? `<div>${E(brand.address)}</div>` : ''}<div>${[brand.phone, brand.email].filter(Boolean).map(E).join(' · ')}</div>${brand.taxId ? `<div>${t('tid')}: ${E(brand.taxId)}</div>` : ''}${brand.commercialReg ? `<div>${t('cr')}: ${E(brand.commercialReg)}</div>` : ''}</div>
+   <div class="title"><h1>${t(kind)}</h1><div class="no">${E(doc.no)}</div><div>${t('date')}: ${D(doc.date)}</div>${doc.dueDays ? `<div>${t('due')}: ${D(doc.date + doc.dueDays * 86400000)} (${doc.dueDays} ${t('days')})</div>` : ''}${po && doc.expected ? `<div>${t('expected')}: ${D(doc.expected)}</div>` : ''}</div></div>
+   <div class="meta"><div><h4>${po ? t('supplier') : t('billto')}</h4>${party(to)}</div>${po ? `<div><h4>${t('from')}</h4>${party({ name: name, address: brand.address, phone: brand.phone, email: brand.email, taxId: brand.taxId })}</div>` : ''}</div>
+   <table><tr><th>${t('desc')}</th><th class="r">${t('qty')}</th><th class="r">${t('price')}</th><th class="r">${t('amount')}</th></tr>${doc.lines.map((l) => `<tr><td>${E(l.desc)}</td><td class="r">${l.qty}${l.unit ? ' ' + E(l.unit) : ''}</td><td class="r">${M(l.price, c)}</td><td class="r">${M(l.qty * l.price, c)}</td></tr>`).join('')}</table>
+   <div class="tot"><div><span>${t('sub')}</span><span>${M(doc.sub, c)}</span></div>${doc.discount ? `<div><span>${t('disc')}</span><span>- ${M(doc.discount, c)}</span></div>` : ''}${doc.service ? `<div><span>${t('service')}${doc.servicePct ? ' ' + doc.servicePct + '%' : ''}</span><span>${M(doc.service, c)}</span></div>` : ''}${doc.tax || doc.taxPct ? `<div><span>${t('tax')}${doc.taxPct ? ' ' + doc.taxPct + '%' : ''}</span><span>${M(doc.tax, c)}</span></div>` : ''}<div class="g"><span>${t('total')}</span><span>${M(doc.total, c)}</span></div></div>
+   ${doc.note ? `<div class="note"><h4>${t('note')}</h4>${E(doc.note)}</div>` : ''}${!po && brand.bank ? `<div class="note"><h4>${t('bank')}</h4>${E(brand.bank)}</div>` : ''}${brand.terms ? `<div class="terms"><h4>${t('terms')}</h4>${E(brand.terms)}</div>` : ''}
+   <div class="foot">${E(brand.footer || '')}</div>`;
+}
+(async () => {
+  const tk = App.tok('admin'), bar = document.getElementById('bar');
+  if (!tk || !id) { document.getElementById('sheet').innerHTML = '<p>Open this from the admin page (Invoices).</p>'; return; }
+  const r = await fetch(`/api/r/${App.slug}/invoices/${encodeURIComponent(id)}`, { headers: { Authorization: 'Bearer ' + tk } }), j = await r.json().catch(() => ({}));
+  if (!r.ok) { document.getElementById('sheet').innerHTML = `<p>${E(j.error || 'Not found')}</p>`; return; }
+  render(j); bar.innerHTML = `<span><b>${E(j.doc.no)}</b></span><span><button onclick="window.print()">🖨 Print / save as PDF</button></span>`;
+})();
+</script></body></html>

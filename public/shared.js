@@ -1,3 +1,5 @@
+// build version of this very script (?v=...), reused for the files it loads later so they stay cached too
+const ASSET_V = (() => { try { const q = (document.currentScript && document.currentScript.src.split('?')[1]) || ''; return /^v=[0-9a-f]+$/.test(q) ? '?' + q : ''; } catch { return ''; } })();
 // Shared client runtime: websocket, theme engine, i18n, helpers
 const DICT = {
   en: {
@@ -89,7 +91,7 @@ function pollDelay(role, idleMs) {
 const HOSTSLUG = (() => { const m = document.querySelector('meta[name="elm-slug"]'); return m ? m.content : null; })();
 const App = {
   demo: DEMO,
-  loadDemo() { return (App._dl ||= new Promise((res) => { const s = document.createElement('script'); s.src = '/demo.js'; s.onload = () => App.demoReady().then(res); s.onerror = res; document.head.appendChild(s); })); },
+  loadDemo() { return (App._dl ||= new Promise((res) => { const s = document.createElement('script'); s.src = '/demo.js' + ASSET_V; s.onload = () => App.demoReady().then(res); s.onerror = res; document.head.appendChild(s); })); },
   slug: (location.pathname.match(/^\/r\/([^/]+)/) || [])[1] || HOSTSLUG || null, base: HOSTSLUG ? '' : null, authRole: null,
   config: null, ws: null, lang: null, mode: null, handlers: {},
   tr(k) { return (DICT[App.lang] && DICT[App.lang][k]) || DICT.en[k] || k; },
@@ -263,7 +265,7 @@ const App = {
     if (window.Auth) return Promise.resolve();
     return new Promise((res) => {
       const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/auth.css'; document.head.appendChild(l);
-      const sc = document.createElement('script'); sc.src = '/auth.js'; sc.onload = res; sc.onerror = res; document.head.appendChild(sc);
+      const sc = document.createElement('script'); sc.src = '/auth.js' + ASSET_V; sc.onload = res; sc.onerror = res; document.head.appendChild(sc);
     });
   },
   // staff pages: a small pill shows the shift is running; tapping it clocks out and signs this device out
