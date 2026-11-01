@@ -281,7 +281,14 @@ const MUG = `<svg class="mug" viewBox="0 0 170 150"><ellipse cx="82" cy="140" rx
  <g transform="translate(60 80) scale(.9)" fill="none" stroke="var(--accent2)" stroke-width="2.2" stroke-linecap="round"><path d="M14 36V18"/><path d="M14 18C14 9 8 5 1 5c0 9 5 14 13 13z"/><path d="M14 24c0-7 5-10 13-10 0 7-5 11-13 10z"/></g>
  <g class="steam"><path d="M58 38c-6-8 6-12 0-22"/><path d="M80 38c-6-8 6-12 0-22"/><path d="M102 38c-6-8 6-12 0-22"/></g></svg>`;
 
-let me = { id: App.ls(`gid:${SLUG}:${tableNumber}`), name: App.ls('name'), avatar: App.ls('avatar') };
+// identity belongs to ONE visit at ONE table: it is forgotten once the bill is paid, the table is closed or the guest sits elsewhere
+const IDK = `gid:${SLUG}:${tableNumber}`, WHO = `who:${SLUG}:${tableNumber}`;
+let me = { id: App.ls(IDK), name: '', avatar: '' };
+{ let w = null; try { w = JSON.parse(App.ls(WHO) || 'null'); } catch {} if (me.id && w) { me.name = w.n || ''; me.avatar = w.a || ''; } else me.id = null; }
+const keepWho = () => { App.ls(WHO, JSON.stringify({ n: me.name, a: me.avatar })); };
+function forgetMe() { try { for (const k of Object.keys(localStorage)) if (k.startsWith(`gid:${SLUG}:`) || k.startsWith(`who:${SLUG}:`) || k.startsWith(`how:${SLUG}`) || k.startsWith('up:' + SLUG)) localStorage.removeItem(k); localStorage.removeItem('name'); localStorage.removeItem('avatar'); } catch {} }
+// sitting at a different table: drop the old table's identity so nothing carries over
+{ try { const last = App.ls(`last:${SLUG}`); if (last && last !== String(tableNumber)) { localStorage.removeItem(`gid:${SLUG}:${last}`); localStorage.removeItem(`who:${SLUG}:${last}`); } App.ls(`last:${SLUG}`, String(tableNumber)); } catch {} }
 // the QR code carries a secret table key (?k=...); remember it, then tidy the address bar
 const urlKey = new URLSearchParams(location.search).get('k');
 if (urlKey) { App.ls(`tk:${SLUG}:${tableNumber}`, urlKey); try { history.replaceState(null, '', location.pathname); } catch {} }
@@ -357,10 +364,10 @@ function geoScreen(denied) {
 }
 async function start() {
   let geo; if (geoNeeded()) { root.innerHTML = `<div class="join"><div class="c" style="text-align:center"><div style="font-size:54px;animation:bob 3s infinite">📍</div><p class="muted">${App.tr('geoChecking')}</p></div></div>`; geo = await getGeo(); }
-  App.connect({ t: 'join', role: 'customer', tableNumber, guestId: me.id, name: me.name, avatar: me.avatar, key: tableKey, geo }, {
-    you(m) { me.id = m.guestId; App.ls(`gid:${SLUG}:${tableNumber}`, m.guestId); },
+  App.connect({ t: 'join', role: 'customer', tableNumber, guestId: me.id, resume: !!me.id, name: me.name, avatar: me.avatar, key: tableKey, geo }, {
+    you(m) { me.id = m.guestId; App.ls(IDK, m.guestId); keepWho(); },
     render(m) { if (m) S = m; draw(false); },
-    error(m) { if (m.msg === 'scan') return scanScreen(); if (m.msg === 'geo') return geoScreen(!geo); root.innerHTML = `<div class="join"><div class="c">${App.esc(m.msg)}</div></div>`; },
+    error(m) { if (m.msg === 'newsession') { forgetMe(); me = { id: null, name: '', avatar: '' }; return joinScreen(); } if (m.msg === 'scan') return scanScreen(); if (m.msg === 'geo') return geoScreen(!geo); root.innerHTML = `<div class="join"><div class="c">${App.esc(m.msg)}</div></div>`; },
   });
 }
 function scanScreen() {
@@ -369,6 +376,7 @@ function scanScreen() {
   App.handlers = { render: scanScreen };
 }
 function endedScreen() {
+  try { const nm = me.name, id = me.id; forgetMe(); me.name = nm; me.id = id; } catch {}
   const CATS = ['quality', 'portions', 'price', 'service', 'clean'], CAP = { quality: 'rateQuality', portions: 'ratePortions', price: 'ratePrice', service: 'rateService', clean: 'rateClean' };
   window._cats = {};
   const stars = (k, n) => [1, 2, 3, 4, 5].map((i) => `<button class="${i <= n ? 'on' : ''}" onclick="rateCat('${k}',${i})" aria-label="${i}">⭐</button>`).join('');
@@ -400,7 +408,7 @@ function joinScreen() {
   <button class="send rp" id="go">${App.tr('join')}</button>
   <div class="row" style="justify-content:center;margin-top:16px"><button class="ib langb" onclick="App.toggleLang(event)">${ic('globe')}${App.langLabel(App.nextLang())}</button><button class="ib" onclick="App.toggleMode(event)"><span class="ico sun">${ic('sun')}</span><span class="ico moon">${ic('moon')}</span></button></div></div></div>`;
   root.querySelectorAll('[data-a]').forEach((b) => (b.onclick = () => { me.avatar = b.dataset.a; root.querySelectorAll('[data-a]').forEach((x) => x.classList.toggle('on', x === b)); }));
-  $('#go').onclick = () => { me.name = $('#nm').value.trim() || 'Guest'; App.ls('name', me.name); App.ls('avatar', me.avatar); App.handlers = {}; start(); };
+  $('#go').onclick = () => { me.name = $('#nm').value.trim() || 'Guest'; me.id = null; App.handlers = {}; start(); };
 }
 
 /* ---------------- shell (built once, updated in place) ---------------- */
@@ -441,7 +449,7 @@ function draw(force) {
   $('#lb').innerHTML = `${ic('globe')}${App.langLabel(App.nextLang())}`; $('#lb').hidden = App.langs().length < 2;
   if (!can('ordering') && (tab === 'table' || tab === 'bill')) tab = 'home';
   document.documentElement.dataset.view = can('ordering') ? '' : 'only';
-  $('#homeb').hidden = tab === 'home'; $('#micro').innerHTML = microHTML(s);
+  $('#homeb').hidden = tab === 'home'; $('#micro').innerHTML = microHTML(s); $('#micro').hidden = tab === 'home';
   $('#bdot').hidden = !(s.requests.some((r) => !r.done) || s.check);
   const n = s.cart.reduce((a, l) => a + l.qty, 0);
   document.querySelectorAll('#nav button').forEach((b) => {
@@ -473,11 +481,14 @@ const MICRO = [['water', '💧', 'water'], ['napkins', '🧻', 'napkins'], ['cut
 const microHTML = (s) => MICRO.map(([t, e, k]) => `<button class="rp ${s.requests.some((r) => !r.done && r.type === t) ? 'sent' : ''}" onclick="req('${t}')"><b>${e}</b>${App.tr(k)}</button>`).join('');
 function setLang(l, ev) { App.transition(() => { App.ls('lang', l); App.applyTheme(); draw(true); }, ev); }
 function copyWifi() { const p = S.config.settings.wifiPass || ''; try { navigator.clipboard.writeText(p); } catch {} App.toast('📶 ' + App.tr('copied')); }
+let partyEdit = false;
+window.partyPick = (n) => { partyEdit = false; App.send({ t: 'party', n }); };
 function landing(cfg, s) {
   const st = cfg.settings, ar = App.lang === 'ar', promos = (st.promos || []).filter((p) => p.title || p.text), langs = App.langs(), cur = s.party || 0;
-  return `<button class="send rp rise cta" style="--i:1" onclick="go('menu')">${ic('cup')}${App.tr('showMenu')}</button>
-  ${can('party') ? `<div class="c li rise" style="--i:2"><div class="eyebrow">👥 ${App.tr('partyQ')}</div><p class="muted" style="margin:4px 0 10px;font-size:13px">${App.tr('partySub')}</p><div class="seg partyseg">${[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `<button class="rp ${cur === n ? 'on' : ''}" onclick="App.send({t:'party',n:${n}})">${n}</button>`).join('')}</div>${cur > 8 ? `<p class="muted" style="margin:8px 0 0;text-align:center">${cur} ${App.tr('partyN')}</p>` : ''}</div>` : ''}
-  ${langs.length > 1 ? `<div class="c li rise" style="--i:3"><div class="eyebrow">${App.tr('pickLang')}</div><div class="seg">${langs.map((l) => `<button class="rp ${App.lang === l ? 'on' : ''}" onclick="setLang('${l}',event)">${LANG_NAMES[l]}</button>`).join('')}</div></div>` : ''}
+  return `${langs.length > 1 ? `<div class="c li rise" style="--i:0"><div class="eyebrow">${App.tr('pickLang')}</div><div class="seg">${langs.map((l) => `<button class="rp ${App.lang === l ? 'on' : ''}" onclick="setLang('${l}',event)">${LANG_NAMES[l]}</button>`).join('')}</div></div>` : ''}
+  <button class="send rp rise cta" style="--i:1" onclick="go('menu')">${ic('cup')}${App.tr('showMenu')}</button>
+  ${can('party') ? (cur > 0 && !partyEdit ? `<button class="c li rise rp partysum" style="--i:2;width:100%;display:flex;justify-content:space-between;align-items:center" onclick="partyEdit=true;draw(true)"><span>👥 <b>${cur}</b> ${App.tr('partyN')}</span><span class="muted">✎</span></button>` : `<div class="c li rise" style="--i:2"><div class="eyebrow">👥 ${App.tr('partyQ')}</div><p class="muted" style="margin:4px 0 10px;font-size:13px">${App.tr('partySub')}</p><div class="seg partyseg">${[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `<button class="rp ${cur === n ? 'on' : ''}" onclick="partyPick(${n})">${n}</button>`).join('')}</div></div>`) : ''}
+  <div class="c li rise" style="--i:3"><div class="eyebrow">${App.tr('quickAct')}</div><div class="micro" style="margin-top:8px">${microHTML(s)}</div></div>
   ${promos.length ? `<div class="promos rise" style="--i:4">${promos.map((p) => `<div><b>🎁 ${App.esc(ar && p.title_ar ? p.title_ar : p.title)}</b><span>${App.esc(ar && p.text_ar ? p.text_ar : p.text)}</span></div>`).join('')}</div>` : ''}
   ${st.wifi ? `<button class="c wifi rp rise" style="--i:5" onclick="copyWifi()">📶<div><b>${App.esc(st.wifi)}</b><small>${App.tr('wifiPass')}: <code>${App.esc(st.wifiPass || '—')}</code></small></div><span>${App.tr('tapCopy')}</span></button>` : ''}`;
 }
@@ -492,9 +503,9 @@ function loyaltyCard(cfg, s) {
   if (!loyaltyOn(cfg)) return '';
   const lc = loyaltyCfg(cfg), m = s.loyalty, st = cfg.settings;
   if (m) return `<div class="loycard rise" style="--i:1"><div class="lt"><span>${App.esc(App.lang === 'ar' && st.name_ar ? st.name_ar : st.name)}</span><span>💳</span></div><div class="lp"><b>${m.points}</b> ${App.tr('loyaltyPts')}</div><div class="ls">≈ ${App.money(m.points * lc.redeemValue / lc.pointsPerRedeem)} · ${m.visits} ${App.tr('loyaltyVisits')}</div><div class="lf"><span>${App.esc(m.name || me.name)} · ••••${App.esc(m.phone.slice(-3))}</span><button class="lnk" onclick="App.send({t:'loyalty_leave'})">${App.tr('loyaltyNotMe')}</button></div><small>${loyaltyRules(lc)}</small></div>`;
-  return `<div class="c li rise" style="--i:1"><div class="eyebrow">💳 ${App.tr('loyaltyTitle')}</div><p class="muted" style="margin:4px 0 10px;font-size:13px">${App.tr('loyaltySub')}</p><input id="lph" inputmode="tel" maxlength="14" placeholder="${App.tr('phone')}" style="border-radius:16px;padding:14px;margin-bottom:8px"><button class="send rp" onclick="joinLoyalty()">${App.tr('loyaltyJoin')}</button><p class="muted" style="margin:8px 0 0;font-size:11.5px">${loyaltyRules(lc)}</p></div>`;
+  return `<div class="c li rise" style="--i:1"><div class="eyebrow">💳 ${App.tr('loyaltyTitle')}</div><p class="muted" style="margin:4px 0 10px;font-size:13px">${App.tr('loyaltySub')}</p><input id="lph" inputmode="tel" maxlength="14" placeholder="${App.tr('phone')}" style="border-radius:16px;padding:14px;margin-bottom:8px"><input id="lpin" type="password" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="${App.lang === 'ar' ? 'الرقم السري (٤ أرقام) - اختار واحد لو جديد' : 'PIN (4 digits) - choose one if you are new'}" style="border-radius:16px;padding:14px;margin-bottom:8px"><button class="send rp" onclick="joinLoyalty()">${App.tr('loyaltyJoin')}</button><p class="muted" style="margin:8px 0 0;font-size:11.5px">${loyaltyRules(lc)}</p></div>`;
 }
-function joinLoyalty() { const v = ($('#lph') || {}).value || '', d = v.replace(/\D/g, ''); if (d.length < 10 || d.length > 14) return App.toast(App.tr('loyaltyBad')); App.send({ t: 'loyalty_join', phone: v, name: me.name }); }
+function joinLoyalty() { const v = ($('#lph') || {}).value || '', d = v.replace(/\D/g, ''); if (d.length < 10 || d.length > 14) return App.toast(App.tr('loyaltyBad')); const pin = ($('#lpin') || {}).value || ''; if (!/^\d{4,6}$/.test(pin)) return App.toast(App.lang === 'ar' ? 'الرقم السري من ٤ لـ ٦ أرقام' : 'Enter a PIN of 4 to 6 digits'); App.send({ t: 'loyalty_join', phone: v, pin, name: me.name }); }
 function loyaltyBill(cfg, s) {
   const m = s.loyalty, b = s.bill; if (!loyaltyOn(cfg) || !m) return '';
   return `<div class="c li gold rise"><div class="row2"><b>💳 ${m.points} ${App.tr('loyaltyPts')}</b><span class="muted" style="font-size:12px">${App.tr('loyaltyTitle')}</span></div>${b.redeemPts ? `<div class="line" style="color:var(--ok)"><span>${App.tr('loyaltyApplied')}: ${b.redeemPts} ${App.tr('loyaltyPts')}</span><b>−${App.money(b.redeemEgp)}</b></div><button class="lnk" onclick="App.send({t:'loyalty_redeem',points:0})">${App.tr('loyaltyRemove')}</button>` : m.points > 0 ? `<button class="send rp" style="margin-top:10px" onclick="App.send({t:'loyalty_redeem',points:${m.points}})">${App.tr('loyaltyUse')}</button>` : ''}</div>`;
@@ -693,7 +704,7 @@ function profileTab(cfg, s) {
   <div class="seg rise" style="--i:6;margin-top:8px">${[['default', '🎨 ' + (App.lang === 'ar' ? 'مظهر المطعم' : 'House')], ['maison-dark', 'Maison 🌙'], ['maison-light', 'Maison ☀️']].map(([k, l]) => `<button class="rp ${App.skinChoice() === k ? 'on' : ''}" onclick="App.setSkin('${k}',event)">${l}</button>`).join('')}</div>`;
 }
 function pickAv(a) { me.avatar = a; $('#mav').textContent = a; document.querySelectorAll('.avs button').forEach((b) => b.classList.toggle('on', b.dataset.a === a)); $('#mav').animate([{ transform: 'scale(.6) rotate(-20deg)' }, { transform: 'scale(1.12)' }, { transform: 'none' }], { duration: 500, easing: 'cubic-bezier(.34,1.56,.64,1)' }); }
-function saveProfile() { me.name = $('#pn').value.trim() || me.name; App.ls('name', me.name); App.ls('avatar', me.avatar); App.send({ t: 'profile', name: me.name, avatar: me.avatar }); App.toast('✓ ' + App.tr('save')); }
+function saveProfile() { me.name = $('#pn').value.trim() || me.name; keepWho(); App.send({ t: 'profile', name: me.name, avatar: me.avatar }); App.toast('✓ ' + App.tr('save')); }
 
 /* ---------------- actions & effects ---------------- */
 function add(id, el) { if (!can('ordering')) return App.toast(App.tr('viewOnly')); const it = S.config.items.find((x) => x.id === id); if (it && it.soldOut) return App.toast(App.tr('soldSorry')); if (it && Opts.has(it)) return Opts.open(it, (sel) => { App.send({ t: 'cart_add', itemId: id, opts: sel }); App.toast(App.tr('addToCart')); fly(el, it.emoji); }); App.send({ t: 'cart_add', itemId: id }); App.toast(App.tr('addToCart')); if (it) fly(el, it.emoji); }

@@ -231,7 +231,7 @@ function closeSession(t, method, who, pay) {
     db.history.push({
       id: id('h'), tableId: t.id, tableNumber: t.number, kind: s.kind || 'table', customer: s.customer || null, startedAt: s.startedAt,
       orderedAt: s.orders[0].at, checkAt: s.check?.at || Date.now(), closedAt: Date.now(),
-      guests: s.guests.length || 1, party: s.party || 0, loyalty: loy, items: Object.values(lines), sub: b.gross, discount: b.discount, discountNote: [s.discount ? (s.discount.reason || '') : '', b.couponCode ? 'Coupon ' + b.couponCode : '', b.offerName || ''].filter(Boolean).join(' · '), coupon: b.couponCode || '', offer: b.offerName || '', gift: gUsed, giftCode: gUsed ? b.giftCode : '', service: b.service, tax: b.tax, tip,
+      guests: s.party || s.guests.filter((g) => s.orders.some((o) => o.items.some((i) => i.guestId === g.id))).length || 1, party: s.party || 0, loyalty: loy, items: Object.values(lines), sub: b.gross, discount: b.discount, discountNote: [s.discount ? (s.discount.reason || '') : '', b.couponCode ? 'Coupon ' + b.couponCode : '', b.offerName || ''].filter(Boolean).join(' · '), coupon: b.couponCode || '', offer: b.offerName || '', gift: gUsed, giftCode: gUsed ? b.giftCode : '', service: b.service, tax: b.tax, tip,
       total, method: payTotal <= 0 && onlineUsed > 0 && m !== 'unpaid' ? 'online' : m, unpaid: m === 'unpaid' && onlineUsed <= 0, online: onlineUsed, onlineRefs: (s.online || []).map((x) => x.ref), pay: m === 'unpaid' ? { cash: 0, card: 0, tendered: 0, change: 0, gift: 0, online: onlineUsed } : { ...settle(m === 'online' ? 'cash' : m, payTotal, pay), gift: gUsed, online: onlineUsed }, split: s.check?.split || 'table', source: s.source || '', closedBy: who || '', voids: s.voids || [], log: s.log,
     });
   }
@@ -464,6 +464,7 @@ function handle(c, m) {
       const t = db.tables.find((x) => x.number === c.tableNumber);
       if (!t) return c.ws.send(JSON.stringify({ t: 'error', msg: 'Unknown table' }));
       const known = db.sessions[t.id] && db.sessions[t.id].guests.find((x) => x.id === m.guestId);
+      if (!known && m.resume) return c.ws.send(JSON.stringify({ t: 'error', msg: 'newsession' }));
       if (!known && !keyOk(t, m.key)) return c.ws.send(JSON.stringify({ t: 'error', msg: 'scan' }));
       // in-cafe lock: a new guest must be physically at the cafe (a table the waiter seated is exempt: staff vouch for it)
       if (!known && F.has(rec, 'geo') && F.geoLockCfg(db.settings).enabled && !(db.sessions[t.id] && db.sessions[t.id].staffSeated)) { const gc = F.geoCheck(db.settings, m.geo); if (!gc.ok) return c.ws.send(JSON.stringify({ t: 'error', msg: 'geo', code: gc.code, dist: gc.dist })); }
@@ -488,8 +489,12 @@ function handle(c, m) {
       case 'loyalty_join': {
         const lc = F.loyaltyCfg(db.settings), ph = F.cleanPhone(m.phone); if (!F.has(rec, 'loyalty') || !lc.enabled || !ph) break;
         const L = (db.loyalty ||= { members: {} }); let mem = L.members[ph];
-        if (!mem) mem = L.members[ph] = { phone: ph, name: String(m.name || '').slice(0, 24), points: 0, earned: 0, redeemed: 0, visits: 0, at: Date.now(), log: [] };
-        else if (m.name && !mem.name) mem.name = String(m.name).slice(0, 24);
+        const deny = (code, left) => c.ws.send(JSON.stringify({ t: 'notice', msg: { bad: 'Choose a PIN of 4 to 6 digits', wrong: 'Wrong PIN' + (left ? ' (' + left + ' tries left)' : ''), locked: 'Too many tries. This card is locked for 15 minutes.', many: 'Too many new cards from this table' }[code], code: 'loy_' + code }));
+        if (!mem) { if ((s.loyNew || 0) >= 3) return deny('many'); if (!F.pinOk(m.pin)) return deny('bad'); mem = { phone: ph, name: String(m.name || '').slice(0, 24), points: 0, earned: 0, redeemed: 0, visits: 0, at: Date.now(), log: [] }; }
+        const pc = F.pinCheck(mem, m.pin, Date.now());
+        if (!pc.ok) { if (L.members[ph]) save(); return deny(pc.code, pc.left); }
+        if (!L.members[ph]) { L.members[ph] = mem; s.loyNew = (s.loyNew || 0) + 1; }
+        if (m.name && !mem.name) mem.name = String(m.name).slice(0, 24);
         s.loyaltyPhone = ph; s.redeem = null; log(s, 'loyalty', `${mem.name || 'Guest'} joined the loyalty card`); break;
       }
       case 'coupon_apply': {

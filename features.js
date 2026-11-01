@@ -161,6 +161,21 @@ const recipeCost = (recipe, ings) => Math.round((recipe || []).reduce((n, r) => 
 // items that have a recipe get their cost from the ingredients
 function recost(items, ings) { for (const it of items || []) if (it.recipe && it.recipe.length) it.cost = recipeCost(it.recipe, ings); }
 
+// ---------- Loyalty card PIN: a phone number alone never opens a card ----------
+const PIN_TRIES = 5, PIN_LOCK_MS = 15 * 60000;
+const pinOk = (p) => /^\d{4,6}$/.test(String(p || ''));
+// salted, stretched hash (pure JS so the browser demo can run it too); the real protection is the lock-out below
+function pinHash(phone, pin) { let h = 2166136261; const s = 'tt|' + phone + '|' + pin; for (let r = 0; r < 2000; r++) for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i) + r; h = Math.imul(h, 16777619) >>> 0; } return h.toString(36); }
+// -> { ok, set, code } ; mutates the member's attempt counters
+function pinCheck(mem, pin, now) {
+  if (mem.lockUntil && mem.lockUntil > now) return { ok: false, code: 'locked' };
+  if (!pinOk(pin)) return { ok: false, code: 'bad' };
+  if (!mem.pin) { mem.pin = pinHash(mem.phone, pin); mem.tries = 0; return { ok: true, set: true }; }
+  if (mem.pin === pinHash(mem.phone, pin)) { mem.tries = 0; mem.lockUntil = 0; return { ok: true }; }
+  mem.tries = (mem.tries || 0) + 1; if (mem.tries >= PIN_TRIES) { mem.lockUntil = now + PIN_LOCK_MS; mem.tries = 0; return { ok: false, code: 'locked' }; }
+  return { ok: false, code: 'wrong', left: PIN_TRIES - mem.tries };
+}
+
 // ---------- Upsell suggestions ----------
 // Which dishes to offer next to what is already in the cart. Pure: the guest page and the tests call the same function.
 // cfg = { items, categories, best: [itemId...], settings }, cartIds = item ids in the cart, o.isOpen(item) = timed-category check, o.skip = ids the guest dismissed
@@ -375,5 +390,5 @@ function zoneFor(settings, g) {
 
 
 const STAFF_LOG_KEYS = ['taken', 'handled', 'started', 'served', 'closed', 'respMs'];   // column order of rec.staffLog[id].b[hour]
-const api = { UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
+const api = { pinOk, pinHash, pinCheck, UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
 if (typeof module !== 'undefined') module.exports = api;

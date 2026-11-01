@@ -498,18 +498,18 @@ app.post(`${R}/login`, loginLimit, tenantMw, (req, res) => {
   const key = `${role}:${req.ip}`, fails = (t.rec.fails ||= {}), f = fails[key] || { n: 0, t: 0 };
   if (f.n >= 8 && Date.now() - f.t < 10 * 60000) return res.status(429).json({ error: 'Too many attempts, try again in a few minutes' });
   const ok = (token) => { if (fails[key]) { delete fails[key]; persistRec(t); } return res.json({ token }); };
-  if (role === 'admin' && String(email).toLowerCase() === t.rec.owner.email && auth.check(password, t.rec.owner.hash)) return ok(auth.sign('admin', t.rec.slug));
+  if (role === 'admin' && String(email).toLowerCase() === t.rec.owner.email && auth.check(password, t.rec.owner.hash)) return ok(auth.sign('admin', t.rec.slug, req.body && req.body.remember ? 30 : 0.5));
   if (role === 'cashier') {
     if (!F.has(t.rec, 'cashier')) return res.status(402).json({ error: 'The Cashier role needs the Operations plan', upgrade: F.minPlanFor('cashier') });
     const p = String(pin || '');
     const who = (t.rec.staff || []).find((st) => st.active !== false && st.hash && st.role === 'cashier' && auth.check(p, st.hash));
-    if (who) return ok(auth.sign('cashier', t.rec.slug, 2, { u: who.id, n: who.name }));
+    if (who) return ok(auth.sign('cashier', t.rec.slug, 0.5, { u: who.id, n: who.name }));
   }
   if (role === 'captain' || role === 'kitchen') {
     const p = String(pin || ''); let who = null;
     for (const st of t.rec.staff || []) if (st.active !== false && st.hash && auth.check(p, st.hash)) { who = st; break; }
-    if (who && (role === 'kitchen' || who.role === 'captain')) return ok(auth.sign(role, t.rec.slug, 2, { u: who.id, n: who.name }));
-    if (!who && p && p === String(t.rec.pin)) return ok(auth.sign(role, t.rec.slug, 2, { u: 'owner-pin', n: 'Captain' }));
+    if (who && (role === 'kitchen' || who.role === 'captain')) return ok(auth.sign(role, t.rec.slug, 0.5, { u: who.id, n: who.name }));
+    if (!who && p && p === String(t.rec.pin)) return ok(auth.sign(role, t.rec.slug, 0.5, { u: 'owner-pin', n: 'Captain' }));
   }
   fails[key] = { n: f.n + 1, t: Date.now() };
   for (const k of Object.keys(fails)) if (Date.now() - fails[k].t > 3600000) delete fails[k];
@@ -1284,7 +1284,7 @@ app.post(`${R}/rpc`, rpcLimit, async (req, res) => {
         const known = s && s.guests.find((g) => g.id === jn.guestId);
         if (known) { c.role = 'customer'; c.joined = true; c.tableNumber = tb.number; c.guestId = known.id; }
         else if (jn.fresh === false) { c.role = 'customer'; c.joined = true; c.tableNumber = tb.number; }   // session ended while the page was open: show the end screen, do not reopen the table
-        else t.handle(c, { t: 'join', role: 'customer', tableNumber: jn.tableNumber, guestId: jn.guestId, name: jn.name, avatar: jn.avatar, key: jn.key, geo: jn.geo });
+        else t.handle(c, { t: 'join', role: 'customer', tableNumber: jn.tableNumber, guestId: jn.guestId, name: jn.name, avatar: jn.avatar, key: jn.key, geo: jn.geo, resume: jn.resume });
       } else t.handle(c, { t: 'join', role: jn.role === 'cashier' ? 'captain' : jn.role });
       if (j.msg) t.handle(c, j.msg);
       const er = out.find((m) => m.t === 'error'); if (er) return res.status(403).json({ error: er.msg });

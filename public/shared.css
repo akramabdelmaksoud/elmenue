@@ -27,6 +27,8 @@ input:focus, select:focus, textarea:focus { border-color:var(--accent); }
 @keyframes glowGold { 0%,100% { box-shadow:0 0 12px 2px rgba(255,204,51,.5); } 50% { box-shadow:0 0 30px 8px rgba(255,204,51,.9); } }
 @keyframes fadeUp { from { transform:translateY(12px); opacity:0; } to { transform:none; opacity:1; } }
 .fade { animation:fadeUp .35s both; }
+/* every panel that can overflow scrolls, with the bar hidden */
+.sheet, .ov, .panel, #cop .cm, .modal, .dlg, [id$='dlg'] { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; } .sheet::-webkit-scrollbar, .ov::-webkit-scrollbar, .panel::-webkit-scrollbar, #cop .cm::-webkit-scrollbar, .modal::-webkit-scrollbar, .dlg::-webkit-scrollbar { display: none; }
 ::-webkit-scrollbar { width:8px; height:8px; } ::-webkit-scrollbar-thumb { background:var(--line); border-radius:8px; }
 
 :root { --serif: 'Playfair Display', Georgia, 'Cairo', 'Times New Roman', serif; --shadow: 0 14px 40px -16px rgba(60,45,20,.35); }
