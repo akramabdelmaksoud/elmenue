@@ -200,6 +200,17 @@ function pageFor(file, slug) {   // the page plus <meta name="elm-slug"> so shar
   return h.replace('<head>', '<head><meta name="elm-slug" content="' + slug + '">');
 }
 const hostOf = (req) => String(req.headers.host || '').toLowerCase().replace(/:\d+$/, '');
+// ---------- Separate sites on one deployment (ROOT_DOMAIN=tabletab-tt.com): www = marketing site, app = cafes, admin = platform console, demo = showroom ----------
+// The platform console exists ONLY on admin.<ROOT_DOMAIN>; every other host answers 404 for it.
+const ROOT = HOSTS.normalizeDomain(process.env.ROOT_DOMAIN || '') || '';
+const zoneOf = (req) => { const h = hostOf(req); return h === ROOT || h === 'www.' + ROOT ? 'site' : h === 'admin.' + ROOT ? 'admin' : h === 'demo.' + ROOT ? 'demo' : h === 'app.' + ROOT ? 'app' : null; };
+const ZONE_HOME = { site: 'site.html', admin: 'super.html', demo: 'showroom.html', app: 'app.html' };
+if (ROOT) app.use((req, res, next) => {
+  const z = zoneOf(req);
+  if (/^\/(super|api\/super)(\/|$)|^\/super\.html$/.test(req.path) && z !== 'admin') return res.status(404).end();
+  if ((req.method === 'GET' || req.method === 'HEAD') && z && req.path === '/') return res.set('Cache-Control', 'no-cache').sendFile(path.join(__dirname, 'public', ZONE_HOME[z]));
+  next();
+});
 if (!SINGLE) app.use(async (req, res, next) => {
   try {
     const r = await hostIndex.resolve(hostOf(req));
