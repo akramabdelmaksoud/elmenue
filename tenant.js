@@ -412,14 +412,16 @@ function bookingAct(act, bid, extra, who) {
   save(); broadcast(); return { ok: 1 };
 }
 function placeOnline(p) {
-  const o = F.onlineCfg(db.settings);
-  if (!F.has(rec, 'online') || !o.enabled) return { error: 'Online ordering is not available at this venue', code: 'off' };
-  const kind = p.kind === 'delivery' ? 'delivery' : 'takeaway';
-  if (kind === 'delivery' ? !o.delivery : !o.pickup) return { error: kind === 'delivery' ? 'Delivery is not offered' : 'Pickup is not offered', code: 'kind' };
+  const o = F.onlineCfg(db.settings), isCar = p.kind === 'car', cc = F.carCfg(db.settings);
+  if (isCar) { if (!F.has(rec, 'carservice') || !cc.enabled) return { error: 'Car service is not available at this venue', code: 'off' }; }
+  else if (!F.has(rec, 'online') || !o.enabled) return { error: 'Online ordering is not available at this venue', code: 'off' };
+  const kind = isCar ? 'car' : p.kind === 'delivery' ? 'delivery' : 'takeaway';
+  if (!isCar && (kind === 'delivery' ? !o.delivery : !o.pickup)) return { error: kind === 'delivery' ? 'Delivery is not offered' : 'Pickup is not offered', code: 'kind' };
   const name = String(p.name || '').trim().slice(0, 30), phone = String(p.phone || '').replace(/[^\d+]/g, '').slice(0, 20), address = String(p.address || '').trim().slice(0, 140);
   if (!name) return { error: 'Please enter your name', code: 'name' };
   if (phone.replace(/\D/g, '').length < 7) return { error: 'Please enter a valid phone number', code: 'phone' };
   if (kind === 'delivery' && address.length < 6) return { error: 'Please enter your delivery address', code: 'address' };
+  const car = isCar ? F.carClean(p.car, cc) : null; if (car && car.error) return car;
   if (!/^tk_[a-z0-9]{6,14}$/.test(String(p.tid || '')) || db.sessions[p.tid]) return { error: 'Bad request', code: 'tid' };
   const want = [], dropped = []; let bad = '';
   (Array.isArray(p.items) ? p.items : []).slice(0, 40).forEach((x) => {
@@ -433,7 +435,7 @@ function placeOnline(p) {
   if (dropped.length) return { error: 'Sold out: ' + dropped.join(', '), code: 'soldout', dropped };
   if (!want.length) return { error: 'Your order is empty', code: 'empty' };
   const food = want.reduce((n, l) => n + l.price * l.qty, 0);
-  if (o.minOrder && food < o.minOrder) return { error: `The minimum order is ${o.minOrder}`, code: 'min', min: o.minOrder };
+  if (!isCar && o.minOrder && food < o.minOrder) return { error: `The minimum order is ${o.minOrder}`, code: 'min', min: o.minOrder };
   // delivery price: by distance zone when zones are set (needs the guest's location), otherwise the flat fee item. Checked before stock is touched.
   const zone = kind === 'delivery' ? F.zoneFor(db.settings, p.geo) : null;
   if (zone && !zone.ok) return zone.code === 'far' ? { error: `Sorry, we deliver up to ${zone.max} km. You are ${zone.km} km away.`, code: 'far', km: zone.km, max: zone.max } : { error: 'Please share your location so we can price delivery', code: 'nogeo' };
@@ -443,19 +445,29 @@ function placeOnline(p) {
   if (byZone && zone.fee > 0) lines.push({ id: id('l'), guestId: 'cust', itemId: 'delivery_fee', name: 'Delivery', name_ar: 'توصيل', emoji: '🛵', price: zone.fee, qty: 1, note: zone.km + ' km' });
   if (fee) lines.push({ id: id('l'), guestId: 'cust', itemId: fee.id, name: fee.name, name_ar: fee.name_ar, emoji: fee.emoji, price: fee.price, qty: 1, note: '' });
   db.ticketSeq = (db.ticketSeq || 0) + 1;
-  const s = { id: id('s'), tableId: p.tid, tableNumber: (kind === 'delivery' ? 'DL-' : 'TA-') + db.ticketSeq, kind, source: 'online', startedAt: Date.now(), lastAt: Date.now(), guests: [{ id: 'cust', name, avatar: kind === 'delivery' ? '🛵' : '🛍️' }], cart: [], orders: [], requests: [], check: null, log: [], customer: { name, phone, address, note: String(p.note || '').trim().slice(0, 200), ...(F.geoPoint(p.geo) ? { map: 'https://www.google.com/maps?q=' + F.geoPoint(p.geo).lat + ',' + F.geoPoint(p.geo).lng, km: zone ? zone.km : undefined } : {}) } };
+  const s = { id: id('s'), tableId: p.tid, tableNumber: (kind === 'car' ? 'CR-' : kind === 'delivery' ? 'DL-' : 'TA-') + db.ticketSeq, kind, source: isCar ? 'car' : 'online', startedAt: Date.now(), lastAt: Date.now(), guests: [{ id: 'cust', name, avatar: kind === 'car' ? '🚗' : kind === 'delivery' ? '🛵' : '🛍️' }], cart: [], orders: [], requests: [], check: null, log: [], customer: { name, phone, address, ...(car ? { car } : {}), note: String(p.note || '').trim().slice(0, 200), ...(F.geoPoint(p.geo) ? { map: 'https://www.google.com/maps?q=' + F.geoPoint(p.geo).lat + ',' + F.geoPoint(p.geo).lng, km: zone ? zone.km : undefined } : {}) } };
   s.orders.push(stampEta({ id: id('o'), at: Date.now(), status: 'received', items: lines, by: 'online' }));
   db.sessions[p.tid] = s; log(s, 'ordered', `Online ${kind} order from ${name} (${lines.reduce((n, l) => n + l.qty, 0)} item(s))`);
-  alertCaptains('order', s.tableNumber, `🌐 Online ${kind === 'delivery' ? 'delivery' : 'pickup'} ${s.tableNumber}: ${name}`);
+  alertCaptains('order', s.tableNumber, isCar ? `🚗 Car ${s.tableNumber}: ${name} · ${car.color} ${car.type}${car.spot ? ' · spot ' + car.spot : ''}` : `🌐 Online ${kind === 'delivery' ? 'delivery' : 'pickup'} ${s.tableNumber}: ${name}`);
   save(); broadcast();
-  return { ok: 1, tid: p.tid, number: s.tableNumber, kind, total: bill(s).total, prepMin: o.prepMin };
+  return { ok: 1, tid: p.tid, number: s.tableNumber, kind, total: bill(s).total, prepMin: isCar ? cc.prepMin : o.prepMin };
 }
 // public tracking for the guest: derived from the ticket's orders; a closed ticket is 'done'
 function onlineStatus(tid) {
   const s = db.sessions[tid];
-  if (!s || s.source !== 'online') return { status: s ? 'unknown' : 'done' };
+  if (!s || (s.source !== 'online' && s.source !== 'car')) return { status: s ? 'unknown' : 'done' };
   const st = s.orders.map((x) => x.status), pick = (...k) => st.some((x) => k.includes(x));
-  return { status: pick('received') && !pick('kitchen', 'ready', 'served') ? 'received' : pick('received', 'kitchen') ? 'preparing' : 'ready', number: s.tableNumber, kind: s.kind, total: bill(s).total, at: s.startedAt };
+  return { status: pick('received') && !pick('kitchen', 'ready', 'served') ? 'received' : pick('received', 'kitchen') ? 'preparing' : 'ready', number: s.tableNumber, kind: s.kind, total: bill(s).total, at: s.startedAt, ...(s.kind === 'car' ? { arrived: !!(s.customer.car && s.customer.car.arrived), spot: (s.customer.car || {}).spot || '' } : {}) };
+}
+// the guest taps "I'm here" (and may correct the spot): staff get an alert with the car details
+function carArrive(tid, spot) {
+  const s = db.sessions[tid]; if (!s || s.kind !== 'car' || !s.customer || !s.customer.car) return { error: 'Not found', code: 'nf' };
+  const cc = F.carCfg(db.settings), car = s.customer.car, sp = String(spot == null ? '' : spot).replace(/[<>]/g, '').trim().slice(0, 12);
+  if (cc.spots > 0 && sp && !(/^\d+$/.test(sp) && +sp >= 1 && +sp <= cc.spots)) return { error: 'Choose your parking spot number', code: 'spot' };
+  if (sp) car.spot = sp; if (!car.arrived) car.arrived = Date.now();
+  log(s, 'arrived', `Guest arrived${car.spot ? ' at spot ' + car.spot : ''}`);
+  alertCaptains('request', s.tableNumber, `🚗 ${s.tableNumber} is here: ${car.color} ${car.type}${car.spot ? ' · spot ' + car.spot : ''} (${s.customer.name})`);
+  save(); broadcast(); return { ok: 1, spot: car.spot };
 }
 
 function handle(c, m) {
@@ -642,11 +654,12 @@ function handle(c, m) {
       case 'close_table': { const t = tableOf(m.tableId); if (t) { bump(c, 'closed'); closeSession(t, m.unpaid ? 'unpaid' : m.method, c.staffName, m.pay, c.staffId); } break; }
       case 'open_ticket': {
         // takeaway / delivery order that is not tied to a table
-        if (!['takeaway', 'delivery'].includes(m.kind) || !/^tk_[a-z0-9]{6,14}$/.test(String(m.tid || '')) || db.sessions[m.tid]) break;
+        if (!['takeaway', 'delivery', 'car'].includes(m.kind) || (m.kind === 'car' && !F.has(rec, 'carservice')) || !/^tk_[a-z0-9]{6,14}$/.test(String(m.tid || '')) || db.sessions[m.tid]) break;
         db.ticketSeq = (db.ticketSeq || 0) + 1;
-        const s = { id: id('s'), tableId: m.tid, tableNumber: (m.kind === 'delivery' ? 'DL-' : 'TA-') + db.ticketSeq, kind: m.kind, startedAt: Date.now(), lastAt: Date.now(), guests: [], cart: [], orders: [], requests: [], check: null, log: [],
+        const s = { id: id('s'), tableId: m.tid, tableNumber: (m.kind === 'car' ? 'CR-' : m.kind === 'delivery' ? 'DL-' : 'TA-') + db.ticketSeq, kind: m.kind, startedAt: Date.now(), lastAt: Date.now(), guests: [], cart: [], orders: [], requests: [], check: null, log: [],
           customer: { name: String(m.name || '').slice(0, 30), phone: String(m.phone || '').slice(0, 20), address: String(m.address || '').slice(0, 140) } };
-        s.guests.push({ id: 'cust', name: s.customer.name || (m.kind === 'delivery' ? 'Delivery' : 'Takeaway'), avatar: m.kind === 'delivery' ? '🛵' : '🛍️' });
+        if (m.kind === 'car') { const car = F.carClean(m.car, { ...F.carCfg(db.settings), spots: 0 }); if (car.error) break; s.customer.car = car; }
+        s.guests.push({ id: 'cust', name: s.customer.name || (m.kind === 'car' ? 'Car' : m.kind === 'delivery' ? 'Delivery' : 'Takeaway'), avatar: m.kind === 'car' ? '🚗' : m.kind === 'delivery' ? '🛵' : '🛍️' });
         db.sessions[m.tid] = s; log(s, 'seated', `${m.kind} ticket ${s.tableNumber} opened` + (c.staffName ? ' by ' + c.staffName : '')); break;
       }
       case 'staff_order': {
@@ -865,6 +878,6 @@ function analytics(days = 7) {
     if (r.action) broadcast(); return r;
   }
   const publicConfig = (asAdmin) => ({ settings: settingsFor(asAdmin ? 'admin' : 'guest', true), categories: db.categories, items: db.items, tables: db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec), plan: F.planOf(rec.plan) });
-  return { placeBooking, bookingStatus, bookingAct, placeOnline, onlineStatus, applyOnline, notify: alertCaptains, rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
+  return { placeBooking, bookingStatus, bookingAct, placeOnline, carArrive, onlineStatus, applyOnline, notify: alertCaptains, rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
 }
 module.exports = { createTenant, freshData, clone };

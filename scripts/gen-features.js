@@ -26,6 +26,7 @@ const D = {
   acctexport: ['Daily sales, service, VAT, tips and payment-method totals as Excel/CSV.', 'Saves the accountant hours every month.', 'None'],
   reservations: ['Guests book a table or join a waitlist from a link; staff confirm, decline or seat them.', 'Fills quiet hours and removes the phone-call burden.', 'None'],
   attendance: ['Staff clock in when they sign in; schedules, lateness, hours and labour cost per person.', 'Shows what each person really costs and who is reliable.', 'None'],
+  carservice: ['Guests parked outside order from their car: they pick the car colour and type, order and tap I am here. Staff get a car screen and bring the order out.', 'Add-on for cafes and kiosks with parking or a car area. Not in any bundle: switch it on per venue (or add it to a bundle) from the super admin.', 'None'],
   ownerreport: ['A one-page report for the owner: KPIs, staff scorecard, findings, decisions and menu engineering.', 'Lets you advise the owner from his own numbers.', 'None'],
   invoicing: ['Formal numbered invoices with your own letterhead, template and language, from a paid order or blank.', 'Satisfies companies and authorities that ask for a proper invoice.', 'None'],
   purchasing: ['Suppliers, reorder suggestions from low stock, purchase orders, receiving that updates stock and cost.', 'Stops stock-outs and keeps ingredient costs current.', 'Recipes & ingredient stock'],

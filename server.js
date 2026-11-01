@@ -195,7 +195,7 @@ const SINGLE = envOn(process.env.SINGLE_RESTAURANT), MAIN = 'main';
 // ---------- Host-based tenants: <slug>.BASE_DOMAIN and custom domains serve the restaurant's pages (rewrite, not redirect) ----------
 // /r/<slug>/... keeps working on every host, so printed QR codes, ?k= table keys and demo mode are untouched.
 const hostIndex = HOSTS.createHostIndex({ base: BASE_DOMAIN, ttlMs: STATELESS ? 30000 : 2000, load: async () => (STATELESS ? store.listRecs() : [...tenants.values()].map((t) => t.rec)) });
-const HOST_PAGES = { '/': 'tenant.html', '/captain': 'captain.html', '/admin': 'admin.html', '/kitchen': 'kitchen.html', '/cashier': 'cashier.html', '/order': 'order.html', '/book': 'book.html', '/desk': 'captain.html', '/ownerreport': 'ownerreport.html', '/invoice': 'invoice.html' };
+const HOST_PAGES = { '/': 'tenant.html', '/captain': 'captain.html', '/admin': 'admin.html', '/kitchen': 'kitchen.html', '/cashier': 'cashier.html', '/order': 'order.html', '/book': 'book.html', '/desk': 'captain.html', '/cars': 'captain.html', '/ownerreport': 'ownerreport.html', '/invoice': 'invoice.html' };
 const pageCache = {};
 // Asset versioning: every page references its scripts and styles as /x.js?v=<build>. A versioned file never changes, so browsers keep it
 // for a year and a repeat visit makes no round trips for it (before, each file was re-checked on every page load, about 0.3 s each on a phone).
@@ -250,6 +250,7 @@ if (SINGLE) {
   app.get('/order', (req, res) => res.redirect('/r/' + MAIN + '/order'));
   app.get('/book', (req, res) => res.redirect('/r/' + MAIN + '/book'));
   app.get('/desk', (req, res) => res.redirect('/r/' + MAIN + '/desk'));
+  app.get('/cars', (req, res) => res.redirect('/r/' + MAIN + '/cars'));
   app.get('/t/:n', (req, res) => res.redirect('/r/' + MAIN + '/t/' + encodeURIComponent(req.params.n) + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')));
   app.get('/index.html', (req, res) => res.redirect('/'));
   app.get('/api/setup/status', async (req, res) => { try { res.json({ setup: await isSetup(), needsKey: !!process.env.SETUP_KEY }); } catch (e) { res.status(500).json({ error: 'Server error' }); } });
@@ -338,6 +339,7 @@ app.get('/r/:slug/t/:n', page('customer.html'));
 app.get('/r/:slug/order', page('order.html'));
 app.get('/r/:slug/book', page('book.html'));
 app.get('/r/:slug/desk', page('captain.html'));
+app.get('/r/:slug/cars', page('captain.html'));
 app.get('/r/:slug/ownerreport', page('ownerreport.html'));
 app.get('/r/:slug/captain', page('captain.html'));
 app.get('/r/:slug/admin', page('admin.html'));
@@ -495,6 +497,12 @@ app.get(`${R}/qr/:n.png`, tenantMw, needAdmin, async (req, res) => {
   const tb = req.tenant.db.tables.find((x) => String(x.number) === req.params.n);
   if (!tb) return res.status(404).end();
   res.type('png').send(await QRCode.toBuffer(`${base}/t/${tb.number}${tb.key ? '?k=' + tb.key : ''}`, { width: 600, margin: 2, color: { dark: '#111111', light: '#ffffff' } }));
+});
+// QR for the parking area: one per numbered spot (or a single general one); opens the guest order page in car mode
+app.get(`${R}/carqr/:n.png`, tenantMw, needAdmin, async (req, res) => {
+  if (!F.has(req.tenant.rec, 'carservice')) return res.status(402).end();
+  const base = String(req.query.base || origin(req) + '/r/' + req.params.slug).replace(/\/$/, ''), n = String(req.params.n).replace(/[^\d]/g, '').slice(0, 3);
+  res.type('png').send(await QRCode.toBuffer(`${base}/order?car=1${n ? '&spot=' + n : ''}`, { width: 600, margin: 2, color: { dark: '#111111', light: '#ffffff' } }));
 });
 app.get(`${R}/menu/template.xlsx`, (req, res) => {
   const ws = XLSX.utils.json_to_sheet([{ category: 'Hot Coffee', category_ar: 'قهوة ساخنة', name: 'Mocha', name_ar: 'موكا', price: 85, cost: 20, emoji: '☕', description: 'Chocolate espresso' }]);
@@ -661,6 +669,14 @@ app.post(`${R}/book`, tenantMw, (req, res, next) => { try {
   persistRec(t); res.json(out);
 } catch (e) { next(e); } });
 app.get(`${R}/book/status/:id`, tenantMw, (req, res) => { const o = req.tenant.bookingStatus(String(req.params.id).slice(0, 24)); o ? res.json(o) : res.status(404).json({ error: 'Not found' }); });
+// a car guest taps "I'm here"; the ticket id is the unguessable secret, the limit stops a loop of alerts
+app.post(`${R}/car/arrive`, tenantMw, (req, res, next) => { try {
+  const t = req.tenant, r = t.rec, b = req.body || {}, now = Date.now(), tid = String(b.tid || '').slice(0, 20), rate = (r.carRate ||= {}), hits = (rate[tid] = (rate[tid] || []).filter((x) => now - x < 300000));
+  if (hits.length >= 3) return res.status(429).json({ error: 'Already sent - we are on our way', code: 'rate' });
+  const out = t.carArrive(tid, b.spot); if (out.error) return res.status(out.code === 'nf' ? 404 : 400).json(out);
+  hits.push(now); for (const x of Object.keys(rate)) if (!rate[x].length || now - rate[x][rate[x].length - 1] > 3600000) delete rate[x];
+  persistRec(t); res.json(out);
+} catch (e) { next(e); } });
 app.get(`${R}/online/status/:tid`, tenantMw, (req, res) => res.json(req.tenant.onlineStatus(String(req.params.tid).slice(0, 20))));
 
 const FB_CATS = ['quality', 'portions', 'price', 'service', 'clean'];
@@ -1037,6 +1053,7 @@ A('post', '/settings', (req, res) => {
   if (b.upsell) { if (!F.has(req.tenant.rec, 'upsell')) return res.status(402).json({ error: 'Upsell suggestions need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.upsell = F.upCfg({ upsell: b.upsell }); }
   if (b.fb) { if (!F.has(req.tenant.rec, 'feedback')) return res.status(402).json({ error: 'Guest feedback & Google reviews need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); const u = String(b.fb.googleUrl || '').trim().slice(0, 300); b.fb = { enabled: !!b.fb.enabled, googleUrl: /^https:\/\/[^\s]+$/.test(u) ? u : '' }; }
   if (b.online) { if (!F.has(req.tenant.rec, 'online')) return res.status(402).json({ error: 'Online ordering needs the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.online = F.onlineCfg({ online: b.online }); }
+  if (b.car) { if (!F.has(req.tenant.rec, 'carservice')) return res.status(402).json({ error: 'Car service is an add-on. Ask us to switch it on for your venue.', upgrade: null }); b.car = F.carCfg({ car: b.car }); }
   if ('venueGeo' in b) b.venueGeo = F.geoPoint(b.venueGeo);
   if (b.geoLock) {
     if (!F.has(req.tenant.rec, 'geo')) return res.status(402).json({ error: 'The in-cafe ordering lock needs the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' });

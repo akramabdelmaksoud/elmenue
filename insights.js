@@ -47,7 +47,7 @@ function analyze(o) {
   const peakHrs = maxO >= 3 ? hours.map((x, i) => [i, x.orders]).filter(([, n]) => n >= Math.max(3, maxO * 0.7)).map(([i]) => i) : [];
   const quietHrs = maxO >= 3 && act.length ? hours.map((x, i) => [i, x.orders]).filter(([i, n]) => i >= first && i <= last && n <= maxO * 0.25).map(([i]) => i) : [];
   const revenue = sum(H, (h) => h.total), prevRev = sum(P, (h) => h.total), revDelta = prevRev > 0 ? r1((revenue - prevRev) / prevRev * 100) : null;
-  const onl = H.filter((h) => h.source === 'online'), kinds = { table: 0, takeaway: 0, delivery: 0 }; H.forEach((h) => { kinds[h.kind || 'table'] = (kinds[h.kind || 'table'] || 0) + h.total; });
+  const onl = H.filter((h) => h.source === 'online'), kinds = { table: 0, takeaway: 0, delivery: 0, car: 0 }; H.forEach((h) => { kinds[h.kind || 'table'] = (kinds[h.kind || 'table'] || 0) + h.total; });
   const qty = (rows) => { const m = {}; rows.forEach((h) => (h.items || []).forEach((l) => { m[l.name] = (m[l.name] || 0) + l.qty; })); return m; }, cq = qty(H), pq = qty(P);
   const fading = Object.keys(pq).filter((n) => pq[n] >= 8 && (cq[n] || 0) <= pq[n] * 0.5).map((n) => ({ name: n, prev: pq[n], now: cq[n] || 0 })).sort((a, b) => b.prev - a.prev).slice(0, 5);
   const venue = { orders: H.length, revenue: r2(revenue), prevRevenue: r2(prevRev), revDelta, avgTicket: H.length ? r2(revenue / H.length) : 0, activeDays: dayKeys.length, hours: hours.map((x) => ({ orders: x.orders, revenue: r2(x.revenue) })), peakWindows: windows(peakHrs), quietWindows: windows(quietHrs), dowAvg, dowN, series, drops, surges, fading, kinds, online: { orders: onl.length, revenue: r2(sum(onl, (h) => h.total)) } };

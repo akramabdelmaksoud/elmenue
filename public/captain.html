@@ -55,6 +55,8 @@ h3 { margin:6px 0 10px; }
 #bar { position:fixed; left:10px; right:10px; bottom:calc(10px + env(safe-area-inset-bottom)); z-index:75; gap:8px; padding:8px; border-radius:24px; background:color-mix(in srgb,var(--card) 86%,transparent); backdrop-filter:blur(16px); border:1px solid var(--line); box-shadow:0 18px 40px -12px rgba(0,0,0,.5); }
 #bar button { flex:1; padding:13px 8px; border-radius:18px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:8px; position:relative; } #bar button.on { background:var(--accent); color:var(--on-accent); }
 #bar .cnt { background:var(--accent2); color:#fff; border-radius:99px; padding:1px 8px; font-size:12px; min-width:22px; text-align:center; } #bar .cnt.hot { background:#d62828; animation:pulseRed 1.2s infinite; } #bar .cnt:empty { display:none; }
+.tk.car { min-width:230px; flex:1 1 230px; max-width:360px; padding:12px 14px; border-width:2px; } .tk.car small { display:block; margin-top:2px; } .tk.car.rdy { border-color:#1f9d55; } .tk.car.here { border-color:#d62828; animation:pulseRed 1.2s infinite; } .tk.car .dot { display:inline-block; width:14px; height:14px; border-radius:50%; border:1px solid #0005; vertical-align:-2px; margin-inline-end:4px; }
+.carbox { border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin:8px 0; background:color-mix(in srgb,var(--accent) 10%,var(--card)); }
 </style></head>
 <body>
 <header><h1>🧑‍✈️ <span class="ttl">Captain</span> <span id="clock"></span> <span id="who" class="muted" style="font-size:.7em;font-weight:600"></span></h1>
@@ -63,6 +65,8 @@ h3 { margin:6px 0 10px; }
  <button class="ghost" id="vw" onclick="toggleView()" title="Map / list by zone"><span id="vwi">☰</span><b class="lbl" id="vwl">List</b></button>
  <button class="ghost" onclick="PX.newTicket('takeaway')" title="Takeaway order"><span>🛍️</span><b class="lbl">Takeaway</b></button>
  <button class="ghost" onclick="PX.newTicket('delivery')" title="Delivery order"><span>🛵</span><b class="lbl">Delivery</b></button>
+ <button class="ghost" id="carnew" style="display:none" onclick="PX.newTicket('car')" title="Order for a car outside"><span>🚗</span><b class="lbl">Car</b></button>
+ <a href="/cars" class="ghost" id="carlnk" style="text-decoration:none;display:none" title="Car service screen"><span>🚗</span><b class="lbl">Car screen</b></a>
  <button class="ghost" onclick="PX.resDlg()" title="Reservations"><span>📅</span><b class="lbl">Reservations</b></button>
  <button class="ghost" id="pushb" onclick="togglePush()" aria-label="phone alerts"><span id="pushi">📲</span><b class="lbl" id="pushl">Phone alerts</b></button>
  <a href="/kitchen" class="ghost" style="text-decoration:none;display:none" id="klink"></a>
@@ -101,12 +105,20 @@ async function refreshPush() { const st = await App.push.state(), b = document.g
 async function togglePush() { try { const st = await App.push.state(); if (st === 'on') await App.push.disable(); else await App.push.enable(); App.toast(st === 'on' ? 'Phone alerts off' : 'Phone alerts on ✓'); } catch (e) { alert(e.message); } refreshPush(); }
 document.addEventListener('app-installable', () => (document.getElementById('inst').style.display = ''));
 if (App.installEvt) document.getElementById('inst').style.display = '';
-const DESK = /[/]desk[/]?$/.test(location.pathname);
-if (DESK) { document.addEventListener('DOMContentLoaded', () => { const t = document.querySelector('.ttl'); if (t) t.textContent = 'Online desk'; }); }
+const DESK = /[/]desk[/]?$/.test(location.pathname), CARS = /[/]cars[/]?$/.test(location.pathname);
+if (DESK || CARS) { document.addEventListener('DOMContentLoaded', () => { const t = document.querySelector('.ttl'); if (t) t.textContent = CARS ? 'Car service' : 'Online desk'; }); }
+const CCOL = { white: '#ffffff', black: '#1a1a1a', silver: '#c0c0c0', grey: '#808080', red: '#d62828', blue: '#2563eb', green: '#1f9d55', yellow: '#f2c230', orange: '#f08a1a', brown: '#7a4b2a', beige: '#d8c3a0', gold: '#c9a227', other: 'conic-gradient(#d62828,#f2c230,#1f9d55,#2563eb,#7c3aed,#d62828)' };
+const carState = (s) => (s.orders.some((o) => o.status === 'served') ? 'rdy' : s.orders.some((o) => o.status === 'kitchen') ? 'cook' : 'new');
+const carLabel = (c) => `<span class="dot" style="background:${CCOL[c.color] || '#888'}"></span><b>${App.esc(c.color)} ${App.esc(c.type)}</b>${c.plate ? ' · ' + App.esc(c.plate) : ''}`;
+function carBox(s) { const c = s.customer.car; return `<div class="carbox">🚗 ${carLabel(c)}${c.spot ? ' · 📍 spot <b>' + App.esc(c.spot) + '</b>' : ''}${c.arrived ? `<br>✅ <b>Here since ${App.ago(c.arrived)}</b>` : '<br><span class="muted">Has not tapped "I\'m here" yet</span>'}</div>`; }
+function carCard(s) {
+  const c = s.customer.car, st = carState(s), n = s.orders.reduce((a, o) => a + o.items.reduce((m, i) => m + i.qty, 0), 0);
+  return `<button class="tk car ${st === 'rdy' ? 'rdy' : ''} ${c.arrived ? 'here' : ''}" onclick="openT('${s.tableId}')"><b>🚗 ${App.esc(s.tableNumber)} · ${App.esc(s.customer.name || '')}</b><small>${carLabel(c)}</small><small>${c.spot ? '📍 spot ' + App.esc(c.spot) + ' · ' : ''}${c.arrived ? '<b>✅ HERE ' + mins(c.arrived) + '</b>' : 'on the way'}</small><small>${{ rdy: '✅ ready to take out', cook: '🔥 preparing', new: '🆕 new' }[st]} · ${n} items · ${App.money(s.bill.total)} · ${mins(s.startedAt)}</small></button>`;
+}
 function start() { document.getElementById('who').textContent = App.who() ? '· ' + App.who() : ''; refreshPush(); App.connect({ t: 'join', role: 'captain' }, {
   render(m) { if (m) S = m; render(); },
   alert(m) {
-    { const tk = /^(TA|DL)-/.test(String(m.tableNumber || '')); if (DESK ? !tk : tk && ((S && S.config.settings.online) || {}).desk) return; }
+    { const num = String(m.tableNumber || ''), car = /^CR-/.test(num), tk = /^(TA|DL)-/.test(num), st = (S && S.config.settings) || {}; if (CARS ? !car : DESK ? !tk : (tk && (st.online || {}).desk) || (car && (st.car || {}).desk)) return; }
     beep(m.kind);
     try { navigator.vibrate && navigator.vibrate(m.kind === 'urgent' ? [250, 100, 250, 100, 250] : [180, 80, 180]); } catch {}
     const b = document.createElement('div'); b.className = 'banner ' + (m.kind === 'urgent' ? 'urgent' : m.kind === 'check' ? 'check' : '');
@@ -147,17 +159,19 @@ function render() {
   const cfg = S.config, F = App.floor();
   document.getElementById('sim').classList.toggle('sel', !!S.simulate);
   // /desk shows only pickup and delivery tickets; with the owner's 'separate screen' switch the floor view hides them
-  const sessions = Object.values(S.sessions).filter((s) => (DESK ? !!s.kind : !(cfg.settings.online || {}).desk || !s.kind));
+  const sessions = Object.values(S.sessions).filter((s) => (CARS ? s.kind === 'car' : DESK ? !!s.kind && s.kind !== 'car' : !s.kind || !((s.kind === 'car' ? cfg.settings.car : cfg.settings.online) || {}).desk));
+  const carOn = !!(cfg.features || {}).carservice; document.getElementById('carnew').style.display = carOn ? '' : 'none'; document.getElementById('carlnk').style.display = carOn && !CARS && (cfg.settings.car || {}).desk ? '' : 'none';
   const orders = sessions.flatMap((s) => s.orders.filter((o) => o.status !== 'closed').map((o) => ({ s, o }))).sort((a, b) => a.o.at - b.o.at);
   const reqs = sessions.flatMap((s) => s.requests.filter((r) => !r.done).map((r) => ({ s, r }))).sort((a, b) => a.r.at - b.r.at);
   const rev = sessions.reduce((n, s) => n + s.bill.total, 0);
   const tks = sessions.filter((s) => s.kind), tbls = sessions.length - tks.length;
-  document.getElementById('stats').textContent = `${tbls}/${cfg.tables.length} tables${tks.length ? ' · ' + tks.length + ' takeaway/delivery' : ''} · ${orders.length} orders · ${App.money(rev)}`;
-  document.getElementById('tickets').innerHTML = tks.map((s) => `<button class="tk" onclick="openT('${s.tableId}')"><b>${s.kind === 'delivery' ? '🛵' : '🛍️'} ${App.esc(s.tableNumber)}${s.customer && s.customer.name ? ' · ' + App.esc(s.customer.name) : ''}</b><small>${s.orders.reduce((n, o) => n + o.items.reduce((m, i) => m + i.qty, 0), 0)} items · ${App.money(s.bill.total)} · ${mins(s.startedAt)}</small></button>`).join('');
-  document.title = (reqs.length ? `(${reqs.length}) ` : '') + (DESK ? 'Online desk' : 'Captain');
+  const carsL = tks.filter((s) => s.kind === 'car').sort((a, b) => ((carState(b) === 'rdy') - (carState(a) === 'rdy')) || (!!b.customer.car.arrived - !!a.customer.car.arrived) || a.startedAt - b.startedAt);
+  document.getElementById('stats').textContent = CARS ? `${carsL.length} cars · ${carsL.filter((s) => s.customer.car.arrived).length} here · ${orders.length} orders · ${App.money(rev)}` : `${tbls}/${cfg.tables.length} tables${tks.length ? ' · ' + tks.length + ' pickup/delivery/car' : ''} · ${orders.length} orders · ${App.money(rev)}`;
+  document.getElementById('tickets').innerHTML = carsL.map(carCard).join('') + tks.filter((s) => s.kind !== 'car').map((s) => `<button class="tk" onclick="openT('${s.tableId}')"><b>${s.kind === 'delivery' ? '🛵' : '🛍️'} ${App.esc(s.tableNumber)}${s.customer && s.customer.name ? ' · ' + App.esc(s.customer.name) : ''}</b><small>${s.orders.reduce((n, o) => n + o.items.reduce((m, i) => m + i.qty, 0), 0)} items · ${App.money(s.bill.total)} · ${mins(s.startedAt)}</small></button>`).join('');
+  document.title = (reqs.length ? `(${reqs.length}) ` : '') + (CARS ? 'Car service' : DESK ? 'Online desk' : 'Captain');
   const stage = document.getElementById('stage');
   stage.style.setProperty('--cols', F.cols); stage.style.setProperty('--rows', F.rows); stage.style.aspectRatio = `${F.cols} / ${F.rows}`;
-  stage.style.display = listView || DESK ? 'none' : ''; document.getElementById('vwi').textContent = listView ? '🗺️' : '☰'; document.getElementById('vwl').textContent = listView ? 'Map' : 'List';
+  stage.style.display = listView || DESK || CARS ? 'none' : ''; document.getElementById('vwi').textContent = listView ? '🗺️' : '☰'; document.getElementById('vwl').textContent = listView ? 'Map' : 'List';
   let zl = document.getElementById('zones'); if (!zl) { zl = document.createElement('div'); zl.id = 'zones'; stage.after(zl); }
   zl.style.display = listView ? '' : 'none'; zl.innerHTML = listView ? zonesHTML(cfg) : '';
   if (!listView) stage.innerHTML = stageHTML(cfg);
@@ -197,7 +211,8 @@ function renderModal() {
     <div class="row wrap"><button class="primary" onclick="PX.openPOS('${t.id}')">➕ Take order</button><button class="ghost" onclick="App.send({t:'seat_table',tableId:'${t.id}'})">🪑 Seat guests</button><button class="ghost" onclick="PX.resDlg('${t.id}')">📅 Reserve</button></div>`;
   } else {
     const b = s.bill, tip = Math.round(b.net * (s.check && s.check.tipPct || 0) / 100);
-    h = `<div class="spread"><h2>${s.kind ? (s.kind === 'delivery' ? '🛵 ' : '🛍️ ') + App.esc(s.tableNumber) : 'Table ' + t.number} <span class="pill">${App.ago(s.startedAt)}</span></h2><button onclick="closeM()">✕</button></div>
+    h = `<div class="spread"><h2>${s.kind ? ({ delivery: '🛵 ', car: '🚗 ' }[s.kind] || '🛍️ ') + App.esc(s.tableNumber) : 'Table ' + t.number} <span class="pill">${App.ago(s.startedAt)}</span></h2><button onclick="closeM()">✕</button></div>
+    ${s.customer && s.customer.car ? carBox(s) : ''}
     ${s.customer && (s.customer.name || s.customer.phone || s.customer.address) ? `<p class="muted">👤 ${App.esc(s.customer.name)} ${s.customer.phone ? `· <a href="tel:${App.esc(s.customer.phone)}">${App.esc(s.customer.phone)}</a>` : ''}${s.customer.address ? '<br>📍 ' + App.esc(s.customer.address) : ''}${s.customer.map ? ` · <a href="${App.esc(s.customer.map)}" target="_blank" rel="noopener">🗺️ Map${s.customer.km ? ' (' + App.esc(s.customer.km) + ' km)' : ''}</a>` : ''}${s.customer.note ? '<br>📝 ' + App.esc(s.customer.note) : ''}</p>` : ''}
     ${s.party ? `<div style="margin-bottom:6px">👥 Party size: <b>${s.party}</b></div>` : ''}${hostOf(s) ? `<div class="row wrap" style="margin-bottom:6px"><span>👑 Table host: <b>${App.esc(hostOf(s).name)}</b></span>${s.guests.length > 1 ? `<select style="width:auto" onchange="App.send({t:'host_set',tableId:'${t.id}',guestId:this.value})">${s.guests.map((g) => `<option value="${g.id}" ${g.id === hostOf(s).id ? 'selected' : ''}>${App.esc(g.name)}</option>`).join('')}</select>` : ''}</div>` : ''}
     <div class="row wrap">${s.guests.map((g) => `<span class="pill" style="font-size:14px">${g.id === (hostOf(s) || {}).id ? '👑' : ''}${g.avatar} ${App.esc(g.name)} · ${App.money((b.byGuest[g.id] || {}).total || 0)}</span>`).join('') || '<span class="muted">No guests</span>'}</div>

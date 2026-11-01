@@ -54,12 +54,14 @@ const PX = (() => {
     if (payNow) waitFor(() => S.sessions[tid] && S.sessions[tid].orders.length, () => openPay(tid));
   }
   function newTicket(kind) {
-    shell(`${head(kind === 'delivery' ? '🛵 New delivery' : '🛍️ New takeaway')}<div class="field"><label>Customer name</label><input id="tkn"></div><div class="field"><label>Phone</label><input id="tkp" type="tel"></div>
-      ${kind === 'delivery' ? '<div class="field"><label>Address</label><input id="tka"></div>' : ''}<button class="primary" onclick="PX.startTicket('${kind}')">Start order →</button>`);
+    const CL = ['white', 'black', 'silver', 'grey', 'red', 'blue', 'green', 'yellow', 'orange', 'brown', 'beige', 'gold', 'other'];
+    shell(`${head(kind === 'car' ? '🚗 New car order' : kind === 'delivery' ? '🛵 New delivery' : '🛍️ New takeaway')}<div class="field"><label>Customer name</label><input id="tkn"></div><div class="field"><label>Phone${kind === 'car' ? ' (optional)' : ''}</label><input id="tkp" type="tel"></div>
+      ${kind === 'delivery' ? '<div class="field"><label>Address</label><input id="tka"></div>' : ''}${kind === 'car' ? `<div class="field"><label>Car type</label><input id="tkt" maxlength="30" placeholder="Toyota Corolla"></div><div class="field"><label>Colour</label><select id="tkc">${CL.map((c) => `<option value="${c}">${c[0].toUpperCase() + c.slice(1)}</option>`).join('')}</select></div><div class="field"><label>Plate (optional)</label><input id="tkl" maxlength="12"></div><div class="field"><label>Spot</label><input id="tks" maxlength="12" placeholder="5"></div>` : ''}<button class="primary" onclick="PX.startTicket('${kind}')">Start order →</button>`);
   }
   function startTicket(kind) {
     const v = (id) => ($(id) ? $(id).value.trim() : '');
-    beginPOS('tk_' + Math.random().toString(36).slice(2, 10), kind === 'delivery' ? 'Delivery' : 'Takeaway', { kind, name: v('tkn'), phone: v('tkp'), address: v('tka') });
+    if (kind === 'car' && !v('tkt')) return App.toast('Enter the car type');
+    beginPOS('tk_' + Math.random().toString(36).slice(2, 10), kind === 'car' ? 'Car' : kind === 'delivery' ? 'Delivery' : 'Takeaway', { kind, name: v('tkn'), phone: v('tkp'), address: v('tka'), ...(kind === 'car' ? { car: { type: v('tkt'), color: v('tkc'), plate: v('tkl'), spot: v('tks') } } : {}) });
   }
 
   /* ---------- payment ---------- */

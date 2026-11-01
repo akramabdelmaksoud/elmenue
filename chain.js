@@ -24,7 +24,7 @@ function build(o) {
     const series = []; for (let i = days - 1; i >= 0; i--) { const a = now - (i + 1) * DAYMS, z = now - i * DAYMS; series.push(r2(sum(H.filter((h) => h.closedAt > a && h.closedAt <= z), (h) => h.total))); }
     const items = {}; lines.forEach((l) => { const a = (items[l.name] ||= { name: l.name, qty: 0, revenue: 0 }); a.qty += l.qty; a.revenue += l.qty * l.price; });
     const att = b.att && b.att.hours > 0 ? b.att : null, labour = att ? att.laborCost || 0 : null, rv = (b.ins && b.ins.reviews) || {};
-    const online = H.filter((h) => h.kind === 'takeaway' || h.kind === 'delivery'), digital = sum(H, (h) => (h.pay && h.pay.digital) || 0) + sum(H, (h) => (h.pay && h.pay.card) || 0);
+    const online = H.filter((h) => h.kind === 'takeaway' || h.kind === 'delivery' || h.kind === 'car'), digital = sum(H, (h) => (h.pay && h.pay.digital) || 0) + sum(H, (h) => (h.pay && h.pay.card) || 0);
     const peak = hours.indexOf(Math.max(...hours));
     return {
       slug: b.slug, name: b.name, currency: b.currency || '', orders: H.length, guests, revenue: r2(revenue), prevRevenue: r2(prev), growth: delta(revenue, prev),

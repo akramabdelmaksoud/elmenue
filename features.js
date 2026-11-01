@@ -18,6 +18,7 @@ const CATALOG = [
   { id: 'feedback', area: 'guest', level: 2, en: 'Guest reviews', ar: 'تقييم الضيوف' }, { id: 'insights', area: 'admin', level: 2, en: 'Insights and staff performance', ar: 'التحليلات وأداء الموظفين' },
   { id: 'instapay', area: 'guest', level: 2, en: 'InstaPay and wallet payment at the table', ar: 'الدفع بإنستاباي والمحافظ' }, { id: 'acctexport', area: 'admin', level: 2, en: 'Accounting export (daily sales, VAT)', ar: 'تصدير محاسبي' },
   { id: 'invoicing', area: 'admin', level: 2, en: 'Branded invoices and purchase orders', ar: 'فواتير رسمية بهوية المكان وأوامر الشراء' }, { id: 'purchasing', area: 'admin', level: 3, en: 'Suppliers and purchase orders', ar: 'الموردون وأوامر الشراء' }, { id: 'ownerreport', area: 'admin', level: 3, en: 'Owner report pack (analysis, risks, decisions)', ar: 'تقرير المالك (تحليل ومخاطر وقرارات)' }, { id: 'attendance', area: 'staff', level: 2, en: 'Staff attendance, schedules and labour cost', ar: 'حضور الموظفين والجداول وتكلفة العمالة' }, { id: 'reservations', area: 'guest', level: 3, en: 'Reservations and waitlist', ar: 'الحجوزات وقائمة الانتظار' }, { id: 'recipes', area: 'admin', level: 3, en: 'Recipes, ingredient stock and food cost', ar: 'الوصفات والمخزون وتكلفة الأكل' },
+  { id: 'carservice', area: 'guest', level: 3, en: 'Car service (guests order from their car)', ar: 'خدمة السيارات (الطلب من العربية)' },
   { id: 'upsell', area: 'guest', level: 3, en: 'Upsell suggestions', ar: 'اقتراحات إضافية' }, { id: 'coupons', area: 'guest', level: 3, en: 'Coupons and timed offers', ar: 'كوبونات وعروض' },
   { id: 'onlinepay', area: 'guest', level: 3, en: 'Card payment online (Paymob)', ar: 'الدفع بالكارت أونلاين' }, { id: 'eta', area: 'admin', level: 3, en: 'Egypt e-receipt (ETA)', ar: 'الإيصال الإلكتروني' },
   { id: 'offline', area: 'staff', level: 3, en: 'Offline mode', ar: 'العمل بدون إنترنت' },
@@ -391,6 +392,18 @@ function copilot(q, ctx) {
 
 // ---------- Online ordering (guest storefront: pickup + delivery, pay on receipt) ----------
 const ONLINE_DEFAULT = { enabled: false, pickup: true, delivery: false, minOrder: 0, feeItemId: '', prepMin: 20, note: '', zones: [], desk: false };
+// Car service: guests park outside, order from the car (colour, type, name) and staff bring it out. Not part of any bundle by default - an add-on switched on per venue (or added to a bundle) by the super admin.
+const CAR_COLORS = ['white', 'black', 'silver', 'grey', 'red', 'blue', 'green', 'yellow', 'orange', 'brown', 'beige', 'gold', 'other'];
+const CAR_DEFAULT = { enabled: false, prepMin: 10, spots: 0, askPlate: true, desk: false, note: '' };
+const carCfg = (settings) => { const o = { ...CAR_DEFAULT, ...((settings && settings.car) || {}) }; o.enabled = !!o.enabled; o.prepMin = Math.min(120, Math.max(2, Math.floor(+o.prepMin) || 10)); o.spots = Math.min(99, Math.max(0, Math.floor(+o.spots) || 0)); o.askPlate = o.askPlate !== false; o.desk = !!o.desk; o.note = String(o.note || '').replace(/[<>]/g, '').slice(0, 200); return o; };
+const carClean = (v, cfg) => {
+  v = v || {}; const c = cfg || CAR_DEFAULT, t = (x, n) => String(x == null ? '' : x).replace(/[<>]/g, '').trim().slice(0, n);
+  const color = CAR_COLORS.includes(String(v.color)) ? String(v.color) : '', type = t(v.type, 30), plate = c.askPlate === false ? '' : t(v.plate, 12).toUpperCase(), spot = t(v.spot, 12);
+  if (!color) return { error: 'Choose the colour of your car', code: 'color' };
+  if (!type) return { error: 'Enter the type of your car (for example Toyota Corolla)', code: 'cartype' };
+  if (c.spots > 0 && !(spot && /^\d+$/.test(spot) && +spot >= 1 && +spot <= c.spots)) return { error: 'Choose your parking spot number', code: 'spot' };
+  return { color, type, plate, spot };
+};
 const onlineCfg = (settings) => { const o = { ...ONLINE_DEFAULT, ...((settings && settings.online) || {}) }; o.enabled = !!o.enabled; o.pickup = o.pickup !== false; o.delivery = !!o.delivery; o.minOrder = Math.max(0, +o.minOrder || 0); o.prepMin = Math.min(180, Math.max(5, Math.floor(+o.prepMin) || 20)); o.feeItemId = String(o.feeItemId || '').slice(0, 40); o.note = String(o.note || '').slice(0, 200); o.zones = zonesCfg(o.zones); o.desk = !!o.desk; return o; };
 
 // ---------- Location: delivery zones + "order only from inside the cafe" ----------
@@ -421,5 +434,5 @@ function zoneFor(settings, g) {
 
 const STAFF_LOG_KEYS = ['taken', 'handled', 'started', 'served', 'closed', 'respMs'];   // column order of rec.staffLog[id].b[hour]
 const WASTE_CAUSES = ['expired', 'spoiled', 'spilled', 'overprep', 'staffmeal', 'returned', 'other'];
-const api = { WASTE_CAUSES, invoiceBrandClean, docLines, docTotals, partyClean, supplierClean, INV_STYLES, shiftsClean, wageClean, hmMin, pinOk, pinHash, pinCheck, UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
+const api = { CAR_COLORS, CAR_DEFAULT, carCfg, carClean, WASTE_CAUSES, invoiceBrandClean, docLines, docTotals, partyClean, supplierClean, INV_STYLES, shiftsClean, wageClean, hmMin, pinOk, pinHash, pinCheck, UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
 if (typeof module !== 'undefined') module.exports = api;

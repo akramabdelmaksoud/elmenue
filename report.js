@@ -17,7 +17,7 @@ function build(o) {
   const costed = lines.filter((l) => l.cost > 0).length, costShare = lines.length ? costed / lines.length : 0;
   const tips = sum(H, (h) => h.tip || 0), service = sum(H, (h) => h.service || 0), tax = sum(H, (h) => h.tax || 0);
   const digital = sum(H, (h) => (h.pay && h.pay.digital) || 0), card = sum(H, (h) => (h.pay && h.pay.card) || 0), cash = sum(H, (h) => (h.pay && h.pay.cash) || 0);
-  const online = H.filter((h) => h.kind === 'takeaway' || h.kind === 'delivery');
+  const online = H.filter((h) => h.kind === 'takeaway' || h.kind === 'delivery' || h.kind === 'car');
   const mins = H.length ? sum(H, (h) => (h.closedAt - h.startedAt) / 60000) / H.length : 0;
 
   // ---- menu engineering: popularity vs margin per dish
