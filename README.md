@@ -18,10 +18,10 @@ Docker: `docker build -t qrmenu . && docker run -p 3000:3000 -e SINGLE_RESTAURAN
 Leave `SINGLE_RESTAURANT` unset. `/super` is the platform owner console; each restaurant lives at `/r/<slug>/…`.
 
 ### B2) Many restaurants on Vercel (SaaS, free demo hosting)
-Leave `SINGLE_RESTAURANT` unset and set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SECRET`, `SUPER_EMAIL`, `SUPER_PASSWORD`. `/super` creates cafés (each is a Supabase row `r_<slug>`), assigns tiers (Basic / Operations / VIP), branch groups and custom domains. Optional: `ANTHROPIC_API_KEY` for real photo-OCR and a smarter admin copilot. See `docs/SPEC_COVERAGE.md`.
+Leave `SINGLE_RESTAURANT` unset and set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SECRET`, `SUPER_EMAIL`, `SUPER_PASSWORD`. `/super` creates cafés (each is a Supabase row `r_<slug>`), assigns tiers (Basic / Operations / VIP), branch groups and custom domains. Optional: `ANTHROPIC_API_KEY` for real photo-OCR and a smarter admin copilot. See `docs/archive/SPEC_COVERAGE.md`.
 
 ### B3) Production SaaS on your own server (recommended)
-Hetzner VPS + Caddy (automatic HTTPS) + Supabase Postgres, WebSocket mode, `<slug>.yourdomain.com` and custom domains. Option C steps: `docs/OWNER_CHECKLIST.md`; option B (Vercel) steps: `docs/OWNER_CHECKLIST_B.md`. See `docs/OWNER_CHECKLIST.md`, `docs/GO_LIVE.md` and `docs/PRODUCTION.md`. Deploy with `./deploy.sh`, undo with `./deploy.sh rollback`. Config template: `.env.example`. Run the tests with `npm test`.
+Hetzner VPS + Caddy (automatic HTTPS) + Supabase Postgres, WebSocket mode, `<slug>.yourdomain.com` and custom domains. Option C steps: `docs/guides/OWNER_CHECKLIST.md`; option B (Vercel) steps: `docs/archive/OWNER_CHECKLIST_B.md`. See `docs/guides/OWNER_CHECKLIST.md`, `docs/guides/GO_LIVE.md` and `docs/guides/PRODUCTION.md`. Deploy with `./deploy.sh`, undo with `./deploy.sh rollback`. Config template: `.env.example`. Run the tests with `npm test`.
 
 ### C) Vercel, one restaurant (serverless, no websockets)
 Phones poll every ~2.5s instead of using websockets; all state lives in Supabase. The frontend picks polling automatically
@@ -62,4 +62,4 @@ Needs a long-running Node host (WebSockets) — not serverless platforms like Ve
 
 ## Next release (branch `release/next`)
 
-Eight opt-in features, all off by default and tier-gated: upsell, online payments (Paymob), ETA e-receipts (pre-production only), feedback + Google reviews, coupons / offers / gift cards, plan limits, offline queue for staff apps, shifts + Z-report. Run `npm test` (31 checks, both run modes). See `docs/RELEASE_VERIFICATION.md` for what is proven and `docs/NEEDS_FROM_OWNER.md` for what is waiting on you.
+Eight opt-in features, all off by default and tier-gated: upsell, online payments (Paymob), ETA e-receipts (pre-production only), feedback + Google reviews, coupons / offers / gift cards, plan limits, offline queue for staff apps, shifts + Z-report. Run `npm test` (31 checks, both run modes). See `docs/archive/RELEASE_VERIFICATION.md` for what is proven and `docs/guides/NEEDS_FROM_OWNER.md` for what is waiting on you.
