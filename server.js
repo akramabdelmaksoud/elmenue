@@ -1310,7 +1310,7 @@ A('post', '/copilot', gate('copilot'), async (req, res) => {
 const gateI = gate('insights');
 async function insightsFor(t, days) {
   const r = t.rec, hist = STATELESS ? await store.getHist(r.id) : t.db.history;
-  return INS.analyze({ history: hist, reviews: r.reviews || [], staffLog: r.staffLog || {}, staffStats: (r.stats || {}).staff || {}, staffList: (r.staff || []).map((x) => ({ id: x.id, name: x.name, role: x.role })), days: +days || 14, now: Date.now(), onlineEnabled: !!(t.db.settings.online || {}).enabled && F.has(r, 'online') });
+  return INS.analyze({ history: hist, reviews: r.reviews || [], staffLog: r.staffLog || {}, staffStats: (r.stats || {}).staff || {}, staffList: (r.staff || []).map((x) => ({ id: x.id, name: x.name, role: x.role })), menu: (t.db.items || []).map((x) => ({ name: x.name })), days: +days || 14, now: Date.now(), onlineEnabled: !!(t.db.settings.online || {}).enabled && F.has(r, 'online') });
 }
 A('get', '/insights', gateI, async (req, res, next) => { try { res.json({ ...(await insightsFor(req.tenant, req.query.days)), ai: { available: !!aiKey() && F.has(req.tenant.rec, 'copilot'), key: !!aiKey() } }); } catch (e) { next(e); } });
 // the per-captain "log file": one row per person per hour with activity (local time), ready for Excel
