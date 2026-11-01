@@ -234,6 +234,7 @@ function render(m, force) {
   document.querySelectorAll('aside [data-lock]').forEach(b => { b.dataset.locked = FEAT()[b.dataset.lock] === false ? 'true' : 'false'; });
   if (tab === 'floor' && (FP.dirty || FP.drag)) return;   // never rebuild the editor mid-edit
   document.querySelectorAll('aside [data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
+  if (App.brand && App.config) App.brand(App.config.settings);
   const key = JSON.stringify(App.config) + App.lang + document.documentElement.dataset.dark + tab;
   if (key === cfgKey && !force) { if (tab === 'analytics') {} return; }   // ignore live-session noise
   cfgKey = key;
@@ -763,10 +764,22 @@ function receiptCard() {
 }
 
 /* ---------------- Theme & settings ---------------- */
+// the owner's logo (shown on every screen) and a menu background picture (blurred behind the menu)
+function brandCard(s) {
+  const th = (u, ico) => `style="width:96px;height:64px;border-radius:12px;cursor:pointer;background-size:cover;background-position:center;${u ? `background-image:url(${u})` : ''}"`, bl = s.bgBlur === undefined ? 14 : s.bgBlur, dm = s.bgDim === undefined ? 35 : s.bgDim;
+  return `<div class="card" style="margin-bottom:14px"><h3 style="margin-top:0">🏷️ Your logo and menu background</h3><div class="row wrap" style="gap:24px;align-items:flex-start">
+   <div><label class="muted" style="font-size:12px;display:block;margin-bottom:6px">Logo - shown at the top of every screen your guests and staff use</label><div class="row" style="gap:8px"><div class="thumb" ${th(s.logo)} onclick="brandPick('/api/logo',600)">${s.logo ? '' : '🏷️'}</div><button class="ghost" onclick="brandPick('/api/logo',600)">📷 ${s.logo ? 'Change' : 'Add logo'}</button>${s.logo ? `<button class="ghost" onclick="brandDel('/api/logo')">✕</button>` : ''}</div></div>
+   <div style="flex:1;min-width:260px"><label class="muted" style="font-size:12px;display:block;margin-bottom:6px">Menu background picture - blurred behind the menu so the dishes stay clear</label><div class="row" style="gap:8px"><div class="thumb" ${th(s.bgImg)} onclick="brandPick('/api/bg-image',1400)">${s.bgImg ? '' : '🌄'}</div><button class="ghost" onclick="brandPick('/api/bg-image',1400)">📷 ${s.bgImg ? 'Change' : 'Add picture'}</button>${s.bgImg ? `<button class="ghost" onclick="brandDel('/api/bg-image')">✕</button>` : ''}</div>
+    ${s.bgImg ? `<div class="row wrap" style="gap:16px;margin-top:10px"><label class="muted" style="font-size:12px">Blur <b id="blv">${bl}</b><br><input type="range" min="0" max="30" value="${bl}" style="width:150px" oninput="brandTune('bgBlur',+this.value,'blv')" onchange="brandSave()"></label><label class="muted" style="font-size:12px">Darken / lighten <b id="dmv">${dm}</b>%<br><input type="range" min="0" max="80" value="${dm}" style="width:150px" oninput="brandTune('bgDim',+this.value,'dmv')" onchange="brandSave()"></label></div>` : ''}</div></div></div>`;
+}
+function brandPick(url, max) { const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; f.onchange = async () => { const file = f.files[0]; f.value = ''; if (!file) return; try { const fd = new FormData(); fd.append('image', await shrink(file, max), 'photo.webp'); const r = await fetch(url, { method: 'POST', body: fd }), j = await r.json().catch(() => ({})); App.toast(r.ok ? 'Saved ✓' : j.error || 'Upload failed'); if (r.ok) { App.config = await api('GET', '/api/config'); App.applyTheme(); theme(); } } catch (e) { App.toast('Could not read that image'); } }; f.click(); }
+async function brandDel(url) { await api('DELETE', url); App.config = await api('GET', '/api/config'); App.applyTheme(); theme(); }
+function brandTune(k, v, id) { App.config.settings[k] = v; const e = document.getElementById(id); if (e) e.textContent = v; App.applyTheme(); }
+function brandSave() { const st = App.config.settings; api('POST', '/api/settings', { bgBlur: st.bgBlur, bgDim: st.bgDim }); }
 function theme() {
   const s = App.config.settings, p = s.palette;
   const sw = (k, label) => `<label style="text-align:center;font-size:12px" class="muted"><input class="sw" type="color" value="${p[k]}" onchange="setPal('${k}',this.value)"><br>${label}</label>`;
-  $('#main').innerHTML = `<h1>🎨 Theme & settings</h1><div class="row2">
+  $('#main').innerHTML = `<h1>🎨 Theme & settings</h1>${brandCard(s)}<div class="row2">
   <div class="card"><h3>Theme (applies live to every screen)</h3><div class="row wrap">
    ${[['bloom', '🌿 Bean & Bloom'], ['espresso', '☕ Espresso'], ['pink', '🌸 Modern pink'], ['white', '⬜ Minimal white'], ['custom', '🎨 Custom']].map(([k, l]) => `<button class="${s.theme === k ? 'sel' : ''}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div>
    <p class="muted">Fasheekh luxury themes ${FEAT().themes ? '' : '🔒 VIP'}</p><div class="row wrap">${FLAVORS.map(([k, l]) => `<button class="${s.theme === k ? 'sel' : ''}" onclick="setTheme('${k}')">${l}</button>`).join('')}</div>

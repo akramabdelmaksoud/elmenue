@@ -208,6 +208,23 @@ const App = {
     if (FLV.includes(name) && !maison) { r.dataset.flavor = name; const isL = App.LUX.includes(name), isP = App.PRO.includes(name), isS = App.SIG.includes(name), fid = isL ? 'lux-css' : isP ? 'pro-css' : isS ? 'sig-css' : 'flv-css'; if (isS) r.dataset.sig = '1'; else delete r.dataset.sig; if (isL) r.dataset.lux = '1'; else delete r.dataset.lux; if (isP) r.dataset.pro = '1'; else delete r.dataset.pro; if (App.LUXMODE[name]) r.dataset.luxLock = '1'; else delete r.dataset.luxLock; if (!document.getElementById(fid)) { const l = document.createElement('link'); l.id = fid; l.rel = 'stylesheet'; l.href = isL ? '/luxe.css' : isP ? '/pro.css' : isS ? '/sig.css' : '/fasheekh.css'; document.head.appendChild(l); } } else { delete r.dataset.flavor; delete r.dataset.lux; delete r.dataset.pro; delete r.dataset.sig; delete r.dataset.luxLock; }
     r.lang = App.lang; r.dir = App.lang === 'ar' ? 'rtl' : 'ltr';
     document.querySelectorAll('[data-i]').forEach((el) => (el.textContent = App.tr(el.dataset.i)));
+    App.brand(s);
+  },
+  // The owner's logo (every screen) and menu background picture (guest screens), both from Admin > Theme
+  brand(s) {
+    const url = (u) => (/^\/api\/r\/[\w-]+\/img\/[\w-]+$/.test(u || '') ? u : '');
+    let L = document.getElementById('brandLogo'), logo = url(s.logo); document.documentElement.classList.toggle('has-logo', !!logo);
+    if (!logo) { if (L) L.remove(); } else {
+      if (!L) { L = document.createElement('img'); L.id = 'brandLogo'; L.alt = ''; L.decoding = 'async'; document.body.appendChild(L); }
+      if (L.getAttribute('src') !== logo) L.src = logo;
+      if (!App._brandObs && window.MutationObserver) { let q = 0; const place = () => { q = 0; const l = document.getElementById('brandLogo'); if (!l) return; const t = document.querySelector('header .logo, header h1, .top h1, aside > h2'); if (t) { if (t.firstChild !== l) t.insertBefore(l, t.firstChild); l.classList.add('in'); } else { if (l.parentNode !== document.body) document.body.appendChild(l); l.classList.remove('in'); } }; App._brandObs = new MutationObserver(() => { if (!q) q = requestAnimationFrame(place); }); App._brandObs.observe(document.body, { childList: true, subtree: true }); place(); } else if (App._brandObs) { const t = document.querySelector('header .logo, header h1, .top h1, aside > h2'); if (t && t.firstChild !== L) t.insertBefore(L, t.firstChild); }
+    }
+    const guest = !/(^|[/])(admin|captain|cashier|kitchen|desk|ownerreport|invoice|super|pos)([/]|$)/.test(location.pathname);
+    let B = document.getElementById('bgPhoto'), bg = guest ? url(s.bgImg) : '';
+    document.documentElement.classList.toggle('has-bg', !!bg);
+    if (!bg) { if (B) B.remove(); return; }
+    if (!B) { B = document.createElement('div'); B.id = 'bgPhoto'; B.setAttribute('aria-hidden', 'true'); document.body.prepend(B); }
+    B.style.backgroundImage = `url('${bg}')`; B.style.setProperty('--bgblur', (s.bgBlur === undefined ? 14 : +s.bgBlur || 0) + 'px'); B.style.setProperty('--bgdim', ((s.bgDim === undefined ? 35 : +s.bgDim || 0) / 100).toString());
   },
   // Theme / language switches use a circular reveal (View Transitions API) when available
   transition(apply, ev) {

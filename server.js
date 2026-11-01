@@ -695,7 +695,7 @@ app.post(`${R}/feedback`, tenantMw, async (req, res, next) => { try {
 // ----- Admin API (owner of this restaurant, or superadmin) -----
 // The public showroom hands out an admin token to anyone, so it must not reach anything that costs money or stores files:
 // uploads, AI calls, payment/e-invoice settings, staff and account changes.
-const SHOW_DENY = /\/(image|hero-image|pay-qr|menu\/ocr|menu\/import|copilot|insights\/ai|pay\/config|eta|staff|account|loyalty\/adjust)(\/|$)/;
+const SHOW_DENY = /\/(image|hero-image|logo|bg-image|pay-qr|menu\/ocr|menu\/import|copilot|insights\/ai|pay\/config|eta|staff|account|loyalty\/adjust)(\/|$)/;
 const showGuard = (req, res, next) => (req.tenant.rec.showroom && req.method !== 'GET' && SHOW_DENY.test(req.path) ? res.status(403).json({ error: 'Not available in the demo' }) : next());
 const A = (m, p, ...h) => app[m](`${R}${p}`, tenantMw, needAdmin, showGuard, ...h);
 const bc = (req) => req.tenant.broadcast();
@@ -1024,6 +1024,9 @@ A('post', '/settings', (req, res) => {
   if (b.reserve) { if (!F.has(req.tenant.rec, 'reservations')) return res.status(402).json({ error: 'Reservations need the ' + F.PLANS[F.minPlanFor('reservations')].name + ' plan', upgrade: F.minPlanFor('reservations') }); b.reserve = F.reserveClean(b.reserve); }
   if (b.instapay) { if (!F.has(req.tenant.rec, 'instapay')) return res.status(402).json({ error: 'InstaPay & wallet payment needs the ' + F.PLANS[F.minPlanFor('instapay')].name + ' plan', upgrade: F.minPlanFor('instapay') }); const cur = req.tenant.db.settings.instapay || {}; b.instapay = F.ipClean({ ...b.instapay, qr: cur.qr || '' }); }
   if (b.promo) { if (!F.has(req.tenant.rec, 'coupons')) return res.status(402).json({ error: 'Coupons & offers need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.promo = { enabled: !!b.promo.enabled, stack: !!b.promo.stack }; }
+  delete b.logo; delete b.bgImg; delete b.heroImg;   // images only arrive through their upload routes, never as a typed URL
+  if ('bgBlur' in b) b.bgBlur = Math.min(30, Math.max(0, Math.round(+b.bgBlur) || 0));
+  if ('bgDim' in b) b.bgDim = Math.min(80, Math.max(0, Math.round(+b.bgDim) || 0));
   if ('refreshMin' in b) b.refreshMin = [0, 5, 15, 30, 60, 120, 360].includes(+b.refreshMin) ? +b.refreshMin : 60;
   if (b.ai) { if (!F.has(req.tenant.rec, 'copilot')) return res.status(402).json({ error: 'The AI assistant needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const a = F.aiCfg({ ai: b.ai }); b.ai = { name: a.name, style: a.style, memory: a.memory.map((m) => ({ ...m, id: m.id || Math.random().toString(36).slice(2, 9), at: m.at || Date.now() })) }; }
   if (b.promos) b.promos = (Array.isArray(b.promos) ? b.promos : []).slice(0, 6).map((p) => ({ title: String(p.title || '').slice(0, 60), title_ar: String(p.title_ar || '').slice(0, 60), text: String(p.text || '').slice(0, 140), text_ar: String(p.text_ar || '').slice(0, 140) })); Object.assign(d.settings, b); bc(req); res.json(d.settings); });
@@ -1071,6 +1074,10 @@ A('post', '/categories/:id/image', upLimit, upload.single('image'), async (req, 
 A('delete', '/categories/:id/image', (req, res) => { const c = req.tenant.db.categories.find((x) => x.id === req.params.id); if (c) c.img = ''; bc(req); res.json({ ok: 1 }); });
 A('post', '/pay-qr', upLimit, (req, res, next) => (F.has(req.tenant.rec, 'instapay') ? next() : res.status(402).json({ error: 'InstaPay & wallet payment is not in this plan', upgrade: F.minPlanFor('instapay') })), upload.single('image'), async (req, res) => { const u = await putImage(req, res, 'payqr'); if (!u) return; const st = req.tenant.db.settings; st.instapay = F.ipClean({ ...(st.instapay || {}), qr: u }); bc(req); res.json({ ok: 1, qr: u }); });
 A('delete', '/pay-qr', (req, res) => { const st = req.tenant.db.settings; if (st.instapay) st.instapay.qr = ''; bc(req); res.json({ ok: 1 }); });
+A('post', '/logo', upLimit, upload.single('image'), async (req, res) => { const u = await putImage(req, res, 'logo'); if (!u) return; req.tenant.db.settings.logo = u; bc(req); res.json({ ok: 1, logo: u }); });
+A('delete', '/logo', (req, res) => { req.tenant.db.settings.logo = ''; bc(req); res.json({ ok: 1 }); });
+A('post', '/bg-image', upLimit, upload.single('image'), async (req, res) => { const u = await putImage(req, res, 'bg'); if (!u) return; const st = req.tenant.db.settings; st.bgImg = u; if (st.bgBlur === undefined) st.bgBlur = 14; if (st.bgDim === undefined) st.bgDim = 35; bc(req); res.json({ ok: 1, bgImg: u }); });
+A('delete', '/bg-image', (req, res) => { req.tenant.db.settings.bgImg = ''; bc(req); res.json({ ok: 1 }); });
 A('post', '/hero-image', upLimit, upload.single('image'), async (req, res) => { const u = await putImage(req, res, 'hero'); if (!u) return; req.tenant.db.settings.heroImg = u; bc(req); res.json({ ok: 1 }); });
 A('delete', '/hero-image', (req, res) => { req.tenant.db.settings.heroImg = ''; bc(req); res.json({ ok: 1 }); });
 app.get(`${R}/img/:key`, async (req, res) => {

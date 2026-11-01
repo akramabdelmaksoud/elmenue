@@ -57,3 +57,14 @@ html[data-theme="maison-light"] select, html[data-theme="maison-light"] select o
 :root[data-dark="1"] select, html[data-theme="maison"] select { color-scheme: dark; }
 :root[data-dark="0"] select, html[data-theme="maison-light"] select { color-scheme: light; }
 select option:checked, select option:hover { background-color: var(--accent, #2f6b4f) !important; color: #fff !important; }
+
+/* owner's logo + menu background picture */
+#brandLogo { height: 30px; max-width: 120px; object-fit: contain; border-radius: 7px; vertical-align: middle; margin-inline-end: 8px; }
+#brandLogo:not(.in) { position: fixed; top: 8px; inset-inline-start: 8px; z-index: 20; height: 34px; background: color-mix(in srgb, var(--bg, #fff) 80%, transparent); padding: 3px; box-shadow: 0 2px 10px rgba(0,0,0,.18); pointer-events: none; }
+html.has-bg, html.has-bg body { background: transparent !important; }
+html.has-bg { background: var(--bg) !important; }
+#bgPhoto { position: fixed; inset: -30px; z-index: -1; background-size: cover; background-position: center; filter: blur(var(--bgblur, 14px)); transform: translateZ(0); pointer-events: none; }
+#bgPhoto::after { content: ''; position: absolute; inset: 0; background: color-mix(in srgb, var(--bg, #000) calc(var(--bgdim, .35) * 100%), transparent); }
+@media (prefers-reduced-motion: reduce) { #bgPhoto { transform: none; } }
+html.has-logo header .logo > svg:first-of-type, html.has-logo header .logo > .ic:first-child { display: none; }
+header .logo > #brandLogo { height: 34px; }
