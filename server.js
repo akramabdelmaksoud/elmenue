@@ -443,7 +443,7 @@ function tenantStats(t, days = 30) {
 const contactLimit = rateLimit({ windowMs: 3600000, max: 6, message: 'Too many messages, try again later' });
 const clip = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, n);
 async function mailOut(to, subject, text, replyTo) {
-  const key = process.env.RESEND_API_KEY; if (!key) return false;
+  const key = process.env.RESEND_API_KEY; if (!key || !to) return false;
   const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
     body: JSON.stringify({ from: process.env.MAIL_FROM || 'TableTab <onboarding@resend.dev>', to: [to], subject, text, ...(replyTo ? { reply_to: replyTo } : {}) }) });
   if (!r.ok) { console.error('mail failed:', r.status, (await r.text()).slice(0, 200)); return false; }
@@ -457,7 +457,7 @@ app.post('/api/contact', contactLimit, async (req, res, next) => { try {
   const cur = (await store.getAux('contacts')) || { rows: [] };
   cur.rows = [m].concat(cur.rows || []).slice(0, 500); await store.putAux('contacts', cur);
   let mailed = false;
-  try { mailed = await mailOut(process.env.CONTACT_TO || 'eltonymotz@gmail.com', 'TableTab contact: ' + m.name + (m.place ? ' (' + m.place + ')' : ''), `Name: ${m.name}\nEmail: ${m.email}\nPhone: ${m.phone}\nPlace: ${m.place}\nLanguage: ${m.lang}\n\n${m.message}`, m.email); } catch (e) { console.error('mail:', e.message); }
+  try { mailed = await mailOut(process.env.CONTACT_TO, 'TableTab contact: ' + m.name + (m.place ? ' (' + m.place + ')' : ''), `Name: ${m.name}\nEmail: ${m.email}\nPhone: ${m.phone}\nPlace: ${m.place}\nLanguage: ${m.lang}\n\n${m.message}`, m.email); } catch (e) { console.error('mail:', e.message); }
   res.json({ ok: true, mailed });
 } catch (e) { next(e); } });
 // Mail sent to anything@<domain> is received by Resend and handed to us here; we forward it to the owner's own inbox (FORWARD_TO).
@@ -467,7 +467,7 @@ app.post('/api/mail/inbound', async (req, res, next) => { try {
   const ev = req.body || {}; if (ev.type !== 'email.received' || !ev.data || !ev.data.email_id) return res.json({ ok: true, ignored: true });
   if (/^no-reply@/i.test(String(ev.data.from || '').replace(/^.*</, '').replace(/>.*$/, ''))) return res.json({ ok: true, ignored: 'own mail' });   // never loop our own mail
   const seen = (await store.getAux('mailseen')) || { ids: [] }; if ((seen.ids || []).includes(ev.data.email_id)) return res.json({ ok: true, duplicate: true });
-  await INB.forward(process.env.RESEND_API_KEY, ev, { to: process.env.FORWARD_TO || process.env.CONTACT_TO || 'eltonymotz@gmail.com', from: process.env.MAIL_FROM || 'TableTab <no-reply@tabletab-tt.com>' });
+  await INB.forward(process.env.RESEND_API_KEY, ev, { to: process.env.FORWARD_TO || process.env.CONTACT_TO, from: process.env.MAIL_FROM || 'TableTab <no-reply@tabletab-tt.com>' });
   seen.ids = (seen.ids || []).concat(ev.data.email_id).slice(-300); await store.putAux('mailseen', seen);
   res.json({ ok: true });
 } catch (e) { console.error('inbound mail:', e.message); res.status(502).json({ error: 'forward failed' }); } });
