@@ -35,7 +35,7 @@ async function load() {
 function draw() {
   const t = O.totals;
   const k = (l, v) => `<div class="card kpi"><span>${l}</span><b>${v}</b></div>`;
-  $('#app').innerHTML = `<main><div class="spread"><h1>👑 Platform control</h1><div class="row"><button class="ghost" onclick="openBundles()">⚙ Bundles &amp; features</button><button class="ghost" onclick="App.toggleMode()">◐</button><button class="ghost" onclick="App.ls('tok:_:super','');location.reload()">Sign out</button></div></div>
+  $('#app').innerHTML = `<main><div class="spread"><h1>👑 Platform control</h1><div class="row"><button class="ghost" onclick="openBundles()">⚙ Bundles &amp; features</button><button class="ghost" onclick="openMsgs()">✉ Messages</button><button class="ghost" onclick="App.toggleMode()">◐</button><button class="ghost" onclick="App.ls('tok:_:super','');location.reload()">Sign out</button></div></div>
   <div class="grid">${k('Restaurants', `${t.active} / ${t.restaurants}`)}${k('Revenue (30d, all)', money(t.revenue))}${k('Table sessions (30d)', t.sessions.toLocaleString())}${k('Live tables now', t.liveTables)}${k('Guests seated now', t.guestsLive)}${k('Connected devices', t.online)}${k('Live open bills', money(t.liveRevenue))}${k('Subscription revenue / month', money(t.mrr, 'EGP'))}${(t.plans || []).map(p => k((TIERS.find(x => x[0] === p.plan) || [p.plan, p.plan])[1].split(' · ')[1] + ' cafés', p.count)).join('')}</div>
   <div class="row2"><div class="card"><h3>Platform revenue per day</h3><canvas id="c1"></canvas></div><div class="card"><h3>Revenue by restaurant (30d)</h3><canvas id="c2"></canvas></div>
   <div class="card"><h3>Rush hours across platform</h3><canvas id="c3"></canvas></div><div class="card"><h3>Top items platform-wide</h3><canvas id="c4"></canvas></div></div>
@@ -83,6 +83,11 @@ async function openBundles() {
     '<tr><td>Max tables</td>' + cols.map((p) => '<td>' + lim(p, 'tables') + '</td>').join('') + '</tr><tr><td>Max staff accounts</td>' + cols.map((p) => '<td>' + lim(p, 'staff') + '</td>').join('') + '</tr><tr><td>Max branches</td>' + cols.map((p) => '<td>' + lim(p, 'branches') + '</td>').join('') + '</tr>' +
     rows + '</table></div><div class="row" style="margin-top:14px"><button class="primary" onclick="saveBundles()">Save bundles</button><button class="ghost" onclick="resetBundles()">Restore built-in bundles</button><span id="bmsg" class="muted"></span></div>');
 }
+async function openMsgs() {
+  const rows = (await api('GET', '/api/super/contacts')) || [];
+  ovShow('<div class="spread"><h2>Messages from the website</h2><button class="ghost" onclick="closeOv()">Close</button></div>' + (rows.length ? rows.map((m) => '<div class="card" style="margin-bottom:10px"><div class="spread"><b>' + E(m.name) + '</b><span class="muted">' + new Date(m.at).toLocaleString() + '</span></div><div class="muted"><a href="mailto:' + E(m.email) + '">' + E(m.email) + '</a>' + (m.phone ? ' · ' + E(m.phone) : '') + (m.place ? ' · ' + E(m.place) : '') + '</div><p style="white-space:pre-wrap;margin:8px 0">' + E(m.message) + '</p><button class="ghost" onclick="delMsg('' + m.id + '')">Delete</button></div>').join('') : '<p class="muted">No messages yet.</p>'));
+}
+async function delMsg(id) { await api('DELETE', '/api/super/contacts/' + id); openMsgs(); }
 async function saveBundles() {
   const out = {}; PLX.plans.forEach((p) => { out[p.id] = { features: [], price: [0, 0], limits: {}, name: '' }; });
   document.querySelectorAll('#ov [data-f]').forEach((i) => { if (i.checked) out[i.dataset.p].features.push(i.dataset.f); });
