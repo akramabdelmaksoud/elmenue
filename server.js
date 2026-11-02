@@ -213,6 +213,23 @@ const hostOf = (req) => String(req.headers.host || '').toLowerCase().replace(/:\
 const ROOT = HOSTS.normalizeDomain(process.env.ROOT_DOMAIN || '') || '';
 const zoneOf = (req) => { const h = hostOf(req); return h === ROOT || h === 'www.' + ROOT ? 'site' : h === 'admin.' + ROOT ? 'admin' : h === 'demo.' + ROOT ? 'demo' : h === 'app.' + ROOT ? 'app' : null; };
 const ZONE_HOME = { site: 'site.html', admin: 'super.html', demo: 'showroom.html', app: 'app.html' };
+// The showroom is private: with SHOWROOM_USER + SHOWROOM_PASS set, everything that reaches it asks for them first (browser sign-in box, remembered per site).
+// That covers the demo.<ROOT> host, /demo, /api/demo/* and the showroom café's own pages and API on any host.
+const showSecret = () => process.env.SHOWROOM_USER && process.env.SHOWROOM_PASS ? [String(process.env.SHOWROOM_USER), String(process.env.SHOWROOM_PASS)] : null;
+const showFails = new Map();
+const sameStr = (a, b) => { const c = require('crypto'), x = c.createHash('sha256').update(String(a)).digest(), y = c.createHash('sha256').update(String(b)).digest(); return c.timingSafeEqual(x, y); };
+app.use((req, res, next) => {
+  const sec = showSecret(); if (!sec) return next();
+  const isShow = (ROOT && zoneOf(req) === 'demo') || /^\/(demo(-local)?|api\/demo)(\/|$)/.test(req.path) || /^\/(api\/)?r\/showroom(\/|$)/.test(req.path);
+  if (!isShow) return next();
+  const ip = String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim(), f = showFails.get(ip) || { n: 0, at: 0 };
+  if (Date.now() - f.at > 600000) { f.n = 0; }
+  if (f.n >= 10) return res.status(429).type('text').send('Too many attempts. Try again in a few minutes.');
+  const m = /^Basic (.+)$/.exec(req.headers.authorization || ''), cred = m ? Buffer.from(m[1], 'base64').toString('utf8') : '', i = cred.indexOf(':');
+  if (i > 0 && sameStr(cred.slice(0, i), sec[0]) && sameStr(cred.slice(i + 1), sec[1])) return next();
+  if (m) { f.n++; f.at = Date.now(); showFails.set(ip, f); if (showFails.size > 5000) showFails.clear(); }
+  res.set('WWW-Authenticate', 'Basic realm="TableTab showroom", charset="UTF-8"').set('Cache-Control', 'no-store').status(401).type('text').send('Showroom access only.');
+});
 if (ROOT) app.use((req, res, next) => {
   const z = zoneOf(req);
   if (/^\/(super|api\/super)(\/|$)|^\/super\.html$/.test(req.path) && z !== 'admin') return res.status(404).end();
