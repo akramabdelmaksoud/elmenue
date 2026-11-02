@@ -466,6 +466,10 @@ app.post('/api/mail/inbound', async (req, res, next) => { try {
   if (!INB.verifySvix(process.env.RESEND_WEBHOOK_SECRET, req.headers, req.rawBody)) return res.status(401).json({ error: 'bad signature' });
   const ev = req.body || {}; if (ev.type !== 'email.received' || !ev.data || !ev.data.email_id) return res.json({ ok: true, ignored: true });
   if (/^no-reply@/i.test(String(ev.data.from || '').replace(/^.*</, '').replace(/>.*$/, ''))) return res.json({ ok: true, ignored: 'own mail' });   // never loop our own mail
+  // only the listed addresses receive mail (default: support@); info@, billing@ and sales@ are for sending only
+  const ours = String(process.env.MAIL_DOMAIN || 'tabletab-tt.com').toLowerCase(), want = String(process.env.INBOUND_ALIASES || 'support').toLowerCase().split(',').map((x) => x.trim()).filter(Boolean);
+  const addrs = [].concat(ev.data.to || [], ev.data.received_for || [], ev.data.cc || []).map((x) => String(x).toLowerCase().replace(/^.*</, '').replace(/>.*$/, '').trim());
+  if (!addrs.some((x) => want.some((w) => x === w + '@' + ours))) return res.json({ ok: true, ignored: 'not a receiving address' });
   const seen = (await store.getAux('mailseen')) || { ids: [] }; if ((seen.ids || []).includes(ev.data.email_id)) return res.json({ ok: true, duplicate: true });
   await INB.forward(process.env.RESEND_API_KEY, ev, { to: process.env.FORWARD_TO || process.env.CONTACT_TO, from: process.env.MAIL_FROM || 'TableTab <no-reply@tabletab-tt.com>' });
   seen.ids = (seen.ids || []).concat(ev.data.email_id).slice(-300); await store.putAux('mailseen', seen);

@@ -20,4 +20,6 @@ test('F40 the inbound mail route refuses unsigned calls and ignores other events
   const ts = String(Math.floor(Date.now() / 1000)), sg = (raw) => ({ 'svix-id': 'm1', 'svix-timestamp': ts, 'svix-signature': sign('m1', ts, raw) });
   const other = '{"type":"email.sent","data":{}}', r = await post(other, sg(other)); assert.equal(r.status, 200); assert.equal((await r.json()).ignored, true);
   const own = '{"type":"email.received","data":{"email_id":"e1","from":"TableTab <no-reply@tabletab-tt.com>"}}', r2 = await post(own, sg(own)); assert.equal((await r2.json()).ignored, 'own mail');
+  const bill = '{"type":"email.received","data":{"email_id":"e2","from":"cust@x.com","to":["billing@tabletab-tt.com"]}}', r3 = await post(bill, sg(bill)); assert.equal((await r3.json()).ignored, 'not a receiving address', 'billing@ does not receive');
+  const info = '{"type":"email.received","data":{"email_id":"e3","from":"cust@x.com","to":["Info <info@tabletab-tt.com>"]}}', r4 = await post(info, sg(info)); assert.equal((await r4.json()).ignored, 'not a receiving address', 'info@ does not receive');
 });
