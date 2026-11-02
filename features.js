@@ -12,7 +12,7 @@ const CATALOG = [
   { id: 'ordering', area: 'guest', level: 1, en: 'Ordering from the table', ar: 'الطلب من الطاولة' }, { id: 'options', area: 'guest', level: 1, en: 'Item options (size, extras, milk, sugar)', ar: 'خيارات الصنف' },
   { id: 'itemdetails', area: 'guest', level: 2, en: 'Allergens, calories, badges', ar: 'مسببات الحساسية والسعرات والشارات' },
   { id: 'staff', area: 'staff', level: 2, en: 'Named staff accounts', ar: 'حسابات موظفين بأسمائهم' }, { id: 'kds', area: 'staff', level: 2, en: 'Kitchen display', ar: 'شاشة المطبخ' },
-  { id: 'cashier', area: 'staff', level: 2, en: 'Cashier screen and shifts', ar: 'شاشة الكاشير والورديات' }, { id: 'party', area: 'guest', level: 3, en: 'Party size', ar: 'عدد الأفراد' },
+  { id: 'cashier', area: 'staff', level: 2, en: 'Cashier screen and shifts', ar: 'شاشة الكاشير والورديات' },
   { id: 'lock', area: 'staff', level: 3, en: 'Order approval lock', ar: 'قفل اعتماد الطلب' }, { id: 'trilingual', area: 'guest', level: 3, en: 'Third language', ar: 'لغة ثالثة' },
   { id: 'online', area: 'guest', level: 2, en: 'Online ordering (pickup and delivery)', ar: 'الطلب أونلاين' }, { id: 'geo', area: 'guest', level: 2, en: 'In-cafe lock and delivery zones', ar: 'قفل الكافيه ومناطق التوصيل' },
   { id: 'feedback', area: 'guest', level: 2, en: 'Guest reviews', ar: 'تقييم الضيوف' }, { id: 'insights', area: 'admin', level: 2, en: 'Insights and staff performance', ar: 'التحليلات وأداء الموظفين' },
@@ -29,7 +29,7 @@ const CATALOG = [
 const FEATURE_IDS = CATALOG.map((c) => c.id);
 const PLANS = {
   basic: { id: 'basic', tier: 1, name: 'Starter QR Ordering', name_ar: 'منيو QR الأساسي', price: [600, 800], limits: { branches: 1, tables: 10, staff: 0 }, features: ['menu', 'qr', 'ordering', 'options', 'itemdetails', 'micro', 'admin'] },
-  operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [1200, 1500], limits: { branches: 1, tables: 30, staff: 10 }, features: ['staff', 'attendance', 'invoicing', 'kds', 'cashier', 'lock', 'party', 'trilingual', 'feedback', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline', 'online', 'insights', 'geo', 'instapay', 'acctexport', 'reservations'] },
+  operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [1200, 1500], limits: { branches: 1, tables: 30, staff: 10 }, features: ['staff', 'attendance', 'invoicing', 'kds', 'cashier', 'lock', 'trilingual', 'feedback', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline', 'online', 'insights', 'geo', 'instapay', 'acctexport', 'reservations'] },
   vip: { id: 'vip', tier: 3, name: 'Enterprise VIP & AI', name_ar: 'VIP والذكاء الاصطناعي', price: [2000, 2000], limits: { branches: 3, tables: null, staff: null }, features: ['purchasing', 'ownerreport', 'loyalty', 'ocr', 'copilot', 'themes', 'branches', 'giftcards', 'recipes'] },
 };
 // older plan names keep working: they map onto the new tiers

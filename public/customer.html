@@ -162,7 +162,6 @@ header .hbtns { flex: none; gap: 6px; } header .ib { width: 36px; height: 36px; 
 .promos b { display: block; font-size: 16px; margin-bottom: 3px; } .promos span { font-size: 13px; color: var(--muted); line-height: 1.5; }
 .wifi { width: 100%; display: flex; align-items: center; gap: 12px; text-align: start; margin-top: 10px; padding: 13px 16px; border-radius: 22px; font-size: 22px; color: var(--text); }
 .wifi div { flex: 1; font-size: 15px; } .wifi small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; } .wifi code { font-weight: 800; letter-spacing: .04em; color: var(--text); } .wifi > span { font-size: 11px; color: var(--accent); font-weight: 700; }
-.partyseg button { flex: 0 0 calc(25% - 6px); min-width: 0; }
 .loycard { position: relative; margin-top: 14px; padding: 20px; border-radius: 26px; color: #fff; overflow: hidden; background: linear-gradient(135deg, #1b1b2f, #3a2a63 55%, var(--accent2)); box-shadow: var(--shadow); }
 .loycard::after { content: ''; position: absolute; inset: 0; background: radial-gradient(260px 120px at 90% 0, rgba(255,255,255,.25), transparent 70%); pointer-events: none; }
 .loycard .lt { display: flex; justify-content: space-between; font-weight: 700; opacity: .9; } .loycard .lp { font-size: 15px; margin-top: 14px; } .loycard .lp b { font-size: 44px; font-family: var(--serif); letter-spacing: -.02em; }
@@ -481,13 +480,10 @@ const MICRO = [['water', '💧', 'water'], ['napkins', '🧻', 'napkins'], ['cut
 const microHTML = (s) => MICRO.map(([t, e, k]) => `<button class="rp ${s.requests.some((r) => !r.done && r.type === t) ? 'sent' : ''}" onclick="req('${t}')"><b>${e}</b>${App.tr(k)}</button>`).join('');
 function setLang(l, ev) { App.transition(() => { App.ls('lang', l); App.applyTheme(); draw(true); }, ev); }
 function copyWifi() { const p = S.config.settings.wifiPass || ''; try { navigator.clipboard.writeText(p); } catch {} App.toast('📶 ' + App.tr('copied')); }
-let partyEdit = false;
-window.partyPick = (n) => { partyEdit = false; App.send({ t: 'party', n }); };
 function landing(cfg, s) {
-  const st = cfg.settings, ar = App.lang === 'ar', promos = (st.promos || []).filter((p) => p.title || p.text), langs = App.langs(), cur = s.party || 0;
+  const st = cfg.settings, ar = App.lang === 'ar', promos = (st.promos || []).filter((p) => p.title || p.text), langs = App.langs();
   return `${langs.length > 1 ? `<div class="c li rise" style="--i:0"><div class="eyebrow">${App.tr('pickLang')}</div><div class="seg">${langs.map((l) => `<button class="rp ${App.lang === l ? 'on' : ''}" onclick="setLang('${l}',event)">${LANG_NAMES[l]}</button>`).join('')}</div></div>` : ''}
   <button class="send rp rise cta" style="--i:1" onclick="go('menu')">${ic('cup')}${App.tr('showMenu')}</button>
-  ${can('party') ? (cur > 0 && !partyEdit ? `<button class="c li rise rp partysum" style="--i:2;width:100%;display:flex;justify-content:space-between;align-items:center" onclick="partyEdit=true;draw(true)"><span>👥 <b>${cur}</b> ${App.tr('partyN')}</span><span class="muted">✎</span></button>` : `<div class="c li rise" style="--i:2"><div class="eyebrow">👥 ${App.tr('partyQ')}</div><p class="muted" style="margin:4px 0 10px;font-size:13px">${App.tr('partySub')}</p><div class="seg partyseg">${[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `<button class="rp ${cur === n ? 'on' : ''}" onclick="partyPick(${n})">${n}</button>`).join('')}</div></div>`) : ''}
   <div class="c li rise" style="--i:3"><div class="eyebrow">${App.tr('quickAct')}</div><div class="micro" style="margin-top:8px">${microHTML(s)}</div></div>
   ${promos.length ? `<div class="promos rise" style="--i:4">${promos.map((p) => `<div><b>🎁 ${App.esc(ar && p.title_ar ? p.title_ar : p.title)}</b><span>${App.esc(ar && p.text_ar ? p.text_ar : p.text)}</span></div>`).join('')}</div>` : ''}
   ${st.wifi ? `<button class="c wifi rp rise" style="--i:5" onclick="copyWifi()">📶<div><b>${App.esc(st.wifi)}</b><small>${App.tr('wifiPass')}: <code>${App.esc(st.wifiPass || '—')}</code></small></div><span>${App.tr('tapCopy')}</span></button>` : ''}`;

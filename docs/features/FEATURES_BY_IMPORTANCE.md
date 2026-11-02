@@ -8,8 +8,8 @@ The super console lets you move any feature between bundles and lock it per caf�
 | Bundle | Monthly price (from - to) | Features |
 |---|---|---|
 | Starter QR Ordering | 600 to 800 EGP | 7 |
-| Full Operations & Staff POS | 1200 to 1500 EGP | 27 |
-| Enterprise VIP & AI | 2000 to 2000 EGP | 36 |
+| Full Operations & Staff POS | 1200 to 1500 EGP | 26 |
+| Enterprise VIP & AI | 2000 to 2000 EGP | 35 |
 
 ## Features by importance
 
@@ -48,7 +48,6 @@ Features that raise revenue or control for busier venues.
 
 | Feature | Area | What it does | Why a café pays | Running cost to you | Starter | Operations | VIP |
 |---|---|---|---|---|---|---|---|
-| **Party size** | Guest side | Guests say how many people are at the table; helps the host and bill splitting. | Better table planning. | None | - | yes | yes |
 | **Order approval lock** | Staff side | Staff approve orders before they reach the kitchen (anti prank, anti walk-out). | Safer for open tables and busy venues. | None | - | yes | yes |
 | **Third language** | Guest side | A third menu language (for example French or Franco-Arab). | Tourist areas, expat cafés. | None | - | yes | yes |
 | **Suppliers and purchase orders** | Owner dashboard | Suppliers, reorder suggestions from low stock, purchase orders, receiving that updates stock and cost. | Stops stock-outs and keeps ingredient costs current. | Recipes & ingredient stock | - | - | yes |

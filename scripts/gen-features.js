@@ -15,7 +15,6 @@ const D = {
   staff: ['Named staff accounts with PINs and roles; actions are traced to a person.', 'Accountability, tips per waiter, audit log.', 'None'],
   kds: ['Kitchen display screen with timers and order stages.', 'Replaces paper tickets in the kitchen.', 'None'],
   cashier: ['Cashier screen, shifts, X and Z reports, cash in and out.', 'Daily cash control; the owner stops trusting a notebook.', 'None'],
-  party: ['Guests say how many people are at the table; helps the host and bill splitting.', 'Better table planning.', 'None'],
   lock: ['Staff approve orders before they reach the kitchen (anti prank, anti walk-out).', 'Safer for open tables and busy venues.', 'None'],
   trilingual: ['A third menu language (for example French or Franco-Arab).', 'Tourist areas, expat cafés.', 'None'],
   online: ['Pickup and delivery ordering page with fees and hours.', 'A new sales channel without paying aggregator commission.', 'None'],

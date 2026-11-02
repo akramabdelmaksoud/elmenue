@@ -243,7 +243,7 @@ function closeSession(t, method, who, pay, whoId) {
     db.history.push({
       id: id('h'), tableId: t.id, tableNumber: t.number, kind: s.kind || 'table', customer: s.customer || null, startedAt: s.startedAt,
       orderedAt: s.orders[0].at, checkAt: s.check?.at || Date.now(), closedAt: Date.now(),
-      guests: s.party || s.guests.filter((g) => s.orders.some((o) => o.items.some((i) => i.guestId === g.id))).length || 1, party: s.party || 0, loyalty: loy, items: Object.values(lines), sub: b.gross, discount: b.discount, discountNote: [s.discount ? (s.discount.reason || '') : '', b.couponCode ? 'Coupon ' + b.couponCode : '', b.offerName || ''].filter(Boolean).join(' · '), coupon: b.couponCode || '', offer: b.offerName || '', gift: gUsed, giftCode: gUsed ? b.giftCode : '', service: b.service, tax: b.tax, tip,
+      guests: s.guests.filter((g) => s.orders.some((o) => o.items.some((i) => i.guestId === g.id))).length || 1, loyalty: loy, items: Object.values(lines), sub: b.gross, discount: b.discount, discountNote: [s.discount ? (s.discount.reason || '') : '', b.couponCode ? 'Coupon ' + b.couponCode : '', b.offerName || ''].filter(Boolean).join(' · '), coupon: b.couponCode || '', offer: b.offerName || '', gift: gUsed, giftCode: gUsed ? b.giftCode : '', service: b.service, tax: b.tax, tip,
       total, method: payTotal <= 0 && onlineUsed > 0 && m !== 'unpaid' ? 'online' : m, unpaid: m === 'unpaid' && onlineUsed <= 0, online: onlineUsed, onlineRefs: (s.online || []).map((x) => x.ref), pay: m === 'unpaid' ? { cash: 0, card: 0, tendered: 0, change: 0, gift: 0, online: onlineUsed } : { ...settle(m === 'online' ? 'cash' : m, payTotal, pay), gift: gUsed, online: onlineUsed }, split: s.check?.split || 'table', source: s.source || '', closedBy: who || '', closedById: whoId || '', servedBy: s.owner ? s.owner.name : (who || ''), servedById: s.owner ? s.owner.id : (whoId || ''), voids: s.voids || [], log: s.log,
     });
   }
@@ -509,7 +509,6 @@ function handle(c, m) {
     // Tier 1 (Basic QR Menu) is a scan-only menu: no ordering from the phone
     if (['cart_add', 'cart_qty', 'cart_note', 'send_order', 'order_item_remove', 'order_item_qty', 'order_cancel'].includes(m.t) && !F.has(rec, 'ordering')) return;
     switch (m.t) {
-      case 'party': { const n = Math.floor(+m.n); if (F.has(rec, 'party') && n >= 1 && n <= 40 && s.party !== n) { s.party = n; log(s, 'party', `Party of ${n}`); } break; }
       case 'loyalty_join': {
         const lc = F.loyaltyCfg(db.settings), ph = F.cleanPhone(m.phone); if (!F.has(rec, 'loyalty') || !lc.enabled || !ph) break;
         const L = (db.loyalty ||= { members: {} }); let mem = L.members[ph];

@@ -143,7 +143,7 @@ function start() { document.getElementById('who').textContent = App.who() ? '· 
 App.gate('captain', start);
 
 const hostOf = (s) => s.guests.find((g) => g.id === s.host) || s.guests[0];
-const guestsOf = (s) => { const h = hostOf(s); return h ? `👑${h.name.slice(0, 9)}${s.guests.length > 1 ? ' +' + (s.guests.length - 1) : ''}${s.party ? ' · 👥' + s.party : ''}` : (s.party ? '👥' + s.party : ''); };
+const guestsOf = (s) => { const h = hostOf(s); return h ? `👑${h.name.slice(0, 9)}${s.guests.length > 1 ? ' +' + (s.guests.length - 1) : ''}` : ''; };
 const mins = (ts) => { const m = Math.max(0, Math.round((Date.now() - ts) / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0'); };
 function stageHTML(cfg) {
   const F = App.floor();
@@ -244,7 +244,7 @@ function renderModal() {
     h = `<div class="spread"><h2>${s.kind ? ({ delivery: '🛵 ', car: '🚗 ' }[s.kind] || '🛍️ ') + App.esc(s.tableNumber) : 'Table ' + t.number} <span class="pill">${App.ago(s.startedAt)}</span></h2><button onclick="closeM()">✕</button></div>
     ${s.customer && s.customer.car ? carBox(s) : ''}
     ${s.customer && (s.customer.name || s.customer.phone || s.customer.address) ? `<p class="muted">👤 ${App.esc(s.customer.name)} ${s.customer.phone ? `· <a href="tel:${App.esc(s.customer.phone)}">${App.esc(s.customer.phone)}</a>` : ''}${s.customer.address ? '<br>📍 ' + App.esc(s.customer.address) : ''}${s.customer.map ? ` · <a href="${App.esc(s.customer.map)}" target="_blank" rel="noopener">🗺️ Map${s.customer.km ? ' (' + App.esc(s.customer.km) + ' km)' : ''}</a>` : ''}${s.customer.note ? '<br>📝 ' + App.esc(s.customer.note) : ''}</p>` : ''}
-    ${s.party ? `<div style="margin-bottom:6px">👥 Party size: <b>${s.party}</b></div>` : ''}${hostOf(s) ? `<div class="row wrap" style="margin-bottom:6px"><span>👑 Table host: <b>${App.esc(hostOf(s).name)}</b></span>${s.guests.length > 1 ? `<select style="width:auto" onchange="App.send({t:'host_set',tableId:'${t.id}',guestId:this.value})">${s.guests.map((g) => `<option value="${g.id}" ${g.id === hostOf(s).id ? 'selected' : ''}>${App.esc(g.name)}</option>`).join('')}</select>` : ''}</div>` : ''}
+    ${hostOf(s) ? `<div class="row wrap" style="margin-bottom:6px"><span>👑 Table host: <b>${App.esc(hostOf(s).name)}</b></span>${s.guests.length > 1 ? `<select style="width:auto" onchange="App.send({t:'host_set',tableId:'${t.id}',guestId:this.value})">${s.guests.map((g) => `<option value="${g.id}" ${g.id === hostOf(s).id ? 'selected' : ''}>${App.esc(g.name)}</option>`).join('')}</select>` : ''}</div>` : ''}
     <div class="row wrap">${s.guests.map((g) => `<span class="pill" style="font-size:14px">${g.id === (hostOf(s) || {}).id ? '👑' : ''}${g.avatar} ${App.esc(g.name)} · ${App.money((b.byGuest[g.id] || {}).total || 0)}</span>`).join('') || '<span class="muted">No guests</span>'}</div>
     ${s.requests.filter((r) => !r.done).map((r) => `<div class="ocard spread" style="margin-top:10px"><span>${reqLabel(s, r)} · ${App.ago(r.at)}</span><button class="primary" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">Done</button></div>`).join('')}
     ${s.cart.length ? `<p class="muted">🛒 In cart (not sent): ${s.cart.map((c) => c.qty + '× ' + App.esc(c.name)).join(', ')}</p>` : ''}
