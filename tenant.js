@@ -59,7 +59,7 @@ function createTenant(rec, persist, onAlert) {
     const now = Date.now(), mins = Math.max(5, +db.settings.idleMinutes || 30); let ch = false;
     Object.values(db.sessions).forEach((s) => {
       const last = s.lastAt || s.startedAt;
-      if (!s.orders.length && !s.cart.length && now - last > mins * 60000) { delete db.sessions[s.tableId]; ch = true; }
+      if (!s.orders.length && ((!s.cart.length && now - last > mins * 60000) || now - last > Math.max(mins * 3, 90) * 60000)) { delete db.sessions[s.tableId]; ch = true; }
       else if (s.orders.length && !s.check && !s.idle && now - last > Math.max(mins * 3, 90) * 60000) { s.idle = true; ch = true; }
     });
     return ch;
@@ -190,7 +190,7 @@ function tableState(t) {
   const s = db.sessions[t.id];
   if (!s) return nextRes(t) ? 'reserved' : 'empty';
   if (s.requests.some((r) => !r.done && r.type !== 'bill')) return 'urgent';
-  if (s.check) return 'check';
+  if (s.check || s.requests.some((r) => r.type === 'bill' && r.sep && !r.done)) return 'check';
   if (s.orders.some((o) => o.status !== 'closed')) return 'ordered';
   if (s.orders.length) return 'ordered';
   return 'seated';
@@ -626,13 +626,28 @@ function handle(c, m) {
       }
       case 'check': {
         if (!s.orders.length) break;
-        s.check = { method: ['card', 'instapay', 'wallet'].includes(m.method) && (m.method === 'card' || (F.has(rec, 'instapay') && F.ipCfg(db.settings).enabled)) ? m.method : 'cash', split: ['self', 'table', 'custom'].includes(m.split) ? m.split : 'table', tipPct: +m.tipPct || 0, custom: m.custom || null, by: c.guestId, at: Date.now() };
-        if (!s.requests.some((r) => r.type === 'bill' && !r.done)) s.requests.push({ id: id('r'), type: 'bill', at: Date.now(), done: false });
+        const method = ['card', 'instapay', 'wallet'].includes(m.method) && (m.method === 'card' || (F.has(rec, 'instapay') && F.ipCfg(db.settings).enabled)) ? m.method : 'cash';
+        if (m.scope === 'mine' || m.split === 'self') {
+          // a SEPARATE check: only this guest's own items with their share of service and tax; the table keeps ordering, the host settles it when they leave
+          const gq = s.guests.find((x) => x.id === c.guestId), mine = gq && bill(s).byGuest[c.guestId]; if (!mine || !mine.items.length) break;
+          const tipPct = Math.min(100, Math.max(0, +m.tipPct || 0)), amount = +(mine.total + Math.round(mine.sub * tipPct / 100)).toFixed(2);
+          (s.sepChecks ||= {})[c.guestId] = { method, tipPct, at: Date.now() };
+          s.requests = s.requests.filter((r) => !(r.type === 'bill' && r.sep && r.by === c.guestId && r.done));
+          if (!s.requests.some((r) => r.type === 'bill' && r.sep && r.by === c.guestId && !r.done)) s.requests.push({ id: id('r'), type: 'bill', at: Date.now(), done: false, sep: true, by: c.guestId });
+          log(s, 'check', `${gq.name} asked for a separate check (${amount})`);
+          alertCaptains('check', t.number, `Table ${t.number}: ${gq.name} asks for a SEPARATE check - ${amount}`);
+          break;
+        }
+        s.check = { method, split: ['table', 'custom'].includes(m.split) ? m.split : 'table', tipPct: +m.tipPct || 0, custom: m.custom || null, by: c.guestId, at: Date.now() };
+        if (!s.requests.some((r) => r.type === 'bill' && !r.sep && !r.done)) s.requests.push({ id: id('r'), type: 'bill', at: Date.now(), done: false });
         log(s, 'check', `Check requested (${s.check.split}, ${s.check.method})`);
-        alertCaptains('check', t.number, `Table ${t.number} requests the check (${s.check.method}, ${s.check.split})`);
+        alertCaptains('check', t.number, `Table ${t.number} requests the FULL table check (${s.check.method}, ${s.check.split})`);
         break;
       }
-      case 'check_cancel': s.check = null; s.requests = s.requests.filter((r) => r.type !== 'bill'); break;
+      case 'check_cancel':
+        if (m.scope === 'mine') { if (s.sepChecks) delete s.sepChecks[c.guestId]; s.requests = s.requests.filter((r) => !(r.type === 'bill' && r.sep && r.by === c.guestId)); }
+        else { s.check = null; s.requests = s.requests.filter((r) => r.type !== 'bill' || r.sep); }
+        break;
     }
     return broadcast();
   }
@@ -645,6 +660,21 @@ function handle(c, m) {
     switch (m.t) {
       case 'order_status': setStatus(c, m); break;
       case 'order_lane': setLane(c, m); break;
+      case 'serve_items': {
+        // the waiter takes the ready dishes to the table: tick what was served, the rest stays on the screen; the order closes when its last dish is served
+        const t = tableOf(m.tableId), s = t && db.sessions[t.id], o = s && s.orders.find((x) => x.id === m.orderId); if (!o || o.status !== 'served') break;
+        const want = new Set(Array.isArray(m.items) ? m.items.slice(0, 60).map(String) : []); let n = 0, left = 0; const names = [];
+        for (const it of o.items) { if (!it.served && (m.all || want.has(it.id))) { it.served = Date.now(); it.servedBy = c.staffName || ''; n++; names.push(it.qty + '× ' + it.name); } if (!it.served) left++; }
+        if (!n) break;
+        if (!left) { o.status = 'closed'; o.servedAt = Date.now(); }
+        own(s, c); bump(c, 'delivered'); s.lastAt = Date.now(); log(s, 'served', `Served ${names.join(', ')}` + (left ? ` (${left} still to serve)` : '') + (c.staffName ? ' by ' + c.staffName : ''));
+        break;
+      }
+      case 'clear_empty': {
+        // nobody is sitting here and nothing was ordered: remove the visit completely (no sale, no statistics, nothing kept)
+        const t = tableOf(m.tableId), s = t && db.sessions[t.id]; if (s && !s.orders.length) delete db.sessions[t.id];
+        break;
+      }
       case 'host_set': { const t = tableOf(m.tableId), s = t && db.sessions[t.id], to = s && s.guests.find((x) => x.id === m.guestId); if (to) { s.host = to.id; log(s, 'host', `${to.avatar} ${to.name} is now the table host (set by staff)`); } break; }
       case 'resolve_request': {
         const s = db.sessions[m.tableId]; const r = s?.requests.find((x) => x.id === m.id);
@@ -767,6 +797,7 @@ function setStatus(c, m) {
     const o = s.orders.find((x) => x.id === m.orderId); if (!o) continue;
     if (!['received', 'kitchen', 'served', 'closed'].includes(m.status)) return;
     o.status = m.status; log(s, 'status', `Order ${m.status}` + (c.staffName ? ' by ' + c.staffName : ''));
+    if (m.status === 'closed') { o.servedAt = Date.now(); o.items.forEach((i) => { if (!i.served) { i.served = Date.now(); i.servedBy = c.staffName || ''; } }); }
     if (m.status === 'kitchen') { bump(c, 'started'); o.cookAt = Date.now(); o.etaAt = o.cookAt + (o.prep || 6) * 60000; o.etaMin = Math.max(1, Math.round((o.etaAt - o.at) / 60000)); }   // the clock restarts when the kitchen actually starts
     if (m.status === 'served') o.readyAt = Date.now();
     if (m.status === 'served') { bump(c, 'served'); alertCaptains('ready', s.tableNumber, `Table ${s.tableNumber}: order is ready`); }

@@ -128,13 +128,16 @@ function zReport(z) {
 /* ---- tables ---- */
 const hostName = (s) => { const h = s.guests.find((g) => g.id === s.host) || s.guests[0]; return h ? h.name : ''; };
 const mins = (ts) => { const m = Math.max(0, Math.round((Date.now() - ts) / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0'); };
-const sessions = () => Object.values(S.sessions).filter((s) => s.orders.length).sort((a, b) => (b.check ? 1 : 0) - (a.check ? 1 : 0) || a.startedAt - b.startedAt);
+// a table asks for the bill either as the whole table, or one guest asks for his own separate check (only his dishes, his service and tax)
+const sepReqs = (s) => (s.requests || []).filter((r) => r.type === 'bill' && r.sep && !r.done), asks = (s) => !!s.check || sepReqs(s).length > 0;
+const sepAmt = (s, gid) => { const b = s.bill.byGuest[gid], c = (s.sepChecks || {})[gid] || {}; return b ? +(b.total + Math.round(b.sub * (c.tipPct || 0) / 100)).toFixed(2) : 0; };
+const sessions = () => Object.values(S.sessions).filter((s) => s.orders.length).sort((a, b) => (asks(b) ? 1 : 0) - (asks(a) ? 1 : 0) || a.startedAt - b.startedAt);
 function tab(t) { TAB = t; if (t === 'rec') loadRec(); render(); }
 async function loadRec() { const j = await sapi('GET', 'receipts'); if (j.receipts) { REC = j.receipts; } render(); }
 function render(m) {
   if (m) S = m; if (!S) return; paintShift(); paintHdr();
   ['tables', 'rec'].forEach((k) => $('tb-' + k).className = TAB === k ? 'primary' : 'ghost');
-  const all = sessions(), due = all.reduce((n, s) => n + s.bill.total, 0), waiting = all.filter((s) => s.check).length;
+  const all = sessions(), due = all.reduce((n, s) => n + s.bill.total, 0), waiting = all.filter(asks).length;
   const c = SH && SH.cur;
   $('kpis').innerHTML = `<div class="kpi"><small>Open checks</small><b>${all.length}</b></div><div class="kpi"><small>Asking for the bill</small><b style="color:${waiting ? 'var(--gold)' : 'inherit'}">${waiting}</b></div><div class="kpi"><small>Outstanding</small><b>${M(due)}</b></div><div class="kpi"><small>${c ? 'Cash that should be in the drawer' : 'Shift'}</small><b>${c ? M(c.expected) : 'closed'}</b></div>`;
   if (TAB === 'rec') {
@@ -143,14 +146,14 @@ function render(m) {
     return;
   }
   const grp = (title, list) => list.length ? `<div class="sec">${title} <span class="pill" style="background:var(--line);color:var(--text)">${list.length}</span></div><div class="grid">${list.map(card).join('')}</div>` : '';
-  const ready = all.filter((s) => !s.check);
-  $('list').innerHTML = (all.length ? grp('🧾 Asking for the bill', all.filter((s) => s.check)) + grp('🍽️ Open checks', ready) : '<div class="card" style="text-align:center;padding:40px"><div style="font-size:42px">✨</div><h3>No open checks</h3><p class="muted">When a table orders it appears here with its receipt, ready to charge.</p></div>');
-  if (sel && !S.sessions[sel]) sel = null; if (!sel && all.length) sel = (all.find((s) => s.check) || all[0]).tableId;
+  const ready = all.filter((s) => !asks(s));
+  $('list').innerHTML = (all.length ? grp('🧾 Asking for the bill', all.filter(asks)) + grp('🍽️ Open checks', ready) : '<div class="card" style="text-align:center;padding:40px"><div style="font-size:42px">✨</div><h3>No open checks</h3><p class="muted">When a table orders it appears here with its receipt, ready to charge.</p></div>');
+  if (sel && !S.sessions[sel]) sel = null; if (!sel && all.length) sel = (all.find(asks) || all[0]).tableId;
   side(); PX.refresh();
 }
 function card(s) {
-  const rdy = s.orders.some((o) => o.status === 'served'), paid = s.check ? `${s.check.method === 'card' ? '💳' : '💵'} ${s.check.tipPct ? '+' + s.check.tipPct + '% tip' : 'bill requested'}` : '';
-  return `<button class="tbl${s.check ? ' check' : rdy ? ' rdy' : ''}${sel === s.tableId ? ' sel' : ''}" onclick="pick('${s.tableId}')"><span class="n">${s.kind ? (s.kind === 'delivery' ? '🛵' : '🛍️') : ''}${E(s.tableNumber)}</span><span class="sm">${E(hostName(s))}${s.guests.length > 1 ? ' +' + (s.guests.length - 1) : ''} · ${mins(s.startedAt)}</span>${s.check ? `<span class="pill">${paid}</span>` : `<span class="sm">${s.orders.reduce((n, o) => n + o.items.reduce((x, i) => x + i.qty, 0), 0)} items</span>`}<span class="am">${M(s.bill.total)}</span></button>`;
+  const rdy = s.orders.some((o) => o.status === 'served'), paid = s.check ? `${s.check.method === 'card' ? '💳' : '💵'} ${s.check.tipPct ? '+' + s.check.tipPct + '% tip' : 'full table check'}` : sepReqs(s).length ? `🧾 ${sepReqs(s).length} separate check${sepReqs(s).length > 1 ? 's' : ''}` : '';
+  return `<button class="tbl${asks(s) ? ' check' : rdy ? ' rdy' : ''}${sel === s.tableId ? ' sel' : ''}" onclick="pick('${s.tableId}')"><span class="n">${s.kind ? (s.kind === 'delivery' ? '🛵' : '🛍️') : ''}${E(s.tableNumber)}</span><span class="sm">${E(hostName(s))}${s.guests.length > 1 ? ' +' + (s.guests.length - 1) : ''} · ${mins(s.startedAt)}</span>${asks(s) ? `<span class="pill">${paid}</span>` : `<span class="sm">${s.orders.reduce((n, o) => n + o.items.reduce((x, i) => x + i.qty, 0), 0)} items</span>`}<span class="am">${M(s.bill.total)}</span></button>`;
 }
 function pick(id) { sel = id; render(); if (innerWidth <= 1000) $('side').scrollIntoView({ behavior: 'smooth' }); }
 function rcptOf(s, pre) {
@@ -160,12 +163,13 @@ function rcptOf(s, pre) {
 function side() {
   const s = sel && S.sessions[sel]; if (!s) { $('side').innerHTML = '<p class="muted">Select a table to see its receipt.</p>'; return; }
   const r = rcptOf(s, true), cfg = S.config.settings, b = s.bill;
-  const voidable = s.orders.flatMap((o) => o.items);
+  const voidable = s.orders.flatMap((o) => o.items.map((i) => ({ ...i, gone: !!i.served || o.status === 'closed' })));
   $('side').innerHTML = `<div class="rc"><div class="c"><b style="font-size:16px">${E(cfg.name || '')}</b><br>${new Date().toLocaleString('en-GB')}<br>${r.kind !== 'table' ? E(r.kind) + ' ' : 'Table '}<b>${E(s.tableNumber)}</b> · ${s.guests.length} guest${s.guests.length > 1 ? 's' : ''}</div><hr>
-   ${voidable.map((i) => `<div class="l"><span>${i.qty} × ${E(App.lang === 'ar' && i.name_ar ? i.name_ar : i.name)}${i.opt ? ` <small class="muted">[${E(App.opt(i))}]</small>` : ''}</span><span>${(i.qty * i.price).toFixed(2)} <button class="vx" onclick="PX.voidDlg('${s.tableId}','${i.id}')" title="void" style="color:#a33">✕</button></span></div>`).join('')}<hr>
+   ${voidable.map((i) => `<div class="l"><span>${i.qty} × ${E(App.lang === 'ar' && i.name_ar ? i.name_ar : i.name)}${i.opt ? ` <small class="muted">[${E(App.opt(i))}]</small>` : ''}</span><span>${(i.qty * i.price).toFixed(2)} ${i.gone ? '<small class="muted">✅ served</small>' : `<button class="vx" onclick="PX.voidDlg('${s.tableId}','${i.id}')" title="void" style="color:#a33">✕</button>`}</span></div>`).join('')}<hr>
    <div class="l"><span>Subtotal</span><span>${b.gross.toFixed(2)}</span></div>${b.discount ? `<div class="l"><span>Discount${s.discount && s.discount.reason ? ' (' + E(s.discount.reason) + ')' : ''}</span><span>−${b.discount.toFixed(2)}</span></div>` : ''}<div class="l"><span>Service</span><span>${b.service.toFixed(2)}</span></div><div class="l"><span>Tax</span><span>${b.tax.toFixed(2)}</span></div>
    <div class="l tot"><span>TOTAL</span><span>${b.total.toFixed(2)}</span></div></div>
-   ${s.check ? `<div class="warn" style="margin-top:14px">🧾 Guest asked to pay by <b>${s.check.method === 'card' ? 'card' : 'cash'}</b>${s.check.tipPct ? ` · tip ${s.check.tipPct}%` : ''}</div>` : ''}
+   ${Object.entries(s.sepChecks || {}).map(([gid, c]) => { const g = s.guests.find((x) => x.id === gid), bb = b.byGuest[gid], host = s.guests.find((x) => x.id === s.host) || s.guests[0]; if (!g || !bb || !bb.items.length) return ''; return `<div class="warn" style="margin-top:12px">🧾 <b>Separate check - ${g.avatar} ${E(g.name)}: ${M(sepAmt(s, gid))}</b> (${c.method === 'card' ? 'card' : 'cash'}${c.tipPct ? ', tip ' + c.tipPct + '%' : ''})<br><small>Only his own dishes with his service and tax.${host && host.id !== gid ? ' The host <b>' + E(host.name) + '</b> pays it with the table when they leave.' : ''}</small><br>${bb.items.map((i) => i.qty + '× ' + E(i.name)).join(', ')}<div style="margin-top:6px"><button class="ghost" onclick="PX.printGuest('${s.tableId}','${gid}')">🖨️ Print his check</button></div></div>`; }).join('')}
+   ${s.check ? `<div class="warn" style="margin-top:14px">🧾 Guest asked to pay the <b>full table</b> by <b>${s.check.method === 'card' ? 'card' : 'cash'}</b>${s.check.tipPct ? ` · tip ${s.check.tipPct}%` : ''}</div>` : ''}
    <div class="acts"><button class="primary big" onclick="PX.openPay('${s.tableId}')">💳 Charge ${M(b.total)}</button><button class="ghost" onclick="printBill('${s.tableId}')">🖨️ Print bill</button><button class="ghost" onclick="PX.openPOS('${s.tableId}')">➕ Add items</button></div>`;
 }
 async function printBill(tid) { const s = S.sessions[tid]; if (!s) return; try { const how = await ESCPOS.print(rcptOf(s, true), { kick: false }); App.toast(how === 'printer' ? 'Bill printed ✓' : 'Print dialog opened'); } catch (e) { App.toast(e.message); } }

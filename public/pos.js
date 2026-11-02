@@ -128,6 +128,13 @@ const PX = (() => {
     } catch {}
     App.printHTML(App.receiptHTML(data));
   }
+  // a separate check: only that guest's own dishes with their share of service and tax
+  function printGuest(tid, gid) {
+    const s = S.sessions[tid], b = s && s.bill.byGuest[gid], g = s && s.guests.find((x) => x.id === gid); if (!b || !g) return;
+    const c = (s.sepChecks || {})[gid] || {}, tip = Math.round(b.sub * (c.tipPct || 0) / 100), m = {};
+    b.items.forEach((i) => { (m[i.name + '|' + i.price] ||= { name: i.name, qty: 0, price: i.price }).qty += i.qty; });
+    App.printHTML(App.receiptHTML({ label: s.tableNumber + ' · ' + g.name + ' (separate check)', kind: s.kind || 'table', customer: s.customer, at: Date.now(), items: Object.values(m), gross: b.gross, discount: Math.max(0, +(b.gross - b.sub).toFixed(2)), service: b.service, tax: b.tax, tip, total: +(b.total + tip).toFixed(2), method: '— not paid yet —', pre: true, by: App.who() }));
+  }
   function printBill() { const { s, tip, total } = calc(); App.printHTML(App.receiptHTML(rcpt(s, { tip, total, method: '— not paid yet —', pre: true }))); }
 
   /* ---------- voids, move, merge ---------- */
@@ -171,7 +178,7 @@ const PX = (() => {
   }
 
   return {
-    close, openPOS, newTicket, startTicket, openPay, voidDlg, doVoid, moveDlg, doMove, mergeDlg, doMerge, resDlg, addRes, printBill, confirmPay,
+    close, openPOS, newTicket, startTicket, openPay, voidDlg, doVoid, moveDlg, doMove, mergeDlg, doMerge, resDlg, addRes, printBill, printGuest, confirmPay,
     add(id) { const it = item(id); if (it && Opts.has(it)) return Opts.open(it, (sel) => PX.addLine(id, sel)); PX.addLine(id, {}); },
     addLine(id, sel) { const k = JSON.stringify(sel || {}, Object.keys(sel || {}).sort()), c = PO.cart.find((x) => x.itemId === id && x.k === k); if (c) { if (c.qty < 20) c.qty++; } else PO.cart.push({ itemId: id, qty: 1, note: '', opts: sel, k }); drawCart(); },
     qty(i, d) { PO.cart[i].qty += d; if (PO.cart[i].qty <= 0) PO.cart.splice(i, 1); drawCart(); },

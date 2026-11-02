@@ -80,6 +80,7 @@ function mount(rec) {
 }
 function makeRecord({ name, slug, email, password, plan = 'operations', demo = false }) {
   const data = freshData(demo), cap = F.limitsOf(plan).tables;
+  data.settings.upsell = { enabled: true, max: 4 };   // a new venue gets order recommendations from day one (the plan still decides whether they show)
   if (cap !== null && data.tables.length > cap) data.tables = data.tables.slice(0, cap);   // sample tables must not start above the plan's table limit
   return {
     id: SINGLE ? MAIN : STATELESS ? 'r_' + slug : newId('r'), slug, name, plan, status: 'active', createdAt: Date.now(), lastActive: null,
@@ -286,6 +287,8 @@ const showOn = () => process.env.SHOWROOM !== 'off' && (!SINGLE || process.env.S
 function makeShowRec() {
   const rec = makeRecord({ name: 'Maison Aurelia', slug: SHOW, email: 'demo@elmenu.app', password: auth.randomPassword(), plan: 'vip', demo: true });
   rec.data.settings.name = 'Maison Aurelia'; rec.pin = SHOW_PINS.captain; rec.showroom = true; rec.showSeed = Date.now();
+  rec.feat = { carservice: true };   // the car-service add-on is on in the showroom so it can be tried
+  Object.assign(rec.data.settings, { car: F.carCfg({ car: { enabled: true, spots: 6, prepMin: 8, note: 'Park in front of the café, spots 1-6' } }), upsell: { enabled: true, max: 4 }, online: F.onlineCfg({ online: { enabled: true, pickup: true, delivery: false } }) });
   rec.staff = [['Wael', 'captain'], ['Chef Hany', 'kitchen'], ['Mona', 'cashier']].map(([name, role]) => ({ id: newId('u'), name, role, hash: auth.hash(SHOW_PINS[role]), active: true, createdAt: Date.now() }));
   return rec;
 }
@@ -515,6 +518,9 @@ app.post(`${R}/login`, loginLimit, tenantMw, (req, res) => {
   const t = req.tenant, { role, email, password, pin } = req.body || {};
   const key = `${role}:${req.ip}`, fails = (t.rec.fails ||= {}), f = fails[key] || { n: 0, t: 0 };
   if (f.n >= 8 && Date.now() - f.t < 10 * 60000) return res.status(429).json({ error: 'Too many attempts, try again in a few minutes' });
+  // a second, venue-wide counter: someone guessing PINs from many addresses (or with a forged forwarding header) still runs into it
+  const kind = role === 'admin' ? 'admin' : 'pin', now0 = Date.now(), flog = ((t.rec.failLog ||= {})[kind] = (t.rec.failLog[kind] || []).filter((x) => now0 - x < 600000));
+  if (flog.length >= (kind === 'admin' ? 40 : 30)) return res.status(429).json({ error: 'Too many wrong attempts on this venue. Staff sign-in is paused for a few minutes.' });
   const ok = (token) => { if (fails[key]) { delete fails[key]; persistRec(t); } return res.json({ token }); };
   if (role === 'admin' && String(email).toLowerCase() === t.rec.owner.email && auth.check(password, t.rec.owner.hash)) return ok(auth.sign('admin', t.rec.slug, req.body && req.body.remember ? 30 : 0.5));
   if (role === 'cashier') {
@@ -529,9 +535,26 @@ app.post(`${R}/login`, loginLimit, tenantMw, (req, res) => {
     if (who && (role === 'kitchen' || who.role === 'captain')) { clockIn(t, who); return ok(auth.sign(role, t.rec.slug, 0.5, { u: who.id, n: who.name })); }
     if (!who && p && p === String(t.rec.pin) && !t.rec.legacyPinOff) return ok(auth.sign(role, t.rec.slug, 0.5, { u: 'owner-pin', n: 'Captain' }));
   }
-  fails[key] = { n: f.n + 1, t: Date.now() };
+  fails[key] = { n: f.n + 1, t: Date.now() }; flog.push(now0); if (flog.length > 120) flog.splice(0, flog.length - 120);
   for (const k of Object.keys(fails)) if (Date.now() - fails[k].t > 3600000) delete fails[k];
   persistRec(t); res.status(401).json({ error: 'Invalid credentials' });
+});
+// ----- Screen links: one private link per physical screen (kitchen TV, cashier till, a waiter's phone). Opening it signs the screen in as a named account,
+// so its work is traced like anyone else's, with no PIN to type and no role switching. The owner can delete a link at any time and that screen is signed out.
+const screenAlive = (rec, d) => !d.sc || (rec.screens || []).some((x) => x.id === d.sc);
+const screenKey = (sc) => auth.unseal(sc.key);
+const safeEq = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && require('crypto').timingSafeEqual(x, y); };
+const screenRow = (req, sc) => { const st = sc.staffId && (req.tenant.rec.staff || []).find((x) => x.id === sc.staffId); return { id: sc.id, role: sc.role, name: sc.name, staffId: sc.staffId || '', staffName: st ? st.name : '', createdAt: sc.createdAt, lastSeen: sc.lastSeen || 0, url: origin(req) + '/r/' + req.tenant.rec.slug + '/s/' + screenKey(sc) }; };
+app.get('/r/:slug/s/:key', page('screen.html'));
+app.post(`${R}/screen-login`, tenantMw, (req, res) => {
+  const t = req.tenant, r = t.rec, key = String((req.body || {}).key || ''), now = Date.now(), ip = String(req.ip).replace(/[^\w.:]/g, '').slice(0, 45);
+  const fl = ((r.failLog ||= {}).screen = (r.failLog.screen || []).filter((x) => now - x < 600000)), mine = ((r.screenRate ||= {})[ip] = (r.screenRate[ip] || []).filter((x) => now - x < 600000));
+  if (fl.length >= 30 || mine.length >= 10) return res.status(429).json({ error: 'Too many attempts. Please wait a few minutes.' });
+  const sc = /^[a-f0-9]{32}$/.test(key) ? (r.screens || []).find((x) => safeEq(screenKey(x), key)) : null, st = sc && sc.staffId ? (r.staff || []).find((x) => x.id === sc.staffId && x.active !== false) : null;
+  if (!sc || (sc.staffId && !st)) { fl.push(now); mine.push(now); if (fl.length > 120) fl.splice(0, fl.length - 120); for (const x of Object.keys(r.screenRate)) if (!r.screenRate[x].length || now - r.screenRate[x][r.screenRate[x].length - 1] > 3600000) delete r.screenRate[x]; persistRec(t); return res.status(401).json({ error: 'This link is not valid any more. Ask the owner for a new one.' }); }
+  if (now - (sc.lastSeen || 0) > 300000) sc.lastSeen = now;
+  if (st) clockIn(t, st); else persistRec(t);
+  res.json({ token: auth.sign(sc.role, r.slug, 30, { u: st ? st.id : 'scr_' + sc.id, n: st ? st.name : sc.name, sc: sc.id }), role: sc.role, name: st ? st.name : sc.name });
 });
 // ----- Staff attendance: signing in with a PIN clocks the person in, "Clock out" ends the shift -----
 const attOn = (t) => F.has(t.rec, 'attendance');
@@ -556,13 +579,14 @@ app.post(`${R}/clock`, tenantMw, needStaff, (req, res) => {
 });
 app.get(`${R}/me`, tenantMw, (req, res) => {
   const d = auth.verify(bearer(req)); const want = req.query.role;
-  const ok = d && (d.r === 'super' || (d.s === req.params.slug && (d.r === want || d.r === 'admin' || (want === 'kitchen' && d.r === 'captain'))));
+  const ok = d && (d.r === 'super' || (d.s === req.params.slug && (d.r === want || d.r === 'admin' || (want === 'kitchen' && d.r === 'captain')) && screenAlive(req.tenant.rec, d)));
   ok ? res.json({ ok: 1, name: req.tenant.rec.name, who: d.n || '' }) : res.status(401).json({ error: 'auth' });
 });
 function needStaff(req, res, next) {
   const d = auth.verify(bearer(req));
   if (!d) return res.status(401).json({ error: 'auth' });
   if (d.r !== 'super' && !(d.s === req.params.slug && ['admin', 'captain', 'kitchen', 'cashier'].includes(d.r))) return res.status(403).json({ error: 'forbidden' });
+  if (d.sc && !(req.tenant && screenAlive(req.tenant.rec, d))) return res.status(401).json({ error: 'auth' });
   req.claims = d; next();
 }
 // ---- cashier till: shifts, X / Z reports, paid in/out, counted-cash variance ----
@@ -718,12 +742,27 @@ const bc = (req) => req.tenant.broadcast();
 A('get', '/account', (req, res) => res.json({ name: req.tenant.rec.name, email: req.tenant.rec.owner.email, pin: req.tenant.rec.pin, plan: F.planOf(req.tenant.rec.plan), features: F.featuresOf(req.tenant.rec), group: req.tenant.rec.group || '', limits: F.limitsOf(req.tenant.rec.plan, req.tenant.rec.limits), usage: { tables: req.tenant.db.tables.length, staff: (req.tenant.rec.staff || []).length } }));
 A('post', '/account', (req, res) => {
   const r = req.tenant.rec, b = req.body || {};
-  if (b.pin) { if (!/^\d{4,8}$/.test(b.pin)) return res.status(400).json({ error: 'PIN must be 4–8 digits' }); r.pin = b.pin; }
+  if (b.pin) { if (!/^\d{4,8}$/.test(b.pin)) return res.status(400).json({ error: 'PIN must be 4–8 digits' }); if (weakPin(b.pin)) return res.status(400).json({ error: 'That PIN is too easy to guess. Choose another.' }); r.pin = b.pin; }
   if (b.password) { if (String(b.password).length < 6) return res.status(400).json({ error: 'Password must be 6+ characters' }); r.owner.hash = auth.hash(b.password); }
   req.tenant.broadcast(); res.json({ ok: 1, pin: r.pin });
 });
 A('post', '/legacy-pin', (req, res) => { req.tenant.rec.legacyPinOff = !!(req.body || {}).off; persistRec(req.tenant); res.json({ ok: 1, off: !!req.tenant.rec.legacyPinOff }); });
+A('get', '/screens', (req, res) => res.json({ screens: (req.tenant.rec.screens || []).map((sc) => screenRow(req, sc)) }));
+A('post', '/screens', (req, res) => {
+  const t = req.tenant, r = t.rec, b = req.body || {}, name = String(b.name || '').replace(/[<>]/g, '').trim().slice(0, 40);
+  if (!['captain', 'kitchen', 'cashier'].includes(b.role)) return res.status(400).json({ error: 'Choose captain, kitchen or cashier' });
+  if (b.role === 'cashier' && !F.has(r, 'cashier')) return res.status(402).json({ error: 'The Cashier role needs the Operations plan', upgrade: F.minPlanFor('cashier') });
+  if ((r.screens || []).length >= 30) return res.status(400).json({ error: 'You already have 30 screen links. Delete one you do not use.' });
+  const st = b.staffId ? (r.staff || []).find((x) => x.id === b.staffId && x.active !== false) : null;
+  if (b.staffId && !st) return res.status(400).json({ error: 'That staff account was not found' });
+  if (st && !(b.role === 'kitchen' || st.role === b.role)) return res.status(400).json({ error: 'That account is a ' + st.role + ', not a ' + b.role });
+  if (!name && !st) return res.status(400).json({ error: 'Give the screen a name (for example Kitchen TV)' });
+  const sc = { id: newId('sc'), role: b.role, name: name || st.name, staffId: st ? st.id : '', key: auth.seal(require('crypto').randomBytes(16).toString('hex')), createdAt: Date.now(), lastSeen: 0 };
+  (r.screens ||= []).push(sc); persistRec(t); bc(req); res.json(screenRow(req, sc));
+});
+A('delete', '/screens/:id', (req, res) => { const r = req.tenant.rec; r.screens = (r.screens || []).filter((x) => x.id !== req.params.id); persistRec(req.tenant); bc(req); res.json({ ok: 1 }); });
 A('get', '/staff', (req, res) => res.json({ legacyOff: !!req.tenant.rec.legacyPinOff, staff: (req.tenant.rec.staff || []).map(({ hash, ...x }) => x), stats: (req.tenant.rec.stats || {}).staff || {}, legacyPin: req.tenant.rec.pin }));
+const weakPin = (p) => PROD && F.weakPin(String(p));
 const nameTaken = (rec, name, exceptId) => (rec.staff || []).some((x) => x.id !== exceptId && x.active !== false && String(x.name).trim().toLowerCase() === String(name).trim().toLowerCase());
 const pinTaken = (rec, pin, exceptId) => String(rec.pin) === pin || (rec.staff || []).some((x) => x.id !== exceptId && x.hash && auth.check(pin, x.hash));
 A('post', '/staff', (req, res) => {
@@ -733,6 +772,7 @@ A('post', '/staff', (req, res) => {
   if (!['captain', 'kitchen', 'cashier'].includes(b.role)) return res.status(400).json({ error: 'Role must be captain, kitchen or cashier' });
   if (b.role === 'cashier' && !F.has(r, 'cashier')) return res.status(402).json({ error: 'The Cashier role needs the Operations plan', upgrade: F.minPlanFor('cashier') });
   if (!/^\d{4,8}$/.test(pin)) return res.status(400).json({ error: 'PIN must be 4-8 digits' });
+  if (weakPin(pin)) return res.status(400).json({ error: 'That PIN is too easy to guess (1234, 1111, 4321...). Choose another.' });
   if (nameTaken(r, name)) return res.status(400).json({ error: 'Another person already has this name. Use a different name so reports keep them apart (for example Ahmed K.)' });
   if (pinTaken(r, pin)) return res.status(400).json({ error: 'That PIN is already used - choose another' });
   const st = { id: newId('u'), name, role: b.role, hash: auth.hash(pin), active: true, createdAt: Date.now() };
@@ -746,7 +786,7 @@ A('put', '/staff/:id', (req, res) => {
   if (b.active !== undefined) st.active = !!b.active;
   if (b.wage !== undefined) st.wage = F.wageClean(b.wage);
   if (b.shifts !== undefined) st.shifts = F.shiftsClean(b.shifts);
-  if (b.pin) { if (!/^\d{4,8}$/.test(String(b.pin))) return res.status(400).json({ error: 'PIN must be 4-8 digits' }); if (pinTaken(r, String(b.pin), st.id)) return res.status(400).json({ error: 'That PIN is already used' }); st.hash = auth.hash(String(b.pin)); }
+  if (b.pin) { if (!/^\d{4,8}$/.test(String(b.pin))) return res.status(400).json({ error: 'PIN must be 4-8 digits' }); if (weakPin(b.pin)) return res.status(400).json({ error: 'That PIN is too easy to guess. Choose another.' }); if (pinTaken(r, String(b.pin), st.id)) return res.status(400).json({ error: 'That PIN is already used' }); st.hash = auth.hash(String(b.pin)); }
   bc(req); res.json({ ok: 1 });
 });
 const gateOR = (req, res, next) => (F.has(req.tenant.rec, 'ownerreport') ? next() : res.status(402).json({ error: 'The owner report needs the ' + F.PLANS[F.minPlanFor('ownerreport')].name + ' plan', upgrade: F.minPlanFor('ownerreport') }));
@@ -1487,7 +1527,7 @@ app.post(`${R}/rpc`, rpcLimit, async (req, res) => {
       const c = { ws: { readyState: 1, send: (d) => out.push(JSON.parse(d)) }, role: null, joined: false, authed: false };
       if (jn.role !== 'customer') {
         const a = auth.verify(jn.token);
-        if (!a || !(a.r === 'super' || (a.s === req.params.slug && (a.r === jn.role || a.r === 'admin' || (jn.role === 'kitchen' && a.r === 'captain'))))) return res.status(401).json({ error: 'auth' });
+        if (!a || !(a.r === 'super' || (a.s === req.params.slug && (a.r === jn.role || a.r === 'admin' || (jn.role === 'kitchen' && a.r === 'captain')) && screenAlive(t.rec, a)))) return res.status(401).json({ error: 'auth' });
         c.authed = true; c.staffId = a.u; c.staffName = a.n; c.adm = a.r === 'admin' || a.r === 'super'; c.cashier = jn.role === 'cashier';
       }
       if (jn.role === 'customer') {
@@ -1565,7 +1605,7 @@ if (require.main === module && !STATELESS) {
           if (!tenant || tenant.rec.status !== 'active') { ws.send(JSON.stringify({ t: 'error', msg: tenant ? 'This restaurant is suspended' : 'Unknown restaurant' })); tenant = null; return ws.close(); }
           if (m.role !== 'customer') {
             const a = auth.verify(m.token);
-            const ok = a && (a.r === 'super' || (a.s === m.slug && (a.r === m.role || a.r === 'admin' || (m.role === 'kitchen' && a.r === 'captain'))));
+            const ok = a && (a.r === 'super' || (a.s === m.slug && (a.r === m.role || a.r === 'admin' || (m.role === 'kitchen' && a.r === 'captain')) && screenAlive(tenant.rec, a)));
             if (!ok) { ws.send(JSON.stringify({ t: 'error', msg: 'auth' })); tenant = null; return ws.close(); }
             c.authed = true; c.staffId = a.u; c.staffName = a.n; c.adm = a.r === 'admin' || a.r === 'super';
             if (m.role === 'cashier') { c.cashier = true; m.role = 'captain'; }

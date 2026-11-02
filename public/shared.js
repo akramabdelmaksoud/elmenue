@@ -269,7 +269,10 @@ const App = {
   tok(role) { const r = role || App.authRole, k = (x) => `tok:${App.slug || '_'}:${x}`; return App.ls(k(r)) || (r === 'captain' || r === 'kitchen' || r === 'cashier' ? App.ls(k('admin')) : null); },
   logout() { const k = (x) => `tok:${App.slug || '_'}:${x}`; App.ls(k(App.authRole), ''); if (App.authRole !== 'admin' && App.authRole !== 'super') App.ls(k('admin'), ''); location.reload(); },
   // switch between the role screens of this restaurant without typing addresses
+  canSwitch() { try { return !!(App.demo || ['showroom', 'demo'].includes(App.slug) || App.ls(`tok:${App.slug || '_'}:admin`)); } catch { return false; } },
+  hideSwitch() { document.querySelectorAll('[onclick*="App.roleMenu"]').forEach((e) => e.remove()); },
   roleMenu(ev) {
+    if (!App.canSwitch()) return;
     ev && ev.stopPropagation && ev.stopPropagation();
     const old = document.getElementById('rolemenu'); if (old) return old.remove();
     const b = ev && ev.currentTarget ? ev.currentTarget.getBoundingClientRect() : { right: innerWidth - 10, bottom: 56, left: 10 }, base = App.slug ? (App.base === '' ? '' : '/r/' + App.slug) : '';
@@ -298,6 +301,7 @@ const App = {
   // Luxury sign-in for admin (email + password) or captain (PIN). Calls go() once authenticated.
   async gate(role, go) {
     App.authRole = role;
+    { const go1 = go; go = () => { if (!App.canSwitch()) App.hideSwitch(); return go1(); }; }
     if (role !== 'admin' && !App.demo) { const go0 = go; go = () => { App.clockPill(role); return go0(); }; }
     if (App.demo) { await App.loadDemo(); return go(); }
     // the shared showroom café opens without a password when reached from the /demo launcher (?auto=1)

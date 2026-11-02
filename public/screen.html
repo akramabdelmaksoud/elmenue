@@ -1,0 +1,20 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+<title>Opening screen</title><link rel="stylesheet" href="/shared.css">
+<style>body { min-height: 100vh; display: grid; place-items: center; background: var(--bg); text-align: center; padding: 24px; } .box { max-width: 380px; } .big { font-size: 56px; } .err { color: #d62828; font-weight: 700; }</style></head>
+<body><div class="box" id="box"><div class="big">🔐</div><h2 class="serif">Opening your screen…</h2></div>
+<script src="/shared.js"></script>
+<script>
+// the link carries a private key; it is exchanged once for a normal sign-in token, then this page moves on to the screen
+(async function () {
+  const box = document.getElementById('box'), key = location.pathname.split('/').filter(Boolean).pop();
+  try {
+    history.replaceState(null, '', location.pathname.replace(/[^/]+$/, '…'));   // the key does not stay in the address bar or the browser history
+    const r = await fetch(`/api/r/${App.slug}/screen-login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) }), j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.token) { box.innerHTML = `<div class="big">⛔</div><h2 class="serif">Link not valid</h2><p class="err">${App.esc(j.error || 'This link does not work.')}</p>`; return; }
+    App.ls(`tok:${App.slug}:${j.role}`, j.token);
+    location.replace(`/r/${App.slug}/${j.role}`);
+  } catch { box.innerHTML = '<div class="big">📡</div><h2 class="serif">No connection</h2><p class="muted">Check the internet and reload this page.</p>'; }
+})();
+</script></body></html>

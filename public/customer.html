@@ -336,7 +336,7 @@ function upStrip(s, mine) {
   const cfg = App.config; if (!FX || !cfg.features.upsell || !FX.upCfg(cfg.settings).enabled || !mine.length) return '';
   const dis = upDismissed(s); if (dis.includes('*')) return '';
   const ordered = s.orders.flatMap((o) => o.items.map((i) => i.itemId));
-  const ids = FX.upsellFor(cfg, [...new Set(mine.map((l) => l.itemId))], { isOpen: (i) => itemOpen(cfg, i), skip: ordered.concat(dis) }); if (!ids.length) return '';
+  const ids = FX.upsellFor(cfg, [...new Set(mine.map((l) => l.itemId))], { isOpen: (i) => itemOpen(cfg, i), skip: ordered.concat(dis), ordered }); if (!ids.length) return '';
   const fresh = ids.filter((x) => !upReported.has(x)); if (fresh.length) { fresh.forEach((x) => upReported.add(x)); setTimeout(() => App.send({ t: 'upsell_shown', ids: fresh }), 0); }
   const card = (id) => { const i = cfg.items.find((x) => x.id === id); return `<div style="flex:none;width:150px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--card)"><div style="height:84px;background:${i.img ? "url('" + App.esc(i.img) + "') center/cover" : 'var(--line)'};display:grid;place-items:center;font-size:30px">${i.img ? '' : i.emoji}</div><div style="padding:8px"><b style="font-size:13px;display:block;line-height:1.25;min-height:32px">${App.esc(App.nm(i))}</b><div class="row2" style="margin-top:6px;align-items:center"><span class="muted" style="font-size:13px">${App.money(i.price)}</span><button class="send rp" style="padding:6px 12px;font-size:14px;min-width:0" data-up="${i.id}" onclick="App.send({t:'cart_add',itemId:'${i.id}',up:1})">+</button></div></div></div>`; };
   return `<div id="upstrip" class="c rise" style="padding:14px;margin-top:10px"><div class="row2" style="margin-bottom:8px"><b class="serif" style="font-size:18px">${App.tr('upTitle')}</b><button class="ghost" style="padding:4px 10px;font-size:12px" onclick="upDismiss('${s.id}')">${App.tr('upNo')} ✕</button></div><div style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none">${ids.map(card).join('')}</div></div>`;
@@ -673,13 +673,44 @@ function billTab(cfg, s) {
   ${payOnlineBox(cfg, s)}
   <div class="h3">${App.tr('tip')}</div><div class="seg">${[0, 5, 10, 15, 20].map((p) => `<button class="rp ${pay.tip === p ? 'on' : ''}" onclick="pay.tip=${p};draw(true)">${p}%</button>`).join('')}</div>
   <div class="h3">${App.tr('bill')}</div><div class="seg"><button class="rp ${pay.split === 'self' ? 'on' : ''}" onclick="pay.split='self';draw(true)">👤 ${App.tr('payMine')}</button><button class="rp ${pay.split === 'table' ? 'on' : ''}" onclick="pay.split='table';draw(true)">👥 ${App.tr('payTable')}</button><button class="rp ${pay.split === 'custom' ? 'on' : ''}" onclick="pay.split='custom';draw(true)">✂️ ${App.tr('payCustom')}</button></div>
+  ${pay.split === 'self' ? `<p class="muted" style="font-size:13px;margin:6px 2px">🧾 ${SL('note')}</p>` : ''}
   ${pay.split === 'custom' ? `<div class="c li" style="margin-top:12px"><p class="muted" style="margin:0 0 8px">${App.tr('assign')}</p>${G.map((g) => `<div class="row" style="margin-bottom:8px;gap:10px"><span style="font-size:22px">${g.avatar}</span><span style="flex:1">${App.esc(g.name)}</span><input type="number" style="width:120px;border-radius:14px" value="${pay.custom[g.id] ?? ''}" placeholder="${Math.round(withTip / G.length)}" onchange="pay.custom['${g.id}']=this.value;draw(true)"></div>`).join('')}
    <div class="muted">${App.money(sum)} / ${App.money(withTip)}</div><button class="lnk" style="margin-top:6px" onclick="splitEq(${withTip})">= ${App.tr('perPerson')}</button></div>` : ''}
   <div class="seg" style="margin-top:12px"><button class="rp ${pay.method === 'cash' ? 'on' : ''}" onclick="pay.method='cash';draw(true)">💵 ${App.tr('cash')}</button><button class="rp ${pay.method === 'card' ? 'on' : ''}" onclick="pay.method='card';draw(true)">💳 ${App.tr('card')}</button>${ip && ip.handle ? `<button class="rp ${pay.method === 'instapay' ? 'on' : ''}" onclick="pay.method='instapay';draw(true)">📲 InstaPay</button>` : ''}${ip && ip.phone ? `<button class="rp ${pay.method === 'wallet' ? 'on' : ''}" onclick="pay.method='wallet';draw(true)">📱 ${App.esc(ip.wallet || 'Wallet')}</button>` : ''}</div>
   ${ip && (pay.method === 'instapay' || pay.method === 'wallet') ? digitalBox(ip, s, due) : ''}
   <div class="c due"><span>${App.tr('total_due')}</span><span class="bigp" style="color:var(--accent)">${cnt(due, 'due')}</span></div>
-  ${s.check ? `<div class="c li gold" style="text-align:center;line-height:1.7">${checkBanner(s)}<br>✅ ${App.tr('checkSent')}<br><button class="lnk" style="margin-top:8px" onclick="App.send({t:'check_cancel'})">${App.tr('cancel')}</button></div>`
-   : `<button class="send rp" onclick="App.send({t:'check',method:pay.method,split:pay.split,tipPct:pay.tip,custom:pay.custom});burstAt(this)">${ic('receipt')}${App.tr('reqBill')}</button>`}`;
+  ${s.check ? `<div class="c li gold" style="text-align:center;line-height:1.7">${checkBanner(s)}<br>✅ ${App.tr('checkSent')}<br><button class="lnk" style="margin-top:8px" onclick="App.send({t:'check_cancel'})">${App.tr('cancel')}</button></div>` : ''}
+  ${sepCard(s)}
+  ${pay.split === 'self' ? (mySep(s) ? '' : `<button class="send rp" onclick="askSep(this)">${ic('receipt')}${SL('ask')}</button>`) : s.check ? '' : `<button class="send rp" onclick="App.send({t:'check',method:pay.method,split:pay.split,tipPct:pay.tip,custom:pay.custom});burstAt(this)">${ic('receipt')}${App.tr('reqBill')}</button>`}`;
+}
+// ---- separate check: one guest asks for HIS OWN check (his dishes + his service and tax); the host settles it for him when the table leaves ----
+const SEPL = {
+  en: { ask: 'Ask for MY separate check', title: 'Your separate check', give: 'Give this amount to', host: 'the table host', will: 'who will pay for you when you leave.', youHost: 'You are the table host: other guests may hand you their amounts. The captain will bring your own check.', note: 'Only your own dishes, plus your share of service and tax. The host settles it when the table leaves.', sent: 'Separate check sent to the captain', show: 'Show amount', none: 'You have not ordered anything yet', ok: 'Got it', full: 'Full table check', mine: 'Separate check (only mine)' },
+  ar: { ask: 'عايز حسابي أنا لوحدي', title: 'حسابك المنفصل', give: 'سلّم المبلغ ده لـ', host: 'مضيف الطاولة', will: 'اللي هيدفع عنك لما تمشوا.', youHost: 'إنت مضيف الطاولة: ممكن الضيوف يسلموك مبالغهم. الكابتن هيجيبلك حسابك.', note: 'الحساب فيه اللي طلبته إنت بس، مع نصيبك من الخدمة والضريبة. المضيف بيسدده لما الطاولة تمشي.', sent: 'اتبعت حسابك المنفصل للكابتن', show: 'اعرض المبلغ', none: 'لسه ما طلبتش حاجة', ok: 'تمام', full: 'حساب الطاولة كلها', mine: 'حساب منفصل (بتاعي بس)' },
+  fr: { ask: 'Demander MON addition separee', title: 'Votre addition separee', give: 'Remettez ce montant a', host: "l'hote de la table", will: 'qui paiera pour vous au depart.', youHost: "Vous etes l'hote de la table : les autres peuvent vous remettre leur montant. Le capitaine vous apporte votre addition.", note: "Seulement vos plats, plus votre part de service et de taxe. L'hote regle au depart de la table.", sent: 'Addition separee envoyee au capitaine', show: 'Voir le montant', none: "Vous n'avez encore rien commande", ok: 'Compris', full: 'Addition de toute la table', mine: 'Addition separee (la mienne)' },
+};
+const SL = (k) => (SEPL[App.lang] || SEPL.en)[k] || SEPL.en[k];
+const mySep = (s) => (s.sepChecks || {})[me.id];
+function sepAmount(s, c) { const b = s.bill.byGuest[me.id]; if (!b) return { b: null, tip: 0, due: 0 }; const tip = Math.round(b.sub * ((c ? c.tipPct : pay.tip) || 0) / 100); return { b, tip, due: +(b.total + tip).toFixed(2) }; }
+function askSep(btn) {
+  const s = S.session, a = sepAmount(s); if (!a.b || !a.b.items.length) return App.toast(SL('none'));
+  App.send({ t: 'check', scope: 'mine', method: pay.method, tipPct: pay.tip }); burstAt(btn); setTimeout(() => showSep(), 450);
+}
+function showSep() {
+  const s = S.session; if (!s) return; const c = mySep(s), a = sepAmount(s, c); if (!a.b) return; const h = hostOf(s), iAmHost = h && h.id === me.id, st = App.config.settings;
+  const old = document.getElementById('seppop'); if (old) old.remove();
+  const el = document.createElement('div'); el.id = 'seppop'; el.style.cssText = 'position:fixed;inset:0;z-index:300;background:#000b;display:grid;place-items:center;padding:18px;overflow:auto'; el.onclick = (e) => { if (e.target === el) el.remove(); };
+  el.innerHTML = `<div class="c" style="max-width:400px;width:100%;text-align:center;padding:22px"><div style="font-size:40px">🧾</div><h3 class="serif" style="margin:4px 0">${SL('title')}</h3>
+   <div class="bigp" style="font-size:40px;color:var(--accent);margin:6px 0">${App.money(a.due)}</div>
+   <div style="text-align:start;margin:10px 0">${a.b.items.map((i) => `<div class="line muted"><span>${i.qty}× ${App.esc(App.nm(i))}</span><span>${App.money(i.price * i.qty)}</span></div>`).join('')}
+   <div class="line muted"><span>${App.tr('service')} (${st.service}%)</span><span>${App.money(a.b.service)}</span></div><div class="line muted"><span>${App.tr('tax')} (${st.tax}%)</span><span>${App.money(a.b.tax)}</span></div>${a.tip ? `<div class="line muted"><span>${App.tr('tip')}</span><span>${App.money(a.tip)}</span></div>` : ''}</div>
+   <div class="c li gold" style="line-height:1.7">${iAmHost || !h ? SL('youHost') : `${SL('give')} 👑 <b>${App.esc(h.name)}</b> (${SL('host')}) ${SL('will')}`}</div>
+   <p class="muted" style="font-size:12.5px">${SL('note')}</p><button class="send rp" onclick="document.getElementById('seppop').remove()">${SL('ok')}</button></div>`;
+  document.body.appendChild(el);
+}
+function sepCard(s) {
+  const c = mySep(s); if (!c) return ''; const a = sepAmount(s, c);
+  return `<div class="c li gold" style="text-align:center;line-height:1.7">✅ ${SL('sent')}<br>${App.tr('yourShare')}: <b>${App.money(a.due)}</b><br><button class="lnk" style="margin-top:6px" onclick="showSep()">${SL('show')}</button> · <button class="lnk" onclick="App.send({t:'check_cancel',scope:'mine'})">${App.tr('cancel')}</button></div>`;
 }
 const DG = { en: { title: 'Pay by', send: 'Send', to: 'to', copy: 'Copy', copied: 'Copied', ref: 'Transfer reference (optional)', paid: "I've paid", sent: 'Thanks! Your cashier will confirm shortly.', how: 'Send the amount, then tap the button so the cashier knows.', name: 'Account name' },
   ar: { title: 'الدفع عبر', send: 'حوّل', to: 'إلى', copy: 'نسخ', copied: 'تم النسخ', ref: 'رقم العملية (اختياري)', paid: 'تم الدفع', sent: 'شكراً! الكاشير هيأكد الدفع حالاً.', how: 'حوّل المبلغ ثم اضغط الزر عشان الكاشير يعرف.', name: 'اسم الحساب' } };

@@ -87,8 +87,22 @@ h3 { margin:6px 0 10px; }
 let listView = App.ls('cview') === 'list';
 function toggleView() { listView = !listView; App.ls('cview', listView ? 'list' : 'map'); render(); }
 let S = null, open = null, sound = false, actx = null, sheet = null;
-const NEXT = { received: 'kitchen', kitchen: 'served', served: 'closed' };
+const NEXT = { received: 'kitchen', kitchen: 'served' };   // after the kitchen says ready the waiter serves the dishes (some or all) instead of just closing
 const RQ = { waiter: '🛎️ Call waiter', water: '💧 Water', napkins: '🧻 Napkins', cutlery: '🍴 Cutlery & covers', urgent: '⚡ Speed up', bill: '🧾 Check' };
+// a check request is either the whole table or ONE guest's own separate check (his dishes only, with his service and tax)
+const sepAmt = (s, gid) => { const b = s.bill.byGuest[gid], c = (s.sepChecks || {})[gid] || {}; return b ? +(b.total + Math.round(b.sub * (c.tipPct || 0) / 100)).toFixed(2) : 0; };
+const reqLabel = (s, r) => { if (r.type === 'bill' && r.sep) { const g = s.guests.find((x) => x.id === r.by); return `🧾 <b>Separate check</b> · ${g ? g.avatar + ' ' + App.esc(g.name) : 'guest'} · <b>${App.money(sepAmt(s, r.by))}</b>`; } return r.type === 'bill' ? '🧾 <b>Full table check</b>' : RQ[r.type]; };
+function sepHTML(s) {
+  const host = hostOf(s);
+  return Object.entries(s.sepChecks || {}).map(([gid, c]) => {
+    const g = s.guests.find((x) => x.id === gid), b = s.bill.byGuest[gid]; if (!g || !b || !b.items.length) return '';
+    const tip = Math.round(b.sub * (c.tipPct || 0) / 100);
+    return `<div class="ocard" style="border-color:var(--gold);margin-top:10px"><div class="spread"><b>🧾 Separate check · ${g.avatar} ${App.esc(g.name)}</b><b>${App.money(b.total + tip)}</b></div><div class="muted" style="font-size:12.5px">Only his own dishes. ${c.method === 'card' ? '💳 card' : '💵 cash'}${host && host.id !== gid ? ' · hands the amount to the host <b>' + App.esc(host.name) + '</b>, who pays for him when the table leaves' : ''}</div>
+    ${b.items.map((i) => `<div class="line"><span>${i.qty}× ${App.esc(i.name)}</span><span>${App.money(i.qty * i.price)}</span></div>`).join('')}
+    <div class="line muted"><span>Service</span><span>${App.money(b.service)}</span></div><div class="line muted"><span>Tax</span><span>${App.money(b.tax)}</span></div>${tip ? `<div class="line muted"><span>Tip (${c.tipPct}%)</span><span>${App.money(tip)}</span></div>` : ''}
+    <div class="row wrap" style="margin-top:6px"><button class="ghost" onclick="PX.printGuest('${s.tableId}','${gid}')">🖨 Print his check</button></div></div>`;
+  }).join('');
+}
 const STL = { received: 'pending', kitchen: 'in kitchen', served: 'ready', closed: 'closed' }, NXL = { kitchen: '✅ Accept → In kitchen', served: '→ Ready', closed: '→ Close' };
 function beep(kind) {
   if (!sound) return;
@@ -139,7 +153,7 @@ function stageHTML(cfg) {
     const rv = st === 'reserved' && (S.config.reservations || []).find((r) => r.tableId === t.id && Date.now() >= r.at - 45 * 60000 && Date.now() <= r.at + 20 * 60000);
     const lab = { empty: 'Empty', reserved: rv ? '📅 ' + new Date(rv.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Reserved', seated: 'Browsing', ordered: 'Ordered', urgent: 'URGENT', check: s && s.check ? `${s.check.method === 'card' ? '💳' : '💵'} ${s.check.split}` : 'Check' }[st];
     const bd = s ? [s.requests.some((r) => !r.done && r.type === 'waiter') && '🙋', s.requests.some((r) => !r.done && r.type === 'water') && '💧', s.requests.some((r) => !r.done && r.type === 'napkins') && '🧻', s.requests.some((r) => !r.done && r.type === 'cutlery') && '🍴', s.requests.some((r) => !r.done && r.type === 'urgent') && '⚡', s.check && '🧾', s.idle && '💤'].filter(Boolean).join('') : '';
-    return `<div class="fl-t ${t.shape} ${st}${s && s.orders.some((o) => o.status === 'served') ? ' rdy' : ''}" style="left:${p.fx / F.cols * 100}%;top:${p.fy / F.rows * 100}%;width:${p.fw / F.cols * 100}%;height:${p.fh / F.rows * 100}%;--m:${Math.min(p.fw, p.fh)}" onclick="openT('${t.id}')">${App.chairs(t.shape, t.seats)}<span class="bd">${bd}</span><span class="n">${t.number}</span><span class="av" title="${s && hostOf(s) ? 'Host: ' + App.esc(hostOf(s).name) : ''}">${s ? App.esc(guestsOf(s)) : ''}</span><span class="s">${lab}${s ? ' · ' + mins(s.startedAt) : ' · ' + t.seats + ' seats'}</span><span class="m">${s ? mins(s.startedAt) : ''}</span></div>`;
+    return `<div class="fl-t ${t.shape} ${st}${s && s.orders.some((o) => o.status === 'served') ? ' rdy' : ''}" style="left:${p.fx / F.cols * 100}%;top:${p.fy / F.rows * 100}%;width:${p.fw / F.cols * 100}%;height:${p.fh / F.rows * 100}%;--m:${Math.min(p.fw, p.fh)}" onclick="openT('${t.id}')">${App.chairs(t.shape, t.seats)}<span class="bd">${bd}</span><span class="n">${t.number}</span><span class="av" title="${s && hostOf(s) ? 'Host: ' + App.esc(hostOf(s).name) : ''}">${s ? App.esc(guestsOf(s)) : ''}</span><span class="s">${lab}${s && !s.orders.length && Date.now() - (s.lastAt || s.startedAt) > 600000 ? ' 👻' : ''}${s ? ' · ' + mins(s.startedAt) : ' · ' + t.seats + ' seats'}</span><span class="m">${s ? mins(s.startedAt) : ''}</span></div>`;
   }).join('');
   return decor + tables;
 }
@@ -147,11 +161,11 @@ function zonesHTML(cfg) {
   const lbl = { empty: 'Free', reserved: 'Reserved', seated: 'Browsing', ordered: 'Ordered', urgent: 'URGENT', check: 'Check' };
   return [...new Set(cfg.tables.map((t) => t.zone || 'Main'))].map((z) => `<div class="zn"><h3>${App.esc(z)}</h3><div class="zg">${cfg.tables.filter((t) => (t.zone || 'Main') === z).map((t) => {
     const s = S.sessions[t.id], st = S.states[t.id], rdy = s && s.orders.some((o) => o.status === 'served');
-    return `<button class="mt ${st}${rdy ? ' rdy' : ''}" onclick="openT('${t.id}')"><b>${t.number}</b><span class="sd">${'•'.repeat(Math.min(t.seats, 10))}</span><span>${rdy ? '✅ Ready' : lbl[st]}</span><span class="am">${s ? App.money(s.bill.total) : t.seats + ' seats'}</span>${s ? `<small class="muted">${mins(s.startedAt)}</small>` : ''}</button>`;
+    return `<button class="mt ${st}${rdy ? ' rdy' : ''}" onclick="openT('${t.id}')"><b>${t.number}</b><span class="sd">${'•'.repeat(Math.min(t.seats, 10))}</span><span>${rdy ? '✅ Ready' : lbl[st]}${s && !s.orders.length && Date.now() - (s.lastAt || s.startedAt) > 600000 ? ' 👻' : ''}</span><span class="am">${s ? App.money(s.bill.total) : t.seats + ' seats'}</span>${s ? `<small class="muted">${mins(s.startedAt)}</small>` : ''}</button>`;
   }).join('')}</div></div>`).join('');
 }
 function reqHTML(reqs) {
-  return `<h3>🔔 Requests (${reqs.length})</h3>${reqs.map(({ s, r }) => `<div class="ocard spread"><div><b>T${s.tableNumber}</b> ${RQ[r.type]}<div class="muted" style="font-size:12px">${App.ago(r.at)} ago</div></div><button class="primary" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">Done</button></div>`).join('') || '<p class="muted">No pending requests</p>'}`;
+  return `<h3>🔔 Requests (${reqs.length})</h3>${reqs.map(({ s, r }) => `<div class="ocard spread"><div><b>T${s.tableNumber}</b> ${reqLabel(s, r)}<div class="muted" style="font-size:12px">${App.ago(r.at)} ago</div></div><button class="primary" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">Done</button></div>`).join('') || '<p class="muted">No pending requests</p>'}`;
 }
 function ordHTML(orders) { return `<h3>🍽️ Order stream (${orders.length})</h3>${orders.map(({ s, o }) => orderCard(s, o)).join('') || '<p class="muted">No open orders</p>'}`; }
 function render() {
@@ -178,11 +192,12 @@ function render() {
   document.getElementById('side').innerHTML = reqHTML(reqs) + ordHTML(orders);
   // phone: pending requests as one-tap chips + bottom bar
   const urgent = reqs.some(({ r }) => r.type === 'urgent') || sessions.some((s) => s.check);
-  document.getElementById('chips').innerHTML = reqs.length ? reqs.map(({ s, r }) => `<div class="chip ${r.type === 'urgent' ? 'u' : ''}">T${s.tableNumber} ${RQ[r.type]}<button aria-label="done" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">✓</button></div>`).join('') : '<span class="none">✓ No pending requests</span>';
+  document.getElementById('chips').innerHTML = reqs.length ? reqs.map(({ s, r }) => `<div class="chip ${r.type === 'urgent' ? 'u' : ''}">T${s.tableNumber} ${reqLabel(s, r)}<button aria-label="done" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">✓</button></div>`).join('') : '<span class="none">✓ No pending requests</span>';
   document.getElementById('inl').innerHTML = ordHTML(orders);
   document.getElementById('bar').innerHTML = `<button class="${sheet === 'req' ? 'on' : ''}" onclick="openSheet('req')">🔔 Alerts <span class="cnt ${urgent ? 'hot' : ''}">${reqs.length || ''}</span></button><button onclick="if(sheet)openSheet(sheet);document.getElementById('inl').scrollIntoView({behavior:'smooth',block:'start'})">🍽️ Orders <span class="cnt">${orders.length || ''}</span></button>`;
   if (sheet) drawSheet(reqs, orders);
   if (open) renderModal();
+  if (SV) drawServe();
   PX.refresh();
 }
 function openSheet(w) { sheet = sheet === w ? null : w; if (!sheet) document.getElementById('sheet').className = ''; render(); }
@@ -194,10 +209,25 @@ function drawSheet(reqs, orders) {
 }
 function orderCard(s, o, tools) {
   const g = (id) => (s.guests.find((x) => x.id === id) || {}).avatar || '🙂';
-  const nxt = NEXT[o.status];
-  return `<div class="ocard"><div class="spread"><b>Table ${s.tableNumber} <span class="muted">· ${s.guests.map((x) => x.avatar).join('')}</span></b><span class="st ${o.status}">${STL[o.status] || o.status}</span></div>
-  ${o.items.map((i) => `<div class="line"><span>${g(i.guestId)} ${i.qty}× ${App.esc(i.name)}${i.opt ? ` <b style="color:var(--accent)">[${App.esc(i.opt)}]</b>` : ''}${i.note ? `<br><small style="color:var(--accent)">📝 ${App.esc(i.note)}</small>` : ''}</span><span>${App.money(i.qty * i.price)}${tools ? ` <button class="vx" title="Remove item" onclick="PX.voidDlg('${s.tableId}','${i.id}')">✕</button>` : ''}</span></div>`).join('')}
-  <div class="spread" style="margin-top:6px"><span class="muted">${App.ago(o.at)} ago · ${App.money(o.items.reduce((n, i) => n + i.qty * i.price, 0))}${o.lane ? ' · ' + (o.lane === 'vip' ? '⭐ VIP' : '⚡ rush') : ''}</span>${o.status !== 'served' ? `<button class="ghost" onclick="App.send({t:'order_lane',orderId:'${o.id}',lane:'${o.lane === 'rush' ? 'normal' : 'rush'}'})">⚡</button>` : ''}${nxt ? `<button class="primary" onclick="App.send({t:'order_status',orderId:'${o.id}',status:'${nxt}'})">${NXL[nxt] || '→ ' + nxt}</button>` : ''}</div></div>`;
+  const nxt = NEXT[o.status], done = (i) => !!i.served || o.status === 'closed', left = o.items.filter((i) => !done(i)).length, part = o.status === 'served' && left && left < o.items.length;
+  return `<div class="ocard"><div class="spread"><b>Table ${s.tableNumber} <span class="muted">· ${s.guests.map((x) => x.avatar).join('')}</span></b><span class="st ${o.status}">${part ? 'part served' : STL[o.status] || o.status}</span></div>
+  ${o.items.map((i) => `<div class="line" style="${done(i) ? 'opacity:.55' : ''}"><span>${done(i) ? '✅' : g(i.guestId)} ${i.qty}× ${App.esc(i.name)}${i.opt ? ` <b style="color:var(--accent)">[${App.esc(i.opt)}]</b>` : ''}${i.note ? `<br><small style="color:var(--accent)">📝 ${App.esc(i.note)}</small>` : ''}</span><span>${App.money(i.qty * i.price)}${tools && !done(i) ? ` <button class="vx" title="Remove item" onclick="PX.voidDlg('${s.tableId}','${i.id}')">✕</button>` : ''}</span></div>`).join('')}
+  <div class="spread" style="margin-top:6px"><span class="muted">${App.ago(o.at)} ago · ${App.money(o.items.reduce((n, i) => n + i.qty * i.price, 0))}${o.lane ? ' · ' + (o.lane === 'vip' ? '⭐ VIP' : '⚡ rush') : ''}</span>${o.status !== 'served' && o.status !== 'closed' ? `<button class="ghost" onclick="App.send({t:'order_lane',orderId:'${o.id}',lane:'${o.lane === 'rush' ? 'normal' : 'rush'}'})">⚡</button>` : ''}${nxt ? `<button class="primary" onclick="App.send({t:'order_status',orderId:'${o.id}',status:'${nxt}'})">${NXL[nxt] || '→ ' + nxt}</button>` : ''}${o.status === 'served' ? `<button class="primary" onclick="serveDlg('${s.tableId}','${o.id}')">🍽️ Serve${part ? ' (' + left + ' left)' : ''}</button>` : ''}</div></div>`;
+}
+// serve: tick the dishes that went to the table; the rest of the order stays on the screen until it is served too
+let SV = null;
+function serveDlg(tid, oid) { SV = { tid, oid, sel: null }; drawServe(); }
+function serveClose() { SV = null; document.getElementById('dlg').innerHTML = ''; }
+function serveTick(id, on) { if (SV && SV.sel) { on ? SV.sel.add(id) : SV.sel.delete(id); drawServe(); } }
+function serveGo(all) { if (!SV) return; App.send({ t: 'serve_items', tableId: SV.tid, orderId: SV.oid, all: !!all, items: [...(SV.sel || [])] }); serveClose(); }
+function drawServe() {
+  if (!SV) return; const s = S.sessions[SV.tid], o = s && s.orders.find((x) => x.id === SV.oid);
+  if (!o || o.status !== 'served') return serveClose();
+  const todo = o.items.filter((i) => !i.served); if (!SV.sel) SV.sel = new Set(todo.map((i) => i.id)); SV.sel = new Set([...SV.sel].filter((id) => todo.some((i) => i.id === id)));
+  document.getElementById('dlg').innerHTML = `<div class="modal" onclick="if(event.target===this)serveClose()"><div class="card"><div class="spread"><h2>🍽️ Serve · ${s.kind ? App.esc(s.tableNumber) : 'Table ' + App.esc(s.tableNumber)}</h2><button onclick="serveClose()">✕</button></div>
+   <p class="muted" style="margin-top:0">Tick the dishes you are taking to the table now. Anything you leave unticked stays on your screen.</p>
+   ${o.items.map((i) => i.served ? `<div class="line" style="opacity:.5"><span>✅ ${i.qty}× ${App.esc(i.name)}</span><span class="muted">served</span></div>` : `<label class="line" style="gap:10px;align-items:center;cursor:pointer"><span class="row" style="gap:10px"><input type="checkbox" style="width:24px;height:24px" ${SV.sel.has(i.id) ? 'checked' : ''} onchange="serveTick('${i.id}',this.checked)"><span>${i.qty}× ${App.esc(i.name)}${i.opt ? ' <b style="color:var(--accent)">[' + App.esc(i.opt) + ']</b>' : ''}${i.note ? '<br><small style="color:var(--accent)">📝 ' + App.esc(i.note) + '</small>' : ''}</span></span></label>`).join('')}
+   <div class="row wrap" style="margin-top:12px"><button class="primary" ${SV.sel.size ? '' : 'disabled'} onclick="serveGo(false)">Serve ${SV.sel.size === todo.length ? 'all' : 'selected'} (${SV.sel.size})</button>${todo.length > 1 && SV.sel.size !== todo.length ? `<button class="ghost" onclick="serveGo(true)">Serve everything left</button>` : ''}<button class="ghost" onclick="serveClose()">Cancel</button></div></div></div>`;
 }
 function openT(id) { open = id; renderModal(); }
 function closeM() { open = null; document.getElementById('modal').innerHTML = ''; }
@@ -216,15 +246,17 @@ function renderModal() {
     ${s.customer && (s.customer.name || s.customer.phone || s.customer.address) ? `<p class="muted">👤 ${App.esc(s.customer.name)} ${s.customer.phone ? `· <a href="tel:${App.esc(s.customer.phone)}">${App.esc(s.customer.phone)}</a>` : ''}${s.customer.address ? '<br>📍 ' + App.esc(s.customer.address) : ''}${s.customer.map ? ` · <a href="${App.esc(s.customer.map)}" target="_blank" rel="noopener">🗺️ Map${s.customer.km ? ' (' + App.esc(s.customer.km) + ' km)' : ''}</a>` : ''}${s.customer.note ? '<br>📝 ' + App.esc(s.customer.note) : ''}</p>` : ''}
     ${s.party ? `<div style="margin-bottom:6px">👥 Party size: <b>${s.party}</b></div>` : ''}${hostOf(s) ? `<div class="row wrap" style="margin-bottom:6px"><span>👑 Table host: <b>${App.esc(hostOf(s).name)}</b></span>${s.guests.length > 1 ? `<select style="width:auto" onchange="App.send({t:'host_set',tableId:'${t.id}',guestId:this.value})">${s.guests.map((g) => `<option value="${g.id}" ${g.id === hostOf(s).id ? 'selected' : ''}>${App.esc(g.name)}</option>`).join('')}</select>` : ''}</div>` : ''}
     <div class="row wrap">${s.guests.map((g) => `<span class="pill" style="font-size:14px">${g.id === (hostOf(s) || {}).id ? '👑' : ''}${g.avatar} ${App.esc(g.name)} · ${App.money((b.byGuest[g.id] || {}).total || 0)}</span>`).join('') || '<span class="muted">No guests</span>'}</div>
-    ${s.requests.filter((r) => !r.done).map((r) => `<div class="ocard spread" style="margin-top:10px"><span>${RQ[r.type]} · ${App.ago(r.at)}</span><button class="primary" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">Done</button></div>`).join('')}
+    ${s.requests.filter((r) => !r.done).map((r) => `<div class="ocard spread" style="margin-top:10px"><span>${reqLabel(s, r)} · ${App.ago(r.at)}</span><button class="primary" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">Done</button></div>`).join('')}
     ${s.cart.length ? `<p class="muted">🛒 In cart (not sent): ${s.cart.map((c) => c.qty + '× ' + App.esc(c.name)).join(', ')}</p>` : ''}
     <div class="row wrap" style="margin:10px 0"><button class="primary" onclick="PX.openPOS('${s.tableId}')">➕ Add items</button>${s.kind ? '' : `<button class="ghost" onclick="PX.moveDlg('${s.tableId}')">⇄ Move</button><button class="ghost" onclick="PX.mergeDlg('${s.tableId}')">⧉ Merge</button>`}</div>
     <h3>Orders</h3>${s.orders.map((o) => orderCard(s, o, true)).join('') || '<p class="muted">No orders yet</p>'}
     <div class="card"><div class="line"><span>Subtotal</span><span>${App.money(b.sub)}</span></div>${b.discount ? `<div class="line" style="color:var(--ok)"><span>Discount${s.discount && s.discount.reason ? ' (' + App.esc(s.discount.reason) + ')' : ''}</span><span>−${App.money(b.discount)}</span></div>` : ''}<div class="line"><span>Service</span><span>${App.money(b.service)}</span></div><div class="line"><span>Tax</span><span>${App.money(b.tax)}</span></div>${s.check ? `<div class="line"><span>Tip (${s.check.tipPct}%)</span><span>${App.money(tip)}</span></div>` : ''}<div class="line"><b>Total</b><b>${App.money(b.total + tip)}</b></div></div>
-    ${s.check ? `<div class="ocard" style="border-color:var(--gold)">🧾 <b>Check requested</b> by ${(s.guests.find((g) => g.id === s.check.by) || {}).avatar || ''} ${App.esc((s.guests.find((g) => g.id === s.check.by) || {}).name || 'guest')}${s.check.split === 'table' ? ` — <b>pays whole table: ${App.money(b.total + tip)}</b>` : ''} · ${s.check.method === 'card' ? '💳 Card' : '💵 Cash'} · split: <b>${s.check.split}</b>
+    ${sepHTML(s)}
+    ${s.check ? `<div class="ocard" style="border-color:var(--gold)">🧾 <b>Full table check requested</b> by ${(s.guests.find((g) => g.id === s.check.by) || {}).avatar || ''} ${App.esc((s.guests.find((g) => g.id === s.check.by) || {}).name || 'guest')}${s.check.split === 'table' ? ` — <b>pays whole table: ${App.money(b.total + tip)}</b>` : ''} · ${s.check.method === 'card' ? '💳 Card' : '💵 Cash'} · split: <b>${s.check.split}</b>
       ${s.check.split === 'custom' && s.check.custom ? '<br>' + s.guests.map((g) => `${g.avatar} ${App.money(s.check.custom[g.id] || 0)}`).join(' · ') : ''}
       ${s.check.split === 'self' ? '<br>' + s.guests.map((g) => `${g.avatar} ${App.money((b.byGuest[g.id] || {}).total || 0)}`).join(' · ') : ''}</div>` : ''}
-    <div class="row wrap" style="margin-top:12px">${s.orders.length ? `<button class="primary" onclick="PX.openPay('${s.tableId}')">💳 Pay &amp; discount…</button>` : ''}<button class="ghost" onclick="if(confirm('${s.orders.length ? 'Clear this table WITHOUT payment? The sale will be recorded as unpaid-cleared.' : 'Clear this table?'}')){App.send({t:'close_table',tableId:'${s.tableId}',unpaid:${s.orders.length ? 'true' : 'false'}});closeM()}">${s.orders.length ? 'Clear without payment' : 'Clear table'}</button></div>
+    <div class="row wrap" style="margin-top:12px">${s.orders.length ? `<button class="primary" onclick="PX.openPay('${s.tableId}')">💳 Pay &amp; discount…</button>` : ''}${s.orders.length ? `<button class="ghost" onclick="if(confirm('Clear this table WITHOUT payment? The sale will be recorded as unpaid-cleared.')){App.send({t:'close_table',tableId:'${s.tableId}',unpaid:true});closeM()}">Clear without payment</button>` : `<button class="primary" onclick="App.send({t:'clear_empty',tableId:'${s.tableId}'});closeM();App.toast('Table cleared')">🧹 Nobody is here - clear table</button>`}</div>
+    ${s.orders.length ? '' : '<p class="muted" style="font-size:12.5px;margin:6px 0 0">Guests opened the menu but never ordered. This removes the visit completely - it is not counted in your reports.</p>'}
     <h3>Timeline</h3>${s.log.slice().reverse().map((l) => `<div class="line muted"><span>${App.esc(l.text)}</span><span>${new Date(l.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>`).join('')}`;
   }
   document.getElementById('modal').innerHTML = `<div class="modal" onclick="if(event.target===this)closeM()"><div class="card">${h}</div></div>`;

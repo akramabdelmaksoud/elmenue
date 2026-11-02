@@ -164,6 +164,8 @@ function recost(items, ings) { for (const it of items || []) if (it.recipe && it
 
 // ---------- Loyalty card PIN: a phone number alone never opens a card ----------
 const PIN_TRIES = 5, PIN_LOCK_MS = 15 * 60000;
+// staff PINs that anyone would try first: repeated digits, runs like 1234 / 4321, and a short list of favourites
+const weakPin = (p) => { p = String(p || ''); return /^(\d)\1+$/.test(p) || '0123456789'.includes(p) || '9876543210'.includes(p) || ['1212', '2121', '1122', '2580', '1004', '2000', '2020', '2024', '2025', '2026', '1010', '6969', '1313', '0852', '1590', '1357', '2468'].includes(p); };
 const pinOk = (p) => /^\d{4,6}$/.test(String(p || ''));
 // salted, stretched hash (pure JS so the browser demo can run it too); the real protection is the lock-out below
 function pinHash(phone, pin) { let h = 2166136261; const s = 'tt|' + phone + '|' + pin; for (let r = 0; r < 2000; r++) for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i) + r; h = Math.imul(h, 16777619) >>> 0; } return h.toString(36); }
@@ -210,7 +212,7 @@ const supplierClean = (v) => ({ ...partyClean(v), notes: clip(v && v.notes, 300)
 // ---------- Upsell suggestions ----------
 // Which dishes to offer next to what is already in the cart. Pure: the guest page and the tests call the same function.
 // cfg = { items, categories, best: [itemId...], settings }, cartIds = item ids in the cart, o.isOpen(item) = timed-category check, o.skip = ids the guest dismissed
-const UP_DEFAULT = { enabled: false, max: 3 };
+const UP_DEFAULT = { enabled: false, max: 4 };
 const upCfg = (settings) => { const u = { ...UP_DEFAULT, ...((settings && settings.upsell) || {}) }; u.max = Math.min(6, Math.max(1, Math.floor(+u.max) || 3)); u.enabled = !!u.enabled; return u; };
 function catRole(c) {
   if (!c) return 'food'; if (['food', 'drink', 'dessert'].includes(c.role)) return c.role;
@@ -219,17 +221,38 @@ function catRole(c) {
   if (/coffee|tea|drink|juice|mocktail|smoothie|beverage|shake|water|قهوة|شاي|عصير|مشروب|موكتيل|مياه/.test(n)) return 'drink';
   return 'food';
 }
+// item-level roles so a bottle of water or a side of fries is recognised even when it sits in a "Extras" or "Mains" category
+const DRINK_RE = /pepsi|cola|coca|sprite|fanta|7 ?up|mirinda|soda|soft drink|water|juice|lemonade|iced tea|ice tea|energy drink|بيبسي|كولا|كوكا|سبرايت|فانتا|ميرندا|صودا|مياه|مية|عصير|ليمون/i;
+const WATER_RE = /water|مياه|مية/i;
+const SIDE_RE = /fries|salad|tahini|tahina|hummus|dip\b|coleslaw|pickle|bread|rice|garlic|sauce|onion rings|بطاطس|سلطة|طحينة|حمص|مخلل|عيش|أرز|رز|ثومية|تومية|صوص|كولسلو/i;
+const HOT_RE = /flat white|cortado|americano|hot |coffee|espresso|cappuccino|latte|macchiato|mocha|turkish|tea|chocolate|قهوة|شاي|إسبرسو|كابتشينو|لاتيه|موكا/i, COLD_RE = /iced|cold|ice|frozen|smoothie|mojito|lemon|juice|orange|mango|water|soda|pepsi|cola|مثلج|بارد|عصير|ليمون|مياه|موهيتو/i;
+const ADDON_CAT_RE = /extra|add-?on|إضاف/i;
+function itemRole(i, cat) {
+  const n = (i.name || '') + ' ' + (i.name_ar || '');
+  if (DRINK_RE.test(n)) return 'drink';
+  if (SIDE_RE.test(n)) return 'side';
+  if (cat && ADDON_CAT_RE.test((cat.name || '') + ' ' + (cat.name_ar || ''))) return 'addon';
+  return catRole(cat);
+}
+// o = { isOpen(item), skip: [ids dismissed or already ordered], ordered: [ids already ordered earlier at this table] }
 function upsellFor(cfg, cartIds, o = {}) {
   const u = upCfg(cfg.settings); if (!u.enabled) return [];
-  const byId = Object.fromEntries(cfg.items.map((i) => [i.id, i])), role = (i) => catRole(cfg.categories.find((c) => c.id === i.cat));
+  const byId = Object.fromEntries(cfg.items.map((i) => [i.id, i])), role = (i) => itemRole(i, cfg.categories.find((c) => c.id === i.cat));
   const inCart = new Set(cartIds), skip = new Set(o.skip || []), isOpen = o.isOpen || (() => true);
   const ok = (i) => i && !i.soldOut && !i.hidden && !inCart.has(i.id) && !skip.has(i.id) && isOpen(i);
   const out = [], push = (i) => { if (ok(i) && !out.includes(i.id)) out.push(i.id); };
   cartIds.forEach((id) => byId[id] && (byId[id].pairs || []).forEach((p) => push(byId[p])));   // 1) the owner's hand-picked pairings first
-  const have = new Set(cartIds.map((id) => byId[id]).filter(Boolean).map(role));
-  const want = !have.size ? [] : have.has('food') && !have.has('drink') ? ['drink', 'dessert'] : have.has('food') && !have.has('dessert') ? ['dessert'] : !have.has('food') && have.has('drink') ? ['food', 'dessert'] : have.has('dessert') && !have.has('drink') ? ['drink'] : ['drink', 'dessert'];
+  const mine = cartIds.concat(o.ordered || []).map((id) => byId[id]).filter(Boolean), have = new Set(mine.map(role));
+  if (!have.size) return out.slice(0, u.max);
+  const hasMeal = have.has('food');
+  // what usually completes this order: a meal wants a drink, a side and a dessert; a drink alone wants something to eat; a meal + drink wants a side and dessert
+  const want = hasMeal ? ['drink', 'side', 'dessert'].filter((r) => !have.has(r)) : have.has('drink') ? ['dessert', 'food', 'addon'].filter((r) => !have.has(r)) : have.has('dessert') ? ['drink'] : ['drink', 'dessert'];
+  if (hasMeal && !want.length) want.push('drink');
   const rank = (cfg.best || []).slice(), pos = (i) => { const k = rank.indexOf(i.id); return k < 0 ? 999 : k; };
-  want.forEach((w) => cfg.items.filter((i) => role(i) === w && ok(i)).sort((a, b) => pos(a) - pos(b)).slice(0, 2).forEach(push));   // 2) best sellers of the complementary categories
+  const pool = (r) => cfg.items.filter((i) => role(i) === r && ok(i)).sort((a, b) => pos(a) - pos(b));
+  // 2) one from each missing kind first (so a lunch gets a drink AND a side), then a second helping; a drink suggestion always includes water when the menu has it
+  const lists = want.map((r) => { let l = pool(r); if (r === 'drink') { const w = l.find((i) => WATER_RE.test(i.name + ' ' + (i.name_ar || ''))), hot = (i) => hasMeal && HOT_RE.test(i.name + ' ' + (i.name_ar || '')) && !COLD_RE.test(i.name + ' ' + (i.name_ar || '')), soft = l.filter((i) => i !== w).sort((x, y) => hot(x) - hot(y)); l = [soft[0], w, ...soft.slice(1)].filter(Boolean); } return l; });
+  for (let k = 0; k < 3; k++) lists.forEach((l) => l[k] && push(l[k]));
   return out.slice(0, u.max);
 }
 
@@ -434,5 +457,5 @@ function zoneFor(settings, g) {
 
 const STAFF_LOG_KEYS = ['taken', 'handled', 'started', 'served', 'closed', 'respMs'];   // column order of rec.staffLog[id].b[hour]
 const WASTE_CAUSES = ['expired', 'spoiled', 'spilled', 'overprep', 'staffmeal', 'returned', 'other'];
-const api = { CAR_COLORS, CAR_DEFAULT, carCfg, carClean, WASTE_CAUSES, invoiceBrandClean, docLines, docTotals, partyClean, supplierClean, INV_STYLES, shiftsClean, wageClean, hmMin, pinOk, pinHash, pinCheck, UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
+const api = { weakPin, itemRole, CAR_COLORS, CAR_DEFAULT, carCfg, carClean, WASTE_CAUSES, invoiceBrandClean, docLines, docTotals, partyClean, supplierClean, INV_STYLES, shiftsClean, wageClean, hmMin, pinOk, pinHash, pinCheck, UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
 if (typeof module !== 'undefined') module.exports = api;

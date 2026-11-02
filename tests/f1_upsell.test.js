@@ -7,7 +7,7 @@ for (const mode of ['ws', 'rpc']) test(`F1 upsell [${mode}]`, async (t) => {
   const C = await T.staff('cashier', 'Mona', '7788');
   const g = T.guest(15, 'Karim'); let st = (await g.join()).j.state; const cfg0 = st.config; const id = (n) => cfg0.items.find((x) => x.name === n).id;
   // UP-07 off by default, no effect
-  assert.equal(cfg0.settings.upsell.enabled, false); assert.deepEqual(F.upsellFor(cfg0, [id('Prime Ribeye 300g')]), []);
+  assert.equal(cfg0.settings.upsell.enabled, true, 'a new venue starts with recommendations on'); const off = { ...cfg0, settings: { ...cfg0.settings, upsell: { enabled: false, max: 3 } } }; assert.deepEqual(F.upsellFor(off, [id('Prime Ribeye 300g')]), []);
   // UP-08 basic tier cannot use it
   assert.equal((await B.api('POST', '/settings', { upsell: { enabled: true } })).s, 402); assert.equal((await B.api('GET', '/upsell/stats')).s, 402);
   assert.equal((await T.api('POST', '/settings', { upsell: { enabled: true, max: 3 } })).s, 200);

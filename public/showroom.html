@@ -34,10 +34,12 @@ select { font:inherit; background:#100d08; color:var(--text); border:1px solid v
 <script>
 const T = {
   en: { t1: 'One café. Every device. Live.', t2: 'Open each role on a different device — laptop, iPad, phone. They all share the same live café, so an order placed by a guest appears instantly at the waiter, the kitchen and the cashier.', t3: 'Live sync · updates within 2 seconds', open: 'Open here', copy: 'Copy link', copied: 'Link copied', scan: 'Scan with the device',
+    car: 'Car guest', carD: 'Phone · orders from the parking spot', cars: 'Car screen', carsD: 'Waiter · brings it out to the car',
     guest: 'Guest', guestD: 'Phone · scans the table QR', waiter: 'Waiter', waiterD: 'iPad · floor & tables', kitchen: 'Kitchen', kitchenD: 'Laptop / TV · live tickets', cashier: 'Cashier', cashierD: 'Counter PC · till & printer', owner: 'Owner', ownerD: 'Laptop · dashboard & reports', table: 'Table', pinl: 'Auto sign-in · PIN',
     s: [['Guest orders', 'On the phone, pick table, add dishes with photos and send the order. An estimated ready time appears.'], ['Waiter & kitchen', 'The iPad shows the new order; the kitchen laptop shows the ticket with its target time and progress bar.'], ['Kitchen marks ready', 'Tap “Ready”: the guest’s phone switches to “Served” and the waiter gets an alert.'], ['Cashier collects', 'The table appears at the cashier with the receipt, ready to print and open the drawer.'], ['Owner watches', 'Sales, best sellers and the shift report update live on the owner dashboard.']],
     foot: 'Everything here is demo data in a sandbox café. Reset any time to start a fresh run.', rb: '↺ Reset demo data', ok: 'Demo reset ✓' },
   ar: { t1: 'كافيه واحد. كل الأجهزة. لحظياً.', t2: 'افتح كل دور على جهاز مختلف — لابتوب، آيباد، موبايل. كلهم على نفس الكافيه الحي، فأي طلب من الضيف يظهر فوراً عند الويتر والمطبخ والكاشير.', t3: 'مزامنة لحظية · التحديث خلال ثانيتين', open: 'افتح هنا', copy: 'انسخ الرابط', copied: 'اتنسخ الرابط', scan: 'امسح من الجهاز',
+    car: 'ضيف في العربية', carD: 'موبايل · يطلب من مكان الركنة', cars: 'شاشة السيارات', carsD: 'الويتر · يوصل الطلب للعربية',
     guest: 'الضيف', guestD: 'موبايل · يمسح QR الطاولة', waiter: 'الويتر', waiterD: 'آيباد · الصالة والطاولات', kitchen: 'المطبخ', kitchenD: 'لابتوب / شاشة · التذاكر لحظياً', cashier: 'الكاشير', cashierD: 'كمبيوتر الكاشير · الخزنة والطابعة', owner: 'المالك', ownerD: 'لابتوب · الداشبورد والتقارير', table: 'طاولة', pinl: 'دخول تلقائي · الرمز',
     s: [['الضيف يطلب', 'من الموبايل يختار الطاولة ويضيف أطباق بصورها ويبعت الطلب. بيظهر له الوقت المتوقع.'], ['الويتر والمطبخ', 'الآيباد بيعرض الطلب الجديد، وشاشة المطبخ بتعرض التذكرة بالوقت المستهدف وشريط التقدم.'], ['المطبخ يجهّز', 'اضغط «جاهز»: موبايل الضيف يتحول لـ«اتقدم» والويتر ييجيله تنبيه.'], ['الكاشير يحاسب', 'الطاولة بتظهر عند الكاشير بالإيصال جاهز للطباعة وفتح الدرج.'], ['المالك يتابع', 'المبيعات والأكثر مبيعاً وتقرير الوردية بيتحدثوا لحظياً.']],
     foot: 'كل البيانات هنا تجريبية في كافيه تجربة. اعمل إعادة ضبط في أي وقت لتبدأ من جديد.', rb: '↺ إعادة ضبط البيانات', ok: 'تمت إعادة الضبط ✓' } };
@@ -45,15 +47,15 @@ let lang = (() => { try { return localStorage.getItem('lang') === 'ar' ? 'ar' : 
 const t = (k) => T[lang][k];
 function toast(m) { const e = document.getElementById('toast'); e.textContent = m; e.classList.add('on'); setTimeout(() => e.classList.remove('on'), 1800); }
 function setLang() { lang = lang === 'ar' ? 'en' : 'ar'; try { localStorage.setItem('lang', lang); } catch {} paint(); }
-const link = (k) => info.origin + (k === 'guest' ? `/r/showroom/t/${tbl}` : `/r/showroom/${{ waiter: 'captain', kitchen: 'kitchen', cashier: 'cashier', owner: 'admin' }[k]}?auto=1`);
+const link = (k) => info.origin + (k === 'guest' ? `/r/showroom/t/${tbl}` : k === 'car' ? '/r/showroom/order?car=1&spot=3' : `/r/showroom/${{ waiter: 'captain', cars: 'cars', kitchen: 'kitchen', cashier: 'cashier', owner: 'admin' }[k]}?auto=1`);
 const qr = (u) => `/api/demo/qr.png?u=${encodeURIComponent(u)}`;
 function paint() {
   document.documentElement.lang = lang; document.body.dir = lang === 'ar' ? 'rtl' : 'ltr'; document.getElementById('lang').textContent = lang === 'ar' ? 'English' : 'عربي';
   ['t1', 't2', 't3'].forEach((k) => (document.getElementById(k).textContent = t(k))); document.getElementById('t4').textContent = t('foot'); document.getElementById('rb').textContent = t('rb');
   if (!info) return;
-  const roles = [['guest', '👤'], ['waiter', '🧑‍✈️'], ['kitchen', '👨‍🍳'], ['cashier', '💵'], ['owner', '⚙️']];
+  const roles = [['guest', '👤'], ['waiter', '🧑‍✈️'], ['kitchen', '👨‍🍳'], ['cashier', '💵'], ['owner', '⚙️'], ['car', '🚗'], ['cars', '🚘']];
   document.getElementById('grid').innerHTML = roles.map(([k, ic]) => `<div class="card"><div class="ic">${ic}</div><h3>${t(k)}</h3><div class="dev">${t(k + 'D')}</div>
-    ${k === 'guest' ? `<select onchange="tbl=this.value;paint()">${(info.freeTables.length ? info.freeTables : info.tables).map((n) => `<option value="${n}" ${n == tbl ? 'selected' : ''}>${t('table')} ${n}</option>`).join('')}</select>` : `<div class="pin">${t('pinl')} ${info.pins[{ waiter: 'captain', kitchen: 'kitchen', cashier: 'cashier' }[k]] || '—'}</div>`}
+    ${k === 'guest' ? `<select onchange="tbl=this.value;paint()">${(info.freeTables.length ? info.freeTables : info.tables).map((n) => `<option value="${n}" ${n == tbl ? 'selected' : ''}>${t('table')} ${n}</option>`).join('')}</select>` : `<div class="pin">${t('pinl')} ${info.pins[{ waiter: 'captain', cars: 'captain', kitchen: 'kitchen', cashier: 'cashier' }[k]] || (k === 'car' ? '' : '—')}</div>`}
     <div class="qr"><img alt="QR" src="${qr(link(k))}"></div>
     <div class="row"><a class="btn gold" href="${link(k)}" target="_blank" rel="noopener">${t('open')}</a><button onclick="copy('${k}')">${t('copy')}</button></div></div>`).join('');
   document.getElementById('steps').innerHTML = t('s').map(([a, b]) => `<div class="st"><b>${a}</b>${b}</div>`).join('');
