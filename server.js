@@ -190,7 +190,7 @@ const rpcLimit = rateLimit({ windowMs: 60000, max: 2400, key: (req) => req.ip + 
 const upLimit = rateLimit({ windowMs: 60000, max: 30, message: 'Too many uploads, wait a minute' });
 app.use('/api', rateLimit({ windowMs: 60000, max: 3000 }));
 app.use('/api', (req, res, next) => (req.method === 'GET' || req.method === 'HEAD' ? next() : writeLimit(req, res, next)));
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '2mb', verify: (req, res, buf) => { if (req.url === '/api/mail/inbound') req.rawBody = buf.toString('utf8'); } }));   // the webhook signature needs the untouched body
 const SINGLE = envOn(process.env.SINGLE_RESTAURANT), MAIN = 'main';
 
 // ---------- Host-based tenants: <slug>.BASE_DOMAIN and custom domains serve the restaurant's pages (rewrite, not redirect) ----------
@@ -460,6 +460,17 @@ app.post('/api/contact', contactLimit, async (req, res, next) => { try {
   try { mailed = await mailOut(process.env.CONTACT_TO || 'eltonymotz@gmail.com', 'TableTab contact: ' + m.name + (m.place ? ' (' + m.place + ')' : ''), `Name: ${m.name}\nEmail: ${m.email}\nPhone: ${m.phone}\nPlace: ${m.place}\nLanguage: ${m.lang}\n\n${m.message}`, m.email); } catch (e) { console.error('mail:', e.message); }
   res.json({ ok: true, mailed });
 } catch (e) { next(e); } });
+// Mail sent to anything@<domain> is received by Resend and handed to us here; we forward it to the owner's own inbox (FORWARD_TO).
+app.post('/api/mail/inbound', async (req, res, next) => { try {
+  const INB = require('./inbound');
+  if (!INB.verifySvix(process.env.RESEND_WEBHOOK_SECRET, req.headers, req.rawBody)) return res.status(401).json({ error: 'bad signature' });
+  const ev = req.body || {}; if (ev.type !== 'email.received' || !ev.data || !ev.data.email_id) return res.json({ ok: true, ignored: true });
+  if (/^no-reply@/i.test(String(ev.data.from || '').replace(/^.*</, '').replace(/>.*$/, ''))) return res.json({ ok: true, ignored: 'own mail' });   // never loop our own mail
+  const seen = (await store.getAux('mailseen')) || { ids: [] }; if ((seen.ids || []).includes(ev.data.email_id)) return res.json({ ok: true, duplicate: true });
+  await INB.forward(process.env.RESEND_API_KEY, ev, { to: process.env.FORWARD_TO || process.env.CONTACT_TO || 'eltonymotz@gmail.com', from: process.env.MAIL_FROM || 'TableTab <no-reply@tabletab-tt.com>' });
+  seen.ids = (seen.ids || []).concat(ev.data.email_id).slice(-300); await store.putAux('mailseen', seen);
+  res.json({ ok: true });
+} catch (e) { console.error('inbound mail:', e.message); res.status(502).json({ error: 'forward failed' }); } });
 app.get('/api/super/contacts', needSuper, async (req, res, next) => { try { res.json(((await store.getAux('contacts')) || { rows: [] }).rows || []); } catch (e) { next(e); } });
 app.delete('/api/super/contacts/:id', needSuper, async (req, res, next) => { try { const cur = (await store.getAux('contacts')) || { rows: [] }; cur.rows = (cur.rows || []).filter((x) => x.id !== req.params.id); await store.putAux('contacts', cur); res.json({ ok: true }); } catch (e) { next(e); } });
 app.get('/api/super/plans', needSuper, async (req, res, next) => { try { await refreshPlatform(true); res.json(planView()); } catch (e) { next(e); } });
