@@ -218,17 +218,36 @@ const ZONE_HOME = { site: 'site.html', admin: 'super.html', demo: 'showroom.html
 const showSecret = () => process.env.SHOWROOM_USER && process.env.SHOWROOM_PASS ? [String(process.env.SHOWROOM_USER), String(process.env.SHOWROOM_PASS)] : null;
 const showFails = new Map();
 const sameStr = (a, b) => { const c = require('crypto'), x = c.createHash('sha256').update(String(a)).digest(), y = c.createHash('sha256').update(String(b)).digest(); return c.timingSafeEqual(x, y); };
+// signed 12-hour cookie handed out by the sign-in page; changing the password invalidates every cookie
+const gateSig = (sec, exp) => require('crypto').createHmac('sha256', sec[0] + '\n' + sec[1] + '\ntt-showroom-gate').update(String(exp)).digest('base64url');
+const gateOk = (sec, req) => {
+  const m = /(?:^|;\s*)ttgate=(\d+)\.([\w-]+)/.exec(req.headers.cookie || ''); if (m && +m[1] > Date.now() && sameStr(m[2], gateSig(sec, m[1]))) return true;
+  const b = /^Basic (.+)$/.exec(req.headers.authorization || ''), cred = b ? Buffer.from(b[1], 'base64').toString('utf8') : '', i = cred.indexOf(':');
+  return i > 0 && sameStr(cred.slice(0, i), sec[0]) && sameStr(cred.slice(i + 1), sec[1]);
+};
 app.use((req, res, next) => {
   const sec = showSecret(); if (!sec) return next();
   const isShow = (ROOT && zoneOf(req) === 'demo') || /^\/(demo(-local)?|api\/demo)(\/|$)/.test(req.path) || /^\/(api\/)?r\/showroom(\/|$)/.test(req.path);
-  if (!isShow) return next();
-  const ip = String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim(), f = showFails.get(ip) || { n: 0, at: 0 };
-  if (Date.now() - f.at > 600000) { f.n = 0; }
+  if (!isShow || /^\/tt-[\w-]+\.(js|css)$/.test(req.path)) return next();
+  const ip = String(req.ip || req.headers['x-forwarded-for'] || '').split(',')[0].trim(), f = showFails.get(ip) || { n: 0, at: 0 };
+  if (Date.now() - f.at > 600000) f.n = 0;
+  const fail = () => { f.n++; f.at = Date.now(); showFails.set(ip, f); if (showFails.size > 5000) showFails.clear(); };
+  if (req.method === 'POST' && req.path === '/api/demo/gate') {
+    if (f.n >= 10) return res.status(429).json({ error: 'Too many attempts. Try again in a few minutes.' });
+    const b = req.body || {};
+    if (sameStr(b.user || '', sec[0]) && sameStr(b.pass || '', sec[1])) {
+      const exp = Date.now() + 12 * 3600000; showFails.delete(ip);
+      res.append('Set-Cookie', 'ttgate=' + exp + '.' + gateSig(sec, exp) + '; Path=/; Max-Age=43200; HttpOnly; SameSite=Lax' + (req.secure || req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : ''));
+      return res.json({ ok: true });
+    }
+    fail(); return res.status(401).json({ error: 'Wrong user name or password' });
+  }
   if (f.n >= 10) return res.status(429).type('text').send('Too many attempts. Try again in a few minutes.');
-  const m = /^Basic (.+)$/.exec(req.headers.authorization || ''), cred = m ? Buffer.from(m[1], 'base64').toString('utf8') : '', i = cred.indexOf(':');
-  if (i > 0 && sameStr(cred.slice(0, i), sec[0]) && sameStr(cred.slice(i + 1), sec[1])) return next();
-  if (m) { f.n++; f.at = Date.now(); showFails.set(ip, f); if (showFails.size > 5000) showFails.clear(); }
-  res.set('WWW-Authenticate', 'Basic realm="TableTab showroom", charset="UTF-8"').set('Cache-Control', 'no-store').status(401).type('text').send('Showroom access only.');
+  if (gateOk(sec, req)) return next();
+  if (/^Basic /.test(req.headers.authorization || '')) fail();
+  res.set('Cache-Control', 'no-store');
+  if ((req.method === 'GET' || req.method === 'HEAD') && /text\/html/.test(req.headers.accept || '') && !req.path.startsWith('/api/')) return res.status(401).type('html').send(readPage('gate.html'));
+  res.status(401).json({ error: 'Showroom access only' });
 });
 if (ROOT) app.use((req, res, next) => {
   const z = zoneOf(req);

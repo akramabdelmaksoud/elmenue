@@ -1,46 +1,57 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Live Showroom</title><meta name="theme-color" content="#0d0b08">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Inter:wght@400;600;700&family=Cairo:wght@500;700&display=swap" rel="stylesheet">
+<title>TableTab Live Showroom</title><meta name="theme-color" content="#05060a"><meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/tt-theme.css">
 <style>
-:root { --bg:#0d0b08; --card:#17130d; --line:#2e2616; --gold:#d9b46a; --gold2:#f1dba6; --text:#f4ecda; --muted:#a39878; }
-* { box-sizing:border-box; } html { -webkit-text-size-adjust:100%; }
-body { margin:0; background:radial-gradient(1200px 700px at 80% -10%,#2a1f0c 0,transparent 60%),radial-gradient(900px 600px at -10% 20%,#1b2a1e 0,transparent 55%),var(--bg); color:var(--text); font:15px/1.5 Inter,'Cairo',system-ui,sans-serif; min-height:100vh; }
-body[dir=rtl] { font-family:'Cairo',Inter,sans-serif; }
-.wrap { max-width:1160px; margin:0 auto; padding:calc(26px + env(safe-area-inset-top)) 20px 60px; }
-.top { display:flex; justify-content:space-between; align-items:center; gap:10px; } .brand { letter-spacing:.3em; font-size:12px; color:var(--gold); font-weight:700; } .brand:before { content:''; display:inline-block; width:34px; height:1px; background:var(--gold); vertical-align:middle; margin-inline-end:12px; }
-button, .btn { font:inherit; cursor:pointer; border:1px solid var(--line); background:transparent; color:var(--text); padding:9px 16px; border-radius:99px; text-decoration:none; display:inline-flex; align-items:center; gap:8px; transition:.2s; } button:hover, .btn:hover { border-color:var(--gold); }
-.gold { background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1b1406; border:0; font-weight:700; }
-h1 { font:700 clamp(34px,6vw,60px)/1.05 'Playfair Display',serif; margin:26px 0 12px; background:linear-gradient(120deg,var(--gold2),var(--gold) 60%,#fff0c8); -webkit-background-clip:text; background-clip:text; color:transparent; }
-.lead { color:var(--muted); font-size:17px; max-width:680px; margin:0 0 8px; } .sync { display:inline-flex; align-items:center; gap:8px; margin-top:6px; color:var(--gold2); font-weight:600; } .sync i { width:9px; height:9px; border-radius:50%; background:#3ddc84; box-shadow:0 0 0 0 #3ddc8488; animation:pl 1.8s infinite; } @keyframes pl { 70% { box-shadow:0 0 0 10px #3ddc8400; } }
-.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:16px; margin-top:30px; }
-.card { background:linear-gradient(180deg,#1c170e,var(--card)); border:1px solid var(--line); border-radius:24px; padding:20px; display:flex; flex-direction:column; gap:10px; position:relative; overflow:hidden; } .card:before { content:''; position:absolute; inset:0 0 auto 0; height:2px; background:linear-gradient(90deg,transparent,var(--gold),transparent); opacity:.7; }
-.ic { font-size:30px; } .card h3 { margin:0; font:700 22px 'Playfair Display',serif; } .dev { color:var(--muted); font-size:13px; margin-top:-6px; } .pin { color:var(--gold2); font-size:12.5px; }
-.qr { background:#fff; border-radius:16px; padding:8px; width:100%; aspect-ratio:1; display:grid; place-items:center; } .qr img { width:100%; height:100%; display:block; border-radius:8px; }
-.row { display:flex; gap:8px; flex-wrap:wrap; } .row > * { flex:1; justify-content:center; font-size:14px; padding:10px 8px; }
-select { font:inherit; background:#100d08; color:var(--text); border:1px solid var(--line); border-radius:12px; padding:9px 12px; width:100%; }
-.steps { margin-top:34px; display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; counter-reset:s; } .st { border:1px dashed var(--line); border-radius:18px; padding:16px 18px 16px 58px; position:relative; color:var(--muted); } [dir=rtl] .st { padding:16px 58px 16px 18px; } .st:before { counter-increment:s; content:counter(s); position:absolute; inset-inline-start:16px; top:14px; width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1b1406; font-weight:700; display:grid; place-items:center; } .st b { color:var(--text); display:block; }
-.foot { margin-top:34px; color:var(--muted); font-size:13px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; } .toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--gold); color:#1b1406; padding:10px 18px; border-radius:99px; font-weight:700; opacity:0; transition:.3s; pointer-events:none; } .toast.on { opacity:1; }
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:calc(22px + env(safe-area-inset-top)) 0 10px}
+.hero{padding:64px 0 30px;max-width:900px}
+.hero .eyebrow{margin-bottom:24px}
+h1{font:400 clamp(34px,5.4vw,70px)/1.04 var(--disp);letter-spacing:-.035em;margin:0 0 24px}body[dir=rtl] h1{font-family:Cairo;font-weight:700;letter-spacing:0;line-height:1.25}
+h1 em{font-style:normal;font-weight:500;background:var(--irid);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:flow 7s linear infinite;-webkit-box-decoration-break:clone;box-decoration-break:clone;padding-inline-end:.06em}
+.lead{color:var(--muted);font-size:20px;max-width:720px;margin:0 0 26px}
+.sync{display:inline-flex;align-items:center;gap:12px;font:400 13px var(--mono);letter-spacing:.08em;color:var(--text);border:1px solid var(--line);border-radius:99px;padding:9px 18px;background:var(--glass)}body[dir=rtl] .sync{letter-spacing:0}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 var(--ok);animation:ping 2s infinite}@keyframes ping{0%{box-shadow:0 0 0 0 rgba(109,255,176,.6)}100%{box-shadow:0 0 0 12px rgba(109,255,176,0)}}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px;margin-top:34px;perspective:1200px}
+.card{padding:26px 24px 24px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.card .top{display:flex;align-items:center;gap:16px;min-height:86px}
+.ic{width:56px;height:56px;flex:none;display:grid;place-items:center;font-size:27px;border-radius:17px;background:linear-gradient(145deg,rgba(255,255,255,.13),rgba(255,255,255,.02));border:1px solid var(--line);box-shadow:inset 0 1px 0 rgba(255,255,255,.2);transition:transform .6s var(--ease),box-shadow .5s}
+.card:hover .ic{transform:rotate(-8deg) scale(1.08);box-shadow:0 0 36px rgba(255,61,139,.5),inset 0 1px 0 rgba(255,255,255,.3)}
+.card h3{margin:0;font:500 19px var(--disp);letter-spacing:-.01em}body[dir=rtl] .card h3{font-family:Cairo;font-weight:700}
+.dev{color:var(--muted);font-size:15px;margin-top:2px}
+.pin{font:400 13px var(--mono);color:var(--c4);letter-spacing:.06em;min-height:20px}body[dir=rtl] .pin{letter-spacing:0}
+.qr{background:#fff;border-radius:18px;padding:10px;width:100%;aspect-ratio:1;display:grid;place-items:center;box-shadow:0 20px 50px -20px #000}.qr img{width:100%;height:100%;display:block;border-radius:8px}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;justify-content:center;padding:12px 10px;font-size:15px}
+select{font:500 16px Inter,Cairo,sans-serif;background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--line);border-radius:14px;padding:12px 14px;width:100%;outline:none}select:focus{border-color:var(--c3);box-shadow:0 0 0 3px rgba(138,91,255,.25)}option{background:#10121c}
+.sec{margin-top:96px}.sec h2{font:300 clamp(26px,3.6vw,44px)/1.1 var(--disp);letter-spacing:-.02em;margin:18px 0 0}body[dir=rtl] .sec h2{font-family:Cairo;font-weight:700;letter-spacing:0}
+.steps{margin-top:36px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.st{padding:70px 24px 26px;color:var(--muted);font-size:16px;overflow:hidden}.st b{display:block;color:var(--text);font:500 17px Inter,Cairo,sans-serif;margin-bottom:8px}
+.st .n{position:absolute;top:10px;inset-inline-start:22px;font:200 62px/1 var(--disp);color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.24);transition:.6s var(--ease)}.st:hover .n{-webkit-text-stroke-color:var(--c4);text-shadow:0 0 40px rgba(46,230,214,.5)}
+.foot{margin:80px 0 0;padding:30px 0 40px;border-top:1px solid var(--line);color:var(--dim);font-size:14.5px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--irid);color:#0a0508;padding:12px 22px;border-radius:99px;font-weight:600;opacity:0;transition:.4s var(--ease);pointer-events:none;z-index:60}.toast.on{opacity:1;transform:translateX(-50%)}
+@media(max-width:700px){.hero{padding-top:34px}.lead{font-size:18px}.sec{margin-top:70px}}
 </style></head>
 <body><div class="wrap">
-<div class="top"><span class="brand">TABLETAB · LIVE SHOWROOM</span><button id="lang" onclick="setLang()">عربي</button></div>
-<h1 id="t1">One café. Every device. Live.</h1>
-<p class="lead" id="t2">Open each role on a different device — laptop, iPad, phone. They all share the same live café, so an order placed by a guest appears instantly at the waiter, the kitchen and the cashier.</p>
-<span class="sync"><i></i><span id="t3">Live sync · updates within 2 seconds</span></span>
+<header><a class="logo" href="/"><i></i><span>Table<b>Tab</b></span></a><button class="btn sm" id="lang" onclick="setLang()">عربي</button></header>
+<div class="hero"><div class="eyebrow rv" id="e0"></div>
+<h1 class="rv" style="--i:1" id="t1"></h1>
+<p class="lead rv" style="--i:2" id="t2"></p>
+<span class="sync rv" style="--i:3"><i></i><span id="t3"></span></span></div>
 <div class="grid" id="grid"></div>
-<div class="steps" id="steps"></div>
-<div class="foot"><span id="t4"></span><span><button onclick="reset()" id="rb">↺ Reset demo data</button></span></div>
+<div class="sec"><div class="eyebrow rv" id="e1"></div><h2 class="rv" id="t5"></h2><div class="steps" id="steps"></div></div>
+<div class="foot"><span id="t4"></span><span><button class="btn sm" onclick="reset()" id="rb"></button></span></div>
 </div><div class="toast" id="toast"></div>
+<script src="/tt-fx.js"></script>
 <script>
 const T = {
-  en: { t1: 'One café. Every device. Live.', t2: 'Open each role on a different device — laptop, iPad, phone. They all share the same live café, so an order placed by a guest appears instantly at the waiter, the kitchen and the cashier.', t3: 'Live sync · updates within 2 seconds', open: 'Open here', copy: 'Copy link', copied: 'Link copied', scan: 'Scan with the device',
+  en: { e0: 'LIVE SHOWROOM · MAISON AURELIA', e1: 'HOW IT FLOWS', t5: 'One order, five screens', t1: 'One café. Every device. <em>Live.</em>', t2: 'Open each role on a different device — laptop, iPad, phone. They all share the same live café, so an order placed by a guest appears instantly at the waiter, the kitchen and the cashier.', t3: 'Live sync · updates within 2 seconds', open: 'Open here', copy: 'Copy link', copied: 'Link copied', scan: 'Scan with the device',
     car: 'Car guest', carD: 'Phone · orders from the parking spot', cars: 'Car screen', carsD: 'Waiter · brings it out to the car',
-    guest: 'Guest', guestD: 'Phone · scans the table QR', waiter: 'Waiter', waiterD: 'iPad · floor & tables', kitchen: 'Kitchen', kitchenD: 'Laptop / TV · live tickets', cashier: 'Cashier', cashierD: 'Counter PC · till & printer', owner: 'Owner', ownerD: 'Laptop · dashboard & reports', table: 'Table', pinl: 'Auto sign-in · PIN',
+    guest: 'Guest', guestD: 'Phone · scans the table QR', waiter: 'Waiter', waiterD: 'iPad · floor & tables', kitchen: 'Kitchen', kitchenD: 'Laptop / TV · live tickets', cashier: 'Cashier', cashierD: 'Counter PC · till & printer', owner: 'Owner', ownerD: 'Laptop · dashboard & reports', table: 'Table', pinl: 'Auto sign-in',
     s: [['Guest orders', 'On the phone, pick table, add dishes with photos and send the order. An estimated ready time appears.'], ['Waiter & kitchen', 'The iPad shows the new order; the kitchen laptop shows the ticket with its target time and progress bar.'], ['Kitchen marks ready', 'Tap “Ready”: the guest’s phone switches to “Served” and the waiter gets an alert.'], ['Cashier collects', 'The table appears at the cashier with the receipt, ready to print and open the drawer.'], ['Owner watches', 'Sales, best sellers and the shift report update live on the owner dashboard.']],
     foot: 'Everything here is demo data in a sandbox café. Reset any time to start a fresh run.', rb: '↺ Reset demo data', ok: 'Demo reset ✓' },
-  ar: { t1: 'كافيه واحد. كل الأجهزة. لحظياً.', t2: 'افتح كل دور على جهاز مختلف — لابتوب، آيباد، موبايل. كلهم على نفس الكافيه الحي، فأي طلب من الضيف يظهر فوراً عند الويتر والمطبخ والكاشير.', t3: 'مزامنة لحظية · التحديث خلال ثانيتين', open: 'افتح هنا', copy: 'انسخ الرابط', copied: 'اتنسخ الرابط', scan: 'امسح من الجهاز',
+  ar: { e0: 'المعرض الحي · ميزون أوريليا', e1: 'إزاي بيشتغل', t5: 'طلب واحد، خمس شاشات', t1: 'كافيه واحد. كل الأجهزة. <em>لحظياً.</em>', t2: 'افتح كل دور على جهاز مختلف — لابتوب، آيباد، موبايل. كلهم على نفس الكافيه الحي، فأي طلب من الضيف يظهر فوراً عند الويتر والمطبخ والكاشير.', t3: 'مزامنة لحظية · التحديث خلال ثانيتين', open: 'افتح هنا', copy: 'انسخ الرابط', copied: 'اتنسخ الرابط', scan: 'امسح من الجهاز',
     car: 'ضيف في العربية', carD: 'موبايل · يطلب من مكان الركنة', cars: 'شاشة السيارات', carsD: 'الويتر · يوصل الطلب للعربية',
-    guest: 'الضيف', guestD: 'موبايل · يمسح QR الطاولة', waiter: 'الويتر', waiterD: 'آيباد · الصالة والطاولات', kitchen: 'المطبخ', kitchenD: 'لابتوب / شاشة · التذاكر لحظياً', cashier: 'الكاشير', cashierD: 'كمبيوتر الكاشير · الخزنة والطابعة', owner: 'المالك', ownerD: 'لابتوب · الداشبورد والتقارير', table: 'طاولة', pinl: 'دخول تلقائي · الرمز',
+    guest: 'الضيف', guestD: 'موبايل · يمسح QR الطاولة', waiter: 'الويتر', waiterD: 'آيباد · الصالة والطاولات', kitchen: 'المطبخ', kitchenD: 'لابتوب / شاشة · التذاكر لحظياً', cashier: 'الكاشير', cashierD: 'كمبيوتر الكاشير · الخزنة والطابعة', owner: 'المالك', ownerD: 'لابتوب · الداشبورد والتقارير', table: 'طاولة', pinl: 'دخول تلقائي',
     s: [['الضيف يطلب', 'من الموبايل يختار الطاولة ويضيف أطباق بصورها ويبعت الطلب. بيظهر له الوقت المتوقع.'], ['الويتر والمطبخ', 'الآيباد بيعرض الطلب الجديد، وشاشة المطبخ بتعرض التذكرة بالوقت المستهدف وشريط التقدم.'], ['المطبخ يجهّز', 'اضغط «جاهز»: موبايل الضيف يتحول لـ«اتقدم» والويتر ييجيله تنبيه.'], ['الكاشير يحاسب', 'الطاولة بتظهر عند الكاشير بالإيصال جاهز للطباعة وفتح الدرج.'], ['المالك يتابع', 'المبيعات والأكثر مبيعاً وتقرير الوردية بيتحدثوا لحظياً.']],
     foot: 'كل البيانات هنا تجريبية في كافيه تجربة. اعمل إعادة ضبط في أي وقت لتبدأ من جديد.', rb: '↺ إعادة ضبط البيانات', ok: 'تمت إعادة الضبط ✓' } };
 let lang = (() => { try { return localStorage.getItem('lang') === 'ar' ? 'ar' : 'en'; } catch { return 'en'; } })(), info = null, tbl = null;
@@ -51,14 +62,15 @@ const link = (k) => info.origin + (k === 'guest' ? `/r/showroom/t/${tbl}` : k ==
 const qr = (u) => `/api/demo/qr.png?u=${encodeURIComponent(u)}`;
 function paint() {
   document.documentElement.lang = lang; document.body.dir = lang === 'ar' ? 'rtl' : 'ltr'; document.getElementById('lang').textContent = lang === 'ar' ? 'English' : 'عربي';
-  ['t1', 't2', 't3'].forEach((k) => (document.getElementById(k).textContent = t(k))); document.getElementById('t4').textContent = t('foot'); document.getElementById('rb').textContent = t('rb');
+  ['e0', 'e1', 't1', 't2', 't3', 't5'].forEach((k) => (document.getElementById(k).innerHTML = t(k))); document.getElementById('t4').textContent = t('foot'); document.getElementById('rb').textContent = t('rb');
   if (!info) return;
   const roles = [['guest', '👤'], ['waiter', '🧑‍✈️'], ['kitchen', '👨‍🍳'], ['cashier', '💵'], ['owner', '⚙️'], ['car', '🚗'], ['cars', '🚘']];
-  document.getElementById('grid').innerHTML = roles.map(([k, ic]) => `<div class="card"><div class="ic">${ic}</div><h3>${t(k)}</h3><div class="dev">${t(k + 'D')}</div>
-    ${k === 'guest' ? `<select onchange="tbl=this.value;paint()">${(info.freeTables.length ? info.freeTables : info.tables).map((n) => `<option value="${n}" ${n == tbl ? 'selected' : ''}>${t('table')} ${n}</option>`).join('')}</select>` : `<div class="pin">${t('pinl')} ${info.pins[{ waiter: 'captain', cars: 'captain', kitchen: 'kitchen', cashier: 'cashier' }[k]] || (k === 'car' ? '' : '—')}</div>`}
+  document.getElementById('grid').innerHTML = roles.map(([k, ic], i) => `<div class="card glass rv" style="--i:${i % 4}"><div class="top"><div class="ic">${ic}</div><div><h3>${t(k)}</h3><div class="dev">${t(k + 'D')}</div></div></div>
+    ${k === 'guest' ? `<select onchange="tbl=this.value;paint()">${(info.freeTables.length ? info.freeTables : info.tables).map((n) => `<option value="${n}" ${n == tbl ? 'selected' : ''}>${t('table')} ${n}</option>`).join('')}</select>` : `<div class="pin">${(() => { const pn = info.pins[{ waiter: 'captain', cars: 'captain', kitchen: 'kitchen', cashier: 'cashier' }[k]]; return k === 'car' ? '' : t('pinl') + (pn ? ' · PIN ' + pn : ''); })()}</div>`}
     <div class="qr"><img alt="QR" src="${qr(link(k))}"></div>
-    <div class="row"><a class="btn gold" href="${link(k)}" target="_blank" rel="noopener">${t('open')}</a><button onclick="copy('${k}')">${t('copy')}</button></div></div>`).join('');
-  document.getElementById('steps').innerHTML = t('s').map(([a, b]) => `<div class="st"><b>${a}</b>${b}</div>`).join('');
+    <div class="row"><a class="btn p" href="${link(k)}" target="_blank" rel="noopener">${t('open')}</a><button class="btn" onclick="copy('${k}')">${t('copy')}</button></div></div>`).join('');
+  document.getElementById('steps').innerHTML = t('s').map(([a, b], i) => `<div class="st glass rv" data-tilt="off" style="--i:${i}"><span class="n">${i + 1}</span><b>${a}</b>${b}</div>`).join('');
+  TTfx.watch();
 }
 async function copy(k) { try { await navigator.clipboard.writeText(link(k)); toast(t('copied')); } catch { prompt('', link(k)); } }
 async function reset() { if (!confirm(lang === 'ar' ? 'تعمل إعادة ضبط لبيانات التجربة؟' : 'Reset the demo data for everyone?')) return; const r = await fetch('/api/demo/reset', { method: 'POST' }); if (r.ok) { toast(t('ok')); load(); } }
