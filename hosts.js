@@ -1,6 +1,6 @@
 // Host-based tenant resolution: <slug>.<BASE_DOMAIN> and custom domains -> restaurant slug.
 // Pure logic (no Express, no storage) so it is easy to test and to replace.
-const RESERVED = new Set(['www', 'app', 'api', 'admin', 'super', 'cname', 'mail', 'smtp', 'ftp', 'static', 'vendor', 'uploads', 'dev', 'staging', 'status', 'health']);
+const RESERVED = new Set(['www', 'app', 'api', 'admin', 'super', 'cname', 'mail', 'smtp', 'ftp', 'static', 'vendor', 'uploads', 'dev', 'staging', 'status', 'health', 'send', 'rsend', 'resend', 'demo', 'showroom']);
 const HOSTNAME = /^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 // "https://Menu.Cafe.com:443/x" -> "menu.cafe.com"; '' for empty input; null when it is not a valid hostname.
