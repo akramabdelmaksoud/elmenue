@@ -2,7 +2,7 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>TableTab - QR ordering for cafes and restaurants</title>
 <meta name="description" content="Guests scan, order and pay from the table. Captains, kitchen and cashier stay in sync. Online ordering, delivery zones, reviews and AI insights for cafes and restaurants in Egypt.">
-<meta name="theme-color" content="#05060a"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23FF6B4A'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Arial' font-weight='700'%3ETT%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#05060a"><link rel="icon" type="image/png" href="/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--void:#05060a;--ink:#0b0d14;--glass:rgba(255,255,255,.035);--glass2:rgba(255,255,255,.07);--line:rgba(255,255,255,.09);--text:#eef0f6;--muted:#b9bfd1;--dim:#8a91a8;
@@ -24,6 +24,7 @@ nav.on{background:rgba(5,6,10,.62);backdrop-filter:blur(18px) saturate(1.4);-web
 nav .wrap{display:flex;align-items:center;gap:18px;height:70px}
 .logo{font:500 17px var(--disp);text-decoration:none;letter-spacing:.02em;display:flex;align-items:center;gap:10px}
 .logo i{width:26px;height:26px;border-radius:8px;background:var(--irid);background-size:200% 200%;animation:flow 6s linear infinite;display:grid;place-items:center;box-shadow:0 0 24px rgba(255,61,139,.5)}
+.logo .mk{width:34px;height:34px;flex:none}
 .logo i:after{content:"";width:8px;height:8px;border-radius:50%;background:var(--void)}
 .logo b{font-weight:500;background:var(--irid);-webkit-background-clip:text;background-clip:text;color:transparent}
 nav .links{display:flex;gap:6px;margin-inline-start:auto;font-size:15px;color:var(--muted)}
@@ -175,7 +176,7 @@ nav .btn{white-space:nowrap}@media(max-width:900px){nav .btn{padding:10px 16px;f
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition-duration:.01ms!important}.rv{opacity:1;transform:none;filter:none}#cur,.grain{display:none}}
 </style></head><body>
 <canvas id="fx"></canvas><div class="grain"></div><div id="cur"></div><div id="bar"></div>
-<nav id="nav"><div class="wrap"><a class="logo" href="#top"><i></i><span>Table<b>Tab</b></span></a>
+<nav id="nav"><div class="wrap"><a class="logo" href="#top"><img class="mk" src="/logo.svg" alt=""><span>Table<b>Tab</b></span></a>
 <div class="links"><a href="#features" data-i="nFeat">Features</a><a href="#new" data-i="nNew">What's new</a><a href="#plans" data-i="nPlans">Plans</a><a href="#about" data-i="nAbout">About</a><a href="#faq" data-i="nFaq">FAQ</a></div>
 <button class="btn lang" id="lang" onclick="setLang()">عربي</button><a class="btn p mag" id="navDemo" href="#" data-i="tryDemo">Try the demo</a></div></nav>
 

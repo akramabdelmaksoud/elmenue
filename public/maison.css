@@ -45,7 +45,7 @@ html[data-theme^="maison"] .modal > .card, html[data-theme^="maison"] .ocard { a
 html[data-theme^="maison"] .tk { animation: m-ticket .6s var(--m-ease); } @keyframes m-ticket { from { opacity: 0; transform: translateX(-26px) scale(.96); } }
 html[data-theme^="maison"] .fl-t.seated, html[data-theme^="maison"] .fl-t.ordered { animation: m-breathe 3.2s ease-in-out infinite; }
 @keyframes m-breathe { 50% { box-shadow: 0 0 0 10px transparent, 0 0 28px color-mix(in srgb, var(--gold) 45%, transparent); } }
-.fl-t.rdy { animation: m-ready 1.8s infinite !important; border-color: #5fd0a0 !important; }
+.fl-t.rdy { animation: m-ready 1.8s infinite !important; border-color: #f0abfc !important; }
 @keyframes m-ready { 0%, 100% { box-shadow: 0 0 0 0 rgba(95,208,160,.7); } 50% { box-shadow: 0 0 0 12px rgba(95,208,160,0); } }
 html[data-theme^="maison"] .empty .em, html[data-theme^="maison"] .empty > span:first-child { display: inline-block; animation: m-float 5s ease-in-out infinite; } @keyframes m-float { 50% { transform: translateY(-8px) rotate(3deg); } }
 .mi-stag > * { animation: m-rise .6s var(--m-ease, ease) both; animation-delay: calc(var(--i, 0) * 45ms); } @keyframes m-rise { from { opacity: 0; transform: translateY(18px) scale(.98); } }

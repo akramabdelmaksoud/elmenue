@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <!-- TableTab mark: a table whose two halves are the letters T T, two chairs, a fork, a plate and a glass, inside a ring.
+       Two colours: --logo-a (wood / gold) and --logo-b (cushions, ring, tableware); the defaults are the app's gold and cream. -->
+  <style>.sa { stroke: var(--logo-a, #e0b062); } .fa { fill: var(--logo-a, #e0b062); } .sb { stroke: var(--logo-b, #f2ebe0); } .fb { fill: var(--logo-b, #f2ebe0); }</style>
+  <circle class="sb" cx="60" cy="60" r="53" stroke-width="3.2"/>
+  <!-- chairs -->
+  <g id="chair">
+    <path class="sa" d="M18 43c3 9 5 18 7 27h12" stroke-width="4"/>
+    <path class="sa" d="M24 70l-3 17M35 70l2 17" stroke-width="4"/>
+    <path class="sb" d="M22.5 47c2.2 6.5 3.8 12.5 5.2 18.5H36" stroke-width="3.4"/>
+  </g>
+  <use href="#chair" transform="translate(120 0) scale(-1 1)"/>
+  <!-- the table: left T in wood, right T in the second colour -->
+  <path class="fa" d="M38 50h20.5v7H51.5v29h-6.5V57H38z"/>
+  <path class="fb" d="M61.5 50H82v7h-7v29h-6.5V57h-7z"/>
+  <!-- tableware -->
+  <path class="sb" d="M49 38v10M46.5 38v4a2.5 2.5 0 0 0 5 0v-4" stroke-width="1.6"/>
+  <path class="fb" d="M53.5 46.5h15a7.5 2.4 0 0 1-15 0z"/>
+  <path class="sb" d="M71.5 39h6l-.8 9h-4.4z" stroke-width="1.5"/>
+  <path class="fa" d="M72.4 43.5h4.2l-.4 4h-3.4z"/>
+</svg>

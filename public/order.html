@@ -26,20 +26,27 @@ label { display: block; margin: 12px 0 4px; font-weight: 700; font-size: 14px; }
 .sws { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 2px; } .sw { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--line); background: var(--card); padding: 3px; } .sw i { display: block; width: 100%; height: 100%; border-radius: 50%; border: 1px solid #0003; } .sw.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
 .spots { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; } .spots button { min-width: 44px; padding: 10px 6px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: inherit; font-weight: 800; } .spots button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--card)); }
 .err { color: #d62828; margin-top: 10px; font-weight: 600; }
+.fh { margin: 22px 0 2px; font-size: 16px; } .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; } label .rq { color: #d62828; }
+input.bad, textarea.bad, .card.bad { border-color: #d62828; box-shadow: 0 0 0 2px color-mix(in srgb, #d62828 30%, transparent); }
 </style></head>
 <body><div class="wrap" id="root"></div><div class="bar" id="bar"></div><div class="panel" id="panel" hidden></div>
 <script src="/shared.js"></script><script src="/opts.js"></script>
 <script>
 const T = {
-  en: { title: 'Order online', pickup: 'Pickup', delivery: 'Delivery', all: 'All', view: 'View order', items: 'items', add: '+ Add', sold: 'Sold out', your: 'Your order', name: 'Your name', phone: 'Phone number', addr: 'Delivery address', note: 'Notes for the kitchen (optional)', place: 'Place order', sub: 'Items', fee: 'Delivery', total: 'Total', payNote: 'Pay when you receive your order.', min: 'Minimum order', off: 'Online ordering is not available right now.', back: '← Back', thanks: 'Order received!', num: 'Your order number', received: 'Received', preparing: 'Preparing', ready: 'Ready', ready_t: 'Your order is ready', prep_t: 'Estimated time', min_s: 'min', done: 'Thank you - enjoy!', again: 'Order again', busy: 'Could not send the order. Please try again.', tracking: 'Track your order', share: '📍 Share my location', locating: 'Finding you…', located: 'Location found', away: 'away', zoneFee: 'Delivery fee', needLoc: 'Share your location so we can price delivery.', far: 'Sorry, we deliver up to', locFail: 'Could not get your location. Allow location access and try again, or choose Pickup.', km: 'km', empty: 'Your cart is empty', closed: 'Not available at this hour', car: 'Car service', carType: 'Car type', carTypeEx: 'e.g. Toyota Corolla', carColor: 'Car colour', plate: 'Plate number (optional)', spot: 'Your parking spot', spotEx: 'e.g. 5, or "next to the palm tree"', payCar: 'Pay at your car when we bring your order.', carReady: 'Your order is ready - we are bringing it to your car', imHere: "📍 I'm here", hereQ: 'Parked? Let us know so we bring it out right away.', hereSent: "We know you're here - coming to your car", yourCar: 'Your car', spotL: 'Spot', col: { white: 'White', black: 'Black', silver: 'Silver', grey: 'Grey', red: 'Red', blue: 'Blue', green: 'Green', yellow: 'Yellow', orange: 'Orange', brown: 'Brown', beige: 'Beige', gold: 'Gold', other: 'Other' } },
-  ar: { title: 'اطلب أونلاين', pickup: 'استلام من المكان', delivery: 'توصيل', all: 'الكل', view: 'عرض الطلب', items: 'أصناف', add: '+ أضف', sold: 'غير متاح', your: 'طلبك', name: 'اسمك', phone: 'رقم الموبايل', addr: 'عنوان التوصيل', note: 'ملاحظات للمطبخ (اختياري)', place: 'تأكيد الطلب', sub: 'الأصناف', fee: 'التوصيل', total: 'الإجمالي', payNote: 'الدفع عند الاستلام.', min: 'الحد الأدنى للطلب', off: 'الطلب أونلاين غير متاح حالياً.', back: '→ رجوع', thanks: 'تم استلام طلبك!', num: 'رقم طلبك', received: 'تم الاستلام', preparing: 'جاري التحضير', ready: 'جاهز', ready_t: 'طلبك جاهز', prep_t: 'الوقت المتوقع', min_s: 'دقيقة', done: 'شكراً لك - بالهناء!', again: 'اطلب مرة أخرى', busy: 'تعذر إرسال الطلب. حاول مرة أخرى.', tracking: 'تتبع طلبك', share: '📍 شارك موقعي', locating: 'جاري تحديد موقعك…', located: 'تم تحديد الموقع', away: 'بعيد', zoneFee: 'رسوم التوصيل', needLoc: 'شارك موقعك لنحسب رسوم التوصيل.', far: 'عذراً، نوصل لحد', locFail: 'تعذر تحديد موقعك. اسمح بالوصول للموقع وحاول مرة أخرى، أو اختر الاستلام.', km: 'كم', empty: 'السلة فارغة', closed: 'غير متاح في هذا الوقت', car: 'خدمة السيارات', carType: 'نوع العربية', carTypeEx: 'مثال: تويوتا كورولا', carColor: 'لون العربية', plate: 'رقم اللوحة (اختياري)', spot: 'مكان الركنة', spotEx: 'مثال: 5 أو "جنب النخلة"', payCar: 'الدفع عند العربية لما نجيب طلبك.', carReady: 'طلبك جاهز - جايلك لحد العربية', imHere: '📍 أنا وصلت', hereQ: 'ركنت؟ عرّفنا علشان نخرجلك الطلب فوراً.', hereSent: 'عرفنا إنك وصلت - جايلك دلوقتي', yourCar: 'عربيتك', spotL: 'المكان', col: { white: 'أبيض', black: 'أسود', silver: 'فضي', grey: 'رمادي', red: 'أحمر', blue: 'أزرق', green: 'أخضر', yellow: 'أصفر', orange: 'برتقالي', brown: 'بني', beige: 'بيج', gold: 'ذهبي', other: 'لون آخر' } },
+  en: { youH: 'Your details', whereH: 'Delivery address', phone2: 'Another phone (optional)', area: 'Area / district', areaEx: 'e.g. Nasr City', street: 'Street', streetEx: 'e.g. Abbas El Akkad St.', bldg: 'Building no.', floor: 'Floor', apt: 'Apartment', mark: 'Landmark (optional)', markEx: 'e.g. next to the pharmacy', locH: 'Your location', locNeed: 'Share your location so the driver finds you easily.', locNoFail: 'Could not get your location - your address is enough, the driver will call you.', errName: 'Please enter your name', errPhone: 'Please enter a valid phone number', errAddr: 'Please complete your address (area, street, building)', errLoc: 'Please share your location', title: 'Order online', pickup: 'Pickup', delivery: 'Delivery', all: 'All', view: 'View order', items: 'items', add: '+ Add', sold: 'Sold out', your: 'Your order', name: 'Your name', phone: 'Phone number', addr: 'Delivery address', note: 'Notes for the kitchen (optional)', place: 'Place order', sub: 'Items', fee: 'Delivery', total: 'Total', payNote: 'Pay when you receive your order.', min: 'Minimum order', off: 'Online ordering is not available right now.', back: '← Back', thanks: 'Order received!', num: 'Your order number', received: 'Received', preparing: 'Preparing', ready: 'Ready', ready_t: 'Your order is ready', prep_t: 'Estimated time', min_s: 'min', done: 'Thank you - enjoy!', again: 'Order again', busy: 'Could not send the order. Please try again.', tracking: 'Track your order', share: '📍 Share my location', locating: 'Finding you…', located: 'Location found', away: 'away', zoneFee: 'Delivery fee', needLoc: 'Share your location so we can price delivery.', far: 'Sorry, we deliver up to', locFail: 'Could not get your location. Allow location access and try again, or choose Pickup.', km: 'km', empty: 'Your cart is empty', closed: 'Not available at this hour', car: 'Car service', carType: 'Car type', carTypeEx: 'e.g. Toyota Corolla', carColor: 'Car colour', plate: 'Plate number (optional)', spot: 'Your parking spot', spotEx: 'e.g. 5, or "next to the palm tree"', payCar: 'Pay at your car when we bring your order.', carReady: 'Your order is ready - we are bringing it to your car', imHere: "📍 I'm here", hereQ: 'Parked? Let us know so we bring it out right away.', hereSent: "We know you're here - coming to your car", yourCar: 'Your car', spotL: 'Spot', col: { white: 'White', black: 'Black', silver: 'Silver', grey: 'Grey', red: 'Red', blue: 'Blue', green: 'Green', yellow: 'Yellow', orange: 'Orange', brown: 'Brown', beige: 'Beige', gold: 'Gold', other: 'Other' } },
+  ar: { youH: 'بياناتك', whereH: 'عنوان التوصيل', phone2: 'رقم تاني (اختياري)', area: 'المنطقة / الحي', areaEx: 'مثلاً: مدينة نصر', street: 'الشارع', streetEx: 'مثلاً: شارع عباس العقاد', bldg: 'رقم العمارة', floor: 'الدور', apt: 'الشقة', mark: 'علامة مميزة (اختياري)', markEx: 'مثلاً: جنب الصيدلية', locH: 'موقعك', locNeed: 'شارك موقعك عشان المندوب يوصلك بسهولة.', locNoFail: 'مقدرناش نحدد موقعك - العنوان كفاية، والمندوب هيكلمك.', errName: 'من فضلك اكتب اسمك', errPhone: 'من فضلك اكتب رقم موبايل صحيح', errAddr: 'من فضلك كمّل العنوان (المنطقة، الشارع، العمارة)', errLoc: 'من فضلك شارك موقعك', title: 'اطلب أونلاين', pickup: 'استلام من المكان', delivery: 'توصيل', all: 'الكل', view: 'عرض الطلب', items: 'أصناف', add: '+ أضف', sold: 'غير متاح', your: 'طلبك', name: 'اسمك', phone: 'رقم الموبايل', addr: 'عنوان التوصيل', note: 'ملاحظات للمطبخ (اختياري)', place: 'تأكيد الطلب', sub: 'الأصناف', fee: 'التوصيل', total: 'الإجمالي', payNote: 'الدفع عند الاستلام.', min: 'الحد الأدنى للطلب', off: 'الطلب أونلاين غير متاح حالياً.', back: '→ رجوع', thanks: 'تم استلام طلبك!', num: 'رقم طلبك', received: 'تم الاستلام', preparing: 'جاري التحضير', ready: 'جاهز', ready_t: 'طلبك جاهز', prep_t: 'الوقت المتوقع', min_s: 'دقيقة', done: 'شكراً لك - بالهناء!', again: 'اطلب مرة أخرى', busy: 'تعذر إرسال الطلب. حاول مرة أخرى.', tracking: 'تتبع طلبك', share: '📍 شارك موقعي', locating: 'جاري تحديد موقعك…', located: 'تم تحديد الموقع', away: 'بعيد', zoneFee: 'رسوم التوصيل', needLoc: 'شارك موقعك لنحسب رسوم التوصيل.', far: 'عذراً، نوصل لحد', locFail: 'تعذر تحديد موقعك. اسمح بالوصول للموقع وحاول مرة أخرى، أو اختر الاستلام.', km: 'كم', empty: 'السلة فارغة', closed: 'غير متاح في هذا الوقت', car: 'خدمة السيارات', carType: 'نوع العربية', carTypeEx: 'مثال: تويوتا كورولا', carColor: 'لون العربية', plate: 'رقم اللوحة (اختياري)', spot: 'مكان الركنة', spotEx: 'مثال: 5 أو "جنب النخلة"', payCar: 'الدفع عند العربية لما نجيب طلبك.', carReady: 'طلبك جاهز - جايلك لحد العربية', imHere: '📍 أنا وصلت', hereQ: 'ركنت؟ عرّفنا علشان نخرجلك الطلب فوراً.', hereSent: 'عرفنا إنك وصلت - جايلك دلوقتي', yourCar: 'عربيتك', spotL: 'المكان', col: { white: 'أبيض', black: 'أسود', silver: 'فضي', grey: 'رمادي', red: 'أحمر', blue: 'أزرق', green: 'أخضر', yellow: 'أصفر', orange: 'برتقالي', brown: 'بني', beige: 'بيج', gold: 'ذهبي', other: 'لون آخر' } },
 };
 const t = (k) => (T[App.lang] || T.en)[k] || T.en[k] || k;
 const $ = (s) => document.querySelector(s), root = $('#root'), bar = $('#bar'), panel = $('#panel');
 let cfg, cart = {}, kind = 'takeaway', cat = '', placed = null, poll = null, err = '', busy = false, geoPos = null, geoMsg = '';
 const KEY = () => 'ol:' + App.slug;
-const save = () => { try { localStorage.setItem(KEY(), JSON.stringify({ name: $('#fn') ? $('#fn').value : (saved.name || ''), phone: $('#fp') ? $('#fp').value : (saved.phone || ''), address: $('#fa') ? $('#fa').value : (saved.address || ''), carType: car.type, carColor: car.color, plate: car.plate, placed })); } catch {} };
+const ADDR = [['fa1', 'area'], ['fa2', 'street'], ['fa3', 'bldg'], ['fa4', 'floor'], ['fa5', 'apt'], ['fa6', 'mark']];
+const grab = () => { const v = (id) => ($('#' + id) ? $('#' + id).value : null); for (const [id, k] of [['fn', 'name'], ['fp', 'phone'], ['fp2', 'phone2'], ['fo', 'note']]) if (v(id) != null) saved[k] = v(id); saved.addr = saved.addr || {}; for (const [id, k] of ADDR) if (v(id) != null) saved.addr[k] = v(id); };
+const save = () => { grab(); try { localStorage.setItem(KEY(), JSON.stringify({ name: saved.name || '', phone: saved.phone || '', phone2: saved.phone2 || '', addr: saved.addr || {}, carType: car.type, carColor: car.color, plate: car.plate, placed })); } catch {} };
 let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEY()) || '{}') || {}; } catch {}
+// one line for the staff screens: "Nasr City, Abbas El Akkad St., Bldg 12, Floor 3, Apt 5 - near the pharmacy"
+const addrText = (a = {}) => { const g = (k) => String(a[k] || '').trim(); return [g('area'), g('street'), g('bldg') && 'Bldg ' + g('bldg'), g('floor') && 'Floor ' + g('floor'), g('apt') && 'Apt ' + g('apt')].filter(Boolean).join(', ') + (g('mark') ? ' - near ' + g('mark') : ''); };
+let geoFailed = false;
 let car = { type: saved.carType || '', color: saved.carColor || '', plate: saved.plate || '', spot: '' };
 const C = () => (cfg.settings.car || {}), onlineOn = () => !!(cfg.features.online && O().enabled), carOn = () => !!(cfg.features.carservice && C().enabled);
 const COLORS = { white: '#ffffff', black: '#1a1a1a', silver: '#c0c0c0', grey: '#808080', red: '#d62828', blue: '#2563eb', green: '#1f9d55', yellow: '#f2c230', orange: '#f08a1a', brown: '#7a4b2a', beige: '#d8c3a0', gold: '#c9a227', other: 'conic-gradient(#d62828,#f2c230,#1f9d55,#2563eb,#7c3aed,#d62828)' };
@@ -78,7 +85,7 @@ const hav = (a, b) => { const r = (x) => x * Math.PI / 180, h = Math.sin(r(b.lat
 // the server prices delivery again from the shared coordinates; this only previews the fee
 const zoneNow = () => { if (kind !== 'delivery' || !hasZones()) return null; if (!geoPos) return { need: true }; const km = Math.round(hav(cfg.settings.venueGeo, geoPos) * 10) / 10, z = zones().find((x) => km <= x.km); return z ? { km, fee: z.fee } : { far: true, km, max: zones()[zones().length - 1].km }; };
 const fee = () => { if (kind !== 'delivery') return 0; const z = zoneNow(); if (z) return z.fee || 0; return feeItem() ? feeItem().price : 0; };
-function locate() { geoMsg = t('locating'); openCart(); if (!navigator.geolocation) { geoMsg = t('locFail'); return openCart(); } navigator.geolocation.getCurrentPosition((p) => { geoPos = { lat: p.coords.latitude, lng: p.coords.longitude }; geoMsg = ''; openCart(); }, () => { geoMsg = t('locFail'); openCart(); }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }); }
+function locate() { geoMsg = t('locating'); openCart(); if (!navigator.geolocation) { geoMsg = t('locFail'); geoFailed = true; return openCart(); } navigator.geolocation.getCurrentPosition((p) => { geoPos = { lat: p.coords.latitude, lng: p.coords.longitude }; geoMsg = ''; geoFailed = false; openCart(); }, () => { geoMsg = t('locFail'); geoFailed = true; openCart(); }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }); }
 const count = () => Object.values(cart).reduce((n, l) => n + l.qty, 0);
 
 function render() {
@@ -113,8 +120,29 @@ function qty(id, d) {
   const ks = Object.keys(cart).filter((k) => cart[k].itemId === id); if (ks.length) bump(ks[ks.length - 1], -1);
 }
 
+function addrForm() {
+  const a = saved.addr || {}, f = ([id, k], req, ph) => `<div><label for="${id}">${t(k)}${req ? ' <span class="rq">*</span>' : ''}</label><input id="${id}" maxlength="60" placeholder="${ph ? t(ph) : ''}" value="${App.esc(a[k] || '')}"></div>`;
+  return `<h3 class="fh">🏠 ${t('whereH')}</h3>${f(ADDR[0], 1, 'areaEx')}${f(ADDR[1], 1, 'streetEx')}<div class="two">${f(ADDR[2], 1)}${f(ADDR[3], 0)}</div>${f(ADDR[4], 0)}${f(ADDR[5], 0, 'markEx')}`;
+}
+function locCard(zn) {
+  const msg = zn && zn.far ? `<p class="err" style="margin:6px 0 8px">${t('far')} ${zn.max} ${t('km')} (${zn.km} ${t('km')} ${t('away')})</p>`
+    : geoPos ? `<p style="margin:6px 0 8px">✅ ${t('located')}${zn && !zn.need ? ` · ${zn.km} ${t('km')} ${t('away')} · ${t('zoneFee')}: <b>${App.money(zn.fee)}</b>` : ''}</p>`
+    : `<p class="muted" style="margin:6px 0 8px">${zn ? t('needLoc') : geoFailed ? t('locNoFail') : t('locNeed')}</p>`;
+  return `<div class="card" id="geob" style="margin:14px 0 0"><b>📍 ${t('locH')}${zn || !geoFailed ? ' <span class="rq" style="color:#d62828">*</span>' : ''}</b>${msg}<button class="ghost" onclick="locate()">${t('share')}</button>${geoMsg ? `<p class="err" style="margin:8px 0 0">${App.esc(geoMsg)}</p>` : ''}</div>`;
+}
+// what is still missing, as [field id, message]; delivery needs the location unless the phone could not give one (zones always need it)
+function missing() {
+  grab(); const a = saved.addr || {}, dig = (x) => String(x || '').replace(/\D/g, '').length;
+  if (!String(saved.name || '').trim()) return ['fn', t('errName')];
+  if (dig(saved.phone) < 8) return ['fp', t('errPhone')];
+  if (saved.phone2 && dig(saved.phone2) < 8) return ['fp2', t('errPhone')];
+  if (kind !== 'delivery') return null;
+  for (const [id, k] of ADDR.slice(0, 3)) if (!String(a[k] || '').trim()) return [id, t('errAddr')];
+  if (!geoPos && (hasZones() || !geoFailed)) return ['geob', t('errLoc')];
+  return null;
+}
 function openCart() {
-  panel.hidden = false; const o = O(), f = fee(), fd = food(), zn = zoneNow(), blocked = zn && (zn.need || zn.far);
+  if (!panel.hidden) grab(); panel.hidden = false; const o = O(), f = fee(), fd = food(), zn = zoneNow(), blocked = zn && (zn.need || zn.far);
   const lines = Object.entries(cart).map(([k, l], n) => { const i = itemOf(l.itemId), lab = Opts.has(i) ? Opts.calc(i, l.sel).label : ''; return `<div class="line"><span>${l.qty} × ${App.esc(App.nm(i))}${lab ? ` <small class="muted">[${App.esc(lab)}]</small>` : ''}</span><span>${App.money(unit(l) * l.qty)} <button class="ghost" style="padding:2px 10px" onclick="bumpAt(${n},-1)" aria-label="-">−</button></span></div>`; }).join('');
   const short = kind !== 'car' && o.minOrder && fd < o.minOrder;
   panel.innerHTML = `<div class="wrap"><button class="ghost" onclick="closeCart()">${t('back')}</button><h2 class="serif">${t('your')}</h2>
@@ -123,26 +151,30 @@ function openCart() {
   <div class="line"><span>${t('sub')}</span><span>${App.money(fd)}</span></div>${f ? `<div class="line"><span>${t('fee')}</span><span>${App.money(f)}</span></div>` : ''}
   <div class="line tot"><span>${t('total')}</span><span>${App.money(fd + f)}</span></div><p class="muted" style="font-size:13px">${kind === 'car' ? t('payCar') : t('payNote')}</p>
   ${short ? `<p class="err">${t('min')}: ${App.money(o.minOrder)}</p>` : ''}
-  <label for="fn">${t('name')}</label><input id="fn" maxlength="30" autocomplete="name" value="${App.esc(saved.name || '')}">
-  <label for="fp">${t('phone')}</label><input id="fp" type="tel" maxlength="20" autocomplete="tel" inputmode="tel" value="${App.esc(saved.phone || '')}">
+  <h3 class="fh">👤 ${t('youH')}</h3>
+  <label for="fn">${t('name')} <span class="rq">*</span></label><input id="fn" maxlength="30" autocomplete="name" value="${App.esc(saved.name || '')}">
+  <label for="fp">${t('phone')} <span class="rq">*</span></label><input id="fp" type="tel" maxlength="20" autocomplete="tel" inputmode="tel" value="${App.esc(saved.phone || '')}">
+  ${kind !== 'car' ? `<label for="fp2">${t('phone2')}</label><input id="fp2" type="tel" maxlength="20" inputmode="tel" value="${App.esc(saved.phone2 || '')}">` : ''}
   ${kind === 'car' ? carForm() : ''}
-  ${kind === 'delivery' ? `<label for="fa">${t('addr')}</label><textarea id="fa" maxlength="140">${App.esc(saved.address || '')}</textarea>` : ''}
-  ${zn ? `<div class="card" style="margin:12px 0 0">${zn.need ? `<p class="muted" style="margin:0 0 8px">${t('needLoc')}</p>` : zn.far ? `<p class="err" style="margin:0 0 8px">${t('far')} ${zn.max} ${t('km')} (${zn.km} ${t('km')} ${t('away')})</p>` : `<p style="margin:0 0 8px">✅ ${t('located')} · ${zn.km} ${t('km')} ${t('away')} · ${t('zoneFee')}: <b>${App.money(zn.fee)}</b></p>`}<button class="ghost" onclick="locate()">${t('share')}</button>${geoMsg ? `<p class="err" style="margin:8px 0 0">${App.esc(geoMsg)}</p>` : ''}</div>` : ''}
-  <label for="fo">${t('note')}</label><textarea id="fo" maxlength="200"></textarea>
+  ${kind === 'delivery' ? addrForm() + locCard(zn) : ''}
+  <label for="fo">${t('note')}</label><textarea id="fo" maxlength="200">${App.esc(saved.note || '')}</textarea>
   ${err ? `<p class="err">${App.esc(err)}</p>` : ''}
   <div style="margin-top:16px"><button class="btn" id="go" ${!count() || short || busy || blocked ? 'disabled' : ''} onclick="submitOrder()">${t('place')} · ${App.money(fd + f)}</button></div></div>`;
 }
 function closeCart() { save(); panel.hidden = true; err = ''; render(); }
 
 async function submitOrder(tries = 0) {
-  if (busy && !tries) return; busy = true; err = ''; $('#go').disabled = true;
-  const body = { kind, name: $('#fn').value, phone: $('#fp').value, address: $('#fa') ? $('#fa').value : '', note: $('#fo').value, items: Object.values(cart).map((l) => ({ itemId: l.itemId, qty: l.qty, opts: l.sel })), geo: kind === 'delivery' && geoPos ? geoPos : undefined, car: kind === 'car' ? carBody() : undefined };
-  saved = { name: body.name, phone: body.phone, address: body.address, carType: car.type, carColor: car.color, plate: car.plate };
+  if (busy && !tries) return;
+  const miss = !tries && missing();
+  if (miss) { err = miss[1]; openCart(); const el = $('#' + miss[0]); if (el) { el.classList.add('bad'); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); if (el.focus) el.focus({ preventScroll: true }); } return; }
+  busy = true; err = ''; $('#go').disabled = true; grab();
+  const body = { kind, name: saved.name, phone: saved.phone, phone2: kind !== 'car' ? saved.phone2 || '' : '', address: kind === 'delivery' ? addrText(saved.addr) : '', note: saved.note || '', items: Object.values(cart).map((l) => ({ itemId: l.itemId, qty: l.qty, opts: l.sel })), geo: kind === 'delivery' && geoPos ? geoPos : undefined, car: kind === 'car' ? carBody() : undefined };
+
   try {
     const r = await fetch('/api/online/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), j = await r.json().catch(() => ({}));
     if (r.status === 409 && tries < 3) { await new Promise((x) => setTimeout(x, 400 + tries * 400)); return submitOrder(tries + 1); }   // another write won the race: retry
     if (!r.ok || !j.ok) { busy = false; err = j.error || t('busy'); return openCart(); }
-    busy = false; placed = { tid: j.tid, number: j.number, kind: j.kind, total: j.total, prepMin: j.prepMin, status: 'received', spot: body.car ? body.car.spot : '', arrived: false }; cart = {}; save(); panel.hidden = true; render(); startPoll();
+    busy = false; placed = { tid: j.tid, number: j.number, kind: j.kind, total: j.total, prepMin: j.prepMin, status: 'received', spot: body.car ? body.car.spot : '', arrived: false }; cart = {}; saved.note = ''; save(); panel.hidden = true; render(); startPoll();
   } catch { busy = false; err = t('busy'); openCart(); }
 }
 

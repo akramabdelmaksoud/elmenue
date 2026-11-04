@@ -417,7 +417,7 @@ function placeOnline(p) {
   else if (!F.has(rec, 'online') || !o.enabled) return { error: 'Online ordering is not available at this venue', code: 'off' };
   const kind = isCar ? 'car' : p.kind === 'delivery' ? 'delivery' : 'takeaway';
   if (!isCar && (kind === 'delivery' ? !o.delivery : !o.pickup)) return { error: kind === 'delivery' ? 'Delivery is not offered' : 'Pickup is not offered', code: 'kind' };
-  const name = String(p.name || '').trim().slice(0, 30), phone = String(p.phone || '').replace(/[^\d+]/g, '').slice(0, 20), address = String(p.address || '').trim().slice(0, 140);
+  const name = String(p.name || '').trim().slice(0, 30), phone = String(p.phone || '').replace(/[^\d+]/g, '').slice(0, 20), address = String(p.address || '').trim().slice(0, 240), phone2 = String(p.phone2 || '').replace(/[^\d+]/g, '').slice(0, 20);
   if (!name) return { error: 'Please enter your name', code: 'name' };
   if (phone.replace(/\D/g, '').length < 7) return { error: 'Please enter a valid phone number', code: 'phone' };
   if (kind === 'delivery' && address.length < 6) return { error: 'Please enter your delivery address', code: 'address' };
@@ -445,7 +445,7 @@ function placeOnline(p) {
   if (byZone && zone.fee > 0) lines.push({ id: id('l'), guestId: 'cust', itemId: 'delivery_fee', name: 'Delivery', name_ar: 'توصيل', emoji: '🛵', price: zone.fee, qty: 1, note: zone.km + ' km' });
   if (fee) lines.push({ id: id('l'), guestId: 'cust', itemId: fee.id, name: fee.name, name_ar: fee.name_ar, emoji: fee.emoji, price: fee.price, qty: 1, note: '' });
   db.ticketSeq = (db.ticketSeq || 0) + 1;
-  const s = { id: id('s'), tableId: p.tid, tableNumber: (kind === 'car' ? 'CR-' : kind === 'delivery' ? 'DL-' : 'TA-') + db.ticketSeq, kind, source: isCar ? 'car' : 'online', startedAt: Date.now(), lastAt: Date.now(), guests: [{ id: 'cust', name, avatar: kind === 'car' ? '🚗' : kind === 'delivery' ? '🛵' : '🛍️' }], cart: [], orders: [], requests: [], check: null, log: [], customer: { name, phone, address, ...(car ? { car } : {}), note: String(p.note || '').trim().slice(0, 200), ...(F.geoPoint(p.geo) ? { map: 'https://www.google.com/maps?q=' + F.geoPoint(p.geo).lat + ',' + F.geoPoint(p.geo).lng, km: zone ? zone.km : undefined } : {}) } };
+  const s = { id: id('s'), tableId: p.tid, tableNumber: (kind === 'car' ? 'CR-' : kind === 'delivery' ? 'DL-' : 'TA-') + db.ticketSeq, kind, source: isCar ? 'car' : 'online', startedAt: Date.now(), lastAt: Date.now(), guests: [{ id: 'cust', name, avatar: kind === 'car' ? '🚗' : kind === 'delivery' ? '🛵' : '🛍️' }], cart: [], orders: [], requests: [], check: null, log: [], customer: { name, phone, ...(phone2.replace(/\D/g, '').length >= 7 ? { phone2 } : {}), address, ...(car ? { car } : {}), note: String(p.note || '').trim().slice(0, 200), ...(F.geoPoint(p.geo) ? { map: 'https://www.google.com/maps?q=' + F.geoPoint(p.geo).lat + ',' + F.geoPoint(p.geo).lng, km: zone ? zone.km : undefined } : {}) } };
   s.orders.push(stampEta({ id: id('o'), at: Date.now(), status: 'received', items: lines, by: 'online' }));
   db.sessions[p.tid] = s; log(s, 'ordered', `Online ${kind} order from ${name} (${lines.reduce((n, l) => n + l.qty, 0)} item(s))`);
   alertCaptains('order', s.tableNumber, isCar ? `🚗 Car ${s.tableNumber}: ${name} · ${car.color} ${car.type}${car.spot ? ' · spot ' + car.spot : ''}` : `🌐 Online ${kind === 'delivery' ? 'delivery' : 'pickup'} ${s.tableNumber}: ${name}`);

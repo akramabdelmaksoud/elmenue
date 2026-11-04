@@ -4,7 +4,9 @@ const basic = (u, p) => ({ Authorization: 'Basic ' + Buffer.from(u + ':' + p).to
 test('F38 the showroom asks for a user name and password; other cafés are untouched', async (t) => {
   const S = await start('rpc', { env: { SHOWROOM_USER: 'ShowUser1', SHOWROOM_PASS: 'ShowPass-test-1' } }); t.after(() => S.stop());
   const get = (p, h) => fetch(S.base + p, { headers: h || {} });
-  for (const p of ['/demo', '/api/demo/info', '/r/showroom/captain', '/api/r/showroom/config', '/r/showroom/order?car=1']) {
+  // guests can scan a showroom table and order without the password; the showroom home, its auto sign-in and the staff screens stay locked
+  for (const p of ['/api/r/showroom/config', '/r/showroom/order?car=1', '/r/showroom/t/3']) assert.notEqual((await get(p)).status, 401, p + ' is open to guests');
+  for (const p of ['/demo', '/api/demo/info', '/r/showroom/captain', '/r/showroom/admin', '/r/showroom/kitchen']) {
     const r = await get(p); assert.equal(r.status, 401, p + ' needs the password'); assert.equal(r.headers.get('www-authenticate'), null, 'no plain browser box');
   }
   const post = await fetch(S.base + '/api/demo/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"role":"admin"}' }); assert.equal(post.status, 401, 'no token without the password');

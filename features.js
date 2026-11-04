@@ -26,7 +26,30 @@ const CATALOG = [
   { id: 'themes', area: 'guest', level: 4, en: 'Premium and luxury themes', ar: 'ثيمات فاخرة' }, { id: 'ocr', area: 'admin', level: 4, en: 'Menu photo import (AI)', ar: 'استيراد المنيو من صورة' },
   { id: 'copilot', area: 'admin', level: 4, en: 'AI assistant', ar: 'مساعد الذكاء الاصطناعي' }, { id: 'branches', area: 'admin', level: 4, en: 'Multi-branch reports', ar: 'تقارير الفروع' },
 ];
-const FEATURE_IDS = CATALOG.map((c) => c.id);
+// Every feature has its own monthly price, used when a café takes it as an add-on on top of its bundle. Defaults by level; the super admin edits them.
+const LEVEL_PRICE = { 1: 0, 2: 150, 3: 250, 4: 400 };
+CATALOG.forEach((c) => { c.price = LEVEL_PRICE[c.level]; c.builtin = true; });
+const BUILTIN = JSON.parse(JSON.stringify(CATALOG));
+const CORE = ['menu', 'qr', 'admin'];   // can be renamed and re-priced but never retired: every café needs them
+const AREAS = ['guest', 'staff', 'admin'];
+// CATALOG / FEATURE_IDS hold the live (not retired) features and are edited in place, so every module that imported them sees the change.
+// RETIRED lists built-in features the super admin switched off for the whole platform (forced off everywhere, can be restored).
+const FEATURE_IDS = CATALOG.map((c) => c.id), RETIRED = [];
+const featClean = (o, base) => {
+  const s = (v, n, d) => (typeof v === 'string' && v.trim() ? v.trim().replace(/[<>]/g, '').slice(0, n) : d);
+  return { en: s(o.en, 60, base ? base.en : 'Feature'), ar: s(o.ar, 60, base ? base.ar : ''), desc: s(o.desc, 200, base ? base.desc || '' : ''), area: AREAS.includes(o.area) ? o.area : base ? base.area : 'guest',
+    level: [1, 2, 3, 4].includes(+o.level) ? +o.level : base ? base.level : 2, price: +o.price >= 0 && +o.price < 1e6 ? Math.round(+o.price) : base ? base.price : 0 };
+};
+const featIdOk = (id) => /^[a-z][a-z0-9_]{2,23}$/.test(String(id || ''));
+// list = [{ id, en, ar, desc, area, level, price, retired?, custom? }]: edits to built-in features (by id) plus the super admin's own (custom: true). null = built-in catalog.
+function configureCatalog(list) {
+  const ov = {}; (Array.isArray(list) ? list : []).forEach((f) => { if (f && featIdOk(f.id)) ov[f.id] = f; });
+  const all = BUILTIN.map((b) => (ov[b.id] ? { ...b, ...featClean(ov[b.id], b), retired: !!ov[b.id].retired && !CORE.includes(b.id) } : { ...b }));
+  Object.values(ov).filter((o) => o.custom && !BUILTIN.some((b) => b.id === o.id)).forEach((o) => all.push({ id: o.id, ...featClean(o), custom: true, builtin: false }));
+  CATALOG.splice(0, CATALOG.length, ...all.filter((c) => !c.retired));
+  RETIRED.splice(0, RETIRED.length, ...all.filter((c) => c.retired));
+  FEATURE_IDS.splice(0, FEATURE_IDS.length, ...CATALOG.map((c) => c.id));
+}
 const PLANS = {
   basic: { id: 'basic', tier: 1, name: 'Starter QR Ordering', name_ar: 'منيو QR الأساسي', price: [600, 800], limits: { branches: 1, tables: 10, staff: 0 }, features: ['menu', 'qr', 'ordering', 'options', 'itemdetails', 'micro', 'admin'] },
   operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [1200, 1500], limits: { branches: 1, tables: 30, staff: 10 }, features: ['staff', 'attendance', 'invoicing', 'kds', 'cashier', 'lock', 'trilingual', 'feedback', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline', 'online', 'insights', 'geo', 'instapay', 'acctexport', 'reservations'] },
@@ -37,12 +60,20 @@ const LEGACY = { standard: 'operations', pro: 'vip', enterprise: 'vip', demo: 'v
 const ORDER = ['basic', 'operations', 'vip'];
 const planOf = (p) => (PLANS[p] ? p : LEGACY[p] || 'operations');
 // p = plan name OR a café record ({ plan, feat }): the super admin can lock/unlock single features per café (rec.feat = { id: true|false }).
+// The showroom café shows everything the platform can do, add-ons included.
 function featuresOf(p) {
   const rec = p && typeof p === 'object' ? p : null, plan = planOf(rec ? rec.plan : p), out = {};
-  FEATURE_IDS.forEach((k) => (out[k] = false));   // explicit false: the pages treat a missing key as allowed
-  PLANS[plan].features.forEach((f) => (out[f] = true));
-  if (rec && rec.feat) Object.keys(rec.feat).forEach((k) => { if (rec.feat[k] === true || rec.feat[k] === false) out[k] = rec.feat[k]; });
+  FEATURE_IDS.concat(RETIRED.map((c) => c.id)).forEach((k) => (out[k] = false));   // explicit false: the pages treat a missing key as allowed
+  if (rec && rec.showroom) { FEATURE_IDS.forEach((k) => (out[k] = true)); return out; }
+  PLANS[plan].features.forEach((f) => { if (FEATURE_IDS.includes(f)) out[f] = true; });
+  if (rec && rec.feat) Object.keys(rec.feat).forEach((k) => { if (FEATURE_IDS.includes(k) && (rec.feat[k] === true || rec.feat[k] === false)) out[k] = rec.feat[k]; });
   return out;
+}
+// add-ons: features a café has switched on that its bundle does not include; each is billed at its own price
+const priceOf = (f) => (CATALOG.find((c) => c.id === f) || { price: 0 }).price;
+function addonsOf(rec) {
+  const inPlan = PLANS[planOf(rec && rec.plan)].features;
+  return Object.keys((rec && rec.feat) || {}).filter((k) => rec.feat[k] === true && FEATURE_IDS.includes(k) && !inPlan.includes(k)).map((id) => ({ id, price: priceOf(id) }));
 }
 const has = (p, f) => !!featuresOf(p)[f];
 const minPlanFor = (f) => ORDER.find((id) => featuresOf(id)[f]) || 'vip';
@@ -51,6 +82,7 @@ const minPlanFor = (f) => ORDER.find((id) => featuresOf(id)[f]) || 'vip';
 ORDER.forEach((id, i) => { PLANS[id].features = [...new Set(ORDER.slice(0, i + 1).flatMap((k) => PLANS[k].features))]; });
 const DEFAULT_PLANS = JSON.parse(JSON.stringify(PLANS));
 function configure(cfg) {
+  configureCatalog(cfg && cfg.features);
   ORDER.forEach((id) => { PLANS[id] = JSON.parse(JSON.stringify(DEFAULT_PLANS[id])); });
   const pl = (cfg && cfg.plans) || {};
   ORDER.forEach((id) => {
@@ -70,7 +102,8 @@ function limitsOf(p, override) {
   return out;
 }
 const limitCheck = (kind, used, p, override) => { const limit = limitsOf(p, override)[kind]; return { kind, used, limit, ok: limit === null || used < limit, over: limit !== null && used > limit, upgrade: limit === null ? null : ORDER.find((id) => { const l = PLANS[id].limits[kind]; return l === null || l > limit; }) || null }; };
-const monthly = (p) => PLANS[planOf(p)].price[0];
+// p = plan name or a café record; a record's bill also counts its add-ons
+const monthly = (p) => PLANS[planOf(p && typeof p === 'object' ? p.plan : p)].price[0] + (p && typeof p === 'object' ? addonsOf(p).reduce((n, a) => n + a.price, 0) : 0);
 
 // ---------- Item options (size, extras, milk, sugar) and item details ----------
 // item.options = [{ id, name, name_ar, type: 'one' | 'many', required, max, choices: [{ id, name, name_ar, price, def }] }]
@@ -457,5 +490,5 @@ function zoneFor(settings, g) {
 
 const STAFF_LOG_KEYS = ['taken', 'handled', 'started', 'served', 'closed', 'respMs'];   // column order of rec.staffLog[id].b[hour]
 const WASTE_CAUSES = ['expired', 'spoiled', 'spilled', 'overprep', 'staffmeal', 'returned', 'other'];
-const api = { weakPin, itemRole, CAR_COLORS, CAR_DEFAULT, carCfg, carClean, WASTE_CAUSES, invoiceBrandClean, docLines, docTotals, partyClean, supplierClean, INV_STYLES, shiftsClean, wageClean, hmMin, pinOk, pinHash, pinCheck, UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
+const api = { weakPin, itemRole, CAR_COLORS, CAR_DEFAULT, carCfg, carClean, WASTE_CAUSES, invoiceBrandClean, docLines, docTotals, partyClean, supplierClean, INV_STYLES, shiftsClean, wageClean, hmMin, pinOk, pinHash, pinCheck, UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, RETIRED, CORE, AREAS, featIdOk, featClean, priceOf, addonsOf, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
 if (typeof module !== 'undefined') module.exports = api;

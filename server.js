@@ -227,8 +227,8 @@ const gateOk = (sec, req) => {
 };
 app.use((req, res, next) => {
   const sec = showSecret(); if (!sec) return next();
-  const isShow = (ROOT && zoneOf(req) === 'demo') || /^\/(demo(-local)?|api\/demo)(\/|$)/.test(req.path) || /^\/(api\/)?r\/showroom(\/|$)/.test(req.path);
-  if (!isShow || /^\/tt-[\w-]+\.(js|css)$/.test(req.path)) return next();
+  const isShow = (ROOT && zoneOf(req) === 'demo' && req.path === '/') || /^\/(demo(-local)?|api\/demo)(\/|$)/.test(req.path) || /^\/r\/showroom\/(admin|captain|kitchen|cashier|desk|cars|ownerreport|invoice|s)(\/|$)/.test(req.path);
+  if (!isShow || req.path === '/api/demo/qr.png') return next();
   const ip = String(req.ip || req.headers['x-forwarded-for'] || '').split(',')[0].trim(), f = showFails.get(ip) || { n: 0, at: 0 };
   if (Date.now() - f.at > 600000) f.n = 0;
   const fail = () => { f.n++; f.at = Date.now(); showFails.set(ip, f); if (showFails.size > 5000) showFails.clear(); };
@@ -401,11 +401,11 @@ app.get('/api/public/demo', (req, res) => res.json(!SINGLE && !PROD && tenants.h
 let platAt = 0, platLoading = null;
 async function refreshPlatform(force) {
   if (!force && Date.now() - platAt < 20000) return;
-  if (!platLoading) platLoading = store.getAux('platform').then((d) => { F.configure(d && d.plans ? d : null); platAt = Date.now(); }).catch((e) => { console.error('platform config:', e.message); platAt = Date.now() - 10000; }).finally(() => { platLoading = null; });
+  if (!platLoading) platLoading = store.getAux('platform').then((d) => { F.configure(d && (d.plans || d.features) ? d : null); platAt = Date.now(); }).catch((e) => { console.error('platform config:', e.message); platAt = Date.now() - 10000; }).finally(() => { platLoading = null; });
   await platLoading;
 }
 app.use('/api', async (req, res, next) => { try { await refreshPlatform(); next(); } catch (e) { next(e); } });
-const planView = () => ({ catalog: F.CATALOG, plans: F.ORDER.map((id) => { const P = F.PLANS[id]; return { id, name: P.name, name_ar: P.name_ar, price: P.price, limits: P.limits, features: F.FEATURE_IDS.filter((f) => F.featuresOf(id)[f]) }; }) });
+const planView = () => ({ catalog: F.CATALOG, retired: F.RETIRED, core: F.CORE, plans: F.ORDER.map((id) => { const P = F.PLANS[id]; return { id, name: P.name, name_ar: P.name_ar, price: P.price, limits: P.limits, features: F.FEATURE_IDS.filter((f) => F.featuresOf(id)[f]) }; }) });
 app.get('/api/public/plans', (req, res) => res.json({ plans: F.ORDER.map((id) => ({ id, name: F.PLANS[id].name, name_ar: F.PLANS[id].name_ar, price: F.PLANS[id].price[0], tables: F.PLANS[id].limits.tables, staff: F.PLANS[id].limits.staff })) }));
 
 // ----- Super admin API -----
@@ -433,7 +433,7 @@ function tenantStats(t, days = 30) {
   const revenue = H.reduce((n, h) => n + h.total, 0);
   const live = Object.values(t.db.sessions);
   return {
-    id: t.rec.id, slug: t.rec.slug, name: t.rec.name, plan: F.planOf(t.rec.plan), group: t.rec.group || '', domain: t.rec.domain || '', mrr: t.rec.status === 'active' ? F.monthly(t.rec.plan) : 0, status: t.rec.status, createdAt: t.rec.createdAt, lastActive: t.rec.lastActive,
+    id: t.rec.id, slug: t.rec.slug, name: t.rec.name, plan: F.planOf(t.rec.plan), group: t.rec.group || '', domain: t.rec.domain || '', mrr: t.rec.status === 'active' ? F.monthly(t.rec) : 0, addons: F.addonsOf(t.rec), status: t.rec.status, createdAt: t.rec.createdAt, lastActive: t.rec.lastActive,
     email: t.rec.owner.email, items: t.db.items.length, tables: t.db.tables.length, limits: F.limitsOf(t.rec.plan, t.rec.limits), feat: t.rec.feat || {}, limitOverride: t.rec.limits || null, staffCount: (t.rec.staff || []).length, advice: t.rec.advice || '',
     revenue, sessions: H.length, avgTicket: H.length ? revenue / H.length : 0, liveTables: live.length, liveRevenue: live.reduce((n, s) => n + t.bill(s).total, 0),
     guestsLive: live.reduce((n, s) => n + s.guests.length, 0), online: t.clients.size, currency: t.db.settings.currency,
@@ -480,7 +480,8 @@ app.delete('/api/super/contacts/:id', needSuper, async (req, res, next) => { try
 app.get('/api/super/plans', needSuper, async (req, res, next) => { try { await refreshPlatform(true); res.json(planView()); } catch (e) { next(e); } });
 app.put('/api/super/plans', needSuper, async (req, res, next) => { try {
   const b = req.body || {}, out = { plans: {} };
-  if (b.reset === true) { await store.putAux('platform', { plans: null, at: Date.now() }); await refreshPlatform(true); return res.json(planView()); }
+  const keep = (await store.getAux('platform')) || {};
+  if (b.reset === true) { await store.putAux('platform', { features: keep.features || null, plans: null, at: Date.now() }); await refreshPlatform(true); return res.json(planView()); }
   for (const id of F.ORDER) {
     const o = (b.plans || {})[id]; if (!o || typeof o !== 'object') continue;
     if (!Array.isArray(o.features) || o.features.some((x) => typeof x !== 'string')) return res.status(400).json({ error: 'features must be a list for ' + id });
@@ -488,7 +489,21 @@ app.put('/api/super/plans', needSuper, async (req, res, next) => { try {
     out.plans[id] = { features: o.features.filter((x) => F.FEATURE_IDS.includes(x)), price, limits: o.limits || {}, name: String(o.name || '').slice(0, 60), name_ar: String(o.name_ar || '').slice(0, 60) };
   }
   if (!Object.keys(out.plans).length) return res.status(400).json({ error: 'nothing to save' });
-  out.at = Date.now(); await store.putAux('platform', out); await refreshPlatform(true); res.json(planView());
+  out.at = Date.now(); out.features = keep.features || null; await store.putAux('platform', out); await refreshPlatform(true); res.json(planView());
+} catch (e) { next(e); } });
+// The feature catalog: rename / re-price built-in features, retire or restore them, and add / edit / delete the super admin's own.
+// Body: { features: [{ id, en, ar, desc, area, level, price, retired?, custom? }] } = the whole list (anything left out returns to its built-in values; a custom feature left out is deleted).
+app.put('/api/super/features', needSuper, async (req, res, next) => { try {
+  const list = Array.isArray(req.body && req.body.features) ? req.body.features.slice(0, 200) : null; if (!list) return res.status(400).json({ error: 'features must be a list' });
+  const builtin = new Set(F.CATALOG.concat(F.RETIRED).filter((c) => c.builtin).map((c) => c.id)), seen = new Set(), out = [];
+  for (const f of list) {
+    if (!f || !F.featIdOk(f.id)) return res.status(400).json({ error: 'Feature id must be 3-24 lowercase letters, digits or _ : ' + String(f && f.id).slice(0, 30) });
+    if (seen.has(f.id)) return res.status(400).json({ error: 'Duplicate feature id: ' + f.id }); seen.add(f.id);
+    const isB = builtin.has(f.id); if (!isB && !f.custom) continue;
+    out.push({ id: f.id, ...F.featClean(f), ...(isB ? { retired: !!f.retired && !F.CORE.includes(f.id) } : { custom: true }) });
+  }
+  const keep = (await store.getAux('platform')) || {};
+  await store.putAux('platform', { ...keep, features: out, at: Date.now() }); await refreshPlatform(true); res.json(planView());
 } catch (e) { next(e); } });
 app.get('/api/super/overview', needSuper, async (req, res, next) => { try {
   const all = await allTenants(), list = all.map((t) => tenantStats(t));

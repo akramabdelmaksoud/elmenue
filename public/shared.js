@@ -269,7 +269,7 @@ const App = {
   tok(role) { const r = role || App.authRole, k = (x) => `tok:${App.slug || '_'}:${x}`; return App.ls(k(r)) || (r === 'captain' || r === 'kitchen' || r === 'cashier' ? App.ls(k('admin')) : null); },
   logout() { const k = (x) => `tok:${App.slug || '_'}:${x}`; App.ls(k(App.authRole), ''); if (App.authRole !== 'admin' && App.authRole !== 'super') App.ls(k('admin'), ''); location.reload(); },
   // switch between the role screens of this restaurant without typing addresses
-  canSwitch() { try { return !!(App.demo || ['showroom', 'demo'].includes(App.slug) || App.ls(`tok:${App.slug || '_'}:admin`)); } catch { return false; } },
+  canSwitch() { return !!(App.demo || ['showroom', 'demo'].includes(App.slug)); },   // demo cafés only: a real café signs each role in on its own device
   hideSwitch() { document.querySelectorAll('[onclick*="App.roleMenu"]').forEach((e) => e.remove()); },
   roleMenu(ev) {
     if (!App.canSwitch()) return;
@@ -280,6 +280,30 @@ const App = {
     m.style.cssText = `position:fixed;z-index:200;top:${Math.min(b.bottom + 6, innerHeight - 220)}px;${document.dir === 'rtl' || b.left > innerWidth / 2 ? `right:${Math.max(8, innerWidth - b.right)}px` : `left:${Math.max(8, b.left)}px`};min-width:210px;padding:8px;border-radius:16px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:4px`;
     m.innerHTML = [['admin', '⚙️ Owner / admin'], ['captain', '🧑‍✈️ Captain'], ['kitchen', '🍳 Kitchen'], ['cashier', '💵 Cashier']].map(([k, l]) => `<a href="${base}/${k}" style="text-decoration:none;color:inherit;padding:10px 12px;border-radius:12px;background:var(--card2);${App.authRole === k ? 'outline:2px solid var(--accent)' : ''}">${l}${App.authRole === k ? ' ✓' : ''}</a>`).join('');
     document.body.appendChild(m); setTimeout(() => document.addEventListener('click', () => m.remove(), { once: true }), 0);
+  },
+  // the header's buttons fold into one menu icon; `keep` stays outside. The buttons are moved, not copied, so their ids and handlers keep working
+  foldHeader(sel = 'header .hb, .hb.fold', keep = '', cls = 'ghost') {
+    document.querySelectorAll(sel).forEach((hb) => {
+      if (hb.querySelector(':scope > .hbtog')) return;
+      const panel = document.createElement('div'), tg = document.createElement('button');
+      panel.className = 'hbmenu'; panel.hidden = true;
+      [...hb.children].filter((b) => !(keep && b.matches(keep))).forEach((b) => panel.appendChild(b));
+      tg.type = 'button'; tg.className = cls + ' hbtog';
+      tg.setAttribute('aria-label', 'Menu'); tg.title = 'Menu'; tg.setAttribute('aria-expanded', 'false');
+      tg.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>' + (hb.dataset.label ? `<b class="lbl">${hb.dataset.label}</b>` : '');
+      const show = (on) => {
+        panel.hidden = !on; tg.setAttribute('aria-expanded', String(on)); if (!on) return;
+        const r = tg.getBoundingClientRect(), up = r.bottom + 8 + Math.min(panel.scrollHeight, innerHeight * .75) > innerHeight && r.top > innerHeight / 2;
+        Object.assign(panel.style, { top: up ? 'auto' : r.bottom + 8 + 'px', bottom: up ? innerHeight - r.top + 8 + 'px' : 'auto', left: r.left + r.width / 2 < innerWidth / 2 ? Math.max(8, r.left) + 'px' : 'auto', right: r.left + r.width / 2 < innerWidth / 2 ? 'auto' : Math.max(8, innerWidth - r.right) + 'px' });
+      };
+      tg.onclick = (e) => { e.stopPropagation(); show(panel.hidden); };
+      // close after the item's own handler ran (capture, so it works even when that handler stops the click)
+      panel.addEventListener('click', (e) => { if (e.target.closest('button,a')) setTimeout(() => show(false), 0); }, true);
+      document.addEventListener('click', (e) => { if (!panel.contains(e.target)) show(false); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') show(false); });
+      addEventListener('resize', () => show(false));
+      hb.append(tg, panel);
+    });
   },
   loadAuth() {
     if (window.Auth) return Promise.resolve();
@@ -448,3 +472,9 @@ document.addEventListener('click', (e) => {
 // make the staff pages installable (needs the service worker); remember the install prompt for a button
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); App.installEvt = e; document.dispatchEvent(new Event('app-installable')); });
 if (/\/(captain|kitchen|cashier)(\/|$)/.test(location.pathname) && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+// the TableTab mark in the browser tab, for every page that does not set its own
+if (!document.querySelector('link[rel~="icon"]')) { const l = document.createElement('link'); l.rel = 'icon'; l.type = 'image/png'; l.href = '/icons/icon-192.png'; document.head.appendChild(l); }
+
+// staff screens: all header buttons sit behind one menu icon
+document.addEventListener('DOMContentLoaded', () => { if (!App.canSwitch()) App.hideSwitch(); App.foldHeader(); });

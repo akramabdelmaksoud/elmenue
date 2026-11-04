@@ -37,7 +37,7 @@ const Auth = (() => {
     return el;
   }
   function refreshTop(el) { const l = el.querySelector('#a-lang'); if (l) l.textContent = App.langLabel(App.nextLang()); }
-  const emblem = () => `<div class="emblem"><svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47"/></svg><svg class="leaf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${I.leaf}</svg></div>`;
+  const emblem = () => `<div class="emblem"><svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47"/></svg><img class="leaf" src="/icons/icon-192.png" alt=""></div>`;
   const hero = () => `<div class="auth-hero"><div class="kick">${'ELMENU'}</div><h1><span class="foil">${t('h1a')}</span><span>${t('h1b')}</span></h1><p>${t('sub')}</p>
     <div class="minifloor">${Array.from({ length: 10 }, (_, i) => `<i style="--dl:${(-i * 0.9).toFixed(1)}s"></i>`).join('')}</div>
     <div class="feats"><div><b class="foil">24/7</b>${t('f1')}</div><div><b class="foil">∞</b>${t('f2')}</div><div><b class="foil">1-tap</b>${t('f3')}</div></div></div>`;

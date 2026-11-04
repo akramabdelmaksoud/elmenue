@@ -35,7 +35,7 @@ async function load() {
 function draw() {
   const t = O.totals;
   const k = (l, v) => `<div class="card kpi"><span>${l}</span><b>${v}</b></div>`;
-  $('#app').innerHTML = `<main><div class="spread"><h1>👑 Platform control</h1><div class="row"><button class="ghost" onclick="openBundles()">⚙ Bundles &amp; features</button><button class="ghost" onclick="openMsgs()">✉ Messages</button><button class="ghost" onclick="App.toggleMode()">◐</button><button class="ghost" onclick="App.ls('tok:_:super','');location.reload()">Sign out</button></div></div>
+  $('#app').innerHTML = `<main><div class="spread"><h1>👑 Platform control</h1><div class="row"><button class="ghost" onclick="openCatalog()">🧩 Features &amp; prices</button><button class="ghost" onclick="openBundles()">⚙ Bundles</button><button class="ghost" onclick="openMsgs()">✉ Messages</button><button class="ghost" onclick="App.toggleMode()">◐</button><button class="ghost" onclick="App.ls('tok:_:super','');location.reload()">Sign out</button></div></div>
   <div class="grid">${k('Restaurants', `${t.active} / ${t.restaurants}`)}${k('Revenue (30d, all)', money(t.revenue))}${k('Table sessions (30d)', t.sessions.toLocaleString())}${k('Live tables now', t.liveTables)}${k('Guests seated now', t.guestsLive)}${k('Connected devices', t.online)}${k('Live open bills', money(t.liveRevenue))}${k('Subscription revenue / month', money(t.mrr, 'EGP'))}${(t.plans || []).map(p => k((TIERS.find(x => x[0] === p.plan) || [p.plan, p.plan])[1].split(' · ')[1] + ' cafés', p.count)).join('')}</div>
   <div class="row2"><div class="card"><h3>Platform revenue per day</h3><canvas id="c1"></canvas></div><div class="card"><h3>Revenue by restaurant (30d)</h3><canvas id="c2"></canvas></div>
   <div class="card"><h3>Rush hours across platform</h3><canvas id="c3"></canvas></div><div class="card"><h3>Top items platform-wide</h3><canvas id="c4"></canvas></div></div>
@@ -48,7 +48,7 @@ function draw() {
    ${newCred ? `<pre>✅ Send these to the owner:\nAdmin URL  : ${newCred.url}\nEmail      : ${newCred.email}\nPassword   : ${newCred.password}\nCaptain PIN: ${newCred.pin}   (captain URL: ${newCred.url.replace('/admin', '/captain')})</pre>` : ''}</div>
   <div class="card scroll" style="margin-top:14px"><h3>Restaurants</h3><table><tr><th>Restaurant</th><th>Status</th><th>Tier</th><th>Group / domain</th><th>Revenue 30d</th><th>Sessions</th><th>Avg ticket</th><th>Live now</th><th>Menu / Tables</th><th>Last active</th><th>Actions</th></tr>
   ${O.tenants.map(x => `<tr><td><b>${App.esc(x.name)}</b><br><small class="muted">/r/${x.slug} · ${App.esc(x.email)}</small></td><td><span class="st ${x.status}">${x.status}</span></td>
-   <td><select onchange="act('${x.slug}',{plan:this.value})">${TIERS.map(([v, l]) => `<option value="${v}" ${v === x.plan ? 'selected' : ''}>${l.split(' · ').slice(0, 2).join(' · ')}</option>`).join('')}</select></td>
+   <td><select onchange="act('${x.slug}',{plan:this.value})">${TIERS.map(([v, l]) => `<option value="${v}" ${v === x.plan ? 'selected' : ''}>${l.split(' · ').slice(0, 2).join(' · ')}</option>`).join('')}</select><br><small class="muted" title="bundle + add-ons">${money(x.mrr, 'EGP')} / month${(x.addons || []).length ? ` · incl. ${x.addons.length} add-on${x.addons.length > 1 ? 's' : ''}` : ''}</small></td>
    <td><input style="min-width:110px" placeholder="group" value="${App.esc(x.group || '')}" onchange="act('${x.slug}',{group:this.value})"><br><input style="min-width:110px;margin-top:4px" placeholder="domain" value="${App.esc(x.domain || '')}" onchange="act('${x.slug}',{domain:this.value})"></td>
    <td>${money(x.revenue, x.currency)}</td><td>${x.sessions}</td><td>${money(x.avgTicket, x.currency)}</td><td><span class="dot ${x.online ? '' : 'off'}"></span>${x.liveTables} tables · ${x.guestsLive} guests</td><td>${x.items} / ${x.tables}<br><small class="muted" title="tables · staff vs plan limit">${x.tables}/${x.limits.tables === null ? '∞' : x.limits.tables} T · ${x.staffCount}/${x.limits.staff === null ? '∞' : x.limits.staff} S</small><br><input style="width:62px;margin-top:3px" placeholder="T max" title="override: max tables (blank = plan)" value="${x.limitOverride && x.limitOverride.tables != null ? x.limitOverride.tables : ''}" onchange="act('${x.slug}',{limits:{...(${JSON.stringify(x.limitOverride || {})}),tables:this.value===''?undefined:+this.value}})"></td><td>${ago(x.lastActive)}</td>
    <td><button class="ghost" onclick="openAdmin('${x.slug}')">Open admin</button> <button class="ghost" onclick="openFeatures('${x.slug}')">Features</button> <button class="ghost" onclick="openAdvice('${x.slug}')">Advice</button> <button class="ghost" onclick="act('${x.slug}',{status:'${x.status === 'active' ? 'suspended' : 'active'}'})">${x.status === 'active' ? 'Suspend' : 'Activate'}</button> <button class="ghost" onclick="reset('${x.slug}')">Reset login</button> <button class="ghost" onclick="del('${x.slug}')">🗑</button></td></tr>`).join('')}</table></div></main>`;
@@ -75,11 +75,12 @@ const LVL = { 1: 'Core', 2: 'Important', 3: 'Growth', 4: 'Premium' };
 async function openBundles() {
   PLX = await api('GET', '/api/super/plans');
   const cols = PLX.plans, E = App.esc;
-  const rows = PLX.catalog.slice().sort((a, b) => a.level - b.level).map((c) => '<tr><td><b>' + E(c.en) + '</b><br><span class="lv">' + E(c.id) + ' · ' + c.area + ' · level ' + c.level + ' (' + LVL[c.level] + ')</span></td>' + cols.map((p) => '<td style="text-align:center"><input type="checkbox" data-p="' + p.id + '" data-f="' + c.id + '"' + (p.features.includes(c.id) ? ' checked' : '') + '></td>').join('') + '</tr>').join('');
+  const rows = PLX.catalog.slice().sort((a, b) => a.level - b.level).map((c) => '<tr><td><b>' + E(c.en) + '</b><br><span class="lv">' + E(c.id) + ' · ' + c.area + ' · level ' + c.level + ' (' + LVL[c.level] + ') · ' + c.price + ' EGP add-on' + (c.custom ? ' · custom' : '') + '</span></td>' + cols.map((p) => '<td style="text-align:center"><input type="checkbox" data-p="' + p.id + '" data-f="' + c.id + '"' + (p.features.includes(c.id) ? ' checked' : '') + '></td>').join('') + '</tr>').join('');
   const lim = (p, k) => '<input type="number" min="0" placeholder="unlimited" data-p="' + p.id + '" data-l="' + k + '" value="' + (p.limits[k] == null ? '' : p.limits[k]) + '">';
   ovShow('<div class="spread"><h2>Bundles</h2><button class="ghost" onclick="closeOv()">Close</button></div><p class="muted">Tick what each bundle includes. Changes apply to every café on that bundle within about 20 seconds. A single café can be unlocked or locked from its "Features" button.</p><div class="scroll"><table class="mx"><tr><th>Feature</th>' + cols.map((p) => '<th style="text-align:center">' + E(p.name) + '</th>').join('') + '</tr>' +
     '<tr><td>Name</td>' + cols.map((p) => '<td><input style="min-width:130px" data-p="' + p.id + '" data-n="name" value="' + E(p.name) + '"></td>').join('') + '</tr>' +
     '<tr><td>Price per month (EGP) from / to</td>' + cols.map((p) => '<td><input type="number" min="0" data-p="' + p.id + '" data-pr="0" value="' + p.price[0] + '"> <input type="number" min="0" data-p="' + p.id + '" data-pr="1" value="' + p.price[1] + '"></td>').join('') + '</tr>' +
+    '<tr><td>Features bought one by one (EGP / month)</td>' + cols.map((p) => '<td class="muted">' + PLX.catalog.filter((c) => p.features.includes(c.id)).reduce((n, c) => n + c.price, 0).toLocaleString() + '</td>').join('') + '</tr>' +
     '<tr><td>Max tables</td>' + cols.map((p) => '<td>' + lim(p, 'tables') + '</td>').join('') + '</tr><tr><td>Max staff accounts</td>' + cols.map((p) => '<td>' + lim(p, 'staff') + '</td>').join('') + '</tr><tr><td>Max branches</td>' + cols.map((p) => '<td>' + lim(p, 'branches') + '</td>').join('') + '</tr>' +
     rows + '</table></div><div class="row" style="margin-top:14px"><button class="primary" onclick="saveBundles()">Save bundles</button><button class="ghost" onclick="resetBundles()">Restore built-in bundles</button><span id="bmsg" class="muted"></span></div>');
 }
@@ -102,8 +103,48 @@ async function resetBundles() { if (!confirm('Restore the built-in bundles? Your
 async function openFeatures(slug) {
   PLX = await api('GET', '/api/super/plans'); const x = O.tenants.find((t) => t.slug === slug), plan = PLX.plans.find((p) => p.id === x.plan) || PLX.plans[0], E = App.esc, ov = x.feat || {};
   const rows = PLX.catalog.slice().sort((a, b) => a.level - b.level).map((c) => { const inPlan = plan.features.includes(c.id), v = ov[c.id] === true ? 'on' : ov[c.id] === false ? 'off' : '';
-    return '<tr><td><b>' + E(c.en) + '</b><br><span class="lv">' + E(c.id) + ' · ' + c.area + '</span></td><td>' + (inPlan ? '✔ in bundle' : '— not in bundle') + '</td><td><select data-f="' + c.id + '"><option value=""' + (v === '' ? ' selected' : '') + '>Follow bundle</option><option value="on"' + (v === 'on' ? ' selected' : '') + '>Unlock for this café</option><option value="off"' + (v === 'off' ? ' selected' : '') + '>Lock for this café</option></select></td></tr>'; }).join('');
-  ovShow('<div class="spread"><h2>Features · ' + E(x.name) + '</h2><button class="ghost" onclick="closeOv()">Close</button></div><p class="muted">Bundle: <b>' + E(plan.name) + '</b>. Unlock gives this café a feature its bundle does not include; lock removes one it does. Guests and the café admin see the change right away.</p><div class="scroll"><table class="mx"><tr><th>Feature</th><th>Bundle</th><th>This café</th></tr>' + rows + '</table></div><div class="row" style="margin-top:14px"><button class="primary" onclick="saveFeatures(\'' + slug + '\')">Save</button><span id="bmsg" class="muted"></span></div>');
+    return '<tr><td><b>' + E(c.en) + '</b><br><span class="lv">' + E(c.id) + ' · ' + c.area + '</span></td><td>' + (inPlan ? '✔ in bundle' : '— not in bundle') + '</td><td><select data-f="' + c.id + '" data-in="' + (inPlan ? 1 : 0) + '" data-pr="' + c.price + '" onchange="featBill()"><option value=""' + (v === '' ? ' selected' : '') + '>Follow bundle</option><option value="on"' + (v === 'on' ? ' selected' : '') + '>' + (inPlan ? 'On' : 'Add-on +' + c.price + ' EGP / month') + '</option><option value="off"' + (v === 'off' ? ' selected' : '') + '>Lock for this café</option></select></td></tr>'; }).join('');
+  ovShow('<div class="spread"><h2>Features · ' + E(x.name) + '</h2><button class="ghost" onclick="closeOv()">Close</button></div><p class="muted">Bundle: <b>' + E(plan.name) + '</b>. Unlock gives this café a feature its bundle does not include; lock removes one it does. Guests and the café admin see the change right away.</p><div class="scroll"><table class="mx"><tr><th>Feature</th><th>Bundle</th><th>This café</th></tr>' + rows + '</table></div><p id="fbill" data-base="' + plan.price[0] + '" style="font-weight:700;margin:12px 0 0"></p><div class="row" style="margin-top:10px"><button class="primary" onclick="saveFeatures(\'' + slug + '\')">Save</button><span id="bmsg" class="muted"></span></div>');
+  featBill();
+}
+function featBill() {
+  const el = document.getElementById('fbill'); if (!el) return; const base = +el.dataset.base;
+  const add = [...document.querySelectorAll('#ov select[data-f]')].filter((s) => s.value === 'on' && s.dataset.in === '0');
+  el.textContent = 'Monthly: bundle ' + base.toLocaleString() + ' EGP' + (add.length ? ' + ' + add.length + ' add-on' + (add.length > 1 ? 's' : '') + ' ' + add.reduce((n, s) => n + +s.dataset.pr, 0).toLocaleString() + ' EGP' : '') + ' = ' + (base + add.reduce((n, s) => n + +s.dataset.pr, 0)).toLocaleString() + ' EGP';
+}
+
+// ---- Feature catalog: every feature's name, area, level and own price; add, edit, delete (custom) or retire / restore (built-in) ----
+let CAT = null;
+async function openCatalog() {
+  PLX = await api('GET', '/api/super/plans');
+  CAT = PLX.catalog.concat(PLX.retired.map((c) => ({ ...c, retired: true }))).map((c) => ({ ...c }));
+  drawCatalog();
+}
+function drawCatalog(msg) {
+  const E = App.esc, sel = (i, k, opts) => '<select data-i="' + i + '" data-k="' + k + '">' + opts.map(([v, l]) => '<option value="' + v + '"' + (String(CAT[i][k]) === String(v) ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>';
+  const rows = CAT.map((c, i) => '<tr style="' + (c.retired ? 'opacity:.55' : '') + '"><td><input data-i="' + i + '" data-k="en" value="' + E(c.en) + '" style="min-width:190px"><br><span class="lv">' + E(c.id) + (c.custom ? ' · custom' : ' · built-in') + '</span></td>'
+    + '<td><input data-i="' + i + '" data-k="ar" dir="rtl" value="' + E(c.ar || '') + '" style="min-width:150px"></td>'
+    + '<td>' + sel(i, 'area', [['guest', 'Guest'], ['staff', 'Staff'], ['admin', 'Admin']]) + '</td><td>' + sel(i, 'level', [[1, '1 Core'], [2, '2 Important'], [3, '3 Growth'], [4, '4 Premium']]) + '</td>'
+    + '<td><input type="number" min="0" data-i="' + i + '" data-k="price" value="' + c.price + '" style="width:90px"></td>'
+    + '<td>' + (c.custom ? '<button class="ghost" onclick="catDel(' + i + ')">🗑 Delete</button>' : PLX.core.includes(c.id) ? '<span class="muted">core</span>' : '<label class="row" style="gap:6px"><input type="checkbox" style="width:auto" data-i="' + i + '" data-k="retired"' + (c.retired ? ' checked' : '') + '> Retired</label>') + '</td></tr>').join('');
+  ovShow('<div class="spread"><h2>Features &amp; prices</h2><button class="ghost" onclick="closeOv()">Close</button></div>'
+    + '<p class="muted">The price is what a café pays per month to add the feature on top of its bundle. Retiring a built-in feature switches it off for every café (untick to bring it back). Your own features are billing items and switches: put them in bundles or sell them as add-ons; the café screens see them as on or off.</p>'
+    + '<div class="scroll"><table class="mx"><tr><th>Name (English)</th><th>Name (Arabic)</th><th>Area</th><th>Level</th><th>EGP / month</th><th></th></tr>' + rows + '</table></div>'
+    + '<h3 style="margin:18px 0 6px">➕ New feature</h3><div class="row" style="flex-wrap:wrap;gap:8px"><input id="nf_en" placeholder="Name (English)" style="min-width:200px"><input id="nf_ar" placeholder="الاسم بالعربي" dir="rtl"><select id="nf_area"><option value="guest">Guest</option><option value="staff">Staff</option><option value="admin">Admin</option></select><select id="nf_level"><option value="2">2 Important</option><option value="3">3 Growth</option><option value="4">4 Premium</option><option value="1">1 Core</option></select><input id="nf_price" type="number" min="0" placeholder="EGP / month" style="width:120px"><button class="ghost" onclick="catAdd()">Add</button></div>'
+    + '<div class="row" style="margin-top:16px"><button class="primary" onclick="saveCatalog()">Save features</button><span id="bmsg" class="muted">' + E(msg || '') + '</span></div>');
+  document.querySelectorAll('#ov [data-i]').forEach((el) => el.addEventListener('change', () => { const c = CAT[+el.dataset.i], k = el.dataset.k; c[k] = k === 'retired' ? el.checked : k === 'price' || k === 'level' ? +el.value : el.value; }));
+}
+function catAdd() {
+  const en = document.getElementById('nf_en').value.trim(); if (!en) return alert('Give the feature a name');
+  let id = en.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/^(d)/, 'f_$1').slice(0, 24); if (id.length < 3) id = (id + '_feat').slice(0, 24);
+  for (let n = 2; CAT.some((c) => c.id === id); n++) id = id.slice(0, 21) + '_' + n;
+  CAT.push({ id, en, ar: document.getElementById('nf_ar').value.trim(), area: document.getElementById('nf_area').value, level: +document.getElementById('nf_level').value, price: +document.getElementById('nf_price').value || 0, custom: true });
+  drawCatalog('Added - press Save to keep it');
+}
+function catDel(i) { if (!confirm('Delete "' + CAT[i].en + '"? It is removed from every bundle and café.')) return; CAT.splice(i, 1); drawCatalog('Deleted - press Save to confirm'); }
+async function saveCatalog() {
+  try { PLX = await api('PUT', '/api/super/features', { features: CAT.map((c) => ({ id: c.id, en: c.en, ar: c.ar, area: c.area, level: c.level, price: c.price, retired: !!c.retired, custom: !!c.custom })) }); CAT = PLX.catalog.concat(PLX.retired.map((c) => ({ ...c, retired: true }))).map((c) => ({ ...c })); drawCatalog('Saved ✓'); load(); }
+  catch (e) { document.getElementById('bmsg').textContent = e.message; }
 }
 function openAdvice(slug) {
   const x = O.tenants.find((t) => t.slug === slug);
