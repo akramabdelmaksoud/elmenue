@@ -38,7 +38,7 @@ const Auth = (() => {
   }
   function refreshTop(el) { const l = el.querySelector('#a-lang'); if (l) l.textContent = App.langLabel(App.nextLang()); }
   const emblem = () => `<div class="emblem"><svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47"/></svg><img class="leaf" src="/icons/icon-192.png" alt=""></div>`;
-  const hero = () => `<div class="auth-hero"><div class="kick">${'ELMENU'}</div><h1><span class="foil">${t('h1a')}</span><span>${t('h1b')}</span></h1><p>${t('sub')}</p>
+  const hero = () => `<div class="auth-hero"><div class="kick">TableTab</div><h1><span class="foil">${t('h1a')}</span><span>${t('h1b')}</span></h1><p>${t('sub')}</p>
     <div class="minifloor">${Array.from({ length: 10 }, (_, i) => `<i style="--dl:${(-i * 0.9).toFixed(1)}s"></i>`).join('')}</div>
     <div class="feats"><div><b class="foil">24/7</b>${t('f1')}</div><div><b class="foil">∞</b>${t('f2')}</div><div><b class="foil">1-tap</b>${t('f3')}</div></div></div>`;
   function ripple(btn, e) { const r = btn.getBoundingClientRect(), s = Math.max(r.width, r.height) * 2, i = document.createElement('span'); i.className = 'ripple'; i.style.cssText = `width:${s}px;height:${s}px;left:${(e.clientX || r.left + r.width / 2) - r.left - s / 2}px;top:${(e.clientY || r.top + r.height / 2) - r.top - s / 2}px`; btn.appendChild(i); setTimeout(() => i.remove(), 700); }

@@ -1,5 +1,5 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Super Admin</title><link rel="stylesheet" href="/shared.css">
+<html class="tt-house"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Super Admin</title><link rel="stylesheet" href="/shared.css"><link rel="stylesheet" href="/tt-brand.css">
 <style>
 main{max-width:1250px;margin:auto;padding:22px}.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}.kpi span{color:var(--muted);font-size:13px}.kpi b{display:block;font-size:26px;margin-top:4px}
 table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid var(--line);text-align:start;font-size:14px;white-space:nowrap}.scroll{overflow:auto}
@@ -8,7 +8,7 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px so
 .ov{position:fixed;inset:0;background:#000a;z-index:50;display:grid;place-items:start center;overflow:auto;padding:24px}.ov>.card{max-width:1000px;width:100%}.mx td,.mx th{padding:6px 10px}.mx input[type=number]{width:90px}.mx input[type=checkbox]{width:20px;height:20px}.lv{font-size:11px;color:var(--muted)}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#2ecc71;margin-inline-end:5px}.dot.off{background:#888}
 pre{background:var(--card2);padding:12px;border-radius:12px;white-space:pre-wrap}
 </style></head><body><div id="app"></div>
-<script src="/vendor/chart.js"></script><script src="/shared.js"></script>
+<script src="/vendor/chart.js"></script><script src="/shared.js"></script><script src="/tt-fx.js"></script>
 <script>
 App.authRole = 'super';
 let O = null, charts = [], newCred = null;
@@ -23,7 +23,7 @@ const money = (n, c) => Math.round(n).toLocaleString() + ' ' + (c || '');
 const ago = (t) => (t ? App.ago(t) + ' ago' : 'never');
 async function login() {
   await App.loadAuth(); App.applyTheme();
-  await Auth.show({ kind: 'super', brand: { name: 'ELMENU' }, async submit(v) { const r = await api('POST', '/api/super/login', v); App.ls('tok:_:super', r.token); } });
+  await Auth.show({ kind: 'super', brand: { name: 'TableTab' }, async submit(v) { const r = await api('POST', '/api/super/login', v); App.ls('tok:_:super', r.token); } });
   load();
 }
 async function load() {
@@ -89,11 +89,10 @@ let SITE = null;
 async function openSite() {
   SITE = await api('GET', '/api/super/site');
   SITE.edit = { en: { ...(SITE.conf.text.en || {}) }, ar: { ...(SITE.conf.text.ar || {}) } }; SITE.q = '';
-  const E = App.esc, c = SITE.conf, m = c.mult, lv = { 1: 'Core', 2: 'Important', 3: 'Growth', 4: 'Premium' };
+  const E = App.esc, c = SITE.conf, m = c.mult;
   ovShow(`<div class="spread"><h2>🌐 Website &amp; prices</h2><button class="ghost" onclick="closeOv()">Close</button></div>
   <div class="card" style="margin-bottom:14px"><h3>Plan prices</h3><p class="muted">The three plan prices shown on the website come from your bundles. ${SITE.plans.map((x) => E(x.name) + ' <b>' + x.price + '</b>').join(' · ')} EGP / month. <a href="#" onclick="closeOv();openBundles();return false">Edit bundles →</a></p></div>
-  <div class="card" style="margin-bottom:14px"><h3>Price of each add-on (EGP / month)</h3><p class="muted">What a visitor pays on the “Build your own bundle” page for a feature their plan does not already include. Leave blank to use the default for its level (${Object.keys(SITE.defaults).map((k) => lv[k] + ' ' + SITE.defaults[k]).join(', ')}).</p>
-   <table><tr><th>Feature</th><th>Level</th><th>Price</th></tr>${SITE.catalog.filter((x) => x.level > 1).map((x) => `<tr><td>${E(x.en)}</td><td class="muted">${lv[x.level]}</td><td><input type="number" min="0" class="adp" data-id="${x.id}" value="${SITE.conf.addons[x.id] === undefined ? '' : SITE.conf.addons[x.id]}" placeholder="${SITE.defaults[x.level]}" style="width:110px"></td></tr>`).join('')}</table></div>
+  <div class="card" style="margin-bottom:14px"><h3>Add-on prices</h3><p class="muted">The price of each feature on the “Build your own bundle” page comes from <b>Features &amp; prices</b>. <a href="#" onclick="closeOv();openCatalog();return false">Edit feature prices →</a></p></div>
   <div class="card" style="margin-bottom:14px"><h3>Ready-made bundles</h3><p class="muted">Named starting points shown on the “Build your own bundle” page, for example “Coffee shop pack”. A visitor taps one and can still change it.</p><div id="bnd"></div><button class="ghost" onclick="bndAdd()">+ Add a bundle</button></div>
   <div class="card" style="margin-bottom:14px"><h3>Billing options</h3><div class="row wrap"><label>Lifetime payment = <input id="mlife" type="number" min="1" value="${m.life}" style="width:80px"> × the monthly price</label><label>Yearly service = <input id="msvc" type="number" min="0" value="${m.svc}" style="width:80px"> × the monthly price</label><label>Pay yearly = <input id="mym" type="number" min="1" max="12" value="${m.yearMonths}" style="width:80px"> months</label></div></div>
   <div class="card" style="margin-bottom:14px"><h3>Announcement bar</h3><label class="row" style="gap:8px"><input type="checkbox" id="annon" style="width:auto" ${c.announce.on ? 'checked' : ''}> Show it at the top of the website and the bundle page</label><input id="annen" placeholder="English text" value="${E(c.announce.en)}" maxlength="200" style="margin-top:8px"><input id="annar" dir="rtl" placeholder="النص بالعربية" value="${E(c.announce.ar)}" maxlength="200" style="margin-top:8px"></div>
@@ -115,8 +114,7 @@ function drawTexts() {
 }
 function stx(el) { const v = el.value; if (v.trim() && v !== SITE.texts[el.dataset.l][el.dataset.k]) SITE.edit[el.dataset.l][el.dataset.k] = v; else delete SITE.edit[el.dataset.l][el.dataset.k]; }
 async function saveSite() {
-  const addons = {}; document.querySelectorAll('.adp').forEach((i) => { if (i.value !== '') addons[i.dataset.id] = +i.value; });
-  const body = { addons, mult: { life: $('#mlife').value, svc: $('#msvc').value, yearMonths: $('#mym').value }, announce: { on: $('#annon').checked, en: $('#annen').value, ar: $('#annar').value }, text: SITE.edit, bundles: SITE.bundles };
+  const body = { mult: { life: $('#mlife').value, svc: $('#msvc').value, yearMonths: $('#mym').value }, announce: { on: $('#annon').checked, en: $('#annen').value, ar: $('#annar').value }, text: SITE.edit, bundles: SITE.bundles };
   try { SITE.conf = await api('PUT', '/api/super/site', body); $('#smsg').textContent = 'Saved. The website shows it within a few seconds.'; } catch (e) { $('#smsg').textContent = '⚠ ' + e.message; }
 }
 async function openMsgs() {

@@ -419,7 +419,8 @@ async function siteConf(force) {
   siteVal = { addons: d.addons && typeof d.addons === 'object' ? d.addons : {}, mult: { ...SITE_MULT, ...(d.mult || {}) }, announce: { on: !!(d.announce && d.announce.on), en: clip(d.announce && d.announce.en, 200), ar: clip(d.announce && d.announce.ar, 200) }, text: { en: (d.text && d.text.en) || {}, ar: (d.text && d.text.ar) || {} }, bundles: Array.isArray(d.bundles) ? d.bundles : [] };
   siteAt = Date.now(); return siteVal;
 }
-const addonPrice = (c, conf) => { const v = conf.addons[c.id]; return v !== undefined && v !== null && v !== '' && +v >= 0 ? Math.round(+v) : (ADDON_BY_LEVEL[c.level] || 0); };
+// one price list: the feature catalog the platform console edits ("Features & prices")
+const addonPrice = (c) => (+c.price >= 0 ? Math.round(+c.price) : (ADDON_BY_LEVEL[c.level] || 0));
 // what a bundle costs: the plan's own price plus its add-ons (always recomputed here, never trusted from the browser)
 function quoteFor(q, conf) {
   if (!q || !F.ORDER.includes(q.plan)) return null;
@@ -552,12 +553,10 @@ const siteTexts = () => {
 };
 app.get('/api/super/site', needSuper, async (req, res, next) => { try {
   const conf = await siteConf(true);
-  res.json({ conf, defaults: ADDON_BY_LEVEL, plansAll: F.ORDER, mult: SITE_MULT, texts: siteTexts(), catalog: F.CATALOG.map((c) => ({ id: c.id, en: c.en, ar: c.ar, area: c.area, level: c.level, price: addonPrice(c, conf), custom: conf.addons[c.id] !== undefined && conf.addons[c.id] !== null })), plans: F.ORDER.map((id) => ({ id, name: F.PLANS[id].name, price: F.PLANS[id].price[0] })) });
+  res.json({ conf, defaults: ADDON_BY_LEVEL, plansAll: F.ORDER, mult: SITE_MULT, texts: siteTexts(), catalog: F.CATALOG.map((c) => ({ id: c.id, en: c.en, ar: c.ar, area: c.area, level: c.level, price: addonPrice(c, conf) })), plans: F.ORDER.map((id) => ({ id, name: F.PLANS[id].name, price: F.PLANS[id].price[0] })) });
 } catch (e) { next(e); } });
 app.put('/api/super/site', needSuper, async (req, res, next) => { try {
   const b = req.body || {}, out = { at: Date.now() }, num = (v, lo, hi) => (v !== '' && v !== null && v !== undefined && +v >= lo && +v <= hi ? +v : null);
-  out.addons = {};
-  for (const c of F.CATALOG) { const v = (b.addons || {})[c.id]; if (v === null || v === undefined || v === '') continue; const n = num(v, 0, 1e6); if (n === null) return res.status(400).json({ error: 'Bad price for ' + c.en }); out.addons[c.id] = Math.round(n); }
   const m = b.mult || {}, life = num(m.life, 1, 200), svc = num(m.svc, 0, 50), ym = num(m.yearMonths, 1, 12);
   if (life === null || svc === null || ym === null) return res.status(400).json({ error: 'Lifetime, service and yearly multipliers must be numbers' });
   out.mult = { life, svc, yearMonths: ym };

@@ -8,9 +8,10 @@ test('F42 add-on prices, the bundle request and the website settings', async (t)
   const ops = pub.plans.find((p) => p.id === 'operations'), loy = pub.catalog.find((c) => c.id === 'loyalty'), gift = pub.catalog.find((c) => c.id === 'giftcards');
   assert.ok(!ops.features.includes('loyalty') && loy.price > 0, 'loyalty is an add-on on Operations, and it has a price');
   // the owner prices a feature, and the public list follows
-  assert.equal((await S.J('PUT', '/api/super/site', { addons: { loyalty: 250 }, mult: { life: 20, svc: 4, yearMonths: 10 }, text: {} })).s, 401, 'only the platform owner');
-  const bad = await S.J('PUT', '/api/super/site', { addons: { loyalty: -5 }, mult: { life: 20, svc: 4, yearMonths: 10 } }, sup); assert.equal(bad.s, 400);
-  const saved = await S.J('PUT', '/api/super/site', { addons: { loyalty: 250 }, mult: { life: 15, svc: 3, yearMonths: 10 }, announce: { on: true, en: 'Launch offer', ar: 'عرض الإطلاق' }, text: { en: { h1: 'Custom headline' }, ar: {} } }, sup);
+  assert.equal((await S.J('PUT', '/api/super/site', { mult: { life: 20, svc: 4, yearMonths: 10 }, text: {} })).s, 401, 'only the platform owner');
+  const bad = await S.J('PUT', '/api/super/site', { mult: { life: 0, svc: 4, yearMonths: 10 } }, sup); assert.equal(bad.s, 400);
+  assert.equal((await S.J('PUT', '/api/super/features', { features: [{ id: 'loyalty', en: 'Loyalty points', ar: 'نقاط الولاء', area: 'guest', level: 4, price: 250 }] }, sup)).s, 200, 'prices come from the feature catalog');
+  const saved = await S.J('PUT', '/api/super/site', { mult: { life: 15, svc: 3, yearMonths: 10 }, announce: { on: true, en: 'Launch offer', ar: 'عرض الإطلاق' }, text: { en: { h1: 'Custom headline' }, ar: {} } }, sup);
   assert.equal(saved.s, 200);
   const pub2 = (await S.J('GET', '/api/public/site')).j;
   assert.equal(pub2.catalog.find((c) => c.id === 'loyalty').price, 250); assert.equal(pub2.mult.life, 15); assert.equal(pub2.announce.en, 'Launch offer'); assert.equal(pub2.text.en.h1, 'Custom headline');
@@ -28,7 +29,7 @@ test('F42 add-on prices, the bundle request and the website settings', async (t)
   // the builder page is served
   const pg = await fetch(S.base + '/build'); assert.equal(pg.status, 200); assert.match(await pg.text(), /Build your bundle/);
   // ready-made bundles and the most-picked badge
-  const withB = await S.J('PUT', '/api/super/site', { addons: { loyalty: 250 }, mult: { life: 15, svc: 3, yearMonths: 10 }, text: {}, bundles: [{ name: 'Coffee shop pack', name_ar: 'باقة الكافيه', plan: 'basic', features: ['loyalty', 'zzz', 'upsell'] }, { name: '' }] }, sup);
+  const withB = await S.J('PUT', '/api/super/site', { mult: { life: 15, svc: 3, yearMonths: 10 }, text: {}, bundles: [{ name: 'Coffee shop pack', name_ar: 'باقة الكافيه', plan: 'basic', features: ['loyalty', 'zzz', 'upsell'] }, { name: '' }] }, sup);
   assert.equal(withB.s, 200); const pub3 = (await S.J('GET', '/api/public/site')).j;
   assert.equal(pub3.bundles.length, 1); assert.deepEqual(pub3.bundles[0].features, ['loyalty', 'upsell']); assert.equal(pub3.bundles[0].plan, 'basic');
   assert.ok(pub3.popular.includes('loyalty') && pub3.popular.includes('giftcards'), 'features people asked for are marked most picked');

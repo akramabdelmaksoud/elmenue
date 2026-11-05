@@ -35,7 +35,7 @@ function draw() {
     <div class="sw rz ${D.demo ? 'on' : ''}" style="--i:1" id="sw-demo"><i></i><div><b>${w('sample')}</b><br><small style="color:var(--muted)">${w('sampleD')}</small></div></div>
     ${needKey ? `<div class="fld rz" style="--i:2">${ic('key')}<input id="f-key" placeholder=" " autocomplete="off" value="${App.esc(D.key)}"><label>${w('key')}</label></div>` : ''}`;
   const last = step === 3;
-  shell.innerHTML = `<div class="auth-hero"><div class="kick">ELMENU</div><h1><span class="foil">${w('h1a')}</span><span>${w('h1b')}</span></h1><p>${w('sub')}</p><div class="minifloor">${Array.from({ length: 10 }, (_, i) => `<i style="--dl:${(-i * 0.9).toFixed(1)}s"></i>`).join('')}</div></div>
+  shell.innerHTML = `<div class="auth-hero"><div class="kick">TableTab</div><h1><span class="foil">${w('h1a')}</span><span>${w('h1b')}</span></h1><p>${w('sub')}</p><div class="minifloor">${Array.from({ length: 10 }, (_, i) => `<i style="--dl:${(-i * 0.9).toFixed(1)}s"></i>`).join('')}</div></div>
   <div class="auth-card wiz"><div style="--i:0">${Auth.emblem()}</div><div class="kick">${w('kick')}</div><h2><span class="foil">${steps[step]}</span></h2><div style="height:14px"></div>${head}
   <div class="slide" style="--dir:${dir}" id="slide">${body}<div class="hint" id="err"></div>
   <div class="btns">${step > 0 ? `<button type="button" class="ghost-btn" id="b-back">${ic('back')}</button>` : ''}<button type="button" class="gold-btn" id="b-next"><span>${last ? w('launch') : w('next')}</span>${ic(last ? 'check' : 'arrow')}</button></div></div></div>`;
@@ -79,7 +79,7 @@ function confetti() {
 }
 async function finished(pin) {
   scene = Auth.scene(); shell = scene.querySelector('.auth-shell'); App.handlers = { render: () => finished(pin) };
-  shell.innerHTML = `<div class="auth-hero"><div class="kick">ELMENU</div><h1><span class="foil">${w('done')}</span></h1><p>${w('doneSub')}</p></div>
+  shell.innerHTML = `<div class="auth-hero"><div class="kick">TableTab</div><h1><span class="foil">${w('done')}</span></h1><p>${w('doneSub')}</p></div>
   <div class="auth-card wiz"><div>${Auth.emblem()}</div><div class="kick">✦ ✦ ✦</div><h2><span class="foil">${w('done')}</span></h2><div style="height:10px"></div>
   <div class="pinbox rz" style="--i:0"><small>${w('pinL')}</small><span class="big foil">${pin}</span><button type="button" class="ghost-btn" id="cp" style="padding:9px 18px;font-size:13px">${w('copy')}</button></div>
   <div class="links"><a class="gold-btn rz" style="--i:1" href="/admin"><span>${w('openAdmin')}</span>${ic('arrow')}</a><a class="ghost-btn rz" style="--i:2;text-align:center" href="/captain">${w('openCap')}</a><a class="ghost-btn rz" style="--i:3;text-align:center" href="/t/1" target="_blank">${w('openGuest')}</a></div></div>`;
