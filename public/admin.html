@@ -114,7 +114,7 @@ async function loyaltyTab() {
 }
 async function saveLoy(p) { const r = await api('POST', '/api/settings', { loyalty: { ...(App.config.settings.loyalty || {}), ...p } }); if (r.error) App.toast(r.error); }
 async function adjPts(phone) { const v = prompt('Add or remove points (e.g. 50 or -20)'); if (!v) return; const r = await api('POST', '/api/loyalty/adjust', { phone, delta: +v }); App.toast(r.error || 'Updated'); cfgKey = ''; render(App.state, true); }
-let OCR = [], OCRTXT = '', OCRLOCAL = false, OCREXTRA = [], OCRN = 0;
+let OCR = [], OCRTXT = '', OCRLOCAL = false, OCREXTRA = [], OCRN = 0, OCRLINES = [], OCRPAGES = [];   // OCRLINES: each read line with its place on the photo (OCRPAGES) and how sure the reading was
 function ocrTab() {
   if (!FEAT().ocr) return lockedCard('📷 AI menu digitizer', 'ocr');
   $('#main').innerHTML = `<h1>📷 AI Photo OCR Menu Digitizer</h1><div class="card"><p class="muted">Upload photos of a paper menu (one per page, several at once is fine), or screenshots of any QR menu. Every line on the page is read: categories, item names (English and Arabic), descriptions and all prices become editable rows, and any text that is not clearly a dish is listed under them so nothing is lost. Review, then import. Best results: a straight, sharp, well-lit photo of one page.</p>
@@ -158,7 +158,10 @@ async function ocrCanvas(f) {
 const ocrJunk = (x) => (x.text.match(/[\p{L}\d]/gu) || []).length < 2 && x.bbox.x1 - x.bbox.x0 > 4 * (x.bbox.y1 - x.bbox.y0);   // rules and underlines read as one wide mark
 function ocrGutters(lines, rtl) {
   lines.forEach((l, i) => l.words.forEach((x) => { x._l = i; }));
-  const ws = lines.flatMap((l) => l.words).filter((x) => !ocrJunk(x)), mid = (x) => (x.bbox.x0 + x.bbox.x1) / 2, wordy = (x) => (x.text.match(/\p{L}/gu) || []).length >= 3 && (x.confidence ?? 100) >= 70;   // a real word, not a misread mark
+  const ws = lines.flatMap((l) => l.words).filter((x) => !ocrJunk(x)), mid = (x) => (x.bbox.x0 + x.bbox.x1) / 2, wordy0 = (x) => (x.text.match(/\p{L}/gu) || []).length >= 3;
+  // a real word, not a misread mark: sure enough compared with this photo's usual words (a blurry photo is less sure of everything)
+  const cs = lines.flatMap((l) => l.words).filter(wordy0).map((x) => x.confidence ?? 100).sort((a, b) => a - b), bar = Math.min(70, (cs[Math.floor(cs.length / 2)] ?? 70) - 12);
+  const wordy = (x) => wordy0(x) && (x.confidence ?? 100) >= bar;
   if (!ws.length) return [];
   const X0 = Math.min(...ws.map((x) => x.bbox.x0)), X1 = Math.max(...ws.map((x) => x.bbox.x1)), B = 4, n = Math.ceil((X1 - X0 + 1) / B), cov = new Array(n).fill(0);
   ws.forEach((x) => { for (let b = Math.floor((x.bbox.x0 - X0) / B); b <= Math.floor((x.bbox.x1 - X0) / B); b++) cov[b]++; });
@@ -201,7 +204,7 @@ function ocrJoinColumns(lines) {
   return lines.filter((l) => !used.has(l));
 }
 const OCR_AR = /[ء-يٱ-ۓ]/, OCR_DIG = /[0-9٠-٩]/;   // Arabic letters only (Arabic-Indic digits are digits)
-async function readOnDevice(f, prog) {
+async function readOnDevice(f, prog, page = 0) {
   await loadTess();
   const w = await Tesseract.createWorker(['ara', 'eng'], 1, { workerPath: '/vendor/ocr/worker.min.js', corePath: '/vendor/ocr/core', langPath: '/vendor/ocr/lang', workerBlobURL: false, logger: (m) => prog(m.status, m.progress) });
   try {
@@ -250,7 +253,7 @@ async function readOnDevice(f, prog) {
     // a lone price the OCR broke into odd marks ("ل ٠." for ٧٠): read the whole line again as one number
     if (arPage) lines.filter((l) => l.words.length <= 3 && meaning(l) <= 5 && !/^[\s0-9.,]+$/.test(l.text)).forEach((l) => {
       const b = { x0: Math.min(...l.words.map((x) => x.bbox.x0)), y0: Math.min(...l.words.map((x) => x.bbox.y0)), x1: Math.max(...l.words.map((x) => x.bbox.x1)), y1: Math.max(...l.words.map((x) => x.bbox.y1)) };
-      const n = readArabicDigits(crop(b, 0.25)); if (n) { l.words = [{ text: n, bbox: b }]; l.bbox = b; l.text = n; }
+      const n = readArabicDigits(crop(b, 0.25)); if (n) { l.words = [{ text: n, bbox: b, _ar: true }]; l.bbox = b; l.text = n; }
     });
     lines.filter((l) => OCR_AR.test(l.text) && l.words.length).forEach((l) => {
       const ws = l.words.slice().sort((a, b) => a.bbox.x0 - b.bbox.x0), h = l.bbox.y1 - l.bbox.y0;
@@ -270,7 +273,15 @@ async function readOnDevice(f, prog) {
     });
     lines.forEach((l) => { l.text = l.words.map((x) => x.text).join(' '); });
     // titles across the page first, then column by column (right to left on an Arabic page), top to bottom
-    return ocrJoinColumns(lines).sort((a, b) => (!!b.head - !!a.head) || (rtl ? b.zone - a.zone : a.zone - b.zone) || a.bbox.y0 - b.bbox.y0).map((l) => l.words.map((x) => x.text).join(' ')).join('\n');
+    const done = ocrJoinColumns(lines).sort((a, b) => (!!b.head - !!a.head) || (rtl ? b.zone - a.zone : a.zone - b.zone) || a.bbox.y0 - b.bbox.y0);
+    // keep where each line sits on the photo and how sure the reading was, so every row can be checked against the photo
+    OCRPAGES[page] = cv;
+    done.forEach((l) => {
+      const ws = l.words, real = ws.filter((x) => /[\p{L}\d٠-٩]/u.test(x.text) && !x._ar);
+      OCRLINES.push({ page, text: ws.map((x) => x.text).join(' '), conf: Math.min(100, ...real.map((x) => x.confidence ?? 100)), fixed: ws.some((x) => x._ar),
+        bbox: { x0: Math.min(...ws.map((x) => x.bbox.x0)), y0: Math.min(...ws.map((x) => x.bbox.y0)), x1: Math.max(...ws.map((x) => x.bbox.x1)), y1: Math.max(...ws.map((x) => x.bbox.y1)) } });
+    });
+    return done.map((l) => l.words.map((x) => x.text).join(' ')).join('\n');
   } finally { w.terminate(); }
 }
 // ---- A small digit reader for Arabic-Indic prices (٠١٢٣٤٥٦٧٨٩) ----
@@ -401,7 +412,7 @@ const ocrParse = (text) => fetch('/api/menu/ocr/text', { method: 'POST', headers
 // files = one or more photos (pages); more = add to the rows already on screen instead of starting over
 async function runOcr(files, more) {
   files = (files || []).filter(Boolean); if (!files.length) return;
-  if (!more) { OCR = []; OCRTXT = ''; OCREXTRA = []; OCRN = 0; }
+  if (!more) { OCR = []; OCRTXT = ''; OCREXTRA = []; OCRN = 0; OCRLINES = []; OCRPAGES = []; OCRCROP = {}; }
   const out = $('#ocrout'), say = (h) => (out.innerHTML = `<div class="card" style="margin-top:14px">${h}</div>`);
   const STEP = { 'loading tesseract core': 'Starting the reader', 'loading language traineddata': 'Loading English + Arabic (first time only)', 'initializing api': 'Starting the reader', 'recognizing text': 'Reading the page', 'checking prices': 'Checking Arabic prices' };
   for (const [k, f] of files.entries()) {
@@ -411,38 +422,78 @@ async function runOcr(files, more) {
     let r = await fetch('/api/menu/ocr', { method: 'POST', body: fd }).then((x) => x.json()).catch(() => ({ error: 'Upload failed' }));
     if (r.local) {
       try {
-        const text = await readOnDevice(f, (s, p) => say(`⏳ ${STEP[s] || 'Preparing'}${pg}… <b>${Math.round((p || 0) * 100)}%</b><div style="height:6px;border-radius:6px;background:var(--line);margin-top:10px;overflow:hidden"><i style="display:block;height:100%;width:${Math.round((p || 0) * 100)}%;background:var(--accent)"></i></div>`));
+        const text = await readOnDevice(f, (s, p) => say(`⏳ ${STEP[s] || 'Preparing'}${pg}… <b>${Math.round((p || 0) * 100)}%</b><div style="height:6px;border-radius:6px;background:var(--line);margin-top:10px;overflow:hidden"><i style="display:block;height:100%;width:${Math.round((p || 0) * 100)}%;background:var(--accent)"></i></div>`), OCRPAGES.length);
         r = { ...(await ocrParse(text)), text, local: true };
       } catch (e) { r = { error: 'Could not read the photo: ' + (e.message || e) }; }
     }
     if (r.error) { if (files.length === 1 && !OCR.length) return say(`⚠️ ${App.esc(r.error)}`); App.toast(`⚠️ ${f.name}: ${r.error}`); continue; }
     OCR.push(...(r.items || [])); OCREXTRA.push(...(r.extra || [])); OCRTXT += (OCRTXT ? '\n\n' : '') + (r.text || ''); OCRLOCAL = !!r.local; OCRN++;
   }
-  drawOcr();
+  ocrAttach(OCR); drawOcr();
 }
-async function reparseOcr() { OCRTXT = $('#ocrtxt').value; const r = await ocrParse(OCRTXT); if (r.error) return App.toast(r.error); OCR = r.items; OCREXTRA = r.extra || []; drawOcr(); App.toast(`${OCR.length} items`); }
+async function reparseOcr() { OCRTXT = $('#ocrtxt').value; const r = await ocrParse(OCRTXT); if (r.error) return App.toast(r.error); OCR = r.items; OCREXTRA = r.extra || []; ocrAttach(OCR); drawOcr(); App.toast(`${OCR.length} items`); }
+// ---- Checking against the photo: each row is linked to the line it was read from; that line is shown beside the row,
+// and rows the reader was unsure of are marked until the owner confirms or edits them ----
+let OCRCROP = {};
+const ocrNorm = (s) => String(s || '').replace(/[‎‏‪-‮]/g, '').replace(/[٠-٩]/g, (d) => d.charCodeAt(0) - 0x660).toLowerCase().replace(/[^\p{L}\d]+/gu, ' ').trim();
+function ocrLineOf(text, used) {
+  const want = ocrNorm(text); if (!want) return -1; let best = -1, bs = -9;
+  OCRLINES.forEach((l, i) => { const t = ocrNorm(l.text); if (!t.includes(want) && !want.includes(t)) return; const s = (t === want ? 2 : 0) - (used && used.has(i) ? 3 : 0); if (s > bs) { bs = s; best = i; } });
+  return best;
+}
+function ocrAttach(rows) {
+  const used = new Set();
+  rows.forEach((x) => {
+    if (x._ln != null || !OCRLINES.length) return;
+    const p = String(Math.round(+x.price || 0)), names = [x.name_ar, x.name].map(ocrNorm).filter(Boolean); let best = -1, bs = -9;
+    OCRLINES.forEach((l, i) => { const t = ocrNorm(l.text); if (!names.some((n) => t.includes(n))) return; const s = (p !== '0' && t.split(' ').includes(p) ? 2 : 0) - (used.has(i) ? 3 : 0); if (s > bs) { bs = s; best = i; } });
+    if (best >= 0) { x._ln = best; used.add(best); }
+  });
+}
+function ocrCrop(i) {   // that line of the photo, as a small picture
+  if (i == null || i < 0 || !OCRLINES[i]) return ''; if (OCRCROP[i]) return OCRCROP[i];
+  const l = OCRLINES[i], cv = OCRPAGES[l.page]; if (!cv) return '';
+  const b = l.bbox, p = Math.round((b.y1 - b.y0) * 0.35), sx = Math.max(0, b.x0 - p), sy = Math.max(0, b.y0 - p), sw = Math.min(cv.width - sx, b.x1 - b.x0 + 2 * p), sh = Math.min(cv.height - sy, b.y1 - b.y0 + 2 * p);
+  const c = document.createElement('canvas'), k = 40 / sh; c.width = Math.max(1, Math.round(sw * k)); c.height = 40; c.getContext('2d').drawImage(cv, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  return (OCRCROP[i] = c.toDataURL('image/jpeg', 0.85));
+}
+function ocrWhy(x) {   // why a row needs a look ([] = fine)
+  if (x._ok) return [];
+  const r = []; if (!(+x.price > 0)) r.push('no price');
+  // a name with stray numbers or letter scraps in it was probably run together with another line
+  const nm = String(x.name_ar || x.name || '');
+  if (/[ء-ي]/.test(nm) ? /\d|(^|\s)[A-Za-z]{1,3}(\s|$)|[<>()|]/.test(nm) : /(^|\s)\d+(\s|$)|[<>|]/.test(nm)) r.push('name looks mixed up');
+  const l = OCRLINES[x._ln];
+  if (l && l.conf < 80) r.push('unclear on the photo');
+  if (!l && OCRLINES.length) r.push('not found on the photo');
+  return r;
+}
+const ocrSet = (i, k, v) => { OCR[i][k] = v; OCR[i]._ok = true; drawOcr(); };
 function ocrAddExtra(i) {   // a line that was not clearly a dish -> a row: its last number (if any) is the price
   const t = OCREXTRA[i], m = t.match(/^(.*?)[\s.\-:]*(\d{1,5}(?:[.,]\d{1,2})?)\s*$/), ar = /[؀-ۿ]/.test(t);
   const nm = (m && /\p{L}/u.test(m[1]) ? m[1] : t).trim();
-  OCR.push({ cat: (OCR[OCR.length - 1] || {}).cat || 'Menu', name: ar ? '' : nm, name_ar: ar ? nm : '', price: m && /\p{L}/u.test(m[1]) ? +m[2].replace(',', '.') : 0, desc: '' });
+  OCR.push({ cat: (OCR[OCR.length - 1] || {}).cat || 'Menu', name: ar ? '' : nm, name_ar: ar ? nm : '', price: m && /\p{L}/u.test(m[1]) ? +m[2].replace(',', '.') : 0, desc: '', _ln: ocrLineOf(t) });
   OCREXTRA.splice(i, 1); drawOcr();
 }
 function drawOcr() {
-  const E = App.esc, inp = (i, k, w) => `<td><input style="min-width:${w || 90}px" value="${E(OCR[i][k] ?? '')}" onchange="OCR[${i}].${k}=this.value"></td>`;
-  const cats = new Set(OCR.map((x) => x.cat)).size, noPrice = OCR.filter((x) => !(+x.price > 0)).length;
-  $('#ocrout').innerHTML = `<div class="card" style="margin-top:14px">
-   <p style="margin:0 0 8px"><b>${OCRN > 1 ? OCRN + ' photos · ' : ''}${OCR.length} items in ${cats} categor${cats === 1 ? 'y' : 'ies'}</b>${noPrice ? ` · <b style="color:#e11d48">${noPrice} need a price</b>` : ''}${OCREXTRA.length ? ` · ${OCREXTRA.length} other lines below` : ''}</p>
-   ${OCRLOCAL ? `<p class="muted" style="margin-top:0">📱 Read on this device, no AI service. Check names and prices: photos with shadows, curves or fancy fonts may need a few fixes.${OCR.length ? '' : ' <b>No prices were found</b> - fix the text below and press "Read rows again", or take a sharper photo.'}</p>` : ''}
-   ${OCR.length ? `<div class="scroll"><table><tr><th>Category</th><th>Name</th><th>الاسم (AR)</th><th>Price</th><th>Description</th><th></th></tr>${OCR.map((x, i) => `<tr>${inp(i, 'cat')}${inp(i, 'name', 130)}${inp(i, 'name_ar')}<td><input type="number" style="width:80px;${+x.price > 0 ? '' : 'outline:2px solid #e11d48'}" value="${+x.price || ''}" placeholder="?" onchange="OCR[${i}].price=+this.value;drawOcr()"></td>${inp(i, 'desc', 150)}<td><button onclick="OCR.splice(${i},1);drawOcr()">✕</button></td></tr>`).join('')}</table></div>` : ''}
+  // editing a field counts as checking that row
+  const E = App.esc, inp = (i, k, w) => `<td><input dir="auto" style="min-width:${w || 90}px" value="${E(OCR[i][k] ?? '')}" onchange="OCR[${i}].${k}=this.value;OCR[${i}]._ok=true;this.closest('tr').classList.remove('ocr-chk')"></td>`;
+  const cats = new Set(OCR.map((x) => x.cat)).size, noPrice = OCR.filter((x) => !(+x.price > 0)).length, toCheck = OCR.filter((x) => ocrWhy(x).length).length, pics = OCRLINES.length > 0;
+  const pic = (ln) => { const u = ocrCrop(ln); return u ? `<img src="${u}" alt="" style="height:30px;max-width:300px;object-fit:contain;object-position:right;border-radius:6px;background:#fff;display:block">` : '<span class="muted">-</span>'; };
+  $('#ocrout').innerHTML = `<style>.ocr-chk td{background:rgba(234,179,8,.13)} .ocr-why{font-size:11.5px;color:#b45309;font-weight:700;margin-top:3px}</style><div class="card" style="margin-top:14px">
+   <p style="margin:0 0 8px"><b>${OCRN > 1 ? OCRN + ' photos · ' : ''}${OCR.length} items in ${cats} categor${cats === 1 ? 'y' : 'ies'}</b>${toCheck ? ` · <b style="color:#b45309">${toCheck} to check (highlighted)</b>` : OCR.length ? ' · <b style="color:#16a34a">✓ all clear</b>' : ''}${noPrice ? ` · <b style="color:#e11d48">${noPrice} need a price</b>` : ''}${OCREXTRA.length ? ` · ${OCREXTRA.length} other lines below` : ''}</p>
+   ${OCR.length >= 4 && toCheck / OCR.length > 0.35 ? `<div style="margin:0 0 10px;padding:10px 14px;border-radius:12px;background:rgba(234,179,8,.14);border:1px solid rgba(234,179,8,.5)">📷 <b>This photo is hard to read</b> (blurry, small, dark or at an angle), so many rows need checking. For a clean result, take the photo again: straight above the page, in good light, close enough that the page fills the screen - then press "Take / choose photos".</div>` : ''}
+   ${OCRLOCAL ? `<p class="muted" style="margin-top:0">📱 Read on this device, no AI service.${pics ? ' Each row shows the line it was read from on your photo: compare them at a glance. Rows the reader was not sure of are highlighted - fix them or press ✓.' : ''}${OCR.length ? '' : ' <b>No prices were found</b> - fix the text below and press "Read rows again", or take a sharper photo.'}</p>` : ''}
+   ${OCR.length ? `<div class="scroll"><table><tr>${pics ? '<th>On the photo</th>' : ''}<th>Category</th><th>Name</th><th>الاسم (AR)</th><th>Price</th><th>Description</th><th></th></tr>${OCR.map((x, i) => { const why = ocrWhy(x); return `<tr class="${why.length ? 'ocr-chk' : ''}">${pics ? `<td>${pic(x._ln)}${why.length ? `<div class="ocr-why">⚠ ${why.join(' · ')}</div>` : ''}</td>` : ''}${inp(i, 'cat')}${inp(i, 'name', 130)}${inp(i, 'name_ar')}<td><input type="number" style="width:80px;${+x.price > 0 ? '' : 'outline:2px solid #e11d48'}" value="${+x.price || ''}" placeholder="?" onchange="OCR[${i}].price=+this.value;OCR[${i}]._ok=true;drawOcr()"></td>${inp(i, 'desc', 150)}<td style="white-space:nowrap">${why.length ? `<button class="ghost" title="Checked against the photo: it is right" onclick="OCR[${i}]._ok=true;drawOcr()">✓</button> ` : ''}<button onclick="OCR.splice(${i},1);drawOcr()">✕</button></td></tr>`; }).join('')}</table></div>` : ''}
    ${OCREXTRA.length ? `<div style="margin-top:14px"><b>📄 Other text on the page</b> <span class="muted" style="font-size:12.5px">- not clearly a dish (the café name, phone, address, or a name whose price could not be read). Add any that belong to the menu.</span>
-     <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">${OCREXTRA.map((t, i) => `<div class="row" style="gap:8px;justify-content:space-between;border:1px solid var(--line);border-radius:12px;padding:6px 10px"><span dir="auto">${E(t)}</span><span class="row" style="gap:6px;flex:none"><button class="ghost" onclick="ocrAddExtra(${i})">➕ Add as item</button><button class="ghost" title="Not part of the menu" onclick="OCREXTRA.splice(${i},1);drawOcr()">✕</button></span></div>`).join('')}</div></div>` : ''}
+     <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">${OCREXTRA.map((t, i) => `<div class="row" style="gap:8px;justify-content:space-between;border:1px solid var(--line);border-radius:12px;padding:6px 10px"><span class="row" style="gap:10px;min-width:0">${pics ? pic(ocrLineOf(t)) : ''}<span dir="auto">${E(t)}</span></span><span class="row" style="gap:6px;flex:none"><button class="ghost" onclick="ocrAddExtra(${i})">➕ Add as item</button><button class="ghost" title="Not part of the menu" onclick="OCREXTRA.splice(${i},1);drawOcr()">✕</button></span></div>`).join('')}</div></div>` : ''}
    <div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px"><button class="ghost" onclick="OCR.push({cat:(OCR[OCR.length-1]||{}).cat||'Menu',name:'',name_ar:'',price:0,desc:''});drawOcr()">➕ Add row</button><button class="ghost" onclick="$('#ocrf').click()">📸 Add another page</button>${OCR.length ? `<button class="primary" onclick="importOcr()">✅ Import ${OCR.length} items to my menu</button>` : ''}</div>
    ${OCRTXT ? `<details style="margin-top:14px" ${OCR.length ? '' : 'open'}><summary>📝 Text read from the photo</summary><p class="muted" style="font-size:12.5px">One item per line, like <code>Cappuccino 70</code> or <code>قهوة تركي ٤٥</code>. A line without a price is a category.</p><textarea id="ocrtxt" rows="12" style="width:100%;font-family:ui-monospace,monospace">${E(OCRTXT)}</textarea><button class="ghost" style="margin-top:8px" onclick="reparseOcr()">🔄 Read rows again</button></details>` : ''}</div>`;
 }
 async function importOcr() {
-  const items = OCR.filter((x) => String(x.name || x.name_ar || '').trim()).map((x) => ({ ...x, name: x.name || x.name_ar })), miss = items.filter((x) => !(+x.price > 0)).length;
-  if (miss && !confirm(`${miss} item${miss > 1 ? 's have' : ' has'} no price yet and will be added at 0. Import anyway?`)) return;
-  const r = await api('POST', '/api/menu/ocr/import', { items }); App.toast(r.error || `Imported ${r.items} items (${r.categories} new categories)`); OCR = []; OCRTXT = ''; OCREXTRA = []; OCRN = 0; $('#ocrout').innerHTML = '';
+  const keep = OCR.filter((x) => String(x.name || x.name_ar || '').trim()), items = keep.map(({ _ln, _ok, ...x }) => ({ ...x, name: x.name || x.name_ar })), miss = items.filter((x) => !(+x.price > 0)).length, unchecked = keep.filter((x) => ocrWhy(x).length).length;
+  if (unchecked && !confirm(`${unchecked} highlighted row${unchecked > 1 ? 's were' : ' was'} not checked against the photo yet.${miss ? ` ${miss} ha${miss > 1 ? 've' : 's'} no price and will be added at 0.` : ''} Import anyway?`)) return;
+  const r = await api('POST', '/api/menu/ocr/import', { items }); App.toast(r.error || `Imported ${r.items} items (${r.categories} new categories)`); OCR = []; OCRTXT = ''; OCREXTRA = []; OCRN = 0; OCRLINES = []; OCRPAGES = []; OCRCROP = {}; $('#ocrout').innerHTML = '';
 }
 /* ---------------- plan & add-ons: what this place has, what else exists, and what it costs ---------------- */
 async function planTab() {
