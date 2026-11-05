@@ -25,6 +25,15 @@ creamy cold milk with a double shot
   assert.equal(r.items.length, 6, 'noise lines are skipped');
 });
 
+test('F44 nothing on the page is lost: sizes keep every price, non-dish lines come back as extra', () => {
+  const r = F.parseMenuText('CAFE NILE\nTel 01012345678\n12 Tahrir St, Cairo\nSince 1998\nHOT DRINKS\nS M L\nLatte 45 / 55 / 65\n7UP 25\nMocha\nفول وطعمية AO\nDESSERTS\nCheesecake 110');
+  assert.deepEqual(r.categories, ['HOT DRINKS', 'DESSERTS']);
+  const latte = r.items.find((x) => x.name === 'Latte'); assert.equal(latte.price, 45); assert.equal(latte.desc, 'Prices: 45 / 55 / 65');
+  assert.ok(r.items.some((x) => x.name === '7UP' && x.price === 25), 'short names with a digit are dishes');
+  for (const t of ['CAFE NILE', 'Tel 01012345678', '12 Tahrir St, Cairo', 'Since 1998', 'Mocha', 'فول وطعمية AO', 'S M L']) assert.ok(r.extra.includes(t), 'kept for the owner: ' + t);
+  assert.ok(!r.items.some((x) => /Tel|Tahrir|Since/.test(x.name)), 'phone, address and year are not dishes');
+});
+
 for (const mode of ['ws']) test(`F44 menu scan without an AI key: the page reads the photo, the server turns text into rows [${mode}]`, async (t) => {
   const S = await start(mode); t.after(() => S.stop());
   const V = await S.tenant('vip'), B = await S.tenant('basic');

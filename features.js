@@ -340,11 +340,14 @@ const pointsToEgp = (cfg, pts) => (cfg.pointsPerRedeem > 0 ? +(pts * cfg.redeemV
 // "٤٥ قهوة تركي" (Arabic photos often come out price first), and a name with its price on the next line.
 // Arabic-Indic digits and currency words are understood; "Espresso اسبريسو" fills both the English and the Arabic name.
 // Short lines without a price become category headings; a longer one right under an item becomes that item's description.
+// "Latte 45 / 55 / 65" (sizes) keeps every price. Nothing is thrown away: lines that fit nowhere (the café name, phone, address,
+// a name whose price could not be read, a heading with no items) come back in `extra` so the owner can add them by hand.
 const AR_RE = /[؀-ۿ]/;
 function parseMenuText(text) {
-  const cats = [], items = [];
+  const cats = [], items = [], extra = [];
   let cur = null, cur_ar = '', pend = null, lastItem = null;
-  const NUM = '(\\d{1,5}(?:[.,]\\d{1,2})?)', CUR = '(?:EGP|L\\.?E\\.?|E£|£|جنيه|جنية|ج\\.م|ج)';
+  const NUM = '(?<![\\d])(?!0\\d)(\\d{1,5}(?:[.,]\\d{1,2})?)(?![\\d])', CUR = '(?:EGP|L\\.?E\\.?|E£|£|جنيه|جنية|ج\\.م|ج)';
+  const MULTI = new RegExp('^(.*\\p{L}[^\\d]*?)[\\s.\\-–—:_…|]+((?:' + CUR + '?\\s*\\d{1,5}(?:[.,]\\d{1,2})?\\s*' + CUR + '?\\s*[\\/|\\-–,]?\\s*){2,5})$', 'iu');
   const TAIL = new RegExp('^(.*?)[\\s.\\-–—:_…]*' + CUR + '?\\s*' + NUM + '\\s*' + CUR + '?\\.?\\s*(?:[-–—:|]\\s*(.*))?$', 'iu');
   const HEAD = new RegExp('^' + CUR + '?\\s*' + NUM + '\\s*' + CUR + '?[\\s.\\-–—:_…|]+(\\D.*)$', 'iu');
   const ONLY = new RegExp('^' + CUR + '?\\s*' + NUM + '\\s*' + CUR + '?\\.?$', 'iu');
@@ -353,27 +356,40 @@ function parseMenuText(text) {
     return ar && /\p{L}{2}/u.test(en) ? { en, ar } : { en: clean(s), ar: ar ? clean(s) : '' }; };
   const letters = (s) => (String(s).match(/\p{L}/gu) || []).length;
   const addItem = (raw, price, desc) => {
-    price = +String(price).replace(',', '.'); if (letters(raw) < 2 || !(price > 0 && price <= 100000)) return false;
+    price = +String(price).replace(',', '.'); if (!(letters(raw) >= 3 || /\d\p{L}|\p{L}\d/u.test(raw)) || !(price > 0 && price <= 100000)) return false;   // "S M L" is a size header, "7UP" a drink
     if (!cur) { cur = 'Menu'; cats.push(cur); }
     const n = split(raw);
     lastItem = { cat: cur, cat_ar: cur_ar, name: n.en.slice(0, 60), name_ar: n.ar.slice(0, 60), price, desc: clean(desc).slice(0, 140) }; items.push(lastItem); return true;
   };
   const flush = () => {   // a text line that turned out not to be an item name: a description of the item above, or a heading
     if (pend == null) return; const p = pend; pend = null;
+    // an Arabic name with a scrap of Latin letters is a dish whose price was misread ("فول وطعمية AO"), or a misread heading: the owner decides
+    if (AR_RE.test(p) && /^[A-Za-z]{1,3}$/.test((p.match(/[A-Za-z]+/g) || []).join(''))) { extra.push(clean(p)); return; }
     if (lastItem && (p.length > 32 || /^[a-z(]/.test(p)) && !lastItem.desc) { lastItem.desc = clean(p).slice(0, 140); return; }
-    if (p.length <= 40 && !/\d/.test(p)) { const n = split(p.replace(/[:\-–—*#]+$/g, '')); cur = n.en.slice(0, 40) || n.ar.slice(0, 40); cur_ar = n.ar.slice(0, 40); if (cur && !cats.includes(cur)) cats.push(cur); lastItem = null; }
+    if (p.length <= 40 && !/\d/.test(p) && /\p{L}{3}/u.test(p)) {   /* "S M L" over a price column is not a heading */ const n = split(p.replace(/[:\-–—*#]+$/g, '')); cur = n.en.slice(0, 40) || n.ar.slice(0, 40); cur_ar = n.ar.slice(0, 40); if (cur && !cats.includes(cur)) cats.push(cur); lastItem = null; heads.push({ cat: cur, line: clean(p) }); return; }
+    extra.push(clean(p));
   };
+  const heads = [];
   String(text || '').split(/\r?\n/).forEach((l) => {
     const line = l.replace(/[‎‏‪-‮]/g, '').replace(/[٠-٩]/g, (d) => d.charCodeAt(0) - 0x660).replace(/[۰-۹]/g, (d) => d.charCodeAt(0) - 0x6f0).replace(/٫/g, '.').trim();
     if (letters(line) < 2 && !ONLY.test(line)) return;   // OCR noise: stray bars, dots, single letters
+    // phone numbers, addresses, web links, "since 1998": the owner sees them, but they are not dishes
+    if (/\d{6,}|\d{3,}[\s-]\d{3,}[\s-]\d{3,}|https?:|www\.|@|\.com\b|\b(tel|phone|mobile|hotline|whats ?app|address|street|road|since|established|branch|open daily|working hours)\b|\b(st|rd|est)[.,]|تليفون|تلفون|موبايل|واتس|العنوان|شارع|منذ|فرع|مواعيد/i.test(line)) { flush(); extra.push(clean(line)); return; }
     let m;
-    if ((m = line.match(ONLY))) { if (pend != null) { const p = pend; pend = null; addItem(p, m[1], ''); } return; }
-    if ((m = line.match(TAIL)) && letters(m[1]) >= 2) { flush(); addItem(m[1], m[2], m[3]); return; }
-    if ((m = line.match(HEAD)) && letters(m[2]) >= 2) { flush(); addItem(m[2], m[1], ''); return; }
+    if ((m = line.match(ONLY))) { if (pend != null) { const p = pend; pend = null; if (!addItem(p, m[1], '')) extra.push(clean(p) + ' ' + m[1]); } else extra.push(line); return; }
+    if ((m = line.match(MULTI)) && letters(m[1]) >= 2) {
+      const ps = (m[2].match(/\d{1,5}(?:[.,]\d{1,2})?/g) || []).map((x) => +x.replace(',', '.'));
+      if (ps.length > 1 && ps.every((x) => x > 0 && x <= 100000)) { flush(); if (addItem(m[1], ps[0], '')) lastItem.desc = 'Prices: ' + ps.join(' / '); else extra.push(line); return; }
+    }
+    if ((m = line.match(TAIL)) && letters(m[1]) >= 2) { flush(); if (!addItem(m[1], m[2], m[3])) extra.push(clean(line)); return; }
+    if ((m = line.match(HEAD)) && letters(m[2]) >= 2) { flush(); if (!addItem(m[2], m[1], '')) extra.push(clean(line)); return; }
     flush(); pend = line;
   });
   flush();
-  return { categories: cats, items };
+  // a heading nothing was listed under (the café name, a slogan, or item names whose prices were not read) goes back to the owner too
+  const used = new Set(items.map((x) => x.cat));
+  heads.filter((h) => !used.has(h.cat)).forEach((h) => extra.push(h.line));
+  return { categories: cats.filter((c) => used.has(c)), items, extra: [...new Set(extra.filter(Boolean))].slice(0, 200) };
 }
 const OCR_SAMPLE = `HOT DRINKS
 Espresso ........ 45
