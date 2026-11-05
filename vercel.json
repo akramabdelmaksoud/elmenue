@@ -2,5 +2,5 @@
   "regions": ["fra1"],
   "installCommand": "npm install --omit=dev",
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
-  "functions": { "api/index.js": { "includeFiles": "{public/**,tenant.js,data.js,features.js,insights.js,report.js,chain.js,sheetparse.js,showroom.js,payments.js,eta.js}", "maxDuration": 30 } }
+  "functions": { "api/index.js": { "includeFiles": "{public/**,tenant.js,data.js,features.js,insights.js,report.js,chain.js,sheetparse.js,showroom.js,payments.js,eta.js,node_modules/@tesseract.js-data/*/4.0.0_best_int/*.gz,node_modules/@tesseract.js-data/*/package.json}", "maxDuration": 30 } }
 }
