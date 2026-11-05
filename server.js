@@ -310,6 +310,14 @@ if (SINGLE) {
 app.use(express.static(path.join(__dirname, 'public'), { setHeaders: (res, p) => { if (res.req.query && res.req.query.v) res.set('Cache-Control', 'public, max-age=31536000, immutable'); else if (/[\/](icons|menu)[\/]/.test(p)) res.set('Cache-Control', 'public, max-age=86400'); } }));
 app.use('/vendor/sortable.js', express.static(require.resolve('sortablejs/Sortable.min.js'), { maxAge: '7d' }));
 app.use('/vendor/chart.js', express.static(path.join(__dirname, 'node_modules/chart.js/dist/chart.umd.js'), { maxAge: '7d' }));
+// Menu photo reading on the owner's own device (no AI service): the OCR engine, its WebAssembly core and the English / Arabic language data
+app.use('/vendor/ocr/core', express.static(path.dirname(require.resolve('tesseract.js-core/package.json')), { maxAge: '30d', index: false }));
+app.get('/vendor/ocr/lang/:f', (req, res, next) => {
+  const m = /^(eng|ara)\.traineddata\.gz$/.exec(req.params.f); if (!m) return next();
+  res.set('Cache-Control', 'public, max-age=2592000'); res.type('application/octet-stream');
+  res.sendFile(path.join(path.dirname(require.resolve(`@tesseract.js-data/${m[1]}/package.json`)), '4.0.0_best_int', m[1] + '.traineddata.gz'));
+});
+app.use('/vendor/ocr', express.static(path.dirname(require.resolve('tesseract.js/dist/tesseract.min.js')), { maxAge: '7d', index: false }));
 if (!SINGLE) app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'platform.html')));
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: (+process.env.UPLOAD_MAX_MB || 5) * 1024 * 1024, files: 1 } });
 const page = (f) => (req, res) => res.set('Cache-Control', 'no-cache').type('html').send(readPage(f));
@@ -1584,13 +1592,14 @@ A('post', '/insights/ai', gateI, gate('copilot'), async (req, res, next) => { tr
 // OCR: with ANTHROPIC_API_KEY the photo is read by a vision model; without it the demo returns a sample parse so the flow can be shown offline
 A('post', '/menu/ocr', gate('ocr'), upLimit, upload.single('image'), async (req, res) => {
   if (!req.file || !/^image\/(png|jpe?g|webp|gif)$/.test(req.file.mimetype)) return res.status(400).json({ error: 'Upload a PNG, JPG or WebP photo of the menu' });
-  if (!aiKey()) return res.json({ simulated: true, ...F.parseMenuText(F.OCR_SAMPLE) });
+  if (!aiKey()) return res.json({ local: true });   // no AI key: the page reads the photo on the device and sends the text to /menu/ocr/text
   try {
     const txt = await claude([{ type: 'image', source: { type: 'base64', media_type: req.file.mimetype, data: req.file.buffer.toString('base64') } }, { type: 'text', text: 'Read this restaurant menu. Return ONLY a JSON array: [{"cat":"category name","name":"item name","name_ar":"Arabic name if shown, else empty","price":number,"desc":"short description or empty"}]. Keep the original language of each name. Prices are plain numbers.' }], 'You digitize restaurant menus. Output valid JSON only.', 4000);
     const a = txt.indexOf('['), b = txt.lastIndexOf(']'); const items = JSON.parse(txt.slice(a, b + 1)).filter((x) => x && x.name && +x.price >= 0);
     res.json({ simulated: false, categories: [...new Set(items.map((x) => x.cat || 'Menu'))], items });
   } catch (e) { res.status(502).json({ error: 'Could not read the photo: ' + e.message }); }
 });
+A('post', '/menu/ocr/text', gate('ocr'), (req, res) => { const t = String((req.body || {}).text || '').slice(0, 30000); if (!t.trim()) return res.status(400).json({ error: 'No text was read from the photo' }); res.json(F.parseMenuText(t)); });
 A('post', '/menu/ocr/import', gate('ocr'), (req, res) => res.json(req.tenant.importParsed((req.body || {}).items)));
 A('get', '/branches', gate('branches'), async (req, res, next) => { try {
   const days = [7, 14, 30, 60, 90].includes(+req.query.days) ? +req.query.days : 30, now = Date.now(), g = req.tenant.rec.group;
