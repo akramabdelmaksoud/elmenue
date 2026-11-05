@@ -416,7 +416,7 @@ let siteAt = 0, siteVal = null;
 async function siteConf(force) {
   if (!force && siteVal && Date.now() - siteAt < 15000) return siteVal;
   const d = (await store.getAux('sitecfg')) || {};
-  siteVal = { addons: d.addons && typeof d.addons === 'object' ? d.addons : {}, mult: { ...SITE_MULT, ...(d.mult || {}) }, announce: { on: !!(d.announce && d.announce.on), en: clip(d.announce && d.announce.en, 200), ar: clip(d.announce && d.announce.ar, 200) }, text: { en: (d.text && d.text.en) || {}, ar: (d.text && d.text.ar) || {} } };
+  siteVal = { addons: d.addons && typeof d.addons === 'object' ? d.addons : {}, mult: { ...SITE_MULT, ...(d.mult || {}) }, announce: { on: !!(d.announce && d.announce.on), en: clip(d.announce && d.announce.en, 200), ar: clip(d.announce && d.announce.ar, 200) }, text: { en: (d.text && d.text.en) || {}, ar: (d.text && d.text.ar) || {} }, bundles: Array.isArray(d.bundles) ? d.bundles : [] };
   siteAt = Date.now(); return siteVal;
 }
 const addonPrice = (c, conf) => { const v = conf.addons[c.id]; return v !== undefined && v !== null && v !== '' && +v >= 0 ? Math.round(+v) : (ADDON_BY_LEVEL[c.level] || 0); };
@@ -429,10 +429,15 @@ function quoteFor(q, conf) {
   return { plan: q.plan, name: P.name, base: P.price[0], mode, addons, month, total: mode === 'life' ? month * M.life : mode === 'year' ? month * M.yearMonths : month, service: mode === 'life' ? month * M.svc : 0 };
 }
 const quoteText = (q) => `BUNDLE REQUEST\nBase plan: ${q.name} (${q.base} EGP / month)\nAdd-ons: ${q.addons.length ? '' : 'none'}\n${q.addons.map((a) => ' - ' + a.en + ': ' + a.price + ' EGP / month').join('\n')}${q.addons.length ? '\n' : ''}Monthly total: ${q.month} EGP\nBilling: ${q.mode === 'life' ? 'one lifetime payment ' + q.total + ' EGP + ' + q.service + ' EGP service per year' : q.mode === 'year' ? 'yearly ' + q.total + ' EGP (2 months free)' : 'monthly'}`;
+async function popularAddons() {
+  const rows = ((await store.getAux('contacts')) || { rows: [] }).rows || [], n = {};
+  rows.forEach((m) => ((m.quote && m.quote.addons) || []).forEach((a) => { n[a.id] = (n[a.id] || 0) + 1; }));
+  return Object.keys(n).sort((a, b) => n[b] - n[a]).slice(0, 3);
+}
 app.get('/api/public/site', async (req, res, next) => { try {
-  const conf = await siteConf();
+  const conf = await siteConf(), popular = await popularAddons();
   res.set('Cache-Control', 'no-store');
-  res.json({ mult: conf.mult, announce: conf.announce.on ? { en: conf.announce.en, ar: conf.announce.ar } : null, text: conf.text,
+  res.json({ popular, bundles: conf.bundles, mult: conf.mult, announce: conf.announce.on ? { en: conf.announce.en, ar: conf.announce.ar } : null, text: conf.text,
     plans: F.ORDER.map((id) => ({ id, name: F.PLANS[id].name, name_ar: F.PLANS[id].name_ar, price: F.PLANS[id].price[0], tables: F.PLANS[id].limits.tables, staff: F.PLANS[id].limits.staff, features: F.FEATURE_IDS.filter((f) => F.featuresOf(id)[f]) })),
     catalog: F.CATALOG.map((c) => ({ id: c.id, en: c.en, ar: c.ar, area: c.area, level: c.level, price: addonPrice(c, conf) })) });
 } catch (e) { next(e); } });
@@ -489,6 +494,7 @@ app.post('/api/contact', contactLimit, async (req, res, next) => { try {
   cur.rows = [m].concat(cur.rows || []).slice(0, 500); await store.putAux('contacts', cur);
   let mailed = false;
   try { mailed = await mailOut(process.env.CONTACT_TO, 'TableTab contact: ' + m.name + (m.place ? ' (' + m.place + ')' : ''), `Name: ${m.name}\nEmail: ${m.email}\nPhone: ${m.phone}\nPlace: ${m.place}\nLanguage: ${m.lang}\n\n${m.message}`, m.email); } catch (e) { console.error('mail:', e.message); }
+  if (qt) { try { await mailOut(m.email, 'Your TableTab bundle request', `Hello ${m.name},\n\nThank you for your interest in TableTab. We received your bundle request and will confirm the final price within one working day.\n\n${quoteText(qt)}\n\nJust reply to this email if you want to change anything.\n\nTableTab`, 'support@' + (process.env.MAIL_DOMAIN || 'tabletab-tt.com')); } catch (e) { console.error('quote mail:', e.message); } }
   res.json({ ok: true, mailed });
 } catch (e) { next(e); } });
 // Mail sent to anything@<domain> is received by Resend and handed to us here; we forward it to the owner's own inbox (FORWARD_TO).
@@ -546,7 +552,7 @@ const siteTexts = () => {
 };
 app.get('/api/super/site', needSuper, async (req, res, next) => { try {
   const conf = await siteConf(true);
-  res.json({ conf, defaults: ADDON_BY_LEVEL, mult: SITE_MULT, texts: siteTexts(), catalog: F.CATALOG.map((c) => ({ id: c.id, en: c.en, ar: c.ar, area: c.area, level: c.level, price: addonPrice(c, conf), custom: conf.addons[c.id] !== undefined && conf.addons[c.id] !== null })), plans: F.ORDER.map((id) => ({ id, name: F.PLANS[id].name, price: F.PLANS[id].price[0] })) });
+  res.json({ conf, defaults: ADDON_BY_LEVEL, plansAll: F.ORDER, mult: SITE_MULT, texts: siteTexts(), catalog: F.CATALOG.map((c) => ({ id: c.id, en: c.en, ar: c.ar, area: c.area, level: c.level, price: addonPrice(c, conf), custom: conf.addons[c.id] !== undefined && conf.addons[c.id] !== null })), plans: F.ORDER.map((id) => ({ id, name: F.PLANS[id].name, price: F.PLANS[id].price[0] })) });
 } catch (e) { next(e); } });
 app.put('/api/super/site', needSuper, async (req, res, next) => { try {
   const b = req.body || {}, out = { at: Date.now() }, num = (v, lo, hi) => (v !== '' && v !== null && v !== undefined && +v >= lo && +v <= hi ? +v : null);
@@ -559,6 +565,7 @@ app.put('/api/super/site', needSuper, async (req, res, next) => { try {
   out.text = { en: {}, ar: {} };
   let n = 0;
   for (const l of ['en', 'ar']) for (const [k, v] of Object.entries((b.text || {})[l] || {})) { if (!/^[A-Za-z0-9_]{1,24}$/.test(k) || typeof v !== 'string' || !v.trim() || ++n > 400) continue; out.text[l][k] = v.slice(0, 1200); }
+  out.bundles = (Array.isArray(b.bundles) ? b.bundles : []).slice(0, 12).map((x, i) => ({ id: 'b' + i, name: clip(x && x.name, 50), name_ar: clip(x && x.name_ar, 50), plan: F.ORDER.includes(x && x.plan) ? x.plan : 'operations', features: (Array.isArray(x && x.features) ? x.features : []).filter((f) => F.FEATURE_IDS.includes(f)).slice(0, 60) })).filter((x) => x.name);
   await store.putAux('sitecfg', out); res.json(await siteConf(true));
 } catch (e) { next(e); } });
 app.get('/api/super/overview', needSuper, async (req, res, next) => { try {
