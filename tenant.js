@@ -186,6 +186,13 @@ function applyOnline(tableId, p) {
 
 // a reservation counts from 45 minutes before until 20 minutes after its time
 function nextRes(t) { const n = Date.now(); return (db.reservations || []).find((r) => r.tableId === t.id && n >= r.at - 45 * 60000 && n <= r.at + 20 * 60000); }
+// one booking per table at a time: another live booking on the same table within 2 hours, or guests sitting there now, blocks it
+function resClash(t, at, skip) {
+  const r = (db.reservations || []).find((x) => x.id !== skip && x.tableId === t.id && x.status !== 'declined' && Math.abs(x.at - at) < 120 * 60000);
+  if (r) return 'Table ' + t.number + ' is already reserved for ' + r.name + ' at ' + new Date(r.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (db.sessions[t.id] && at < Date.now() + 60 * 60000) return 'Table ' + t.number + ' has guests now';
+  return '';
+}
 function tableState(t) {
   const s = db.sessions[t.id];
   if (!s) return nextRes(t) ? 'reserved' : 'empty';
@@ -398,7 +405,7 @@ function bookingAct(act, bid, extra, who) {
   extra = extra || {}; const r = (db.reservations || []).find((x) => x.id === bid), w = (db.waitlist || []).find((x) => x.id === bid);
   if (!r && !w) return { error: 'Not found', code: 'nf' };
   const tbl = extra.tableId ? db.tables.find((x) => x.id === extra.tableId) : null;
-  if (act === 'confirm' && r) { r.status = 'confirmed'; if (tbl) { r.tableId = tbl.id; r.tableNumber = tbl.number; } }
+  if (act === 'confirm' && r) { const t = tbl || db.tables.find((x) => x.id === r.tableId), clash = t && resClash(t, r.at, r.id); if (clash) return { error: clash, code: 'taken' }; r.status = 'confirmed'; if (t) { r.tableId = t.id; r.tableNumber = t.number; } }
   else if (act === 'decline' && r) r.status = 'declined';
   else if (act === 'notify' && w) { w.status = 'notified'; w.notifiedAt = Date.now(); }
   else if (act === 'seat') {
@@ -765,11 +772,12 @@ function handle(c, m) {
       }
       case 'res_add': {
         const t = db.tables.find((x) => x.id === m.tableId), at = +m.at; if (!t || !(at > 0)) break;
+        { const clash = resClash(t, at); if (clash) { c.ws.send(JSON.stringify({ t: 'notice', msg: clash, code: 'taken' })); break; } }
         db.reservations.push({ id: id('rv'), tableId: t.id, tableNumber: t.number, name: String(m.name || 'Guest').slice(0, 30), phone: String(m.phone || '').slice(0, 20), guests: Math.min(50, Math.max(1, Math.floor(+m.guests) || 2)), at, note: String(m.note || '').slice(0, 100), by: c.staffName || '' });
         db.reservations = db.reservations.filter((r) => r.at > Date.now() - 3 * 3600000).slice(-300); break;
       }
       case 'res_del': db.reservations = (db.reservations || []).filter((r) => r.id !== m.id); break;
-      case 'res_confirm': case 'res_decline': case 'wl_notify': case 'wl_seat': case 'wl_del': bookingAct({ res_confirm: 'confirm', res_decline: 'decline', wl_notify: 'notify', wl_seat: 'seat', wl_del: 'remove' }[m.t], m.id, { tableId: m.tableId }, c.staffName || ''); break;
+      case 'res_confirm': case 'res_decline': case 'wl_notify': case 'wl_seat': case 'wl_del': { const r = bookingAct({ res_confirm: 'confirm', res_decline: 'decline', wl_notify: 'notify', wl_seat: 'seat', wl_del: 'remove' }[m.t], m.id, { tableId: m.tableId }, c.staffName || ''); if (r && r.error) c.ws.send(JSON.stringify({ t: 'notice', msg: r.error, code: r.code })); break; }
       case 'res_seat': {
         const r = (db.reservations || []).find((x) => x.id === m.id), t = r && db.tables.find((x) => x.id === (r.tableId || m.tableId)); if (!t) break;
         const s = openSession(t); s.lastAt = Date.now(); if (!s.guests.length) s.guests.push({ id: 'cust', name: r.name, avatar: '📅' });

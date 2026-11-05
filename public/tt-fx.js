@@ -22,7 +22,7 @@
     document.addEventListener('pointerout', function (e) { var el = e.target.closest && e.target.closest('.glass'); if (el && !el.contains(e.relatedTarget)) el.style.transform = ''; });
     (function glow() { cx += (tx - cx) * .12; cy += (ty - cy) * .12; cur.style.transform = 'translate(' + cx.toFixed(0) + 'px,' + cy.toFixed(0) + 'px)'; requestAnimationFrame(glow); })();
   }
-  var g = c.getContext('2d'), W, H, D, P = [], t = 0, mx = -9999, my = -9999, hues = [14, 338, 268, 176];
+  var g = c.getContext('2d'), W, H, D, P = [], t = 0, mx = -9999, my = -9999, hues = [38, 28, 20, 44];
   function seed(p) { p.x = Math.random() * W; p.y = Math.random() * H; p.l = 120 + Math.random() * 240; p.h = hues[(Math.random() * 4) | 0]; p.s = .5 + Math.random() * .9; return p; }
   function size() { D = Math.min(devicePixelRatio || 1, 1.5); W = c.width = Math.floor(innerWidth * D); H = c.height = Math.floor(innerHeight * D); var n = Math.min(240, Math.floor(innerWidth / 6)); P = []; for (var i = 0; i < n; i++) P.push(seed({})); g.clearRect(0, 0, W, H); }
   size(); addEventListener('resize', size); addEventListener('pointermove', function (e) { mx = e.clientX * D; my = e.clientY * D; }, { passive: true }); c.style.opacity = .6;

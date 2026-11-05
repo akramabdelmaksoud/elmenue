@@ -49,8 +49,8 @@ h3 { margin:6px 0 10px; }
 .zn { margin:6px 0 14px; } .zg { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px; }
 .mt { display:flex; flex-direction:column; align-items:flex-start; gap:3px; text-align:start; padding:12px; border-radius:16px; background:var(--card); border:2px solid var(--line); min-height:104px; position:relative; } .mt b { font-size:22px; font-family:var(--serif,inherit); } .mt .sd { color:var(--muted); letter-spacing:2px; font-size:11px; } .mt .am { font-weight:800; margin-top:auto; }
 .mt .sw { display:inline-block; width:10px; height:10px; border-radius:3px; margin-inline-end:5px; vertical-align:-1px; }
-.mt.new { border-color:#2563eb; animation:pulseBlue 1.4s infinite; } .mt.done { border-color:#0d9488; } .mt.rdy { border-color:#c026d3 !important; animation:pulseMag 1.8s infinite; }
-.mt.empty { border-style:dashed; opacity:.8; } .mt.reserved { border-color:#7c3aed; } .mt.seated { border-color:#1f9d55; } .mt.ordered { border-color:#e08a1a; } .mt.urgent { border-color:#d62828; animation:pulseRed 1s infinite; } .mt.check { border-color:#eab308; }
+.mt.new { border-color:#2563eb; animation:pulseBlue 1.4s infinite; } .mt.done { border-color:#06b6d4; } .mt.rdy { border-color:#db2777 !important; animation:pulseMag 1.8s infinite; }
+.mt.empty { border-color:#64748b; border-style:dashed; } .mt.reserved { border-color:#7c3aed; border-style:dashed; background:color-mix(in srgb, #7c3aed 14%, var(--card)); } .mt.seated { border-color:#16a34a; } .mt.ordered { border-color:#ea580c; } .mt.urgent { border-color:#dc2626; animation:pulseRed 1s infinite; } .mt.check { border-color:#eab308; }
 .vx { background:transparent; padding:0 6px; color:var(--bad); font-weight:800; }
 #chips, #inl { display:none; }
 #chips { gap:8px; overflow-x:auto; padding:10px 12px 2px; scrollbar-width:none; } #chips::-webkit-scrollbar { display:none; } #chips .none { color:var(--muted); font-size:13px; padding:6px 4px; }
@@ -124,8 +124,12 @@ const DESK = /[/]desk[/]?$/.test(location.pathname), CARS = /[/]cars[/]?$/.test(
 if (DESK || CARS) { document.addEventListener('DOMContentLoaded', () => { const t = document.querySelector('.ttl'); if (t) t.textContent = CARS ? 'Car service' : 'Online desk'; }); }
 const CCOL = { white: '#ffffff', black: '#1a1a1a', silver: '#c0c0c0', grey: '#808080', red: '#d62828', blue: '#2563eb', green: '#1f9d55', yellow: '#f2c230', orange: '#f08a1a', brown: '#7a4b2a', beige: '#d8c3a0', gold: '#c9a227', other: 'conic-gradient(#d62828,#f2c230,#1f9d55,#2563eb,#7c3aed,#d62828)' };
 // what the captain sees per table: the server's state, with "ordered" split by where the food is. One list drives the floor, the list view and the legend
-const SHOW = { empty: ['Empty', '#8884'], reserved: ['Reserved', '#7c3aed'], seated: ['Browsing', '#1f9d55'], new: ['New order', '#2563eb'], ordered: ['Preparing', '#e08a1a'], rdy: ['Ready to serve', '#c026d3'], done: ['Served', '#0d9488'], check: ['Waiting for receipt', '#eab308'], urgent: ['Urgent', '#d62828'] };
-function showState(st, s) {
+const SHOW = { empty: ['Empty', '#64748b'], reserved: ['Reserved', '#7c3aed'], seated: ['Seated', '#16a34a'], new: ['New order', '#2563eb'], ordered: ['Preparing', '#ea580c'], rdy: ['Ready to serve', '#db2777'], done: ['Served', '#06b6d4'], check: ['Waiting for receipt', '#eab308'], urgent: ['Urgent', '#dc2626'] };
+// the table's next booking (from 20 minutes late to 12 hours ahead): a free table with one shows as reserved all that time
+const resFor = (t) => (S.config.reservations || []).filter((r) => r.tableId === t.id && r.status !== 'declined' && r.at > Date.now() - 20 * 60000 && r.at < Date.now() + 12 * 3600000).sort((a, b) => a.at - b.at)[0];
+const hhmm = (at) => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+function showState(st, s, t) {
+  if ((st === 'empty' || st === 'reserved') && !s) return t && resFor(t) ? 'reserved' : 'empty';
   if (st !== 'ordered' || !s) return st;
   const has = (x) => s.orders.some((o) => o.status === x);
   return has('received') ? 'new' : has('served') ? 'rdy' : has('kitchen') ? 'ordered' : 'done';
@@ -139,6 +143,7 @@ function carCard(s) {
 }
 function start() { document.getElementById('who').textContent = App.who() ? '· ' + App.who() : ''; refreshPush(); App.connect({ t: 'join', role: 'captain' }, {
   render(m) { if (m) S = m; render(); },
+  notice(m) { App.toast('⚠ ' + m.msg); },
   alert(m) {
     { const num = String(m.tableNumber || ''), car = /^CR-/.test(num), tk = /^(TA|DL)-/.test(num), st = (S && S.config.settings) || {}; if (CARS ? !car : DESK ? !tk : (tk && (st.online || {}).desk) || (car && (st.car || {}).desk)) return; }
     beep(m.kind);
@@ -157,9 +162,8 @@ function stageHTML(cfg) {
   const F = App.floor();
   const decor = F.decor.map((d) => App.decorHTML(d, F)).join('');
   const tables = cfg.tables.map((t) => {
-    const st = S.states[t.id], s = S.sessions[t.id], p = App.tpos(t), ds = showState(st, s);
-    const rv = st === 'reserved' && (S.config.reservations || []).find((r) => r.tableId === t.id && Date.now() >= r.at - 45 * 60000 && Date.now() <= r.at + 20 * 60000);
-    const lab = { empty: 'Empty', reserved: rv ? '📅 ' + new Date(rv.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Reserved', urgent: 'URGENT', check: s && s.check ? `🧾 ${s.check.method === 'card' ? '💳' : '💵'} ${s.check.split}` : '🧾 Receipt' }[ds] || SHOW[ds][0];
+    const st = S.states[t.id], s = S.sessions[t.id], p = App.tpos(t), ds = showState(st, s, t), rv = ds === 'reserved' && resFor(t);
+    const lab = { empty: 'Empty', reserved: rv ? '📅 ' + hhmm(rv.at) : 'Reserved', urgent: 'URGENT', check: s && s.check ? `🧾 ${s.check.method === 'card' ? '💳' : '💵'} ${s.check.split}` : '🧾 Receipt' }[ds] || SHOW[ds][0];
     const bd = s ? [s.requests.some((r) => !r.done && r.type === 'waiter') && '🙋', s.requests.some((r) => !r.done && r.type === 'water') && '💧', s.requests.some((r) => !r.done && r.type === 'napkins') && '🧻', s.requests.some((r) => !r.done && r.type === 'cutlery') && '🍴', s.requests.some((r) => !r.done && r.type === 'urgent') && '⚡', s.check && '🧾', s.idle && '💤'].filter(Boolean).join('') : '';
     return `<div class="fl-t ${t.shape} ${ds}" style="left:${p.fx / F.cols * 100}%;top:${p.fy / F.rows * 100}%;width:${p.fw / F.cols * 100}%;height:${p.fh / F.rows * 100}%;--m:${Math.min(p.fw, p.fh)}" onclick="openT('${t.id}')">${App.chairs(t.shape, t.seats)}<span class="bd">${bd}</span><span class="n">${t.number}</span><span class="av" title="${s && hostOf(s) ? 'Host: ' + App.esc(hostOf(s).name) : ''}">${s ? App.esc(guestsOf(s)) : ''}</span><span class="s">${lab}${s && !s.orders.length && Date.now() - (s.lastAt || s.startedAt) > 600000 ? ' 👻' : ''}${s ? ' · ' + mins(s.startedAt) : ' · ' + t.seats + ' seats'}</span><span class="m">${s ? mins(s.startedAt) : ''}</span></div>`;
   }).join('');
@@ -167,8 +171,8 @@ function stageHTML(cfg) {
 }
 function zonesHTML(cfg) {
   return [...new Set(cfg.tables.map((t) => t.zone || 'Main'))].map((z) => `<div class="zn"><h3>${App.esc(z)}</h3><div class="zg">${cfg.tables.filter((t) => (t.zone || 'Main') === z).map((t) => {
-    const s = S.sessions[t.id], ds = showState(S.states[t.id], s);
-    return `<button class="mt ${ds}" onclick="openT('${t.id}')"><b>${t.number}</b><span class="sd">${'•'.repeat(Math.min(t.seats, 10))}</span><span><i class="sw" style="background:${SHOW[ds][1]}"></i>${SHOW[ds][0]}${s && !s.orders.length && Date.now() - (s.lastAt || s.startedAt) > 600000 ? ' 👻' : ''}</span><span class="am">${s ? App.money(s.bill.total) : t.seats + ' seats'}</span>${s ? `<small class="muted">${mins(s.startedAt)}</small>` : ''}</button>`;
+    const s = S.sessions[t.id], ds = showState(S.states[t.id], s, t), rv = ds === 'reserved' && resFor(t);
+    return `<button class="mt ${ds}" onclick="openT('${t.id}')"><b>${t.number}</b><span class="sd">${'•'.repeat(Math.min(t.seats, 10))}</span><span><i class="sw" style="background:${SHOW[ds][1]}"></i>${SHOW[ds][0]}${rv ? ' ' + hhmm(rv.at) : ''}${s && !s.orders.length && Date.now() - (s.lastAt || s.startedAt) > 600000 ? ' 👻' : ''}</span><span class="am">${s ? App.money(s.bill.total) : t.seats + ' seats'}</span>${s ? `<small class="muted">${mins(s.startedAt)}</small>` : ''}</button>`;
   }).join('')}</div></div>`).join('');
 }
 function reqHTML(reqs) {
@@ -246,7 +250,7 @@ function renderModal() {
   if (!s) {
     const rs = (S.config.reservations || []).filter((r) => r.tableId === t.id).sort((a, b) => a.at - b.at);
     h = `<div class="spread"><h2>Table ${t.number}</h2><button onclick="closeM()">✕</button></div>${rs.map((r) => `<div class="ocard spread"><span>📅 <b>${new Date(r.at).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</b> · ${App.esc(r.name)} (${r.guests})</span><button class="primary" onclick="App.send({t:'res_seat',id:'${r.id}'})">Seat</button></div>`).join('')}<p class="muted">Free table.</p>
-    <div class="row wrap"><button class="primary" onclick="PX.openPOS('${t.id}')">➕ Take order</button><button class="ghost" onclick="App.send({t:'seat_table',tableId:'${t.id}'})">🪑 Seat guests</button><button class="ghost" onclick="PX.resDlg('${t.id}')">📅 Reserve</button></div>`;
+    <div class="row wrap"><button class="primary" onclick="PX.openPOS('${t.id}')">➕ Take order</button><button class="ghost" onclick="App.send({t:'seat_table',tableId:'${t.id}'})">🪑 Seat guests</button>${resFor(t) ? '' : `<button class="ghost" onclick="PX.resDlg('${t.id}')">📅 Reserve</button>`}</div>${resFor(t) ? '<p class="muted" style="margin-top:8px">Reserved: one booking per table. Remove it from Reservations to book someone else.</p>' : ''}`;
   } else {
     const b = s.bill, tip = Math.round(b.net * (s.check && s.check.tipPct || 0) / 100);
     h = `<div class="spread"><h2>${s.kind ? ({ delivery: '🛵 ', car: '🚗 ' }[s.kind] || '🛍️ ') + App.esc(s.tableNumber) : 'Table ' + t.number} <span class="pill">${App.ago(s.startedAt)}</span></h2><button onclick="closeM()">✕</button></div>

@@ -8,7 +8,7 @@ body{display:grid;grid-template-rows:auto 1fr auto;min-height:100vh}
 header{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
 main{display:grid;place-items:center;padding:20px 0 50px}
 .stage{position:relative;width:100%;max-width:470px}
-.orb{position:absolute;width:300px;height:300px;inset-inline-end:-120px;top:-110px;border-radius:50%;z-index:0;background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.9),rgba(255,255,255,0) 22%),conic-gradient(from 0deg,#ff6b4a,#ff3d8b,#8a5bff,#2ee6d6,#6dffb0,#ff6b4a);box-shadow:0 0 120px 10px rgba(138,91,255,.4),0 0 220px 30px rgba(255,61,139,.2),inset -24px -34px 70px rgba(5,6,10,.85);animation:spin 22s linear infinite,bob 9s ease-in-out infinite;opacity:.9}
+.orb{position:absolute;width:300px;height:300px;inset-inline-end:-120px;top:-110px;border-radius:50%;z-index:0;background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.9),rgba(255,255,255,0) 22%),conic-gradient(from 0deg,#ffc061,#ff9419,#ff6200,#ffd89b,#6dffb0,#ffc061);box-shadow:0 0 120px 10px rgba(255,98,0,.4),0 0 220px 30px rgba(255,148,25,.2),inset -24px -34px 70px rgba(5,6,10,.85);animation:spin 22s linear infinite,bob 9s ease-in-out infinite;opacity:.9}
 .orb:after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 70% 75%,rgba(5,6,10,.7),transparent 60%)}
 .orb.b{width:150px;height:150px;inset-inline-end:auto;inset-inline-start:-70px;top:auto;bottom:-60px;animation-duration:30s,11s;opacity:.7}
 @keyframes spin{to{transform:rotate(360deg)}}@keyframes bob{0%,100%{translate:0 -10px}50%{translate:0 12px}}
@@ -19,7 +19,7 @@ h1 em{font-style:normal;font-weight:500;background:var(--irid);background-size:2
 label{display:block;font:400 12.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0 0 8px}body[dir=rtl] label{letter-spacing:0}
 .f{position:relative;margin-bottom:20px}
 input{width:100%;font:500 17px Inter,Cairo,sans-serif;color:var(--text);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:16px;padding:16px 18px;outline:none;transition:border-color .3s,box-shadow .3s,background .3s}
-input:focus{border-color:var(--c3);background:rgba(255,255,255,.075);box-shadow:0 0 0 4px rgba(138,91,255,.22),0 10px 40px -12px rgba(138,91,255,.6)}
+input:focus{border-color:var(--c3);background:rgba(255,255,255,.075);box-shadow:0 0 0 4px rgba(255,98,0,.22),0 10px 40px -12px rgba(255,98,0,.6)}
 .eye{position:absolute;inset-inline-end:8px;bottom:8px;width:40px;height:40px;border-radius:12px;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:18px}.eye:hover{background:var(--glass2);color:var(--text)}
 #pw{padding-inline-end:54px}
 .go{width:100%;padding:17px;font-size:17px;margin-top:6px}
@@ -31,7 +31,7 @@ input:focus{border-color:var(--c3);background:rgba(255,255,255,.075);box-shadow:
 footer{text-align:center;color:var(--dim);font:400 12.5px var(--mono);padding:18px 0 26px;letter-spacing:.06em}
 @media(max-width:560px){.panel{padding:32px 24px 28px}.orb{width:210px;height:210px;top:-90px;inset-inline-end:-60px}}
 </style></head><body>
-<div class="wrap"><header><a class="logo" href="#"><i></i><span>Table<b>Tab</b></span></a><button class="btn sm" id="lang" onclick="setLang()">عربي</button></header></div>
+<div class="wrap"><header><a class="logo" href="#"><img class="mk" src="/logo.svg" alt=""><span>Table<b>Tab</b></span></a><button class="btn sm" id="lang" onclick="setLang()">عربي</button></header></div>
 <div class="wrap"><main><div class="stage rv"><div class="orb"></div><div class="orb b"></div>
 <form class="panel glass" data-tilt="off" id="f" autocomplete="on" onsubmit="return signIn(event)">
 <span class="lock"><i></i><span data-i="lock">PRIVATE SHOWROOM</span></span>
