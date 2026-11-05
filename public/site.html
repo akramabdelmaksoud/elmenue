@@ -155,6 +155,8 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:space-bet
   input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([type=button]), textarea { cursor: text; }
   button:disabled, [disabled] { cursor: not-allowed; }
 }
+#ann{padding:10px 16px;text-align:center;font:500 14px Inter,Cairo,sans-serif;background:var(--irid);color:#0a0508;position:relative;z-index:41}#ann[hidden]{display:none}
+.buildcta{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;padding:30px 34px;margin-top:26px}.buildcta h3{margin:0 0 6px;font:400 clamp(20px,2.4vw,26px)/1.2 var(--disp)}body[dir=rtl] .buildcta h3{font-family:Cairo;font-weight:700}.buildcta p{margin:0;color:var(--muted);max-width:640px}
 /* contact dialog */
 .mdl{position:fixed;inset:0;z-index:80;display:none;place-items:center;padding:20px;background:rgba(3,4,8,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}.mdl.on{display:grid;animation:fade .4s var(--ease)}
 .mbox{width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:34px 32px 30px;background:linear-gradient(155deg,rgba(24,26,40,.96),rgba(10,11,18,.96));border:1px solid var(--line);border-radius:28px;box-shadow:0 60px 120px -30px #000;position:relative}
@@ -175,9 +177,9 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:space-bet
 nav .btn{white-space:nowrap}@media(max-width:900px){nav .btn{padding:10px 16px;font-size:13px}nav .wrap{gap:10px}.hero .wrap,.about{grid-template-columns:1fr}.hero{min-height:0;padding-top:30px}.orbwrap{max-width:380px;margin-top:20px}nav .links{display:none}nav .lang{margin-inline-start:auto}section{padding:84px 0}.chip.c2{inset-inline-end:-2%}.chip.c1{inset-inline-start:0}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition-duration:.01ms!important}.rv{opacity:1;transform:none;filter:none}#cur,.grain{display:none}}
 </style></head><body>
-<canvas id="fx"></canvas><div class="grain"></div><div id="cur"></div><div id="bar"></div>
+<div id="ann" hidden></div><canvas id="fx"></canvas><div class="grain"></div><div id="cur"></div><div id="bar"></div>
 <nav id="nav"><div class="wrap"><a class="logo" href="#top"><img class="mk" src="/logo.svg" alt=""><span>Table<b>Tab</b></span></a>
-<div class="links"><a href="#features" data-i="nFeat">Features</a><a href="#new" data-i="nNew">What's new</a><a href="#plans" data-i="nPlans">Plans</a><a href="#about" data-i="nAbout">About</a><a href="#faq" data-i="nFaq">FAQ</a></div>
+<div class="links"><a href="#features" data-i="nFeat">Features</a><a href="#new" data-i="nNew">What's new</a><a href="#plans" data-i="nPlans">Plans</a><a href="/build" data-i="nBuild">Build your own</a><a href="#about" data-i="nAbout">About</a><a href="#faq" data-i="nFaq">FAQ</a></div>
 <button class="btn lang" id="lang" onclick="setLang()">عربي</button><a class="btn p mag" id="navDemo" href="#" data-i="tryDemo">Try the demo</a></div></nav>
 
 <header class="hero" id="top"><div class="wrap">
@@ -209,6 +211,7 @@ nav .btn{white-space:nowrap}@media(max-width:900px){nav .btn{padding:10px 16px;f
 <div class="sw rv"><label class="yr"><input type="checkbox" id="yr" onchange="pick('yr')"> <span data-i="yr">Pay yearly, get 2 months free</span></label>
 <label class="yr"><input type="checkbox" id="lf" onchange="pick('lf')"> <span data-i="lf">One lifetime payment + yearly service</span></label></div>
 <div class="plans" id="plangrid"></div>
+<div class="buildcta glass rv"><div><h3 data-i="bT">Need something in between?</h3><p data-i="bS">Start from any plan and add only the features you want. See the price of each one and your total before you ask us.</p></div><a class="btn p mag" href="/build" data-i="bGo">Build your own bundle</a></div>
 <div class="cond" id="cond" hidden><b class="mono" data-i="condT">IMPORTANT CONDITION</b><p data-i="cond">The lifetime payment is a one-time licence for one cafe, with no monthly fee. The first year of service is included. From year 2 the yearly service (about 20% of the licence) keeps your system running: cloud hosting, backups, security updates, new features and support. Renewal is optional, and the fee is fixed for the first two years. If a renewal is not paid within 30 days of the due date, the service is paused. Your data is kept and can be exported for 60 days, and you can resume by paying the missed period at the current fee.</p></div>
 <p class="note" data-i="pNote">Prices start from the amounts shown and depend on your size. Talk to us for an exact quote. Pilot cafes get help with setup.</p></div></section>
 
@@ -292,6 +295,11 @@ var XT = {
   mq:['منيو QR','مطبخ مباشر','تقسيم الفاتورة','خدمة السيارات','نقاط الولاء','الحجوزات','تحليلات AI','عربي · RTL','مناطق التوصيل','كروت الهدايا'] }
 };
 ['en', 'ar'].forEach(function (l) { for (var k in XT[l]) TXT[l][k] = XT[l][k]; });
+TXT.en.nBuild = 'Build your own'; TXT.ar.nBuild = 'ابنِ باقتك';
+TXT.en.bT = 'Need something in between?'; TXT.ar.bT = 'تحتاج شيئاً بين الباقات؟';
+TXT.en.bS = 'Start from any plan and add only the features you want. See the price of each one and your total before you ask us.'; TXT.ar.bS = 'ابدأ من أي باقة وأضف المزايا التي تريدها فقط. سترى سعر كل ميزة وإجماليك قبل أن تتواصل معنا.';
+TXT.en.bGo = 'Build your own bundle'; TXT.ar.bGo = 'ابنِ باقتك بنفسك';
+var YR_M = 10, ANN = null;
 
 var MODE = 'month', lang = 'en'; try { lang = localStorage.getItem('tt:lang') || (/^ar/i.test(navigator.language) ? 'ar' : 'en'); } catch (e) {}
 var seen = {};   // grids that already played their entrance, so switching language or billing does not replay it
@@ -320,7 +328,7 @@ function render() {
 function priceBox(p, T) {
   var n = function (v) { return Math.round(v).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US'); };
   if (MODE === 'life') return '<div class="price"><small>' + T.from + '</small><br>' + n(p.p * LIFE_X) + ' <small>EGP</small><span class="once">' + T.once + '</span><div class="svc">' + T.svc.replace('{n}', '<em>' + n(p.p * SVC_X) + '</em>') + '</div></div>';
-  return '<div class="price"><small>' + T.from + '</small><br>' + n(MODE === 'year' ? p.p * 10 / 12 : p.p) + ' <small>' + T.mo + '</small>' + (MODE === 'year' ? '<div style="font:400 12.5px var(--mono);color:var(--ok);margin-top:4px">' + T.yrSave + '</div>' : '') + '</div>';
+  return '<div class="price"><small>' + T.from + '</small><br>' + n(MODE === 'year' ? p.p * YR_M / 12 : p.p) + ' <small>' + T.mo + '</small>' + (MODE === 'year' ? '<div style="font:400 12.5px var(--mono);color:var(--ok);margin-top:4px">' + T.yrSave + '</div>' : '') + '</div>';
 }
 function openContact(i) {
   var T = TXT[lang], m = document.getElementById('cm'), md = MODE === 'life' ? ' (' + T.lf + ')' : MODE === 'year' ? ' (' + T.cfYr + ')' : '';
@@ -338,7 +346,7 @@ async function sendContact(ev) {
   b.disabled = false; return false;
 }
 function mail() { return 'mailto:' + CONTACT_EMAIL + '?subject=' + encodeURIComponent('TableTab pilot'); }
-function setLang() { lang = lang === 'ar' ? 'en' : 'ar'; try { localStorage.setItem('tt:lang', lang); } catch (e) {} render(); }
+function setLang() { lang = lang === 'ar' ? 'en' : 'ar'; try { localStorage.setItem('tt:lang', lang); } catch (e) {} render(); announce(); }
 
 // ---- reveal on scroll + number count-up
 var io = 'IntersectionObserver' in window ? new IntersectionObserver(function (es) { es.forEach(function (e) { if (!e.isIntersecting) return; e.target.classList.add('in'); io.unobserve(e.target); var g = e.target.parentNode && e.target.parentNode.id; if (g) seen[g] = 1; count(e.target); }); }, { threshold: .12, rootMargin: '0px 0px -6% 0px' }) : null;
@@ -400,5 +408,13 @@ addEventListener('scroll', onScroll, { passive: true }); onScroll();
   }
   if (!calm) requestAnimationFrame(frame);
 })();
+function announce() { var a = document.getElementById('ann'); if (!a) return; var t = ANN && (ANN[lang] || ANN.en); a.textContent = t || ''; a.hidden = !t; }
+fetch('/api/public/site').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+  if (!d) return;
+  if (d.mult) { LIFE_X = +d.mult.life || LIFE_X; SVC_X = +d.mult.svc || SVC_X; YR_M = +d.mult.yearMonths || YR_M; }
+  ['en', 'ar'].forEach(function (l) { var o = (d.text || {})[l] || {}; for (var k in o) if (typeof TXT[l][k] === 'string') TXT[l][k] = o[k]; });
+  (d.plans || []).slice(0, 3).forEach(function (pl, i) { ['en', 'ar'].forEach(function (l) { var q = TXT[l].plans[i]; if (q && !q.custom && +pl.price > 0) q.p = +pl.price; }); });
+  ANN = d.announce; render(); announce();
+}).catch(function () {});
 render();
 </script></body></html>

@@ -408,6 +408,36 @@ app.use('/api', async (req, res, next) => { try { await refreshPlatform(); next(
 const planView = () => ({ catalog: F.CATALOG, retired: F.RETIRED, core: F.CORE, plans: F.ORDER.map((id) => { const P = F.PLANS[id]; return { id, name: P.name, name_ar: P.name_ar, price: P.price, limits: P.limits, features: F.FEATURE_IDS.filter((f) => F.featuresOf(id)[f]) }; }) });
 app.get('/api/public/plans', (req, res) => res.json({ plans: F.ORDER.map((id) => ({ id, name: F.PLANS[id].name, name_ar: F.PLANS[id].name_ar, price: F.PLANS[id].price[0], tables: F.PLANS[id].limits.tables, staff: F.PLANS[id].limits.staff })) }));
 
+// ----- Website settings and add-on prices (edited in the platform console, one aux document) -----
+// An add-on is any catalogue feature the chosen plan does not already contain. Default monthly price by catalogue level; the console overrides per feature.
+const SITE_MULT = { life: 20, svc: 4, yearMonths: 10 };   // lifetime = life x monthly once, then svc x monthly per year; yearly = yearMonths x monthly
+const ADDON_BY_LEVEL = { 1: 0, 2: 120, 3: 180, 4: 300 };
+let siteAt = 0, siteVal = null;
+async function siteConf(force) {
+  if (!force && siteVal && Date.now() - siteAt < 15000) return siteVal;
+  const d = (await store.getAux('sitecfg')) || {};
+  siteVal = { addons: d.addons && typeof d.addons === 'object' ? d.addons : {}, mult: { ...SITE_MULT, ...(d.mult || {}) }, announce: { on: !!(d.announce && d.announce.on), en: clip(d.announce && d.announce.en, 200), ar: clip(d.announce && d.announce.ar, 200) }, text: { en: (d.text && d.text.en) || {}, ar: (d.text && d.text.ar) || {} } };
+  siteAt = Date.now(); return siteVal;
+}
+const addonPrice = (c, conf) => { const v = conf.addons[c.id]; return v !== undefined && v !== null && v !== '' && +v >= 0 ? Math.round(+v) : (ADDON_BY_LEVEL[c.level] || 0); };
+// what a bundle costs: the plan's own price plus its add-ons (always recomputed here, never trusted from the browser)
+function quoteFor(q, conf) {
+  if (!q || !F.ORDER.includes(q.plan)) return null;
+  const have = F.featuresOf(q.plan), P = F.PLANS[q.plan], M = conf.mult;
+  const addons = [...new Set(Array.isArray(q.features) ? q.features : [])].map((id) => F.CATALOG.find((c) => c.id === id)).filter((c) => c && !have[c.id]).slice(0, 60).map((c) => ({ id: c.id, en: c.en, price: addonPrice(c, conf) }));
+  const month = P.price[0] + addons.reduce((n, a) => n + a.price, 0), mode = q.mode === 'year' || q.mode === 'life' ? q.mode : 'month';
+  return { plan: q.plan, name: P.name, base: P.price[0], mode, addons, month, total: mode === 'life' ? month * M.life : mode === 'year' ? month * M.yearMonths : month, service: mode === 'life' ? month * M.svc : 0 };
+}
+const quoteText = (q) => `BUNDLE REQUEST\nBase plan: ${q.name} (${q.base} EGP / month)\nAdd-ons: ${q.addons.length ? '' : 'none'}\n${q.addons.map((a) => ' - ' + a.en + ': ' + a.price + ' EGP / month').join('\n')}${q.addons.length ? '\n' : ''}Monthly total: ${q.month} EGP\nBilling: ${q.mode === 'life' ? 'one lifetime payment ' + q.total + ' EGP + ' + q.service + ' EGP service per year' : q.mode === 'year' ? 'yearly ' + q.total + ' EGP (2 months free)' : 'monthly'}`;
+app.get('/api/public/site', async (req, res, next) => { try {
+  const conf = await siteConf();
+  res.set('Cache-Control', 'no-store');
+  res.json({ mult: conf.mult, announce: conf.announce.on ? { en: conf.announce.en, ar: conf.announce.ar } : null, text: conf.text,
+    plans: F.ORDER.map((id) => ({ id, name: F.PLANS[id].name, name_ar: F.PLANS[id].name_ar, price: F.PLANS[id].price[0], tables: F.PLANS[id].limits.tables, staff: F.PLANS[id].limits.staff, features: F.FEATURE_IDS.filter((f) => F.featuresOf(id)[f]) })),
+    catalog: F.CATALOG.map((c) => ({ id: c.id, en: c.en, ar: c.ar, area: c.area, level: c.level, price: addonPrice(c, conf) })) });
+} catch (e) { next(e); } });
+app.get('/build', page('build.html'));
+
 // ----- Super admin API -----
 app.post('/api/super/login', loginLimit, (req, res) => {
   if (SINGLE) return res.status(404).json({});
@@ -453,6 +483,7 @@ app.post('/api/contact', contactLimit, async (req, res, next) => { try {
   const b = req.body || {};
   if (b.website) return res.json({ ok: true });   // hidden field: only bots fill it
   const m = { id: 'm_' + require('crypto').randomBytes(6).toString('hex'), at: Date.now(), name: clip(b.name, 80), email: clip(b.email, 120), phone: clip(b.phone, 30), place: clip(b.place, 100), message: clip(b.message, 3000), lang: b.lang === 'ar' ? 'ar' : 'en' };
+  const qt = b.quote ? quoteFor(b.quote, await siteConf()) : null; if (qt) { m.quote = qt; m.message = clip((m.message ? m.message + '\n\n' : '') + quoteText(qt), 3000); }
   if (m.name.length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m.email) || m.message.length < 5) return res.status(400).json({ error: 'Please fill in your name, a valid email and a message' });
   const cur = (await store.getAux('contacts')) || { rows: [] };
   cur.rows = [m].concat(cur.rows || []).slice(0, 500); await store.putAux('contacts', cur);
@@ -504,6 +535,31 @@ app.put('/api/super/features', needSuper, async (req, res, next) => { try {
   }
   const keep = (await store.getAux('platform')) || {};
   await store.putAux('platform', { ...keep, features: out, at: Date.now() }); await refreshPlatform(true); res.json(planView());
+} catch (e) { next(e); } });
+const siteTexts = () => {
+  try {
+    const src = require('fs').readFileSync(path.join(__dirname, 'public', 'site.html'), 'utf8'), a = src.indexOf('var TXT = {'), b = src.indexOf("['en', 'ar'].forEach(function (l) { for (var k in XT");
+    const T = require('vm').runInNewContext(src.slice(a, b) + ';TXT', {}, { timeout: 500 }), out = { en: {}, ar: {} };
+    ['en', 'ar'].forEach((l) => Object.keys(T[l] || {}).forEach((k) => { if (typeof T[l][k] === 'string') out[l][k] = T[l][k]; }));
+    return out;
+  } catch (e) { console.error('site texts:', e.message); return { en: {}, ar: {} }; }
+};
+app.get('/api/super/site', needSuper, async (req, res, next) => { try {
+  const conf = await siteConf(true);
+  res.json({ conf, defaults: ADDON_BY_LEVEL, mult: SITE_MULT, texts: siteTexts(), catalog: F.CATALOG.map((c) => ({ id: c.id, en: c.en, ar: c.ar, area: c.area, level: c.level, price: addonPrice(c, conf), custom: conf.addons[c.id] !== undefined && conf.addons[c.id] !== null })), plans: F.ORDER.map((id) => ({ id, name: F.PLANS[id].name, price: F.PLANS[id].price[0] })) });
+} catch (e) { next(e); } });
+app.put('/api/super/site', needSuper, async (req, res, next) => { try {
+  const b = req.body || {}, out = { at: Date.now() }, num = (v, lo, hi) => (v !== '' && v !== null && v !== undefined && +v >= lo && +v <= hi ? +v : null);
+  out.addons = {};
+  for (const c of F.CATALOG) { const v = (b.addons || {})[c.id]; if (v === null || v === undefined || v === '') continue; const n = num(v, 0, 1e6); if (n === null) return res.status(400).json({ error: 'Bad price for ' + c.en }); out.addons[c.id] = Math.round(n); }
+  const m = b.mult || {}, life = num(m.life, 1, 200), svc = num(m.svc, 0, 50), ym = num(m.yearMonths, 1, 12);
+  if (life === null || svc === null || ym === null) return res.status(400).json({ error: 'Lifetime, service and yearly multipliers must be numbers' });
+  out.mult = { life, svc, yearMonths: ym };
+  out.announce = { on: !!(b.announce && b.announce.on), en: clip(b.announce && b.announce.en, 200), ar: clip(b.announce && b.announce.ar, 200) };
+  out.text = { en: {}, ar: {} };
+  let n = 0;
+  for (const l of ['en', 'ar']) for (const [k, v] of Object.entries((b.text || {})[l] || {})) { if (!/^[A-Za-z0-9_]{1,24}$/.test(k) || typeof v !== 'string' || !v.trim() || ++n > 400) continue; out.text[l][k] = v.slice(0, 1200); }
+  await store.putAux('sitecfg', out); res.json(await siteConf(true));
 } catch (e) { next(e); } });
 app.get('/api/super/overview', needSuper, async (req, res, next) => { try {
   const all = await allTenants(), list = all.map((t) => tenantStats(t));

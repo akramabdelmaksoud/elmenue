@@ -5,7 +5,7 @@
 .shell { display:grid; grid-template-columns:220px 1fr; min-height:100vh; } @media (max-width:800px){ .shell{grid-template-columns:1fr} aside{flex-direction:row!important;overflow:auto} }
 aside { background:var(--card); border-inline-end:1px solid var(--line); padding:18px 12px; display:flex; flex-direction:column; gap:6px; position:sticky; top:0; height:100vh; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:none; -webkit-overflow-scrolling:touch; } aside::-webkit-scrollbar { display:none; }
 @media (max-width:800px){ aside{height:auto;position:static} }
-aside > * { flex-shrink:0; } aside h2 { margin:0 8px 14px; font-size:18px; } aside button { text-align:start; background:none; } aside button.on { background:color-mix(in srgb,var(--accent) 20%,transparent); color:var(--accent); font-weight:700; }
+aside > * { flex-shrink:0; } aside h2 { margin:0 8px 14px; font-size:18px; } aside button { text-align:start; background:none; }
 main { padding:24px; overflow:auto; max-width:1200px; } h1 { margin-top:0; }
 .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); }
 .kpi b { display:block; font-size:26px; margin-top:4px; } .kpi span { color:var(--muted); font-size:13px; }
@@ -19,6 +19,17 @@ table { width:100%; border-collapse:collapse; } td, th { padding:6px; text-align
 .sw { width:44px; height:44px; padding:0; border:0; background:none; } .row2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; margin-top:14px; }
 @media (max-width:800px) { main { padding:14px; } aside button { white-space:nowrap; } .row2 { grid-template-columns:1fr !important; } .card { overflow-x:auto; } h1 { font-size:24px; } input[type=checkbox] { width:22px; height:22px; } }
 @media print { aside, .noprint, .shell > main > h1 { display:none!important } .shell { display:block } body { background:#fff; color:#000 } .qr { color:#000 } .card { border:1px solid #ccc; background:#fff } }
+/* grouped navigation */
+aside .gbtn, #groups button { display:flex; align-items:center; gap:10px; width:100%; padding:11px 12px; border-radius:14px; font-weight:600; text-align:start; background:none; } aside .gbtn i, #groups button i { font-style:normal; width:24px; text-align:center; font-size:18px; flex:none; } #groups { display:flex; flex-direction:column; gap:4px; }
+#groups button:hover, aside .gbtn:hover { background:var(--card2); } #groups button.on { background:color-mix(in srgb,var(--accent) 20%,transparent); color:var(--accent); font-weight:800; box-shadow:inset 3px 0 0 var(--accent); }
+.body { display:flex; align-items:flex-start; min-width:0; } .body > main { flex:1; min-width:0; }
+#subnav { flex:none; width:210px; position:sticky; top:48px; padding:22px 6px 22px 16px; display:flex; flex-direction:column; gap:3px; } #subnav:empty, #subnav[hidden] { display:none; }
+#subnav h4 { margin:0 8px 8px; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+#subnav button { text-align:start; background:none; padding:9px 12px; border-radius:11px; font-size:14px; font-weight:600; border:0; } #subnav button:hover { background:var(--card2); } #subnav button.on { background:var(--card); color:var(--accent); font-weight:800; box-shadow:0 0 0 1px var(--line); }
+#subnav button[data-locked="true"]::after { content:' 🔒'; opacity:.7; }
+.mwrap { position:relative; } .mm { position:absolute; inset-inline-start:0; bottom:calc(100% + 8px); width:100%; min-width:200px; z-index:120; padding:8px; border-radius:16px; background:var(--card); border:1px solid var(--line); box-shadow:0 24px 60px -16px rgba(0,0,0,.55); display:flex; flex-direction:column; gap:2px; } .mm[hidden] { display:none; } .mm button { display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; border-radius:11px; background:none; text-align:start; } .mm button:hover { background:var(--card2); } .mm i { font-style:normal; width:22px; text-align:center; } .mm hr { border:0; border-top:1px solid var(--line); margin:4px 6px; }
+@media (max-width:800px) { aside { align-items:center; padding:8px; gap:4px; } aside h2 { display:none; } aside > span { display:none; } #groups { flex-direction:row; } aside .gbtn, #groups button { width:auto; white-space:nowrap; padding:9px 12px; } #groups button.on { box-shadow:none; } .body { flex-direction:column; align-items:stretch; } .body > main { width:100%; max-width:100%; } #subnav { width:auto; position:static; flex-direction:row; overflow-x:auto; padding:8px 12px 0; gap:6px; scrollbar-width:none; } #subnav::-webkit-scrollbar { display:none; } #subnav h4 { display:none; } #subnav button { white-space:nowrap; flex:none; border:1px solid var(--line); } .mm { bottom:auto; top:calc(100% + 8px); inset-inline-start:auto; inset-inline-end:0; position:fixed; } }
+@media print { #subnav { display:none!important } }
 .mainwrap { min-width: 0; }
 #rfbar { position: sticky; top: 0; z-index: 25; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 8px 20px; font-size: 13px; background: color-mix(in srgb, var(--bg) 88%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
 #rfbar .rfb { padding: 7px 14px; font-weight: 700; background: var(--accent); color: var(--on-accent); border-radius: 10px; } #rfbar .rfb.spin { opacity: .6; pointer-events: none; }
@@ -41,9 +52,19 @@ aside button[data-locked="true"]::after { content: ' 🔒'; opacity: .7; }
 </style></head>
 <body><div class="shell"><aside>
 <h2>⚙️ Admin</h2>
-<button data-t="analytics">📊 Analytics</button><button data-t="menu">🍽️ Menu builder</button><button data-t="inventory">📦 Inventory</button><button data-t="recipes" data-lock="recipes">🧪 Recipes & costing</button><button data-t="floor">🪑 Floor plan</button><button data-t="staff" data-lock="staff">👥 Staff</button><button data-t="attendance" data-lock="attendance">⏱ Attendance & shifts</button><button data-t="invoices" data-lock="invoicing">🧾 Invoices</button><button data-t="purchasing" data-lock="purchasing">🚚 Suppliers & purchasing</button><button data-t="ownerreport" data-lock="ownerreport">📑 Owner report</button><button data-t="orders">🧾 Orders</button><button data-t="reports">📈 Reports</button><button data-t="theme">🎨 Theme & settings</button><button data-t="qr">🔳 Table QR codes</button><button data-t="audit">📜 Audit log</button><button data-t="insights" data-lock="insights">🧠 Insights</button><button data-t="offers" data-lock="coupons">🎟️ Offers & gift cards</button><button data-t="loyalty" data-lock="loyalty">💳 Loyalty</button><button data-t="ocr" data-lock="ocr">📷 AI menu scan</button><button data-t="branches" data-lock="branches">🏢 Branches</button><button onclick="copilotToggle()" data-lock="copilot">🤖 AI Copilot</button>
-<span style="flex:1"></span><div class="hb fold" data-label="More"><button onclick="App.toggleLang()">🌐 EN / عربي</button><button onclick="App.roleMenu(event)">⇄ Switch role</button><button onclick="App.skinMenu(event)">🎨 Look (Maison)</button><button onclick="App.toggleMode(event)">◐ Light / Dark</button><button onclick="App.logout()">⏻ Sign out</button></div></aside>
-<div class="mainwrap"><div id="rfbar"></div><main id="main"></main></div></div>
+<div id="groups"></div>
+<span style="flex:1"></span>
+<button onclick="copilotToggle()" data-lock="copilot" class="gbtn"><i>🤖</i><span>AI Copilot</span></button>
+<div class="mwrap"><button class="gbtn" id="morebtn" onclick="moreMenu(event)" aria-haspopup="true" aria-expanded="false"><i>⋯</i><span>More</span></button>
+ <div class="mm" id="mm" hidden>
+  <button onclick="App.toggleLang()"><i>🌐</i><span>EN / عربي</span></button>
+  <button onclick="App.roleMenu(event)"><i>⇄</i><span>Switch role</span></button>
+  <button onclick="App.skinMenu(event)"><i>🎨</i><span>Look</span></button>
+  <button onclick="App.toggleMode(event)"><i>◐</i><span>Light / Dark</span></button>
+  <hr><button onclick="App.logout()"><i>⏻</i><span>Sign out</span></button>
+ </div></div>
+</aside>
+<div class="mainwrap"><div id="rfbar"></div><div class="body"><nav id="subnav" aria-label="Section pages"></nav><main id="main"></main></div></div></div>
 <script src="/vendor/sortable.js"></script><script src="/vendor/chart.js"></script><script src="/shared.js"></script><script src="/itemdlg.js"></script><script src="/office.js"></script><script src="/ar-ui.js"></script>
 <script>
 let tab = App.ls('admintab') || 'analytics', cfgKey = '', actCat = null, days = 7, charts = [], A = null;
@@ -113,6 +134,20 @@ function drawOcr(sim) {
    <div class="row" style="margin-top:12px"><button class="primary" onclick="importOcr()">✅ Import ${OCR.length} items to my menu</button></div></div>`;
 }
 async function importOcr() { const r = await api('POST', '/api/menu/ocr/import', { items: OCR }); App.toast(r.error || `Imported ${r.items} items (${r.categories} new categories)`); OCR = []; $('#ocrout').innerHTML = ''; }
+/* ---------------- plan & add-ons: what this place has, what else exists, and what it costs ---------------- */
+async function planTab() {
+  const E = App.esc, F = FEAT(), id = App.config.plan, d = await fetch('/api/public/site').then((r) => r.json()).catch(() => null);
+  if (!d) return ($('#main').innerHTML = '<h1>💎 My plan & add-ons</h1><div class="card">Could not load the price list. Try again.</div>');
+  const P = d.plans.find((x) => x.id === id) || d.plans[0], ar = App.lang === 'ar', nm = (x) => (ar ? x.ar : x.en);
+  const area = { guest: 'For your guests', staff: 'For your team', admin: 'For you, the owner' };
+  const rows = (a) => d.catalog.filter((c) => c.area === a && c.level > 1).map((c) => F[c.id] === false ? `<div class="cat"><span style="flex:1">${E(nm(c))}</span><span class="muted">🔒 +${c.price} ${E(App.config.settings.currency || 'EGP')} / month</span></div>` : `<div class="cat"><span style="flex:1">${E(nm(c))}</span><span style="color:var(--good,#1f9d55)">✓ active</span></div>`).join('');
+  const locked = d.catalog.filter((c) => c.level > 1 && F[c.id] === false), sum = locked.reduce((n, c) => n + c.price, 0);
+  $('#main').innerHTML = `<h1>💎 My plan & add-ons</h1>
+  <div class="card"><div class="spread"><div><small class="muted">Current plan</small><div style="font-size:26px;font-weight:800">${E(ar ? P.name_ar : P.name)}</div><span class="muted">${P.tables == null ? 'Unlimited' : P.tables} tables · ${P.staff == null ? 'unlimited' : P.staff} staff accounts</span></div>
+   <a class="primary" style="text-decoration:none;padding:12px 20px;border-radius:14px;font-weight:700" href="/build?plan=${E(id)}" target="_blank" rel="noopener">➕ Add features to my plan</a></div>
+   <p class="muted" style="margin-bottom:0">${locked.length ? `${locked.length} more features are available. Pick the ones you want and see your new total before you send the request.` : 'Everything is switched on for this place.'}</p></div>
+  ${['guest', 'staff', 'admin'].map((a) => `<div class="card" style="margin-top:14px"><h3>${area[a]}</h3>${rows(a) || '<p class="muted">Nothing here yet.</p>'}</div>`).join('')}`;
+}
 let BR_DAYS = 30, BR_SORT = 'revenue';
 async function branchesTab(days) {
   if (!FEAT().branches) return lockedCard('🏢 Multi-branch analytics', 'branches');
@@ -204,7 +239,31 @@ function welcomeCard() {
 }
 function savePromo(i, k, v) { const P = (App.config.settings.promos || []).concat([{}, {}, {}]).slice(0, 3).map((p) => ({ ...p })); P[i][k] = v; api('POST', '/api/settings', { promos: P.filter((p) => p.title || p.text || p.title_ar || p.text_ar) }); }
 
-document.querySelectorAll('aside [data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; App.ls('admintab', tab); cfgKey = ''; render(App.state, true); });
+/* ---------------- navigation: a few sections, each with its own page list ---------------- */
+const GROUPS = [
+  { id: 'home', icon: '📊', name: 'Dashboard', tabs: [['analytics', '📊 Analytics']] },
+  { id: 'place', icon: '🏠', name: 'Place', tabs: [['menu', '🍽️ Menu builder'], ['floor', '🪑 Floor plan'], ['theme', '🎨 Theme & settings'], ['qr', '🔳 Table QR codes'], ['ocr', '📷 AI menu scan', 'ocr']] },
+  { id: 'team', icon: '👥', name: 'Team', tabs: [['staff', '👥 Staff', 'staff'], ['attendance', '⏱ Attendance & shifts', 'attendance']] },
+  { id: 'stock', icon: '📦', name: 'Stock & supply', tabs: [['inventory', '📦 Inventory'], ['recipes', '🧪 Recipes & costing', 'recipes'], ['purchasing', '🚚 Suppliers & purchasing', 'purchasing']] },
+  { id: 'sales', icon: '💰', name: 'Sales & guests', tabs: [['orders', '🧾 Orders'], ['invoices', '🧾 Invoices', 'invoicing'], ['offers', '🎟️ Offers & gift cards', 'coupons'], ['loyalty', '💳 Loyalty', 'loyalty']] },
+  { id: 'data', icon: '📈', name: 'Data & reports', tabs: [['reports', '📈 Reports'], ['insights', '🧠 Insights', 'insights'], ['ownerreport', '📑 Owner report', 'ownerreport'], ['branches', '🏢 Branches', 'branches'], ['audit', '📜 Audit log']] },
+  { id: 'plan', icon: '💎', name: 'Plan & add-ons', tabs: [['plan', '💎 My plan & add-ons']] },
+];
+const groupOf = (t) => GROUPS.find((g) => g.tabs.some((x) => x[0] === t)) || GROUPS[0];
+function drawNav() {
+  const g = groupOf(tab), E = App.esc;
+  $('#groups').innerHTML = GROUPS.map((x) => `<button data-g="${x.id}" class="${x.id === g.id ? 'on' : ''}"><i>${x.icon}</i><span>${E(x.name)}</span></button>`).join('');
+  document.querySelectorAll('#groups [data-g]').forEach((b) => (b.onclick = () => { const gg = GROUPS.find((x) => x.id === b.dataset.g), last = App.ls('admintab_' + gg.id); go(gg.tabs.some((x) => x[0] === last) ? last : gg.tabs[0][0]); }));
+  const sn = $('#subnav'); sn.hidden = g.tabs.length < 2;
+  sn.innerHTML = g.tabs.length < 2 ? '' : `<h4>${E(g.name)}</h4>` + g.tabs.map(([id, label, lock]) => `<button data-t="${id}" ${lock ? `data-lock="${lock}"` : ''} class="${id === tab ? 'on' : ''}" data-locked="${lock && FEAT()[lock] === false ? 'true' : 'false'}">${E(label)}</button>`).join('');
+  sn.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => go(b.dataset.t)));
+}
+function go(t) { tab = t; App.ls('admintab', t); App.ls('admintab_' + groupOf(t).id, t); cfgKey = ''; render(App.state, true); }
+function moreMenu(ev) { ev.stopPropagation(); const m = $('#mm'), open = m.hidden; m.hidden = !open; $('#morebtn').setAttribute('aria-expanded', open); }
+document.addEventListener('click', (e) => { const m = $('#mm'); if (m && !m.hidden && !e.target.closest('.mwrap')) m.hidden = true; });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const m = $('#mm'); if (m) m.hidden = true; } });
+if (!GROUPS.some((g) => g.tabs.some((x) => x[0] === tab))) tab = 'analytics';
+
 /* ---------------- refresh control: the dashboard redraws only when the owner asks, or on the schedule they chose (default: hourly) ---------------- */
 const RF_OPTS = [[0, 'Manual only'], [5, 'Every 5 minutes'], [15, 'Every 15 minutes'], [30, 'Every 30 minutes'], [60, 'Every hour'], [120, 'Every 2 hours'], [360, 'Every 6 hours']];
 let rfLast = 0, rfTimer = null, rfBusy = false, rfFirst = true;
@@ -232,14 +291,14 @@ function render(m, force) {
   if (!App.config) return;
   document.querySelector('aside h2').textContent = '⚙️ Admin · ' + (PLAN_NAME[App.config.plan] || '');
   document.querySelectorAll('aside [data-lock]').forEach(b => { b.dataset.locked = FEAT()[b.dataset.lock] === false ? 'true' : 'false'; });
+  drawNav();
   if (tab === 'floor' && (FP.dirty || FP.drag)) return;   // never rebuild the editor mid-edit
-  document.querySelectorAll('aside [data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
   if (App.brand && App.config) App.brand(App.config.settings);
   const key = JSON.stringify(App.config) + App.lang + document.documentElement.dataset.dark + tab;
   if (key === cfgKey && !force) { if (tab === 'analytics') {} return; }   // ignore live-session noise
   cfgKey = key;
   const focus = document.activeElement; if (focus && focus.closest('#main') && focus.tagName === 'INPUT' && !force) return;  // don't clobber typing
-  ({ analytics, menu, inventory: inventoryTab, recipes: () => (FEAT().recipes === false ? lockedCard('🧪 Recipes & costing', 'recipes') : recipesTab()), orders: ordersTab, floor: floorTab, invoices: () => (FEAT().invoicing === false ? lockedCard('🧾 Invoices', 'invoicing') : Office.invoices()), purchasing: () => (FEAT().purchasing === false ? lockedCard('🚚 Suppliers & purchasing', 'purchasing') : Office.purchasing()), ownerreport: () => (FEAT().ownerreport === false ? lockedCard('📑 Owner report', 'ownerreport') : ownerReportTab()), attendance: () => (FEAT().attendance === false ? lockedCard('⏱ Attendance & shifts', 'attendance') : attendanceTab()), staff: () => (FEAT().staff === false ? lockedCard('👥 Staff', 'staff') : staffTab()), reports: reportsTab, insights: () => (FEAT().insights === false ? lockedCard('🧠 Insights', 'insights') : insightsTab()), theme, qr, audit, offers: offersTab, loyalty: loyaltyTab, ocr: ocrTab, branches: branchesTab })[tab]();
+  ({ analytics, menu, inventory: inventoryTab, recipes: () => (FEAT().recipes === false ? lockedCard('🧪 Recipes & costing', 'recipes') : recipesTab()), orders: ordersTab, floor: floorTab, invoices: () => (FEAT().invoicing === false ? lockedCard('🧾 Invoices', 'invoicing') : Office.invoices()), purchasing: () => (FEAT().purchasing === false ? lockedCard('🚚 Suppliers & purchasing', 'purchasing') : Office.purchasing()), ownerreport: () => (FEAT().ownerreport === false ? lockedCard('📑 Owner report', 'ownerreport') : ownerReportTab()), attendance: () => (FEAT().attendance === false ? lockedCard('⏱ Attendance & shifts', 'attendance') : attendanceTab()), staff: () => (FEAT().staff === false ? lockedCard('👥 Staff', 'staff') : staffTab()), reports: reportsTab, insights: () => (FEAT().insights === false ? lockedCard('🧠 Insights', 'insights') : insightsTab()), theme, qr, audit, offers: offersTab, loyalty: loyaltyTab, ocr: ocrTab, branches: branchesTab, plan: planTab })[tab]();
 }
 App.handlers.render = (m) => render(m, true);
 
