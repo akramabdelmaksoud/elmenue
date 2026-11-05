@@ -34,6 +34,16 @@ test('F44 nothing on the page is lost: sizes keep every price, non-dish lines co
   assert.ok(!r.items.some((x) => /Tel|Tahrir|Since/.test(x.name)), 'phone, address and year are not dishes');
 });
 
+test('F44 Arabic menu: size prices before the name, descriptions under dishes, misread prices kept for the owner', () => {
+  const r = F.parseMenuText('الإفطار\nبيض بالبسطرمة ٩٠\nثلاث بيضات مع بسطرمة وعيش بلدي\nفول وطعمية AO\nالمشروبات\n٣٠ / ٢٠ عصير قصب\nسحلب ٥٠');
+  const by = (n) => r.items.find((x) => x.name_ar === n);
+  assert.deepEqual(r.categories, ['الإفطار', 'المشروبات']);
+  assert.equal(by('بيض بالبسطرمة').desc, 'ثلاث بيضات مع بسطرمة وعيش بلدي', 'a sentence under a dish is its description');
+  assert.equal(by('عصير قصب').price, 20); assert.equal(by('عصير قصب').desc, 'Prices: 20 / 30', 'sizes small to large, whichever way the photo read them');
+  assert.equal(by('سحلب').price, 50);
+  assert.ok(r.extra.includes('فول وطعمية AO'), 'a dish whose price was misread is not lost');
+});
+
 for (const mode of ['ws']) test(`F44 menu scan without an AI key: the page reads the photo, the server turns text into rows [${mode}]`, async (t) => {
   const S = await start(mode); t.after(() => S.stop());
   const V = await S.tenant('vip'), B = await S.tenant('basic');

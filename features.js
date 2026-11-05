@@ -350,6 +350,7 @@ function parseMenuText(text) {
   const MULTI = new RegExp('^(.*\\p{L}[^\\d]*?)[\\s.\\-–—:_…|]+((?:' + CUR + '?\\s*\\d{1,5}(?:[.,]\\d{1,2})?\\s*' + CUR + '?\\s*[\\/|\\-–,]?\\s*){2,5})$', 'iu');
   const TAIL = new RegExp('^(.*?)[\\s.\\-–—:_…]*' + CUR + '?\\s*' + NUM + '\\s*' + CUR + '?\\.?\\s*(?:[-–—:|]\\s*(.*))?$', 'iu');
   const HEAD = new RegExp('^' + CUR + '?\\s*' + NUM + '\\s*' + CUR + '?[\\s.\\-–—:_…|]+(\\D.*)$', 'iu');
+  const MULTIHEAD = new RegExp('^((?:' + CUR + '?\\s*\\d{1,5}(?:[.,]\\d{1,2})?\\s*' + CUR + '?\\s*[\\/|\\-–,]?\\s*){2,5})[\\s.\\-–—:_…|]+([^\\d].*\\p{L}.*)$', 'iu');   // "٢٠ / ٣٠ عصير قصب"
   const ONLY = new RegExp('^' + CUR + '?\\s*' + NUM + '\\s*' + CUR + '?\\.?$', 'iu');
   const clean = (s) => String(s || '').replace(/[|•*#_~=]+/g, ' ').replace(/\.{2,}|…+/g, ' ').replace(/\s{2,}/g, ' ').replace(/^[\s.\-–—:,]+|[\s.\-–—:,]+$/g, '').trim();
   const split = (s) => { const w = clean(s).split(' '), ar = w.filter((x) => AR_RE.test(x)).join(' '), en = w.filter((x) => !AR_RE.test(x)).join(' ');
@@ -365,7 +366,8 @@ function parseMenuText(text) {
     if (pend == null) return; const p = pend; pend = null;
     // an Arabic name with a scrap of Latin letters is a dish whose price was misread ("فول وطعمية AO"), or a misread heading: the owner decides
     if (AR_RE.test(p) && /^[A-Za-z]{1,3}$/.test((p.match(/[A-Za-z]+/g) || []).join(''))) { extra.push(clean(p)); return; }
-    if (lastItem && (p.length > 32 || /^[a-z(]/.test(p)) && !lastItem.desc) { lastItem.desc = clean(p).slice(0, 140); return; }
+    // right under a dish, a long line or a sentence of 4+ words is its description (Arabic has no lowercase to tell by)
+    if (lastItem && (p.length > 32 || /^[a-z(]/.test(p) || clean(p).split(' ').length >= 4) && !lastItem.desc) { lastItem.desc = clean(p).slice(0, 140); return; }
     if (p.length <= 40 && !/\d/.test(p) && /\p{L}{3}/u.test(p)) {   /* "S M L" over a price column is not a heading */ const n = split(p.replace(/[:\-–—*#]+$/g, '')); cur = n.en.slice(0, 40) || n.ar.slice(0, 40); cur_ar = n.ar.slice(0, 40); if (cur && !cats.includes(cur)) cats.push(cur); lastItem = null; heads.push({ cat: cur, line: clean(p) }); return; }
     extra.push(clean(p));
   };
@@ -377,9 +379,11 @@ function parseMenuText(text) {
     if (/\d{6,}|\d{3,}[\s-]\d{3,}[\s-]\d{3,}|https?:|www\.|@|\.com\b|\b(tel|phone|mobile|hotline|whats ?app|address|street|road|since|established|branch|open daily|working hours)\b|\b(st|rd|est)[.,]|تليفون|تلفون|موبايل|واتس|العنوان|شارع|منذ|فرع|مواعيد/i.test(line)) { flush(); extra.push(clean(line)); return; }
     let m;
     if ((m = line.match(ONLY))) { if (pend != null) { const p = pend; pend = null; if (!addItem(p, m[1], '')) extra.push(clean(p) + ' ' + m[1]); } else extra.push(line); return; }
-    if ((m = line.match(MULTI)) && letters(m[1]) >= 2) {
-      const ps = (m[2].match(/\d{1,5}(?:[.,]\d{1,2})?/g) || []).map((x) => +x.replace(',', '.'));
-      if (ps.length > 1 && ps.every((x) => x > 0 && x <= 100000)) { flush(); if (addItem(m[1], ps[0], '')) lastItem.desc = 'Prices: ' + ps.join(' / '); else extra.push(line); return; }
+    // several prices (sizes) after the name, or before it on an Arabic line; listed small to large (a right-to-left photo can read them reversed)
+    const mm = line.match(MULTI), mh = !mm && line.match(MULTIHEAD), nm = mm ? mm[1] : mh && mh[2], pl = mm ? mm[2] : mh && mh[1];
+    if (nm && letters(nm) >= 2) {
+      const ps = (pl.match(/\d{1,5}(?:[.,]\d{1,2})?/g) || []).map((x) => +x.replace(',', '.')).sort((a, b) => a - b);
+      if (ps.length > 1 && ps.every((x) => x > 0 && x <= 100000)) { flush(); if (addItem(nm, ps[0], '')) lastItem.desc = 'Prices: ' + ps.join(' / '); else extra.push(line); return; }
     }
     if ((m = line.match(TAIL)) && letters(m[1]) >= 2) { flush(); if (!addItem(m[1], m[2], m[3])) extra.push(clean(line)); return; }
     if ((m = line.match(HEAD)) && letters(m[2]) >= 2) { flush(); if (!addItem(m[2], m[1], '')) extra.push(clean(line)); return; }
