@@ -34,7 +34,7 @@ for (const mode of ['ws', 'rpc']) test(`F10 online ordering [${mode}]`, async (t
   await T.rpc('captain', cap, { t: 'close_table', tableId: ok.j.tid, method: 'cash', pay: { tendered: 9999 } }); assert.equal(await status(), 'done');
   const hist = (await T.api('GET', '/orders?from=0&to=' + (Date.now() + 1000))).j; const row = (hist.orders || hist).find((h) => h.tableNumber === ok.j.number); assert.ok(row, 'closed ticket in history'); assert.equal(row.source, 'online');
   // delivery: address required, fee item added automatically, sold-out items are refused with a clear message
-  await T.api('POST', '/settings', { online: { enabled: true, pickup: true, delivery: true, minOrder: 0, feeItemId: fee.id } });
+  await T.api('POST', '/settings', { online: { enabled: true, pickup: true, delivery: true, account: 'off', minOrder: 0, feeItemId: fee.id } });
   const dl = { kind: 'delivery', name: 'Omar', phone: '+201112223334', address: '12 Nile St, Giza', items: [{ itemId: food2.id, qty: 1 }] };
   assert.equal((await order({ ...dl, address: '' }, '10.3.0.3')).j.code, 'address');
   const d = await order(dl, '10.3.0.3'); assert.equal(d.s, 200); assert.match(d.j.number, /^DL-\d+$/); assert.equal(d.j.total > food2.price + 15 - 0.01, true);

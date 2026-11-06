@@ -314,6 +314,7 @@ const App = {
   },
   // staff pages: a small pill shows the shift is running; tapping it clocks out and signs this device out
   async clockPill(role) {
+    if (role === 'driver') return;   // drivers have their own screen; the shift pill belongs to floor staff
     try {
       const r = await fetch(`/api/r/${App.slug}/clock`, { headers: { Authorization: 'Bearer ' + App.tok(role) } }); if (!r.ok) return; const j = await r.json(); if (!j.enabled || !j.on) return;
       const b = document.createElement('button'); b.id = 'clockpill'; b.style.cssText = 'position:fixed;left:10px;bottom:10px;z-index:80;border:1px solid var(--line);background:var(--card);color:inherit;border-radius:99px;padding:6px 12px;font-size:12px;box-shadow:var(--shadow);opacity:.85';

@@ -444,27 +444,95 @@ function placeOnline(p) {
   const food = want.reduce((n, l) => n + l.price * l.qty, 0);
   if (!isCar && o.minOrder && food < o.minOrder) return { error: `The minimum order is ${o.minOrder}`, code: 'min', min: o.minOrder };
   // delivery price: by distance zone when zones are set (needs the guest's location), otherwise the flat fee item. Checked before stock is touched.
-  const zone = kind === 'delivery' ? F.zoneFor(db.settings, p.geo) : null;
+  // named areas with a fixed fee (owner-set) take precedence over distance rings
+  const areaSel = kind === 'delivery' ? F.areaFor(db.settings, p.areaId) : { ok: true, none: true };
+  if (!areaSel.ok) return { error: 'Please choose your delivery area', code: 'area' };
+  const area = areaSel.area || null;
+  if (area && area.minOrder && food < area.minOrder) return { error: `The minimum order for ${area.name} is ${area.minOrder}`, code: 'min', min: area.minOrder };
+  const zone = kind === 'delivery' && !area ? F.zoneFor(db.settings, p.geo) : null;
   if (zone && !zone.ok) return zone.code === 'far' ? { error: `Sorry, we deliver up to ${zone.max} km. You are ${zone.km} km away.`, code: 'far', km: zone.km, max: zone.max } : { error: 'Please share your location so we can price delivery', code: 'nogeo' };
   const lines = takeStock(want, 'online');
   if (!lines.length) return { error: 'Those items just ran out', code: 'soldout' };
-  const byZone = zone && !zone.flat, fee = kind === 'delivery' && !byZone && o.feeItemId ? db.items.find((y) => y.id === o.feeItemId) : null;
+  const byZone = zone && !zone.flat, fee = kind === 'delivery' && !byZone && !area && o.feeItemId ? db.items.find((y) => y.id === o.feeItemId) : null;
+  if (area && area.fee > 0) lines.push({ id: id('l'), guestId: 'cust', itemId: 'delivery_fee', name: 'Delivery - ' + area.name, name_ar: 'توصيل - ' + (area.name_ar || area.name), emoji: '🛵', price: area.fee, qty: 1, note: area.name });
   if (byZone && zone.fee > 0) lines.push({ id: id('l'), guestId: 'cust', itemId: 'delivery_fee', name: 'Delivery', name_ar: 'توصيل', emoji: '🛵', price: zone.fee, qty: 1, note: zone.km + ' km' });
   if (fee) lines.push({ id: id('l'), guestId: 'cust', itemId: fee.id, name: fee.name, name_ar: fee.name_ar, emoji: fee.emoji, price: fee.price, qty: 1, note: '' });
   db.ticketSeq = (db.ticketSeq || 0) + 1;
-  const s = { id: id('s'), tableId: p.tid, tableNumber: (kind === 'car' ? 'CR-' : kind === 'delivery' ? 'DL-' : 'TA-') + db.ticketSeq, kind, source: isCar ? 'car' : 'online', startedAt: Date.now(), lastAt: Date.now(), guests: [{ id: 'cust', name, avatar: kind === 'car' ? '🚗' : kind === 'delivery' ? '🛵' : '🛍️' }], cart: [], orders: [], requests: [], check: null, log: [], customer: { name, phone, ...(phone2.replace(/\D/g, '').length >= 7 ? { phone2 } : {}), address, ...(car ? { car } : {}), note: String(p.note || '').trim().slice(0, 200), ...(F.geoPoint(p.geo) ? { map: 'https://www.google.com/maps?q=' + F.geoPoint(p.geo).lat + ',' + F.geoPoint(p.geo).lng, km: zone ? zone.km : undefined } : {}) } };
+  const s = { id: id('s'), tableId: p.tid, tableNumber: (kind === 'car' ? 'CR-' : kind === 'delivery' ? 'DL-' : 'TA-') + db.ticketSeq, kind, source: isCar ? 'car' : 'online', startedAt: Date.now(), lastAt: Date.now(), guests: [{ id: 'cust', name, avatar: kind === 'car' ? '🚗' : kind === 'delivery' ? '🛵' : '🛍️' }], cart: [], orders: [], requests: [], check: null, log: [], customer: { name, phone, ...(phone2.replace(/\D/g, '').length >= 7 ? { phone2 } : {}), address, ...(car ? { car } : {}), note: String(p.note || '').trim().slice(0, 200), ...(F.geoPoint(p.geo) ? { map: 'https://www.google.com/maps?q=' + F.geoPoint(p.geo).lat + ',' + F.geoPoint(p.geo).lng, geo: F.geoPoint(p.geo), km: zone ? zone.km : undefined } : {}), ...(p.acct ? { accountId: String(p.acct).slice(0, 24) } : {}) },
+    ...(kind === 'delivery' ? { delivery: { status: 'new', areaId: area ? area.id : '', areaName: area ? area.name : '', areaName_ar: area ? area.name_ar : '', etaMin: area ? area.etaMin : 0, history: [{ at: Date.now(), s: 'new' }] } } : {}) };
   s.orders.push(stampEta({ id: id('o'), at: Date.now(), status: 'received', items: lines, by: 'online' }));
   db.sessions[p.tid] = s; log(s, 'ordered', `Online ${kind} order from ${name} (${lines.reduce((n, l) => n + l.qty, 0)} item(s))`);
   alertCaptains('order', s.tableNumber, isCar ? `🚗 Car ${s.tableNumber}: ${name} · ${car.color} ${car.type}${car.spot ? ' · spot ' + car.spot : ''}` : `🌐 Online ${kind === 'delivery' ? 'delivery' : 'pickup'} ${s.tableNumber}: ${name}`);
   save(); broadcast();
-  return { ok: 1, tid: p.tid, number: s.tableNumber, kind, total: bill(s).total, prepMin: isCar ? cc.prepMin : o.prepMin };
+  return { ok: 1, tid: p.tid, number: s.tableNumber, kind, total: bill(s).total, prepMin: (isCar ? cc.prepMin : o.prepMin) + (area ? area.etaMin || 0 : 0), ...(area ? { area: area.name, fee: area.fee } : {}) };
 }
 // public tracking for the guest: derived from the ticket's orders; a closed ticket is 'done'
 function onlineStatus(tid) {
   const s = db.sessions[tid];
   if (!s || (s.source !== 'online' && s.source !== 'car')) return { status: s ? 'unknown' : 'done' };
   const st = s.orders.map((x) => x.status), pick = (...k) => st.some((x) => k.includes(x));
-  return { status: pick('received') && !pick('kitchen', 'ready', 'served') ? 'received' : pick('received', 'kitchen') ? 'preparing' : 'ready', number: s.tableNumber, kind: s.kind, total: bill(s).total, at: s.startedAt, ...(s.kind === 'car' ? { arrived: !!(s.customer.car && s.customer.car.arrived), spot: (s.customer.car || {}).spot || '' } : {}) };
+  let status = pick('received') && !pick('kitchen', 'ready', 'served') ? 'received' : pick('received', 'kitchen') ? 'preparing' : 'ready';
+  const d = s.kind === 'delivery' ? s.delivery : null;
+  if (d && d.status === 'out') status = 'out'; else if (d && d.status === 'delivered') status = 'delivered'; else if (d && d.status === 'failed') status = 'failed';
+  const pos = d && d.pos && Date.now() - d.pos.at < 300000 ? d.pos : null, to = s.customer && s.customer.geo;
+  return { status, number: s.tableNumber, kind: s.kind, total: bill(s).total, at: s.startedAt, ...(s.kind === 'car' ? { arrived: !!(s.customer.car && s.customer.car.arrived), spot: (s.customer.car || {}).spot || '' } : {}),
+    ...(d ? { delivery: { state: d.status, area: d.areaName || '', area_ar: d.areaName_ar || '', etaMin: d.etaMin || 0, driver: d.driverName || '', driverPhone: d.driverPhone || '', outAt: d.outAt || 0, deliveredAt: d.deliveredAt || 0, pos: pos ? { lat: pos.lat, lng: pos.lng, at: pos.at } : null, toKm: pos && to ? Math.round(F.distM(pos, to) / 100) / 10 : null, history: (d.history || []).slice(-12) } } : {}) };
+}
+// ---- delivery desk: drivers and staff move a delivery ticket through new -> out -> delivered; the guest sees it live ----
+// 'cooking' while any order is still with the kitchen, 'ready' when all food is ready, then the delivery's own state
+function deliveryStage(s) {
+  const d = s.delivery || {}; if (d.status === 'out' || d.status === 'delivered' || d.status === 'failed') return d.status;
+  return s.orders.some((o) => o.status === 'received' || o.status === 'kitchen') || !s.orders.length ? 'cooking' : 'ready';
+}
+function deliveryRow(s) {
+  const d = s.delivery || {}, c = s.customer || {}, g = c.geo || F.geoPoint({ lat: (/q=([-\d.]+),/.exec(c.map || '') || [])[1], lng: (/,([-\d.]+)$/.exec(c.map || '') || [])[1] });
+  return { tid: s.tableId, number: s.tableNumber, name: c.name || '', phone: c.phone || '', phone2: c.phone2 || '', address: c.address || '', note: c.note || '', map: g ? 'https://www.google.com/maps?q=' + g.lat + ',' + g.lng : '', nav: g ? 'https://www.google.com/maps/dir/?api=1&destination=' + g.lat + ',' + g.lng : '', geo: g || null, km: c.km,
+    area: d.areaName || '', stage: deliveryStage(s), driverId: d.driverId || '', driverName: d.driverName || '', at: s.startedAt, outAt: d.outAt || 0, deliveredAt: d.deliveredAt || 0, failNote: d.failNote || '',
+    items: s.orders.flatMap((o) => o.items.filter((i) => i.itemId !== 'delivery_fee').map((i) => ({ name: i.name, name_ar: i.name_ar, qty: i.qty, opt: i.opt || '', note: i.note || '' }))), total: bill(s).total, cash: true };
+}
+// the driver screen: my jobs and the ones nobody has taken yet (food cooking or ready), delivered jobs stay visible for 3 hours
+function deliveryList(driverId, all) {
+  const now = Date.now(), rows = Object.values(db.sessions).filter((s) => s.kind === 'delivery' && s.delivery).map(deliveryRow).filter((r) => {
+    if (r.stage === 'delivered' || r.stage === 'failed') return (all || r.driverId === driverId) && now - (r.deliveredAt || r.at) < 3 * 3600000;
+    return all || !r.driverId || r.driverId === driverId;
+  });
+  const rank = { out: 0, ready: 1, cooking: 2, delivered: 3, failed: 4 };
+  return rows.sort((a, b) => (rank[a.stage] - rank[b.stage]) || a.at - b.at);
+}
+const dHist = (d, st) => { (d.history ||= []).push({ at: Date.now(), s: st }); d.history = d.history.slice(-20); };
+// act: assign (staff picks a driver), claim / release / pickup / delivered / failed (driver or staff), ping (driver position)
+function deliveryAct(tid, act, who, x) {
+  const s = db.sessions[tid]; if (!s || s.kind !== 'delivery' || !s.delivery) return { error: 'Delivery ticket not found', code: 'nf' };
+  const d = s.delivery, isDriver = who.role === 'driver', stage = deliveryStage(s), name = who.name || (isDriver ? 'Driver' : 'Staff');
+  if (stage === 'delivered' && act !== 'ping') return { error: 'This delivery is already completed', code: 'done' };
+  if (isDriver && d.driverId && d.driverId !== who.id) return { error: 'Another driver has this delivery', code: 'taken' };
+  x = x || {};
+  if (act === 'assign') {
+    if (isDriver) return { error: 'Not allowed', code: 'role' };
+    if (!x.driverId) { delete d.driverId; delete d.driverName; delete d.driverPhone; if (d.status === 'out') { d.status = 'new'; delete d.outAt; dHist(d, 'new'); } log(s, 'delivery', 'Driver removed by ' + name); }
+    else { const dr = (rec.staff || []).find((u) => u.id === x.driverId && u.role === 'driver' && u.active !== false); if (!dr) return { error: 'Choose an active driver', code: 'driver' }; d.driverId = dr.id; d.driverName = dr.name; d.driverPhone = dr.phone || ''; log(s, 'delivery', `Assigned to ${dr.name} by ${name}`); alertCaptains('request', s.tableNumber, `🛵 ${s.tableNumber} assigned to ${dr.name}`); }
+  } else if (act === 'claim') {
+    if (!isDriver) return { error: 'Only a driver can take a delivery', code: 'role' };
+    d.driverId = who.id; d.driverName = who.name; d.driverPhone = who.phone || ''; log(s, 'delivery', `${name} took the delivery`); alertCaptains('request', s.tableNumber, `🛵 ${name} took ${s.tableNumber}`);
+  } else if (act === 'release') {
+    if (stage === 'out' && isDriver) return { error: 'Call the restaurant before giving back an order that is already out', code: 'out' };
+    delete d.driverId; delete d.driverName; delete d.driverPhone; if (d.status === 'out') { d.status = 'new'; delete d.outAt; dHist(d, 'new'); } log(s, 'delivery', name + ' gave the delivery back');
+  } else if (act === 'pickup') {
+    if (stage === 'cooking') return { error: 'The food is not ready yet', code: 'cooking' };
+    if (!d.driverId) { if (isDriver) { d.driverId = who.id; d.driverName = who.name; d.driverPhone = who.phone || ''; } else return { error: 'Choose a driver first', code: 'driver' }; }
+    d.status = 'out'; d.outAt = Date.now(); dHist(d, 'out'); log(s, 'delivery', `Out for delivery with ${d.driverName || name}`);
+  } else if (act === 'delivered') {
+    if (d.status !== 'out') return { error: 'Mark the order as picked up first', code: 'notout' };
+    d.status = 'delivered'; d.deliveredAt = Date.now(); d.cash = bill(s).total; dHist(d, 'delivered'); delete d.pos;
+    s.orders.forEach((o) => { o.status = 'closed'; o.servedAt = o.servedAt || Date.now(); o.items.forEach((i) => { if (!i.served) { i.served = Date.now(); i.servedBy = d.driverName || name; } }); });
+    log(s, 'delivery', `Delivered by ${d.driverName || name}`); alertCaptains('check', s.tableNumber, `✅ ${s.tableNumber} delivered by ${d.driverName || name} - collect ${d.cash} from the driver`);
+  } else if (act === 'failed') {
+    d.status = 'failed'; d.failNote = String(x.note || '').replace(/[<>]/g, '').slice(0, 160); d.deliveredAt = Date.now(); dHist(d, 'failed'); log(s, 'delivery', `Could not deliver: ${d.failNote || 'no reason given'}`); alertCaptains('urgent', s.tableNumber, `⚠️ ${s.tableNumber} could not be delivered${d.failNote ? ': ' + d.failNote : ''}`);
+  } else if (act === 'ping') {
+    const g = F.geoPoint(x.geo); if (g && d.status === 'out') d.pos = { ...g, at: Date.now() };
+    return { ok: 1 };
+  } else return { error: 'Unknown action', code: 'act' };
+  save(); broadcast(); return { ok: 1, stage: deliveryStage(s) };
 }
 // the guest taps "I'm here" (and may correct the spot): staff get an alert with the car details
 function carArrive(tid, spot) {
@@ -916,6 +984,6 @@ function analytics(days = 7) {
     if (r.action) broadcast(); return r;
   }
   const publicConfig = (asAdmin) => ({ settings: settingsFor(asAdmin ? 'admin' : 'guest', true), categories: db.categories, items: db.items, tables: db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec), plan: F.planOf(rec.plan) });
-  return { placeBooking, bookingStatus, bookingAct, placeOnline, carArrive, onlineStatus, applyOnline, notify: alertCaptains, rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
+  return { placeBooking, bookingStatus, bookingAct, placeOnline, carArrive, onlineStatus, deliveryList, deliveryAct, applyOnline, notify: alertCaptains, rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
 }
 module.exports = { createTenant, freshData, clone };

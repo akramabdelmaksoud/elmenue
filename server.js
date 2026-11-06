@@ -227,7 +227,7 @@ const gateOk = (sec, req) => {
 };
 app.use((req, res, next) => {
   const sec = showSecret(); if (!sec) return next();
-  const isShow = (ROOT && zoneOf(req) === 'demo' && req.path === '/') || /^\/(demo(-local)?|api\/demo)(\/|$)/.test(req.path) || /^\/r\/showroom\/(admin|captain|kitchen|cashier|desk|cars|ownerreport|invoice|s)(\/|$)/.test(req.path);
+  const isShow = (ROOT && zoneOf(req) === 'demo' && req.path === '/') || /^\/(demo(-local)?|api\/demo)(\/|$)/.test(req.path) || /^\/r\/showroom\/(admin|captain|kitchen|cashier|desk|cars|driver|ownerreport|invoice|s)(\/|$)/.test(req.path);
   if (!isShow || req.path === '/api/demo/qr.png') return next();
   const ip = String(req.ip || req.headers['x-forwarded-for'] || '').split(',')[0].trim(), f = showFails.get(ip) || { n: 0, at: 0 };
   if (Date.now() - f.at > 600000) f.n = 0;
@@ -389,6 +389,7 @@ app.get('/r/:slug/desk', page('captain.html'));
 app.get('/r/:slug/cars', page('captain.html'));
 app.get('/r/:slug/ownerreport', page('ownerreport.html'));
 app.get('/r/:slug/captain', page('captain.html'));
+app.get('/r/:slug/driver', page('driver.html'));
 app.get('/r/:slug/admin', page('admin.html'));
 app.get('/r/:slug/kitchen', page('kitchen.html'));
 app.get('/r/:slug/cashier', page('cashier.html'));
@@ -688,9 +689,13 @@ app.post(`${R}/login`, loginLimit, tenantMw, (req, res) => {
     const who = (t.rec.staff || []).find((st) => st.active !== false && st.hash && st.role === 'cashier' && auth.check(p, st.hash));
     if (who) { clockIn(t, who); return ok(auth.sign('cashier', t.rec.slug, 0.5, { u: who.id, n: who.name })); }
   }
+  if (role === 'driver') {
+    const p = String(pin || ''), who = (t.rec.staff || []).find((st) => st.active !== false && st.hash && st.role === 'driver' && auth.check(p, st.hash));
+    if (who) { clockIn(t, who); return ok(auth.sign('driver', t.rec.slug, 1, { u: who.id, n: who.name })); }
+  }
   if (role === 'captain' || role === 'kitchen') {
     const p = String(pin || ''); let who = null;
-    for (const st of t.rec.staff || []) if (st.active !== false && st.hash && auth.check(p, st.hash)) { who = st; break; }
+    for (const st of t.rec.staff || []) if (st.active !== false && st.hash && st.role !== 'driver' && auth.check(p, st.hash)) { who = st; break; }
     if (who && (role === 'kitchen' || who.role === 'captain')) { clockIn(t, who); return ok(auth.sign(role, t.rec.slug, 0.5, { u: who.id, n: who.name })); }
     if (!who && p && p === String(t.rec.pin) && !t.rec.legacyPinOff) return ok(auth.sign(role, t.rec.slug, 0.5, { u: 'owner-pin', n: 'Captain' }));
   }
@@ -828,15 +833,100 @@ app.post(`${R}/push/subscribe`, tenantMw, needStaff, (req, res) => {
 app.post(`${R}/push/unsubscribe`, tenantMw, needStaff, (req, res) => {
   const r = req.tenant.rec, ep = req.body && req.body.endpoint; r.pushSubs = (r.pushSubs || []).filter((x) => x.sub.endpoint !== ep); req.tenant.broadcast(); res.json({ ok: 1 });
 });
+
+// ----- Customer accounts (one set per venue): phone + password, saved addresses, order history. Needed for delivery unless the owner turns it off. -----
+const CUST_MAX = 5000;
+const custRow = (t, k) => (t.rec.accounts || {})[k];
+function custAuth(req) {
+  const d = auth.verify(bearer(req)); if (!d || d.r !== 'cust' || d.s !== req.params.slug) return null;
+  const a = custRow(req.tenant, d.u); return a && a.id === d.a && (a.v || 0) === (d.v || 0) ? a : null;
+}
+const custClean = (s, n) => String(s == null ? '' : s).replace(/[<>]/g, '').trim().slice(0, n);
+function addrsClean(list) {
+  return (Array.isArray(list) ? list : []).slice(0, 5).map((x, i) => x && ({ id: custClean(x.id, 20).replace(/[^\w-]/g, '') || newId('ad'), label: custClean(x.label, 24), area: custClean(x.area, 60), street: custClean(x.street, 60), bldg: custClean(x.bldg, 30), floor: custClean(x.floor, 20), apt: custClean(x.apt, 20), mark: custClean(x.mark, 60), areaId: custClean(x.areaId, 24), geo: F.geoPoint(x.geo) || null })).filter((x) => x && (x.area || x.street || x.bldg));
+}
+function custProfile(t, a) {
+  return { name: a.name, phone: a.phone, addrs: a.addrs || [], orders: (a.orders || []).slice(0, 15).map((o) => ({ ...o, status: t.onlineStatus(o.tid).status })) };
+}
+function custGuard(req, res, key) {
+  const r = req.tenant.rec, now = Date.now(), ip = String(req.ip).replace(/[^\w.:]/g, '').slice(0, 45), f = (r.custFails ||= {})[key] || { n: 0, t: 0 };
+  if (f.n >= 8 && now - f.t < 600000) { res.status(429).json({ error: 'Too many wrong attempts. Try again in a few minutes.' }); return false; }
+  const rate = (r.custRate ||= {}), hits = (rate[ip] = (rate[ip] || []).filter((x) => now - x < 600000));
+  if (hits.length >= 20) { res.status(429).json({ error: 'Too many attempts from this connection. Please wait a few minutes.' }); return false; }
+  hits.push(now); for (const x of Object.keys(rate)) if (!rate[x].length || now - rate[x][rate[x].length - 1] > 3600000) delete rate[x];
+  return true;
+}
+const custToken = (t, a) => auth.sign('cust', t.rec.slug, 90, { u: a.phone, a: a.id, v: a.v || 0 });
+app.post(`${R}/cust/register`, loginLimit, tenantMw, (req, res, next) => { try {
+  const t = req.tenant, b = req.body || {}, name = custClean(b.name, 30), phone = F.cleanPhone(b.phone), pw = String(b.password || '');
+  if (!name) return res.status(400).json({ error: 'Please enter your name', code: 'name' });
+  if (!phone) return res.status(400).json({ error: 'Please enter a valid mobile number', code: 'phone' });
+  if (pw.length < 6 || pw.length > 64) return res.status(400).json({ error: 'Choose a password of at least 6 characters', code: 'password' });
+  if (!custGuard(req, res, phone)) return;
+  const all = (t.rec.accounts ||= {});
+  if (all[phone]) return res.status(409).json({ error: 'This number already has an account. Please sign in.', code: 'exists' });
+  if (Object.keys(all).length >= CUST_MAX) return res.status(503).json({ error: 'Registration is busy right now. Please order as a guest or call the venue.' });
+  const a = all[phone] = { id: newId('c'), phone, name, hash: auth.hash(pw), addrs: [], orders: [], createdAt: Date.now(), v: 0 };
+  persistRec(t); res.json({ token: custToken(t, a), profile: custProfile(t, a) });
+} catch (e) { next(e); } });
+app.post(`${R}/cust/login`, loginLimit, tenantMw, (req, res, next) => { try {
+  const t = req.tenant, b = req.body || {}, phone = F.cleanPhone(b.phone), a = phone && custRow(t, phone);
+  if (!phone || !custGuard(req, res, phone || 'x')) { if (!phone) res.status(400).json({ error: 'Please enter a valid mobile number', code: 'phone' }); return; }
+  if (!a || !auth.check(String(b.password || ''), a.hash)) { const f = (t.rec.custFails[phone] ||= { n: 0, t: 0 }); f.n++; f.t = Date.now(); for (const k of Object.keys(t.rec.custFails)) if (Date.now() - t.rec.custFails[k].t > 3600000) delete t.rec.custFails[k]; persistRec(t); return res.status(401).json({ error: 'Wrong number or password', code: 'bad' }); }
+  delete t.rec.custFails[phone]; persistRec(t); res.json({ token: custToken(t, a), profile: custProfile(t, a) });
+} catch (e) { next(e); } });
+app.get(`${R}/cust/me`, tenantMw, (req, res) => { const a = custAuth(req); a ? res.json(custProfile(req.tenant, a)) : res.status(401).json({ error: 'auth', code: 'login' }); });
+app.put(`${R}/cust/me`, tenantMw, (req, res) => {
+  const a = custAuth(req); if (!a) return res.status(401).json({ error: 'auth', code: 'login' });
+  const b = req.body || {}; if (b.name !== undefined) { const n = custClean(b.name, 30); if (n) a.name = n; }
+  if (b.addrs !== undefined) a.addrs = addrsClean(b.addrs);
+  persistRec(req.tenant); res.json(custProfile(req.tenant, a));
+});
+// there is no SMS here, so a forgotten password is reset by the venue: staff give the guest a temporary one
+app.post(`${R}/cust/reset`, tenantMw, needStaff, (req, res) => {
+  if (!['admin', 'captain', 'cashier', 'super'].includes(req.claims.r)) return res.status(403).json({ error: 'forbidden' });
+  const t = req.tenant, phone = F.cleanPhone((req.body || {}).phone), a = phone && custRow(t, phone);
+  if (!a) return res.status(404).json({ error: 'No account with that number' });
+  const tmp = auth.randomPassword(); a.hash = auth.hash(tmp); a.v = (a.v || 0) + 1; delete (t.rec.custFails || {})[phone]; persistRec(t); res.json({ ok: 1, password: tmp, name: a.name });
+});
 // ----- Online ordering (public): a guest places a pickup / delivery ticket; staff see it as TA-n / DL-n on the captain and kitchen screens -----
 // per-IP limit: a venue's wifi can share one address, so a handful of orders per window is allowed
 app.post(`${R}/online/order`, tenantMw, (req, res, next) => { try {
   const t = req.tenant, r = t.rec, b = req.body || {}, now = Date.now(), k = String(req.ip).replace(/[^\w.:]/g, '').slice(0, 45);
   const rate = (r.olRate ||= {}), hits = (rate[k] = (rate[k] || []).filter((x) => now - x < 600000));
   if (hits.length >= 6) return res.status(429).json({ error: 'Too many orders from this connection. Please call the venue.', code: 'rate' });
-  const out = t.placeOnline({ ...b, tid: 'tk_' + require('crypto').randomBytes(8).toString('hex').slice(0, 12) });
-  if (out.error) return res.status(out.code === 'off' ? 403 : 400).json(out);
+  const oc = F.onlineCfg(t.db.settings), ca = custAuth(req);
+  if (!ca && (oc.account === 'all' ? b.kind !== 'car' : oc.account === 'delivery' && oc.delivery && b.kind === 'delivery')) return res.status(401).json({ error: 'Please sign in or create an account to place this order', code: 'login' });
+  const out = t.placeOnline({ ...b, acct: ca ? ca.id : '', tid: 'tk_' + require('crypto').randomBytes(8).toString('hex').slice(0, 12) });
+  if (out.error) return res.status(out.code === 'off' ? 403 : out.code === 'nf' ? 404 : 400).json(out);
+  if (ca) { (ca.orders ||= []).unshift({ tid: out.tid, number: out.number, kind: out.kind, total: out.total, at: now, area: out.area || '' }); ca.orders = ca.orders.slice(0, 30); }
   hits.push(now); for (const x of Object.keys(rate)) if (!rate[x].length || now - rate[x][rate[x].length - 1] > 3600000) delete rate[x];
+  persistRec(t); res.json(out);
+} catch (e) { next(e); } });
+
+// ----- Delivery desk: drivers have their own screen (/r/<code>/driver); captains and the owner can assign and dispatch from theirs -----
+function needDelivery(req, res, next) {
+  const d = auth.verify(bearer(req));
+  if (!d) return res.status(401).json({ error: 'auth' });
+  if (d.r !== 'super' && !(d.s === req.params.slug && ['admin', 'captain', 'cashier', 'kitchen', 'driver'].includes(d.r))) return res.status(403).json({ error: 'forbidden' });
+  if (d.sc && !(req.tenant && screenAlive(req.tenant.rec, d))) return res.status(401).json({ error: 'auth' });
+  if (d.r === 'driver') {
+    const st = (req.tenant.rec.staff || []).find((x) => x.id === d.u && x.role === 'driver' && x.active !== false);
+    if (!st) return res.status(401).json({ error: 'auth' });
+    req.who = { id: st.id, name: st.name, phone: st.phone || '', role: 'driver' };
+  } else req.who = { id: d.u || '', name: d.n || (d.r === 'admin' ? 'Owner' : d.r), role: d.r };
+  req.claims = d; next();
+}
+app.get(`${R}/delivery/jobs`, tenantMw, needDelivery, (req, res) => res.json({ jobs: req.tenant.deliveryList(req.who.id, req.who.role !== 'driver'), me: { name: req.who.name, role: req.who.role }, name: req.tenant.db.settings.name || req.tenant.rec.name, currency: req.tenant.db.settings.currency }));
+app.get(`${R}/delivery/drivers`, tenantMw, needStaff, (req, res) => {
+  const t = req.tenant, jobs = t.deliveryList('', true);
+  res.json({ drivers: (t.rec.staff || []).filter((x) => x.role === 'driver' && x.active !== false).map((x) => ({ id: x.id, name: x.name, phone: x.phone || '', jobs: jobs.filter((j) => j.driverId === x.id && j.stage !== 'delivered' && j.stage !== 'failed').length })) });
+});
+app.post(`${R}/delivery/act`, tenantMw, needDelivery, (req, res, next) => { try {
+  const t = req.tenant, b = req.body || {}, act = String(b.act || ''), tid = String(b.tid || '').slice(0, 20), drv = req.who.role === 'driver';
+  if (drv ? !['claim', 'release', 'pickup', 'delivered', 'failed', 'ping'].includes(act) : !['assign', 'release', 'pickup', 'delivered', 'failed'].includes(act)) return res.status(403).json({ error: 'Not allowed', code: 'role' });
+  const out = t.deliveryAct(tid, act, req.who, { driverId: String(b.driverId || '').slice(0, 24), note: b.note, geo: b.geo });
+  if (out.error) return res.status(out.code === 'nf' ? 404 : out.code === 'taken' || out.code === 'done' ? 409 : 400).json(out);
   persistRec(t); res.json(out);
 } catch (e) { next(e); } });
 // ----- Table reservations and waitlist (public) -----
@@ -928,20 +1018,21 @@ A('post', '/staff', (req, res) => {
   const r = req.tenant.rec, b = req.body || {}, name = String(b.name || '').trim().slice(0, 30), pin = String(b.pin || '');
   if (!name) return res.status(400).json({ error: 'Name required' });
   { const h = limitHit(req.tenant, 'staff', (r.staff || []).length); if (h) return res.status(402).json(h); }
-  if (!['captain', 'kitchen', 'cashier'].includes(b.role)) return res.status(400).json({ error: 'Role must be captain, kitchen or cashier' });
+  if (!['captain', 'kitchen', 'cashier', 'driver'].includes(b.role)) return res.status(400).json({ error: 'Role must be captain, kitchen, cashier or driver' });
   if (b.role === 'cashier' && !F.has(r, 'cashier')) return res.status(402).json({ error: 'The Cashier role needs the Operations plan', upgrade: F.minPlanFor('cashier') });
   if (!/^\d{4,8}$/.test(pin)) return res.status(400).json({ error: 'PIN must be 4-8 digits' });
   if (weakPin(pin)) return res.status(400).json({ error: 'That PIN is too easy to guess (1234, 1111, 4321...). Choose another.' });
   if (nameTaken(r, name)) return res.status(400).json({ error: 'Another person already has this name. Use a different name so reports keep them apart (for example Ahmed K.)' });
   if (pinTaken(r, pin)) return res.status(400).json({ error: 'That PIN is already used - choose another' });
-  const st = { id: newId('u'), name, role: b.role, hash: auth.hash(pin), active: true, createdAt: Date.now() };
+  const st = { id: newId('u'), name, role: b.role, hash: auth.hash(pin), active: true, createdAt: Date.now(), ...(b.phone ? { phone: String(b.phone).replace(/[^\d+]/g, '').slice(0, 20) } : {}) };
   (r.staff ||= []).push(st); bc(req); const { hash, ...pub } = st; res.json(pub);
 });
 A('put', '/staff/:id', (req, res) => {
   const r = req.tenant.rec, st = (r.staff || []).find((x) => x.id === req.params.id), b = req.body || {};
   if (!st) return res.status(404).json({ error: 'not found' });
   if (b.name !== undefined) { const nn = String(b.name).trim().slice(0, 30); if (nn && nameTaken(r, nn, st.id)) return res.status(400).json({ error: 'Another person already has this name' }); st.name = nn || st.name; }
-  if (['captain', 'kitchen', 'cashier'].includes(b.role)) st.role = b.role;
+  if (['captain', 'kitchen', 'cashier', 'driver'].includes(b.role)) st.role = b.role;
+  if (b.phone !== undefined) st.phone = String(b.phone).replace(/[^\d+]/g, '').slice(0, 20);
   if (b.active !== undefined) st.active = !!b.active;
   if (b.wage !== undefined) st.wage = F.wageClean(b.wage);
   if (b.shifts !== undefined) st.shifts = F.shiftsClean(b.shifts);

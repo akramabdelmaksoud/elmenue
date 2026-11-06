@@ -23,7 +23,7 @@ for (const mode of ['ws', 'rpc']) test(`F13 delivery zones + in-cafe lock [${mod
   const cfg = (await T.api('GET', '/config', null, null)).j, food = cfg.items.find((i) => !i.soldOut && i.stock == null);
   const order = (b, ip) => S.J('POST', T.u('/online/order'), { name: 'Omar', phone: '01112223334', address: '12 Nile St, Giza', kind: 'delivery', items: [{ itemId: food.id, qty: 1 }], ...b }, null, { 'X-Forwarded-For': ip || '10.5.0.1' });
   // ---- delivery zones ----
-  assert.equal((await T.api('POST', '/settings', { venueGeo: V, online: { enabled: true, pickup: true, delivery: true, zones: [{ km: 3, fee: 20 }, { km: 8, fee: 40 }] } })).s, 200);
+  assert.equal((await T.api('POST', '/settings', { venueGeo: V, online: { enabled: true, pickup: true, delivery: true, account: 'off', zones: [{ km: 3, fee: 20 }, { km: 8, fee: 40 }] } })).s, 200);
   assert.equal((await order({})).j.code, 'nogeo', 'delivery needs the guest location when zones are set');
   const near = await order({ geo: north(1500) }, '10.5.0.2'); assert.equal(near.s, 200); assert.equal(Math.round((near.j.total - food.price * (1 + 0)) * 1) > 0, true);
   const mid = await order({ geo: north(5000) }, '10.5.0.3'); assert.equal(mid.s, 200); assert.ok(mid.j.total > near.j.total, 'farther zone costs more');
@@ -32,7 +32,7 @@ for (const mode of ['ws', 'rpc']) test(`F13 delivery zones + in-cafe lock [${mod
   const fee = tk.orders[0].items.find((l) => l.itemId === 'delivery_fee'); assert.equal(fee.price, 20); assert.match(tk.customer.map, /google\.com\/maps\?q=30\.0/); assert.equal(tk.customer.km, 1.5);
   assert.equal((await order({ kind: 'takeaway' }, '10.5.0.5')).j.number.startsWith('TA-'), true, 'pickup never needs a location');
   // refused orders must not have taken stock; pickup + zones removed -> flat fee item again
-  await T.api('POST', '/settings', { online: { enabled: true, pickup: true, delivery: true, zones: [] } });
+  await T.api('POST', '/settings', { online: { enabled: true, pickup: true, delivery: true, account: 'off', zones: [] } });
   assert.equal((await order({}, '10.5.0.6')).s, 200, 'no zones: delivery works without a location');
   // ---- in-cafe lock ----
   assert.equal((await B.api('POST', '/settings', { geoLock: { enabled: true } })).s, 402);

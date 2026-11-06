@@ -26,6 +26,12 @@ label { display: block; margin: 12px 0 4px; font-weight: 700; font-size: 14px; }
 .sws { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 2px; } .sw { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--line); background: var(--card); padding: 3px; } .sw i { display: block; width: 100%; height: 100%; border-radius: 50%; border: 1px solid #0003; } .sw.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
 .spots { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; } .spots button { min-width: 44px; padding: 10px 6px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: inherit; font-weight: 800; } .spots button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--card)); }
 .err { color: #d62828; margin-top: 10px; font-weight: 600; }
+select { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: inherit; font: inherit; }
+.tl { text-align: start; margin: 18px auto; max-width: 340px; } .tl .s { display: flex; align-items: center; gap: 12px; padding: 7px 0; position: relative; opacity: .45; } .tl .s.on { opacity: 1; } .tl .s i { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-weight: 800; font-size: 13px; background: var(--line); flex: none; } .tl .s.on i { background: var(--accent); color: #fff; } .tl .s.cur i { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 28%, transparent); animation: pl 1.6s infinite; } .tl .s span { font-weight: 700; } .tl .s.cur span { font-size: 17px; }
+@keyframes pl { 50% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--accent) 8%, transparent); } }
+.drv { text-align: start; margin: 12px 0; } .drv .row2 { display: flex; gap: 8px; margin-top: 8px; } .drv a { flex: 1; text-align: center; text-decoration: none; padding: 12px 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--card2, var(--card)); color: inherit; font-weight: 700; }
+.acc { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 10%, var(--card)); border: 1px solid var(--line); margin: 14px 0 0; font-weight: 700; }
+.ord { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); margin-bottom: 8px; } .ord small { color: var(--muted); display: block; }
 .fh { margin: 22px 0 2px; font-size: 16px; } .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; } label .rq { color: #d62828; }
 input.bad, textarea.bad, .card.bad { border-color: #d62828; box-shadow: 0 0 0 2px color-mix(in srgb, #d62828 30%, transparent); }
 </style></head>
@@ -36,14 +42,23 @@ const T = {
   en: { youH: 'Your details', whereH: 'Delivery address', phone2: 'Another phone (optional)', area: 'Area / district', areaEx: 'e.g. Nasr City', street: 'Street', streetEx: 'e.g. Abbas El Akkad St.', bldg: 'Building no.', floor: 'Floor', apt: 'Apartment', mark: 'Landmark (optional)', markEx: 'e.g. next to the pharmacy', locH: 'Your location', locNeed: 'Share your location so the driver finds you easily.', locNoFail: 'Could not get your location - your address is enough, the driver will call you.', errName: 'Please enter your name', errPhone: 'Please enter a valid phone number', errAddr: 'Please complete your address (area, street, building)', errLoc: 'Please share your location', title: 'Order online', pickup: 'Pickup', delivery: 'Delivery', all: 'All', view: 'View order', items: 'items', add: '+ Add', sold: 'Sold out', your: 'Your order', name: 'Your name', phone: 'Phone number', addr: 'Delivery address', note: 'Notes for the kitchen (optional)', place: 'Place order', sub: 'Items', fee: 'Delivery', total: 'Total', payNote: 'Pay when you receive your order.', min: 'Minimum order', off: 'Online ordering is not available right now.', back: '← Back', thanks: 'Order received!', num: 'Your order number', received: 'Received', preparing: 'Preparing', ready: 'Ready', ready_t: 'Your order is ready', prep_t: 'Estimated time', min_s: 'min', done: 'Thank you - enjoy!', again: 'Order again', busy: 'Could not send the order. Please try again.', tracking: 'Track your order', share: '📍 Share my location', locating: 'Finding you…', located: 'Location found', away: 'away', zoneFee: 'Delivery fee', needLoc: 'Share your location so we can price delivery.', far: 'Sorry, we deliver up to', locFail: 'Could not get your location. Allow location access and try again, or choose Pickup.', km: 'km', empty: 'Your cart is empty', closed: 'Not available at this hour', car: 'Car service', carType: 'Car type', carTypeEx: 'e.g. Toyota Corolla', carColor: 'Car colour', plate: 'Plate number (optional)', spot: 'Your parking spot', spotEx: 'e.g. 5, or "next to the palm tree"', payCar: 'Pay at your car when we bring your order.', carReady: 'Your order is ready - we are bringing it to your car', imHere: "📍 I'm here", hereQ: 'Parked? Let us know so we bring it out right away.', hereSent: "We know you're here - coming to your car", yourCar: 'Your car', spotL: 'Spot', col: { white: 'White', black: 'Black', silver: 'Silver', grey: 'Grey', red: 'Red', blue: 'Blue', green: 'Green', yellow: 'Yellow', orange: 'Orange', brown: 'Brown', beige: 'Beige', gold: 'Gold', other: 'Other' } },
   ar: { youH: 'بياناتك', whereH: 'عنوان التوصيل', phone2: 'رقم تاني (اختياري)', area: 'المنطقة / الحي', areaEx: 'مثلاً: مدينة نصر', street: 'الشارع', streetEx: 'مثلاً: شارع عباس العقاد', bldg: 'رقم العمارة', floor: 'الدور', apt: 'الشقة', mark: 'علامة مميزة (اختياري)', markEx: 'مثلاً: جنب الصيدلية', locH: 'موقعك', locNeed: 'شارك موقعك عشان المندوب يوصلك بسهولة.', locNoFail: 'مقدرناش نحدد موقعك - العنوان كفاية، والمندوب هيكلمك.', errName: 'من فضلك اكتب اسمك', errPhone: 'من فضلك اكتب رقم موبايل صحيح', errAddr: 'من فضلك كمّل العنوان (المنطقة، الشارع، العمارة)', errLoc: 'من فضلك شارك موقعك', title: 'اطلب أونلاين', pickup: 'استلام من المكان', delivery: 'توصيل', all: 'الكل', view: 'عرض الطلب', items: 'أصناف', add: '+ أضف', sold: 'غير متاح', your: 'طلبك', name: 'اسمك', phone: 'رقم الموبايل', addr: 'عنوان التوصيل', note: 'ملاحظات للمطبخ (اختياري)', place: 'تأكيد الطلب', sub: 'الأصناف', fee: 'التوصيل', total: 'الإجمالي', payNote: 'الدفع عند الاستلام.', min: 'الحد الأدنى للطلب', off: 'الطلب أونلاين غير متاح حالياً.', back: '→ رجوع', thanks: 'تم استلام طلبك!', num: 'رقم طلبك', received: 'تم الاستلام', preparing: 'جاري التحضير', ready: 'جاهز', ready_t: 'طلبك جاهز', prep_t: 'الوقت المتوقع', min_s: 'دقيقة', done: 'شكراً لك - بالهناء!', again: 'اطلب مرة أخرى', busy: 'تعذر إرسال الطلب. حاول مرة أخرى.', tracking: 'تتبع طلبك', share: '📍 شارك موقعي', locating: 'جاري تحديد موقعك…', located: 'تم تحديد الموقع', away: 'بعيد', zoneFee: 'رسوم التوصيل', needLoc: 'شارك موقعك لنحسب رسوم التوصيل.', far: 'عذراً، نوصل لحد', locFail: 'تعذر تحديد موقعك. اسمح بالوصول للموقع وحاول مرة أخرى، أو اختر الاستلام.', km: 'كم', empty: 'السلة فارغة', closed: 'غير متاح في هذا الوقت', car: 'خدمة السيارات', carType: 'نوع العربية', carTypeEx: 'مثال: تويوتا كورولا', carColor: 'لون العربية', plate: 'رقم اللوحة (اختياري)', spot: 'مكان الركنة', spotEx: 'مثال: 5 أو "جنب النخلة"', payCar: 'الدفع عند العربية لما نجيب طلبك.', carReady: 'طلبك جاهز - جايلك لحد العربية', imHere: '📍 أنا وصلت', hereQ: 'ركنت؟ عرّفنا علشان نخرجلك الطلب فوراً.', hereSent: 'عرفنا إنك وصلت - جايلك دلوقتي', yourCar: 'عربيتك', spotL: 'المكان', col: { white: 'أبيض', black: 'أسود', silver: 'فضي', grey: 'رمادي', red: 'أحمر', blue: 'أزرق', green: 'أخضر', yellow: 'أصفر', orange: 'برتقالي', brown: 'بني', beige: 'بيج', gold: 'ذهبي', other: 'لون آخر' } },
 };
+
+Object.assign(T.en, { acctH: 'Your account', signin: 'Sign in', register: 'Create account', pw: 'Password', pwEx: 'At least 6 characters', needAcct: 'Sign in or create an account to place a delivery order. We save your details and addresses for next time.', hello: 'Hi', signout: 'Sign out', saved: 'Saved addresses', newAddr: '+ New address', saveAddr: 'Save this address for next time', areaH: 'Delivery area', areaPick: 'Choose your area', errArea: 'Please choose your delivery area', errAuth: 'Please sign in or create an account first', myOrders: 'My orders', noOrders: 'No orders yet', trackB: 'Track', s1: 'Order received', s2: 'In the kitchen', s3: 'Ready', s4: 'On the way', s5: 'Delivered', driverH: 'Your driver', callDriver: '📞 Call driver', kmAway: 'km away', updated: 'Updated', seeMap: '🗺️ See on map', failedT: 'We could not deliver your order', failedS: 'Please call the restaurant.', deliveredT: 'Delivered - enjoy!', onwayT: 'Your order is on the way', kitchenT: 'The kitchen is preparing your order', readyD: 'Ready - the driver is picking it up', etaL: 'Estimated delivery', fixedFee: 'Fixed delivery fee', areaMin: 'Minimum order for this area', accAddr: 'Delivery to', pickupReady: 'Your order is ready for pickup', back2: 'Back to menu', cantTrack: 'Could not load your order', callUs: 'Having trouble? Call the restaurant', ago: 'ago' });
+Object.assign(T.ar, { acctH: 'حسابك', signin: 'تسجيل الدخول', register: 'إنشاء حساب', pw: 'كلمة المرور', pwEx: '٦ أحرف على الأقل', needAcct: 'سجّل الدخول أو أنشئ حساباً لإتمام طلب التوصيل. نحفظ بياناتك وعناوينك للمرة القادمة.', hello: 'أهلاً', signout: 'تسجيل الخروج', saved: 'العناوين المحفوظة', newAddr: '+ عنوان جديد', saveAddr: 'احفظ هذا العنوان للمرة القادمة', areaH: 'منطقة التوصيل', areaPick: 'اختر منطقتك', errArea: 'من فضلك اختر منطقة التوصيل', errAuth: 'من فضلك سجّل الدخول أو أنشئ حساباً أولاً', myOrders: 'طلباتي', noOrders: 'لا توجد طلبات بعد', trackB: 'تتبع', s1: 'تم استلام الطلب', s2: 'في المطبخ', s3: 'جاهز', s4: 'في الطريق', s5: 'تم التوصيل', driverH: 'المندوب', callDriver: '📞 اتصل بالمندوب', kmAway: 'كم بعيد عنك', updated: 'آخر تحديث', seeMap: '🗺️ على الخريطة', failedT: 'تعذر توصيل طلبك', failedS: 'من فضلك اتصل بالمطعم.', deliveredT: 'تم التوصيل - بالهناء!', onwayT: 'طلبك في الطريق إليك', kitchenT: 'المطبخ يجهّز طلبك', readyD: 'جاهز - المندوب يستلمه الآن', etaL: 'وقت التوصيل المتوقع', fixedFee: 'رسوم توصيل ثابتة', areaMin: 'الحد الأدنى للطلب في هذه المنطقة', accAddr: 'التوصيل إلى', pickupReady: 'طلبك جاهز للاستلام', back2: 'العودة للقائمة', cantTrack: 'تعذر تحميل طلبك', callUs: 'تواجه مشكلة؟ اتصل بالمطعم', ago: 'منذ' });
 const t = (k) => (T[App.lang] || T.en)[k] || T.en[k] || k;
 const $ = (s) => document.querySelector(s), root = $('#root'), bar = $('#bar'), panel = $('#panel');
 let cfg, cart = {}, kind = 'takeaway', cat = '', placed = null, poll = null, err = '', busy = false, geoPos = null, geoMsg = '';
+let ctok = '', me = null, authMode = 'login', authErr = '', authBusy = false;
+const SLUG = location.pathname.split('/')[2] || '', CK = () => 'cu:' + SLUG; try { ctok = localStorage.getItem(CK()) || ''; } catch {}
 const KEY = () => 'ol:' + App.slug;
 const ADDR = [['fa1', 'area'], ['fa2', 'street'], ['fa3', 'bldg'], ['fa4', 'floor'], ['fa5', 'apt'], ['fa6', 'mark']];
-const grab = () => { const v = (id) => ($('#' + id) ? $('#' + id).value : null); for (const [id, k] of [['fn', 'name'], ['fp', 'phone'], ['fp2', 'phone2'], ['fo', 'note']]) if (v(id) != null) saved[k] = v(id); saved.addr = saved.addr || {}; for (const [id, k] of ADDR) if (v(id) != null) saved.addr[k] = v(id); };
-const save = () => { grab(); try { localStorage.setItem(KEY(), JSON.stringify({ name: saved.name || '', phone: saved.phone || '', phone2: saved.phone2 || '', addr: saved.addr || {}, carType: car.type, carColor: car.color, plate: car.plate, placed })); } catch {} };
+const esc = (x) => App.esc(x == null ? '' : String(x));
+const grab = () => { const v = (id) => ($('#' + id) ? $('#' + id).value : null); for (const [id, k] of [['fn', 'name'], ['fp', 'phone'], ['fp2', 'phone2'], ['fo', 'note']]) if (v(id) != null) saved[k] = v(id); saved.addr = saved.addr || {}; for (const [id, k] of ADDR) if (v(id) != null) saved.addr[k] = v(id); if (v('far') != null) saved.areaId = v('far'); if ($('#fsv')) saved.saveAddr = $('#fsv').checked; };
+const save = () => { grab(); try { localStorage.setItem(KEY(), JSON.stringify({ name: saved.name || '', phone: saved.phone || '', phone2: saved.phone2 || '', addr: saved.addr || {}, areaId: saved.areaId || '', saveAddr: saved.saveAddr, carType: car.type, carColor: car.color, plate: car.plate, placed })); } catch {} };
 let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEY()) || '{}') || {}; } catch {}
+const O2 = () => ((cfg && cfg.settings && cfg.settings.online) || {});
+const areas = () => (O2().areas || []), area = () => areas().find((a) => a.id === saved.areaId) || null, areaNm = (a) => (App.lang === 'ar' && a.name_ar) || a.name;
+const needAcct = () => { const a = O2().account || 'delivery'; return a === 'all' ? kind !== 'car' : a === 'delivery' && kind === 'delivery'; };
 // one line for the staff screens: "Nasr City, Abbas El Akkad St., Bldg 12, Floor 3, Apt 5 - near the pharmacy"
 const addrText = (a = {}) => { const g = (k) => String(a[k] || '').trim(); return [g('area'), g('street'), g('bldg') && 'Bldg ' + g('bldg'), g('floor') && 'Floor ' + g('floor'), g('apt') && 'Apt ' + g('apt')].filter(Boolean).join(', ') + (g('mark') ? ' - near ' + g('mark') : ''); };
 let geoFailed = false;
@@ -51,6 +66,57 @@ let car = { type: saved.carType || '', color: saved.carColor || '', plate: saved
 const C = () => (cfg.settings.car || {}), onlineOn = () => !!(cfg.features.online && O().enabled), carOn = () => !!(cfg.features.carservice && C().enabled);
 const COLORS = { white: '#ffffff', black: '#1a1a1a', silver: '#c0c0c0', grey: '#808080', red: '#d62828', blue: '#2563eb', green: '#1f9d55', yellow: '#f2c230', orange: '#f08a1a', brown: '#7a4b2a', beige: '#d8c3a0', gold: '#c9a227', other: 'conic-gradient(#d62828,#f2c230,#1f9d55,#2563eb,#7c3aed,#d62828)' };
 const colName = (k) => ((T[App.lang] || T.en).col || T.en.col)[k] || k;
+
+// ---- customer account: phone + password, saved addresses, order history
+async function capi(method, path, body) {
+  try { const r = await fetch('/api' + path, { method, headers: { 'Content-Type': 'application/json', ...(ctok ? { Authorization: 'Bearer ' + ctok } : {}) }, body: body ? JSON.stringify(body) : undefined }); return { s: r.status, j: await r.json().catch(() => ({})) }; } catch { return { s: 0, j: { error: t('busy') } }; }
+}
+const setTok = (v) => { ctok = v || ''; try { v ? localStorage.setItem(CK(), v) : localStorage.removeItem(CK()); } catch {} };
+function applyAddr(a) {
+  if (!a) return; saved.addr = { area: a.area || '', street: a.street || '', bldg: a.bldg || '', floor: a.floor || '', apt: a.apt || '', mark: a.mark || '' };
+  if (a.areaId && areas().some((x) => x.id === a.areaId)) saved.areaId = a.areaId; if (a.geo) geoPos = a.geo;
+}
+function useProfile() { if (!me) return; saved.name = saved.name || me.name; saved.phone = saved.phone || me.phone; const a0 = saved.addr || {}; if (!a0.area && !a0.street && me.addrs && me.addrs[0]) applyAddr(me.addrs[0]); }
+async function loadMe() { if (!ctok) return; const r = await capi('GET', '/cust/me'); if (r.s === 200) { me = r.j; useProfile(); } else if (r.s === 401) { setTok(''); me = null; } }
+function setAuth(m) { const v = (id) => ($('#' + id) ? $('#' + id).value : ''); saved.phone = v('ap') || saved.phone; saved.name = v('an') || saved.name; authMode = m; authErr = ''; openCart(); }
+async function authGo() {
+  const v = (id) => ($('#' + id) ? $('#' + id).value.trim() : ''); if (authBusy) return;
+  const reg = authMode === 'register', body = { phone: v('ap'), password: $('#aw') ? $('#aw').value : '', ...(reg ? { name: v('an') } : {}) };
+  saved.phone = body.phone; if (reg) saved.name = body.name;
+  authBusy = true; authErr = ''; openCart();
+  const r = await capi('POST', reg ? '/cust/register' : '/cust/login', body); authBusy = false;
+  if (r.s === 200 && r.j.token) { setTok(r.j.token); me = r.j.profile; saved.name = me.name; saved.phone = me.phone; useProfile(); save(); render(); return openCart(); }
+  if (r.s === 409) authMode = 'login';
+  authErr = r.j.error || t('busy'); openCart();
+}
+function signOut() { setTok(''); me = null; panel.hidden = true; render(); }
+function authCard() {
+  const reg = authMode === 'register';
+  return `<div class="card" id="authc" style="margin:14px 0 0"><h3 style="margin:0 0 4px">👤 ${t('acctH')}</h3><p class="muted" style="margin:0 0 8px;font-size:14px">${t('needAcct')}</p>
+  <div class="seg" style="margin:6px 0"><button class="${reg ? '' : 'on'}" onclick="setAuth('login')">${t('signin')}</button><button class="${reg ? 'on' : ''}" onclick="setAuth('register')">${t('register')}</button></div>
+  ${reg ? `<label for="an">${t('name')}</label><input id="an" maxlength="30" autocomplete="name" value="${esc(saved.name)}">` : ''}
+  <label for="ap">${t('phone')}</label><input id="ap" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" value="${esc(saved.phone)}">
+  <label for="aw">${t('pw')}</label><input id="aw" type="password" maxlength="64" autocomplete="${reg ? 'new-password' : 'current-password'}" placeholder="${t('pwEx')}" onkeydown="if(event.key==='Enter')authGo()">
+  ${authErr ? `<p class="err">${esc(authErr)}</p>` : ''}<button class="btn" style="margin-top:12px" onclick="authGo()" ${authBusy ? 'disabled' : ''}>${reg ? t('register') : t('signin')}</button></div>`;
+}
+function useAddr(id) { grab(); const a = (me && me.addrs || []).find((x) => x.id === id); if (a) applyAddr(a); openCart(); }
+async function saveAddress() {
+  if (!me || kind !== 'delivery' || saved.saveAddr === false) return; const a = saved.addr || {}, cur = (me.addrs || []).slice();
+  const same = (x) => x.area === a.area && x.street === a.street && x.bldg === a.bldg && x.floor === a.floor && x.apt === a.apt, dup = cur.find(same);
+  const entry = { ...a, areaId: saved.areaId || '', geo: geoPos || null, label: a.area || 'Address' };
+  const list = dup ? cur.map((x) => (x === dup ? { ...dup, mark: a.mark, areaId: entry.areaId, geo: entry.geo || dup.geo } : x)) : [entry, ...cur].slice(0, 5);
+  const r = await capi('PUT', '/cust/me', { addrs: list }); if (r.s === 200) me = r.j;
+}
+function openAccount() {
+  panel.hidden = false;
+  const st = { received: t('s1'), preparing: t('s2'), ready: t('s3'), out: t('s4'), delivered: t('s5'), done: t('s5'), failed: t('failedT'), unknown: '' };
+  panel.innerHTML = `<div class="wrap"><button class="ghost" onclick="closeCart()">${t('back')}</button><h2 class="serif">👤 ${esc(me ? me.name : '')}</h2><p class="muted">${esc(me ? me.phone : '')}</p>
+  <h3 class="fh">${t('myOrders')}</h3>${me && me.orders && me.orders.length ? me.orders.map((o) => `<div class="ord"><div><b>${esc(o.number)}</b><small>${new Date(o.at).toLocaleString(App.lang === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' })} · ${App.money(o.total)}</small><small>${esc(st[o.status] || '')}</small></div>${o.status !== 'done' ? `<button class="ghost" onclick="trackOrder('${esc(o.tid)}','${esc(o.number)}','${esc(o.kind)}',${+o.total || 0})">${t('trackB')}</button>` : ''}</div>`).join('') : `<p class="muted">${t('noOrders')}</p>`}
+  ${me && me.addrs && me.addrs.length ? `<h3 class="fh">${t('saved')}</h3>${me.addrs.map((a) => `<div class="ord"><div><b>${esc(a.label || a.area)}</b><small>${esc([a.area, a.street, a.bldg && 'Bldg ' + a.bldg].filter(Boolean).join(', '))}</small></div><button class="ghost" onclick="delAddr('${esc(a.id)}')">✕</button></div>`).join('')}` : ''}
+  <div style="margin-top:18px"><button class="ghost" onclick="signOut()">${t('signout')}</button></div></div>`;
+}
+async function delAddr(id) { const r = await capi('PUT', '/cust/me', { addrs: (me.addrs || []).filter((a) => a.id !== id) }); if (r.s === 200) me = r.j; openAccount(); }
+function trackOrder(tid, number, k, total) { placed = { tid, number, kind: k, total, prepMin: 0, status: 'received', spot: '', arrived: false }; panel.hidden = true; save(); render(); startPoll(); }
 function segBtns() {
   const o = O(), on = onlineOn(), b = [];
   if (on && o.pickup !== false) b.push(`<button class="${kind === 'takeaway' ? 'on' : ''}" onclick="setKind('takeaway')">🛍️ ${t('pickup')}</button>`);
@@ -80,11 +146,11 @@ const lineKey = (id, sel) => id + '|' + JSON.stringify(sel || {}, Object.keys(se
 const unit = (l) => { const i = itemOf(l.itemId); return i.price + (Opts.has(i) ? Opts.calc(i, l.sel).add : 0); };
 const food = () => Object.values(cart).reduce((n, l) => n + unit(l) * l.qty, 0);
 const qtyOf = (id) => Object.values(cart).filter((l) => l.itemId === id).reduce((n, l) => n + l.qty, 0);
-const zones = () => (O().zones || []), hasZones = () => zones().length > 0 && !!cfg.settings.venueGeo;
+const zones = () => (O().zones || []), hasZones = () => !areas().length && zones().length > 0 && !!cfg.settings.venueGeo;
 const hav = (a, b) => { const r = (x) => x * Math.PI / 180, h = Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lng - a.lng) / 2) ** 2; return 2 * 6371 * Math.asin(Math.sqrt(h)); };
 // the server prices delivery again from the shared coordinates; this only previews the fee
 const zoneNow = () => { if (kind !== 'delivery' || !hasZones()) return null; if (!geoPos) return { need: true }; const km = Math.round(hav(cfg.settings.venueGeo, geoPos) * 10) / 10, z = zones().find((x) => km <= x.km); return z ? { km, fee: z.fee } : { far: true, km, max: zones()[zones().length - 1].km }; };
-const fee = () => { if (kind !== 'delivery') return 0; const z = zoneNow(); if (z) return z.fee || 0; return feeItem() ? feeItem().price : 0; };
+const fee = () => { if (kind !== 'delivery') return 0; if (areas().length) return area() ? area().fee : 0; const z = zoneNow(); if (z) return z.fee || 0; return feeItem() ? feeItem().price : 0; };
 function locate() { geoMsg = t('locating'); openCart(); if (!navigator.geolocation) { geoMsg = t('locFail'); geoFailed = true; return openCart(); } navigator.geolocation.getCurrentPosition((p) => { geoPos = { lat: p.coords.latitude, lng: p.coords.longitude }; geoMsg = ''; geoFailed = false; openCart(); }, () => { geoMsg = t('locFail'); geoFailed = true; openCart(); }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }); }
 const count = () => Object.values(cart).reduce((n, l) => n + l.qty, 0);
 
@@ -96,7 +162,7 @@ function render() {
   if (!onlineOn()) kind = 'car'; else if (kind === 'car' && !carOn()) kind = 'takeaway'; if (kind === 'delivery' && !o.delivery) kind = 'takeaway'; if (kind === 'takeaway' && o.pickup === false && o.delivery) kind = 'delivery'; if (kind === 'takeaway' && o.pickup === false && !o.delivery && carOn()) kind = 'car';
   const cats = cfg.categories.filter((c) => visible().some((i) => i.cat === c.id));
   const sel = cat || '';
-  root.innerHTML = `<div class="top"><h1 class="serif">${App.esc(cfg.settings.name)}</h1><button class="ghost" onclick="App.toggleLang(event)">${App.langLabel(App.nextLang())}</button></div>
+  root.innerHTML = `<div class="top"><h1 class="serif">${App.esc(cfg.settings.name)}</h1><div class="row" style="gap:6px">${me ? `<button class="ghost" onclick="openAccount()">👤 ${esc(me.name.split(' ')[0])}</button>` : ''}<button class="ghost" onclick="App.toggleLang(event)">${App.langLabel(App.nextLang())}</button></div></div>
   <p class="muted" style="margin:4px 0 0">${t('title')}${o.note ? ' · ' + App.esc(o.note) : ''}</p>
   <div class="seg">${segBtns()}</div>
   <div class="chips"><button class="${sel ? '' : 'on'}" onclick="setCat('')">${t('all')}</button>${cats.map((c) => `<button onclick="setCat('${c.id}')" style="${sel === c.id ? 'border-color:var(--accent)' : ''}">${c.emoji || ''} ${App.esc(App.nm(c))}</button>`).join('')}</div>
@@ -133,10 +199,12 @@ function locCard(zn) {
 // what is still missing, as [field id, message]; delivery needs the location unless the phone could not give one (zones always need it)
 function missing() {
   grab(); const a = saved.addr || {}, dig = (x) => String(x || '').replace(/\D/g, '').length;
+  if (needAcct() && !me) return ['authc', t('errAuth')];
   if (!String(saved.name || '').trim()) return ['fn', t('errName')];
   if (dig(saved.phone) < 8) return ['fp', t('errPhone')];
   if (saved.phone2 && dig(saved.phone2) < 8) return ['fp2', t('errPhone')];
   if (kind !== 'delivery') return null;
+  if (areas().length && !area()) return ['far', t('errArea')];
   for (const [id, k] of ADDR.slice(0, 3)) if (!String(a[k] || '').trim()) return [id, t('errAddr')];
   if (!geoPos && (hasZones() || !geoFailed)) return ['geob', t('errLoc')];
   return null;
@@ -144,22 +212,33 @@ function missing() {
 function openCart() {
   if (!panel.hidden) grab(); panel.hidden = false; const o = O(), f = fee(), fd = food(), zn = zoneNow(), blocked = zn && (zn.need || zn.far);
   const lines = Object.entries(cart).map(([k, l], n) => { const i = itemOf(l.itemId), lab = Opts.has(i) ? Opts.calc(i, l.sel).label : ''; return `<div class="line"><span>${l.qty} × ${App.esc(App.nm(i))}${lab ? ` <small class="muted">[${App.esc(lab)}]</small>` : ''}</span><span>${App.money(unit(l) * l.qty)} <button class="ghost" style="padding:2px 10px" onclick="bumpAt(${n},-1)" aria-label="-">−</button></span></div>`; }).join('');
-  const short = kind !== 'car' && o.minOrder && fd < o.minOrder;
+  const gated = needAcct() && !me, ar = kind === 'delivery' && area(), short = kind !== 'car' && ((o.minOrder && fd < o.minOrder) || (ar && ar.minOrder && fd < ar.minOrder));
   panel.innerHTML = `<div class="wrap"><button class="ghost" onclick="closeCart()">${t('back')}</button><h2 class="serif">${t('your')}</h2>
   <div class="seg">${segBtns()}</div>
   ${lines || `<p class="muted">${t('empty')}</p>`}
   <div class="line"><span>${t('sub')}</span><span>${App.money(fd)}</span></div>${f ? `<div class="line"><span>${t('fee')}</span><span>${App.money(f)}</span></div>` : ''}
   <div class="line tot"><span>${t('total')}</span><span>${App.money(fd + f)}</span></div><p class="muted" style="font-size:13px">${kind === 'car' ? t('payCar') : t('payNote')}</p>
-  ${short ? `<p class="err">${t('min')}: ${App.money(o.minOrder)}</p>` : ''}
-  <h3 class="fh">👤 ${t('youH')}</h3>
-  <label for="fn">${t('name')} <span class="rq">*</span></label><input id="fn" maxlength="30" autocomplete="name" value="${App.esc(saved.name || '')}">
-  <label for="fp">${t('phone')} <span class="rq">*</span></label><input id="fp" type="tel" maxlength="20" autocomplete="tel" inputmode="tel" value="${App.esc(saved.phone || '')}">
-  ${kind !== 'car' ? `<label for="fp2">${t('phone2')}</label><input id="fp2" type="tel" maxlength="20" inputmode="tel" value="${App.esc(saved.phone2 || '')}">` : ''}
-  ${kind === 'car' ? carForm() : ''}
-  ${kind === 'delivery' ? addrForm() + locCard(zn) : ''}
-  <label for="fo">${t('note')}</label><textarea id="fo" maxlength="200">${App.esc(saved.note || '')}</textarea>
+  ${short ? `<p class="err">${ar && ar.minOrder && fd < ar.minOrder ? t('areaMin') + ' (' + esc(areaNm(ar)) + ')' : t('min')}: ${App.money(ar && ar.minOrder && fd < ar.minOrder ? ar.minOrder : o.minOrder)}</p>` : ''}
+  ${gated ? authCard() : detailsForm(zn)}
   ${err ? `<p class="err">${App.esc(err)}</p>` : ''}
-  <div style="margin-top:16px"><button class="btn" id="go" ${!count() || short || busy || blocked ? 'disabled' : ''} onclick="submitOrder()">${t('place')} · ${App.money(fd + f)}</button></div></div>`;
+  <div style="margin-top:16px">${gated ? '' : `<button class="btn" id="go" ${!count() || short || busy || blocked ? 'disabled' : ''} onclick="submitOrder()">${t('place')} · ${App.money(fd + f)}</button>`}</div></div>`;
+}
+
+function areaSel() {
+  if (kind !== 'delivery' || !areas().length) return '';
+  return `<h3 class="fh">🛵 ${t('areaH')} <span class="rq">*</span></h3><select id="far" onchange="grab();openCart()"><option value="">${t('areaPick')}</option>${areas().map((a) => `<option value="${esc(a.id)}" ${a.id === saved.areaId ? 'selected' : ''}>${esc(areaNm(a))} - ${a.fee ? App.money(a.fee) : '0'}${a.etaMin ? ' · ~' + a.etaMin + ' ' + t('min_s') : ''}</option>`).join('')}</select><small class="muted">${t('fixedFee')}</small>`;
+}
+function detailsForm(zn) {
+  const acc = me ? `<div class="acc"><span>👤 ${t('hello')} ${esc(me.name.split(' ')[0])}</span><button class="ghost" style="padding:4px 12px" onclick="openAccount()">${t('myOrders')}</button></div>` : '';
+  const sa = kind === 'delivery' && me && me.addrs && me.addrs.length ? `<label for="fsa">${t('saved')}</label><select id="fsa" onchange="useAddr(this.value)"><option value="">${t('newAddr')}</option>${me.addrs.map((a) => `<option value="${esc(a.id)}">${esc(a.label || a.area)} - ${esc([a.street, a.bldg && 'Bldg ' + a.bldg].filter(Boolean).join(', '))}</option>`).join('')}</select>` : '';
+  const sv = kind === 'delivery' && me ? `<label class="row" style="gap:8px;font-weight:600"><input type="checkbox" id="fsv" style="width:auto" ${saved.saveAddr === false ? '' : 'checked'}> ${t('saveAddr')}</label>` : '';
+  return `${acc}<h3 class="fh">👤 ${t('youH')}</h3>
+  <label for="fn">${t('name')} <span class="rq">*</span></label><input id="fn" maxlength="30" autocomplete="name" value="${esc(saved.name)}">
+  <label for="fp">${t('phone')} <span class="rq">*</span></label><input id="fp" type="tel" maxlength="20" autocomplete="tel" inputmode="tel" value="${esc(saved.phone)}">
+  ${kind !== 'car' ? `<label for="fp2">${t('phone2')}</label><input id="fp2" type="tel" maxlength="20" inputmode="tel" value="${esc(saved.phone2)}">` : ''}
+  ${kind === 'car' ? carForm() : ''}
+  ${kind === 'delivery' ? sa + areaSel() + addrForm() + locCard(zn) + sv : ''}
+  <label for="fo">${t('note')}</label><textarea id="fo" maxlength="200">${esc(saved.note)}</textarea>`;
 }
 function closeCart() { save(); panel.hidden = true; err = ''; render(); }
 
@@ -168,41 +247,57 @@ async function submitOrder(tries = 0) {
   const miss = !tries && missing();
   if (miss) { err = miss[1]; openCart(); const el = $('#' + miss[0]); if (el) { el.classList.add('bad'); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); if (el.focus) el.focus({ preventScroll: true }); } return; }
   busy = true; err = ''; $('#go').disabled = true; grab();
-  const body = { kind, name: saved.name, phone: saved.phone, phone2: kind !== 'car' ? saved.phone2 || '' : '', address: kind === 'delivery' ? addrText(saved.addr) : '', note: saved.note || '', items: Object.values(cart).map((l) => ({ itemId: l.itemId, qty: l.qty, opts: l.sel })), geo: kind === 'delivery' && geoPos ? geoPos : undefined, car: kind === 'car' ? carBody() : undefined };
+  const body = { kind, name: saved.name, phone: saved.phone, phone2: kind !== 'car' ? saved.phone2 || '' : '', address: kind === 'delivery' ? addrText(saved.addr) : '', note: saved.note || '', items: Object.values(cart).map((l) => ({ itemId: l.itemId, qty: l.qty, opts: l.sel })), areaId: kind === 'delivery' ? saved.areaId || '' : undefined, geo: kind === 'delivery' && geoPos ? geoPos : undefined, car: kind === 'car' ? carBody() : undefined };
 
   try {
-    const r = await fetch('/api/online/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), j = await r.json().catch(() => ({}));
+    const r = await fetch('/api/online/order', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(ctok ? { Authorization: 'Bearer ' + ctok } : {}) }, body: JSON.stringify(body) }), j = await r.json().catch(() => ({}));
+    if (r.status === 401 && j.code === 'login') { busy = false; setTok(''); me = null; authErr = j.error || ''; return openCart(); }
     if (r.status === 409 && tries < 3) { await new Promise((x) => setTimeout(x, 400 + tries * 400)); return submitOrder(tries + 1); }   // another write won the race: retry
     if (!r.ok || !j.ok) { busy = false; err = j.error || t('busy'); return openCart(); }
-    busy = false; placed = { tid: j.tid, number: j.number, kind: j.kind, total: j.total, prepMin: j.prepMin, status: 'received', spot: body.car ? body.car.spot : '', arrived: false }; cart = {}; saved.note = ''; save(); panel.hidden = true; render(); startPoll();
+    busy = false; placed = { tid: j.tid, number: j.number, kind: j.kind, total: j.total, prepMin: j.prepMin, status: 'received', spot: body.car ? body.car.spot : '', arrived: false }; cart = {}; saved.note = ''; save(); panel.hidden = true; render(); startPoll(); if (me) { await saveAddress(); await loadMe(); render(); }
   } catch { busy = false; err = t('busy'); openCart(); }
 }
 
 function renderPlaced() {
-  const p = placed, st = p.status, isCar = p.kind === 'car', step = { received: 1, preparing: 2, ready: 3, done: 3 }[st] || 1, sp = C().spots || 0;
+  const p = placed, isCar = p.kind === 'car', isDl = p.kind === 'delivery', st = isDl && p.status === 'done' ? 'delivered' : p.status, sp = C().spots || 0, d = p.delivery || null;
   const spotSel = sp ? `<select id="ps">${Array.from({ length: sp }, (_, i) => `<option value="${i + 1}" ${String(p.spot) === String(i + 1) ? 'selected' : ''}>${t('spotL')} ${i + 1}</option>`).join('')}</select>` : `<input id="ps" maxlength="12" placeholder="${t('spotEx')}" value="${App.esc(p.spot || '')}">`;
   const here = isCar && st !== 'done' ? (p.arrived ? `<p style="font-weight:700">✅ ${t('hereSent')}${p.spot ? ' · ' + t('spotL') + ' ' + App.esc(p.spot) : ''}</p>` : `<div class="card" style="text-align:start;margin:14px 0"><p style="margin:0 0 8px">${t('hereQ')}</p>${spotSel}<button class="btn" style="margin-top:10px" onclick="imHere()">${t('imHere')}</button></div>`) : '';
-  root.innerHTML = `<div class="ok"><div class="big">${st === 'ready' || st === 'done' ? '✅' : isCar ? '🚗' : '🧾'}</div><h2 class="serif">${st === 'done' ? t('done') : st === 'ready' ? (isCar ? t('carReady') : t('ready_t')) : t('thanks')}</h2>
-  <p class="muted">${t('num')}</p><div style="font-size:34px;font-weight:800">${App.esc(p.number)}</div>
-  <div class="track"><i class="${step >= 1 ? 'on' : ''}"></i><i class="${step >= 2 ? 'on' : ''}"></i><i class="${step >= 3 ? 'on' : ''}"></i></div>
-  <div class="row" style="justify-content:space-between"><small>${t('received')}</small><small>${t('preparing')}</small><small>${t('ready')}</small></div>
-  ${st !== 'ready' && st !== 'done' ? `<p class="muted">${t('prep_t')}: ~${p.prepMin} ${t('min_s')}</p>` : ''}
-  ${here}
+  const finished = st === 'done' || st === 'delivered' || st === 'failed';
+  let head, ico;
+  if (isDl) { ico = { received: '🧾', preparing: '👨‍🍳', ready: '✅', out: '🛵', delivered: '🎉', failed: '⚠️' }[st] || '🧾'; head = { received: t('thanks'), preparing: t('kitchenT'), ready: t('readyD'), out: t('onwayT'), delivered: t('deliveredT'), failed: t('failedT') }[st] || t('thanks'); }
+  else { ico = st === 'ready' || st === 'done' ? '✅' : isCar ? '🚗' : '🧾'; head = st === 'done' ? t('done') : st === 'ready' ? (isCar ? t('carReady') : t('pickupReady')) : t('thanks'); }
+  const step = isDl ? { received: 1, preparing: 2, ready: 3, out: 4, delivered: 5, failed: 4 }[st] || 1 : { received: 1, preparing: 2, ready: 3, done: 3 }[st] || 1;
+  const prog = isDl ? `<div class="tl">${['s1', 's2', 's3', 's4', 's5'].map((k, i) => `<div class="s ${i < step && st !== 'failed' || i < step - 1 ? 'on' : ''} ${i === step - 1 && !finished ? 'cur' : ''}"><i>${i < step ? '✓' : i + 1}</i><span>${t(k)}</span></div>`).join('')}</div>`
+    : `<div class="track"><i class="${step >= 1 ? 'on' : ''}"></i><i class="${step >= 2 ? 'on' : ''}"></i><i class="${step >= 3 ? 'on' : ''}"></i></div><div class="row" style="justify-content:space-between"><small>${t('received')}</small><small>${t('preparing')}</small><small>${t('ready')}</small></div>`;
+  const ago = (ts) => { const m = Math.max(0, Math.round((Date.now() - ts) / 60000)); return m < 1 ? '<1 ' + t('min_s') : m + ' ' + t('min_s'); };
+  const drv = isDl && d && d.driver && (st === 'out' || st === 'ready') ? `<div class="card drv"><b>🛵 ${t('driverH')}: ${esc(d.driver)}</b>${d.pos && st === 'out' ? `<p style="margin:6px 0 0">${d.toKm != null ? '<b>' + d.toKm + '</b> ' + t('kmAway') + ' · ' : ''}${t('updated')} ${ago(d.pos.at)} ${t('ago')}</p>` : ''}<div class="row2">${d.driverPhone ? `<a href="tel:${esc(d.driverPhone)}">${t('callDriver')}</a>` : ''}${d.pos && st === 'out' ? `<a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${d.pos.lat},${d.pos.lng}">${t('seeMap')}</a>` : ''}</div></div>` : '';
+  const eta = !finished && st !== 'out' && p.prepMin ? `<p class="muted">${isDl ? t('etaL') : t('prep_t')}: ~${p.prepMin} ${t('min_s')}</p>` : '';
+  root.innerHTML = `<div class="ok"><div class="big">${ico}</div><h2 class="serif">${head}</h2>
+  <p class="muted">${t('num')}</p><div style="font-size:34px;font-weight:800">${App.esc(p.number)}</div>${prog}
+  ${st === 'failed' ? `<p class="err">${t('failedS')}</p>` : ''}${eta}${drv}${here}
   <p style="font-size:20px;font-weight:700">${App.money(p.total)}</p><p class="muted">${isCar ? t('payCar') : t('payNote')}</p>
-  ${st === 'done' ? `<button class="btn" onclick="again()">${t('again')}</button>` : ''}</div>`;
+  ${finished ? `<button class="btn" onclick="again()">${t('again')}</button>` : ''}</div>`;
   bar.innerHTML = '';
 }
 function again() { placed = null; save(); clearInterval(poll); render(); }
 async function check() {
   if (!placed) return;
-  try { const r = await fetch('/api/online/status/' + encodeURIComponent(placed.tid)), j = await r.json(); if (j.status && j.status !== 'unknown') { if (j.status !== placed.status || !!j.arrived !== !!placed.arrived) { placed.status = j.status; placed.arrived = !!j.arrived; if (j.spot) placed.spot = j.spot; if (j.total) placed.total = j.total; save(); renderPlaced(); } if (j.status === 'done') clearInterval(poll); } } catch {}
+  try {
+    const r = await fetch('/api/online/status/' + encodeURIComponent(placed.tid)), j = await r.json();
+    if (j.status && j.status !== 'unknown') {
+      const dj = JSON.stringify(j.delivery || null), changed = j.status !== placed.status || !!j.arrived !== !!placed.arrived || dj !== JSON.stringify(placed.delivery || null);
+      if (changed) { placed.status = j.status; placed.arrived = !!j.arrived; placed.delivery = j.delivery || null; if (j.spot) placed.spot = j.spot; if (j.total) placed.total = j.total; save(); renderPlaced(); }
+      if (j.status === 'done' || j.status === 'delivered' || j.status === 'failed') { clearInterval(poll); if (me) loadMe(); }
+    }
+  } catch {}
 }
-function startPoll() { clearInterval(poll); poll = setInterval(check, 8000); check(); }
+function startPoll() { clearInterval(poll); poll = setInterval(check, placed && placed.kind === 'delivery' ? 5000 : 8000); check(); }
 
 (async function init() {
   try { const r = await fetch('/api/config'); if (!r.ok) throw 0; cfg = await r.json(); } catch { root.innerHTML = '<h2>Restaurant not found or suspended</h2>'; return; }
   App.config = cfg; App.applyTheme(); App.handlers = { render }; document.title = cfg.settings.name + ' · ' + t('title');
   if (saved.placed) { placed = saved.placed; if (placed.status === 'done') placed = null; }
+  await loadMe();
   const q = new URLSearchParams(location.search); if (q.get('car') && carOn()) kind = 'car'; if (q.get('spot')) car.spot = q.get('spot').replace(/[^\w -]/g, '').slice(0, 12);
   render(); if (placed) startPoll();
 })();

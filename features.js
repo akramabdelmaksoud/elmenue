@@ -491,7 +491,7 @@ function copilot(q, ctx) {
 }
 
 // ---------- Online ordering (guest storefront: pickup + delivery, pay on receipt) ----------
-const ONLINE_DEFAULT = { enabled: false, pickup: true, delivery: false, minOrder: 0, feeItemId: '', prepMin: 20, note: '', zones: [], desk: false };
+const ONLINE_DEFAULT = { enabled: false, pickup: true, delivery: false, minOrder: 0, feeItemId: '', prepMin: 20, note: '', zones: [], areas: [], account: 'delivery', desk: false };
 // Car service: guests park outside, order from the car (colour, type, name) and staff bring it out. Not part of any bundle by default - an add-on switched on per venue (or added to a bundle) by the super admin.
 const CAR_COLORS = ['white', 'black', 'silver', 'grey', 'red', 'blue', 'green', 'yellow', 'orange', 'brown', 'beige', 'gold', 'other'];
 const CAR_DEFAULT = { enabled: false, prepMin: 10, spots: 0, askPlate: true, desk: false, note: '' };
@@ -504,7 +504,7 @@ const carClean = (v, cfg) => {
   if (c.spots > 0 && !(spot && /^\d+$/.test(spot) && +spot >= 1 && +spot <= c.spots)) return { error: 'Choose your parking spot number', code: 'spot' };
   return { color, type, plate, spot };
 };
-const onlineCfg = (settings) => { const o = { ...ONLINE_DEFAULT, ...((settings && settings.online) || {}) }; o.enabled = !!o.enabled; o.pickup = o.pickup !== false; o.delivery = !!o.delivery; o.minOrder = Math.max(0, +o.minOrder || 0); o.prepMin = Math.min(180, Math.max(5, Math.floor(+o.prepMin) || 20)); o.feeItemId = String(o.feeItemId || '').slice(0, 40); o.note = String(o.note || '').slice(0, 200); o.zones = zonesCfg(o.zones); o.desk = !!o.desk; return o; };
+const onlineCfg = (settings) => { const o = { ...ONLINE_DEFAULT, ...((settings && settings.online) || {}) }; o.enabled = !!o.enabled; o.pickup = o.pickup !== false; o.delivery = !!o.delivery; o.minOrder = Math.max(0, +o.minOrder || 0); o.prepMin = Math.min(180, Math.max(5, Math.floor(+o.prepMin) || 20)); o.feeItemId = String(o.feeItemId || '').slice(0, 40); o.note = String(o.note || '').slice(0, 200); o.zones = zonesCfg(o.zones); o.areas = areasCfg(o.areas); o.account = ['off', 'delivery', 'all'].includes(o.account) ? o.account : 'delivery'; o.desk = !!o.desk; return o; };
 
 // ---------- Location: delivery zones + "order only from inside the cafe" ----------
 const geoPoint = (g) => { if (!g || g.lat === '' || g.lng === '' || g.lat == null || g.lng == null) return null; const lat = +g.lat, lng = +g.lng; return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0) ? { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6 } : null; };
@@ -530,9 +530,18 @@ function zoneFor(settings, g) {
   return z ? { ok: true, km, fee: z.fee, zone: z.km } : { ok: false, code: 'far', km, max: o.zones[o.zones.length - 1].km };
 }
 
-
+// Named delivery areas with a fixed fee set by the owner: [{ id, name, name_ar, fee, minOrder, etaMin }]. When any exist, a delivery order must pick one.
+const areasCfg = (a) => {
+  const seen = new Set(), t = (x, n) => String(x == null ? '' : x).replace(/[<>]/g, '').trim().slice(0, n);
+  return (Array.isArray(a) ? a : []).map((x, i) => {
+    if (!x || !t(x.name, 40)) return null;
+    let id = t(x.id, 24).replace(/[^\w-]/g, '') || 'a' + (i + 1); while (seen.has(id)) id += 'x'; seen.add(id);
+    return { id, name: t(x.name, 40), name_ar: t(x.name_ar, 40), fee: Math.round(Math.min(5000, Math.max(0, +x.fee || 0)) * 100) / 100, minOrder: Math.round(Math.min(100000, Math.max(0, +x.minOrder || 0)) * 100) / 100, etaMin: Math.min(240, Math.max(0, Math.floor(+x.etaMin) || 0)) };
+  }).filter(Boolean).slice(0, 40);
+};
+const areaFor = (settings, id) => { const o = onlineCfg(settings); if (!o.areas.length) return { ok: true, none: true }; const a = o.areas.find((x) => x.id === String(id || '')); return a ? { ok: true, area: a } : { ok: false, code: 'area' }; };
 
 const STAFF_LOG_KEYS = ['taken', 'handled', 'started', 'served', 'closed', 'respMs'];   // column order of rec.staffLog[id].b[hour]
 const WASTE_CAUSES = ['expired', 'spoiled', 'spilled', 'overprep', 'staffmeal', 'returned', 'other'];
-const api = { weakPin, itemRole, CAR_COLORS, CAR_DEFAULT, carCfg, carClean, WASTE_CAUSES, invoiceBrandClean, docLines, docTotals, partyClean, supplierClean, INV_STYLES, shiftsClean, wageClean, hmMin, pinOk, pinHash, pinCheck, UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, RETIRED, CORE, AREAS, featIdOk, featClean, priceOf, addonsOf, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
+const api = { weakPin, itemRole, CAR_COLORS, CAR_DEFAULT, carCfg, carClean, WASTE_CAUSES, invoiceBrandClean, docLines, docTotals, partyClean, supplierClean, INV_STYLES, shiftsClean, wageClean, hmMin, pinOk, pinHash, pinCheck, UNITS, ingClean, recipeClean, recipeCost, recost, reserveClean, reserveCfg, reserveHoursOk, DIGITAL, ipClean, ipCfg, OPT_MAX, optClean, optResolve, ALLERGENS, BADGES, detailsClean, CATALOG, FEATURE_IDS, RETIRED, CORE, AREAS, featIdOk, featClean, priceOf, addonsOf, configure, geoPoint, distM, geoLockCfg, geoCheck, zonesCfg, zoneFor, areasCfg, areaFor, STAFF_LOG_KEYS, onlineCfg, OFFLINE_OK, offlineQueueable, promoCfg, normCode, cutAmount, offerLive, couponCheck, promoPick, giftBalanceOk, upCfg, upsellFor, catRole, limitsOf, limitCheck, aiCfg, aiSystemPrompt, hasAr, AI_DEFAULT, SIG_THEMES, PRO_THEMES, PREMIUM_THEMES, LUX_THEMES, PLANS, ORDER, planOf, featuresOf, has, minPlanFor, monthly, LOYALTY_DEFAULT, loyaltyCfg, cleanPhone, earnPoints, pointsToEgp, parseMenuText, OCR_SAMPLE, copilot, LANG_NAMES };
 if (typeof module !== 'undefined') module.exports = api;

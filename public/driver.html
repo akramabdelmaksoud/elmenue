@@ -1,0 +1,111 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Driver</title><link rel="stylesheet" href="/shared.css">
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#1f4a35"><link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+html { -webkit-tap-highlight-color: transparent; }
+body { min-height: 100vh; padding-bottom: 40px; }
+header { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(10px); }
+header h1 { margin: 0; font-size: 19px; white-space: nowrap; } header .sp { flex: 1; }
+.ib { width: 40px; height: 40px; padding: 0; border-radius: 50%; display: grid; place-items: center; font-size: 17px; }
+main { max-width: 640px; margin: 0 auto; padding: 14px; }
+.sum { display: flex; gap: 8px; margin-bottom: 12px; } .sum div { flex: 1; text-align: center; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 8px 4px; } .sum b { display: block; font-size: 22px; } .sum small { color: var(--muted); }
+.live { font-size: 13px; padding: 6px 12px; border-radius: 99px; background: color-mix(in srgb, #1f9d55 18%, var(--card)); border: 1px solid #1f9d55; display: inline-block; margin-bottom: 10px; }
+.job { background: var(--card); border: 2px solid var(--line); border-radius: 20px; padding: 14px; margin-bottom: 14px; animation: pop .3s; }
+.job.out { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); } .job.ready { border-color: #1f9d55; } .job.failed { border-color: #d62828; } .job.delivered { opacity: .8; }
+.job .hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; } .job .tn { font-size: 30px; font-weight: 800; line-height: 1; }
+.pill { font-size: 12px; font-weight: 800; padding: 4px 11px; border-radius: 99px; background: var(--card2); border: 1px solid var(--line); white-space: nowrap; } .pill.cooking { background: #e08a1a; color: #fff; border-color: #e08a1a; } .pill.ready { background: #1f9d55; color: #fff; border-color: #1f9d55; } .pill.out { background: var(--accent); color: #fff; border-color: var(--accent); } .pill.failed { background: #d62828; color: #fff; }
+.who { margin: 10px 0 4px; font-size: 18px; font-weight: 700; } .adr { margin: 4px 0 8px; font-size: 16px; line-height: 1.4; }
+.btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; } .btnrow a, .btnrow button { flex: 1; min-width: 120px; text-align: center; text-decoration: none; padding: 13px 8px; border-radius: 14px; border: 1px solid var(--line); background: var(--card2); color: inherit; font-weight: 700; font-size: 15px; }
+.big { width: 100%; padding: 16px; border-radius: 16px; border: 0; background: var(--accent); color: #fff; font-weight: 800; font-size: 17px; margin-top: 6px; } .big.go { background: #1f9d55; } .big.bad { background: transparent; color: #d62828; border: 1px solid #d62828; font-size: 14px; padding: 11px; }
+.its { margin: 8px 0; padding: 8px 10px; border-radius: 12px; background: color-mix(in srgb, var(--text) 5%, transparent); font-size: 15px; } .its div { padding: 2px 0; } .its b { color: var(--accent); margin-inline-end: 6px; } .its small { color: var(--muted); }
+.cash { font-size: 17px; font-weight: 800; padding: 8px 12px; border-radius: 12px; background: color-mix(in srgb, #e08a1a 16%, var(--card)); border: 1px solid #e08a1a; margin: 8px 0; }
+.note { color: #b45309; font-weight: 600; margin: 4px 0; }
+.empty { text-align: center; color: var(--muted); padding: 70px 20px; font-size: 18px; } .empty .em { font-size: 64px; display: block; margin-bottom: 10px; }
+h3.sec { margin: 18px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+@keyframes pop { from { transform: scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
+</style></head>
+<body>
+<header><h1>🛵 <span id="ttl">Driver</span></h1><span class="sp"></span><span class="muted" id="me" style="font-size:13px"></span>
+<button class="ghost ib" id="snd" onclick="toggleSound()" title="Sound">🔕</button><button class="ghost ib" onclick="App.toggleLang(event)" id="lg">ع</button><button class="ghost ib" onclick="load()" title="Refresh">⟳</button><button class="ghost ib" onclick="App.logout()" title="Sign out">⎋</button></header>
+<main><div id="live"></div><div class="sum" id="sum"></div><div id="list"></div></main>
+<div id="toastbox"></div>
+<script src="/shared.js"></script>
+<script>
+const T = {
+  en: { title: 'Driver', taken: 'On the way', ready: 'Ready to take', cook: 'Being prepared', done: 'Delivered', st: { cooking: 'Cooking', ready: 'Ready', out: 'On the way', delivered: 'Delivered', failed: 'Not delivered' }, call: '📞 Call', call2: '📞 Second phone', nav: '🧭 Navigate', map: '🗺️ Map', claim: 'Take this order', pickup: 'Picked up - on my way', pickClaim: 'Take it and pick it up', delivered: 'Delivered ✓', failed: 'Could not deliver', failQ: 'Why could the order not be delivered?', give: 'Give back', confirm: 'Confirm: order handed to the customer?', cash: 'Collect cash', handover: 'Hand the cash to the cashier', notReady: 'Wait until the kitchen marks it ready', area: 'Area', empty: 'No deliveries right now', emptyS: 'New orders appear here by themselves', sharing: '📡 Sharing your location with the customer', nogps: 'Turn on location so the customer can follow you', noloc: 'No map pin - call the customer', note: 'Customer note', mine: 'Yours', free: 'Waiting for a driver', ago: 'ago', min: 'min', newJob: 'New delivery', out: 'Out', total: 'Total', err: 'Something went wrong - try again' },
+  ar: { title: 'المندوب', taken: 'في الطريق', ready: 'جاهز للاستلام', cook: 'قيد التحضير', done: 'تم التوصيل', st: { cooking: 'قيد التحضير', ready: 'جاهز', out: 'في الطريق', delivered: 'تم التوصيل', failed: 'لم يُسلَّم' }, call: '📞 اتصل', call2: '📞 رقم تاني', nav: '🧭 ابدأ الملاحة', map: '🗺️ الخريطة', claim: 'استلم هذا الطلب', pickup: 'استلمت الطلب - في الطريق', pickClaim: 'استلمه وانطلق', delivered: 'تم التسليم ✓', failed: 'تعذر التسليم', failQ: 'ما سبب تعذر التسليم؟', give: 'إرجاع الطلب', confirm: 'تأكيد: تم تسليم الطلب للعميل؟', cash: 'حصّل نقداً', handover: 'سلّم النقدية للكاشير', notReady: 'انتظر حتى يجهز المطبخ الطلب', area: 'المنطقة', empty: 'لا توجد توصيلات الآن', emptyS: 'الطلبات الجديدة تظهر هنا تلقائياً', sharing: '📡 يتم مشاركة موقعك مع العميل', nogps: 'شغّل الموقع ليتابعك العميل', noloc: 'لا توجد علامة على الخريطة - اتصل بالعميل', note: 'ملاحظة العميل', mine: 'طلبك', free: 'في انتظار مندوب', ago: 'منذ', min: 'د', newJob: 'توصيل جديد', out: 'خرج', total: 'الإجمالي', err: 'حدث خطأ - حاول مرة أخرى' },
+};
+const t = (k) => (T[App.lang] || T.en)[k] || T.en[k] || k;
+const E = (s) => App.esc(s == null ? '' : String(s));
+let jobs = [], me = {}, timer = null, pingT = null, sound = false, actx = null, known = null, busy = false, gpsOk = true;
+const auth = () => ({ Authorization: 'Bearer ' + App.tok('driver'), 'Content-Type': 'application/json' });
+const mins = (ts) => Math.max(0, Math.round((Date.now() - ts) / 60000)) + ' ' + t('min');
+function beep() { if (!sound) return; try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); [740, 988, 740].forEach((f, i) => { const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = f; o.connect(g); g.connect(actx.destination); g.gain.setValueAtTime(.2, actx.currentTime + i * .18); g.gain.exponentialRampToValueAtTime(.001, actx.currentTime + i * .18 + .16); o.start(actx.currentTime + i * .18); o.stop(actx.currentTime + i * .18 + .17); }); } catch {} try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch {} }
+function toggleSound() { sound = !sound; App.ls('drvsound', sound ? '1' : ''); $('snd').textContent = sound ? '🔔' : '🔕'; if (sound) beep(); }
+const $ = (id) => document.getElementById(id);
+function card(j) {
+  const mine = !!j.driverId, st = j.stage, e = E;
+  const call = (p, k) => p ? `<a href="tel:${e(p)}">${t(k)}<br><small>${e(p)}</small></a>` : '';
+  const items = `<div class="its">${j.items.map((i) => `<div><b>${i.qty}×</b>${e(App.lang === 'ar' && i.name_ar ? i.name_ar : i.name)}${i.opt ? ` <small>[${e(i.opt)}]</small>` : ''}${i.note ? ` <small>· ${e(i.note)}</small>` : ''}</div>`).join('')}</div>`;
+  let act = '';
+  if (st === 'cooking') act = mine ? `<p class="muted" style="margin:6px 0">⏳ ${t('notReady')}</p><button class="big bad" onclick="act('${j.tid}','release')">${t('give')}</button>` : `<button class="big" onclick="act('${j.tid}','claim')">${t('claim')}</button>`;
+  else if (st === 'ready') act = `<button class="big go" onclick="act('${j.tid}','pickup')">${mine ? t('pickup') : t('pickClaim')}</button>` + (mine ? `<button class="big bad" onclick="act('${j.tid}','release')">${t('give')}</button>` : '');
+  else if (st === 'out') act = `<button class="big go" onclick="deliver('${j.tid}')">${t('delivered')}</button><button class="big bad" onclick="fail('${j.tid}')">${t('failed')}</button>`;
+  else if (st === 'delivered') act = `<p class="cash" style="margin:6px 0">💵 ${t('handover')}: ${App.money(j.total)}</p>`;
+  else if (st === 'failed') act = `<p class="note">${e(j.failNote)}</p>`;
+  const nav = j.nav ? `<a href="${e(j.nav)}" target="_blank" rel="noopener">${t('nav')}</a><a href="${e(j.map)}" target="_blank" rel="noopener">${t('map')}</a>` : '';
+  return `<div class="job ${st}"><div class="hd"><span class="tn">${e(j.number)}</span><span class="pill ${st}">${t('st')[st] || st}</span></div>
+  <div class="muted" style="font-size:13px;margin-top:4px">${j.area ? t('area') + ': <b>' + e(j.area) + '</b> · ' : ''}${mins(j.at)} ${t('ago')} · ${mine ? '✅ ' + t('mine') : '⏳ ' + t('free')}</div>
+  <div class="who">👤 ${e(j.name)}</div><div class="adr">📍 ${e(j.address)}</div>${j.note ? `<p class="note">📝 ${t('note')}: ${e(j.note)}</p>` : ''}
+  <div class="btnrow">${call(j.phone, 'call')}${call(j.phone2, 'call2')}${nav}</div>${j.nav ? '' : `<p class="muted" style="margin:0 0 6px;font-size:13px">${t('noloc')}</p>`}
+  ${items}<div class="cash">💵 ${t('cash')}: ${App.money(j.total)}</div>${act}</div>`;
+}
+function draw() {
+  const by = (s) => jobs.filter((j) => j.stage === s), out = by('out'), rdy = by('ready'), ck = by('cooking'), dn = jobs.filter((j) => j.stage === 'delivered' || j.stage === 'failed');
+  $('sum').innerHTML = `<div><b>${out.length}</b><small>${t('taken')}</small></div><div><b>${rdy.length}</b><small>${t('ready')}</small></div><div><b>${ck.length}</b><small>${t('cook')}</small></div><div><b>${dn.length}</b><small>${t('done')}</small></div>`;
+  $('live').innerHTML = out.length ? `<span class="live">${gpsOk ? t('sharing') : '⚠️ ' + t('nogps')}</span>` : '';
+  const sec = (title, arr) => arr.length ? `<h3 class="sec">${title}</h3>${arr.map(card).join('')}` : '';
+  $('list').innerHTML = jobs.length ? sec('🛵 ' + t('taken'), out) + sec('✅ ' + t('ready'), rdy) + sec('👨‍🍳 ' + t('cook'), ck) + sec('📦 ' + t('done'), dn) : `<div class="empty"><span class="em">🛵</span>${t('empty')}<br><small>${t('emptyS')}</small></div>`;
+  $('ttl').textContent = t('title'); $('me').textContent = me.name || ''; $('lg').textContent = App.lang === 'ar' ? 'EN' : 'ع';
+}
+async function load() {
+  try {
+    const r = await fetch('/api/delivery/jobs', { headers: auth() });
+    if (r.status === 401 || r.status === 403) { App.ls('tok:' + App.slug + ':driver', ''); return location.reload(); }
+    const j = await r.json(); jobs = j.jobs || []; me = j.me || {};
+    const ids = new Set(jobs.filter((x) => x.stage !== 'delivered' && x.stage !== 'failed' && !x.driverId).map((x) => x.tid));
+    if (known && [...ids].some((i) => !known.has(i))) { beep(); App.toast('🛵 ' + t('newJob')); }
+    known = ids; draw(); trackGps();
+  } catch {}
+}
+async function act(tid, a, extra) {
+  if (busy) return; busy = true;
+  try {
+    const r = await fetch('/api/delivery/act', { method: 'POST', headers: auth(), body: JSON.stringify({ tid, act: a, ...(extra || {}) }) }), j = await r.json().catch(() => ({}));
+    if (!r.ok) App.toast(j.error || t('err'));
+    else if (a === 'pickup') await ping(true);
+  } catch { App.toast(t('err')); }
+  busy = false; load();
+}
+function deliver(tid) { if (confirm(t('confirm'))) act(tid, 'delivered'); }
+function fail(tid) { const n = prompt(t('failQ')); if (n !== null) act(tid, 'failed', { note: n }); }
+// while a delivery is out, the phone shares its position every 20 seconds so the customer sees how far away the driver is
+function ping(now) {
+  return new Promise((done) => {
+    const outJobs = jobs.filter((j) => j.stage === 'out' && j.driverId); if (!outJobs.length || !navigator.geolocation) { gpsOk = !!navigator.geolocation; return done(); }
+    navigator.geolocation.getCurrentPosition(async (p) => {
+      gpsOk = true; const geo = { lat: p.coords.latitude, lng: p.coords.longitude };
+      await Promise.all(outJobs.map((j) => fetch('/api/delivery/act', { method: 'POST', headers: auth(), body: JSON.stringify({ tid: j.tid, act: 'ping', geo }) }).catch(() => {})));
+      draw(); done();
+    }, () => { gpsOk = false; draw(); done(); }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 });
+  });
+}
+function trackGps() { const need = jobs.some((j) => j.stage === 'out' && j.driverId); if (need && !pingT) { ping(); pingT = setInterval(ping, 20000); } if (!need && pingT) { clearInterval(pingT); pingT = null; } }
+App.handlers = { render: draw };
+App.gate('driver', async () => {
+  sound = !!App.ls('drvsound'); $('snd').textContent = sound ? '🔔' : '🔕';
+  document.documentElement.dir = App.lang === 'ar' ? 'rtl' : 'ltr'; document.title = t('title');
+  await load(); clearInterval(timer); timer = setInterval(load, 7000);
+});
+</script></body></html>
