@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex">
-<title>TableTab - Cafe login</title><meta name="theme-color" content="#05060a">
+<title>TableTab - Venue login</title><meta name="theme-color" content="#05060a">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/tt-theme.css">
 <style>
@@ -23,16 +23,16 @@ footer{text-align:center;color:var(--dim);font:400 12.5px var(--mono);padding:18
 </style></head><body>
 <div class="wrap"><header><a class="logo" href="#" id="logo"><img class="mk" src="/logo.svg" alt=""><span>Table<b>Tab</b></span></a><button class="btn sm" id="lang" onclick="setLang()">عربي</button></header></div>
 <div class="wrap"><main><div class="stage rv"><div class="orb"></div>
-<form class="panel glass" data-tilt="off" onsubmit="return go(event)"><h1 data-i="h1">Open your <em>cafe</em></h1>
-<p class="sub" data-i="sub">Enter your cafe's code to open your admin, captain, kitchen or cashier screens.</p>
-<label for="s" data-i="code">Cafe code</label><input id="s" placeholder="my-cafe" autocomplete="off" autocapitalize="none" spellcheck="false" required autofocus>
+<form class="panel glass" data-tilt="off" onsubmit="return go(event)"><h1 data-i="h1">Open your <em>venue</em></h1>
+<p class="sub" data-i="sub">Enter your venue's code to open your admin, captain, kitchen or cashier screens.</p>
+<label for="s" data-i="code">Venue code</label><input id="s" placeholder="my-place" autocomplete="off" autocapitalize="none" spellcheck="false" required autofocus>
 <button class="btn p go" type="submit" data-i="open">Open</button>
 <div class="more"><span data-i="not">Not a customer yet?</span> <a href="/privacy" id="home" data-i="see">See TableTab</a></div></form></div></main></div>
 <footer data-i="foot">TABLETAB</footer>
 <script src="/tt-fx.js"></script>
 <script>
-var X = { en: { h1: 'Open your <em>cafe</em>', sub: "Enter your cafe's code to open your admin, captain, kitchen or cashier screens.", code: 'Cafe code', open: 'Open', not: 'Not a customer yet?', see: 'See TableTab', foot: 'TABLETAB' },
-  ar: { h1: 'افتح <em>الكافيه</em>', sub: 'اكتب كود الكافيه لتفتح شاشات المالك والكابتن والمطبخ والكاشير.', code: 'كود الكافيه', open: 'فتح', not: 'لست عميلاً بعد؟', see: 'تعرّف على تابل تاب', foot: 'تابل تاب' } };
+var X = { en: { h1: 'Open your <em>venue</em>', sub: "Enter your venue's code to open your admin, captain, kitchen or cashier screens.", code: 'Venue code', open: 'Open', not: 'Not a customer yet?', see: 'See TableTab', foot: 'TABLETAB' },
+  ar: { h1: 'افتح <em>مكانك</em>', sub: 'اكتب كود المكان لتفتح شاشات المالك والكابتن والمطبخ والكاشير.', code: 'كود المكان', open: 'فتح', not: 'لست عميلاً بعد؟', see: 'تعرّف على تابل تاب', foot: 'تابل تاب' } };
 var lang = 'en'; try { lang = localStorage.getItem('tt:lang') || (/^ar/i.test(navigator.language) ? 'ar' : 'en'); } catch (e) {}
 function paint() { var T = X[lang]; document.documentElement.lang = lang; document.body.dir = lang === 'ar' ? 'rtl' : 'ltr'; document.querySelectorAll('[data-i]').forEach(function (el) { el.innerHTML = T[el.dataset.i]; }); document.getElementById('lang').textContent = lang === 'ar' ? 'English' : 'عربي'; }
 function setLang() { lang = lang === 'ar' ? 'en' : 'ar'; try { localStorage.setItem('tt:lang', lang); } catch (e) {} paint(); }
