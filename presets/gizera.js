@@ -1,0 +1,97 @@
+// Branded showroom for Gizera Cafe (كافيه الجزيرة): the café's real menu, prices and colours,
+// so the owner sees his own screens. Used by /api/super/tenants { preset: 'gizera' }.
+const F = require('../features');
+const IMG = '/demo/gizera/';
+const categories = [
+  { id: 'c1', name: 'Pasta', name_ar: 'باستا', emoji: '🍝', station: 'kitchen' },
+  { id: 'c2', name: 'Pizza', name_ar: 'بيتزا', emoji: '🍕', station: 'kitchen' },
+  { id: 'c3', name: 'Fino Sandwiches', name_ar: 'سندوتشات فينو', emoji: '🥖', station: 'kitchen' },
+  { id: 'c4', name: 'Vienna Sandwich', name_ar: 'سندوتشات فيينا', emoji: '🌭', station: 'kitchen' },
+  { id: 'c5', name: 'Coffee', name_ar: 'قهوة', emoji: '☕', station: 'bar' },
+  { id: 'c6', name: 'Iced Coffee', name_ar: 'قهوة مثلجة', emoji: '🧊', station: 'bar' },
+  { id: 'c7', name: 'Hot Chocolate', name_ar: 'هوت شوكلت', emoji: '🍫', station: 'bar' },
+  { id: 'c8', name: 'Tea & Warm Drinks', name_ar: 'شاي ومشروبات ساخنة', emoji: '🫖', station: 'bar' },
+  { id: 'c9', name: 'Mojito & Sodas', name_ar: 'موهيتو وصودا', emoji: '🍹', station: 'bar' },
+  { id: 'c10', name: 'Cocktails', name_ar: 'كوكتيلات', emoji: '🥤', station: 'bar' },
+  { id: 'c11', name: 'Fresh Juices', name_ar: 'عصائر فريش', emoji: '🍊', station: 'bar' },
+  { id: 'c12', name: 'Refreshers', name_ar: 'ريفريشر', emoji: '🍓', station: 'bar' },
+  { id: 'c13', name: 'Milkshakes', name_ar: 'ميلك شيك', emoji: '🥛', station: 'bar' },
+  { id: 'c14', name: 'Desserts & Waffles', name_ar: 'حلويات ووافل', emoji: '🧇', station: 'kitchen' },
+  { id: 'c15', name: 'Soft Drinks', name_ar: 'مشروبات غازية', emoji: '🥫', station: 'bar' },
+];
+
+// [cat, name, name_ar, price, emoji, photo, prep minutes, featured]
+const R = [
+  ['c1', 'Alfredo Pasta', 'باستا ألفريدو', 124, '🍝', 'alfredo', 12, 1], ['c1', 'Pink Bolognese', 'بينك بولونيز', 137, '🍝', 'pinkbolo', 12],
+  ['c1', 'Pasta Bolognese', 'باستا بولونيز', 124, '🍝', 'bolo', 12], ['c1', 'Negresco', 'نجريسكو', 139, '🍝', 'negresco', 15],
+  ['c1', 'Macarona Béchamel', 'مكرونة بشاميل', 124, '🧀', 'mac', 14], ['c1', 'Pasta Liver', 'باستا كبدة', 124, '🍝', 'pliver', 12], ['c1', 'Pasta Sausage', 'باستا سجق', 119, '🍝', 'psausage', 12],
+  ['c2', 'Margherita Pizza', 'بيتزا مارجريتا', 97, '🍕', 'pmarg', 14, 1], ['c2', 'Vegetables Pizza', 'بيتزا خضار', 102, '🍕', 'pveg', 14],
+  ['c2', 'Pepperoni Pizza', 'بيتزا بيبروني', 165, '🍕', 'ppep', 15, 1], ['c2', 'Chicken BBQ Pizza', 'بيتزا تشيكن باربكيو', 169, '🍕', 'pbbq', 15],
+  ['c2', 'Chicken Ranch Pizza', 'بيتزا تشيكن رانش', 169, '🍕', 'pranch', 15], ['c2', 'Sausage Pizza', 'بيتزا سجق', 159, '🍕', 'psaus', 15],
+  ['c3', 'Liver Sandwich', 'سندوتش كبدة', 47, '🥖', 'fliver', 7], ['c3', 'Sausage Sandwich', 'سندوتش سجق', 45, '🥖', 'fsausage', 7],
+  ['c3', 'Armenian Sausage', 'سجق أرمني', 44, '🥖', 'farm', 7], ['c3', 'Kofta Sandwich', 'سندوتش كفتة', 53, '🥖', 'fkofta', 8],
+  ['c3', 'Pane Sandwich', 'سندوتش بانيه', 53, '🥖', 'fpane', 8], ['c3', 'Musahab Sandwich', 'سندوتش مسحب', 53, '🥖', 'fmus', 8],
+  ['c3', 'Minced Beef Shawarma', 'شاورما لحم مفروم', 55, '🌯', 'fshawarma', 8, 1],
+  ['c4', 'Pane Vienna', 'فيينا بانيه', 92, '🍔', 'vpane', 9], ['c4', 'Crispy Vienna', 'فيينا كرسبي', 97, '🍔', 'vcrispy', 9, 1],
+  ['c4', 'Fajitas Vienna', 'فيينا فاهيتا', 91, '🥪', 'vfajitas', 9], ['c4', 'Mexican Hot Dog', 'هوت دوج مكسيكان', 87, '🌭', 'vmex', 8],
+  ['c4', 'Sausage with Cheese', 'سجق بالجبنة', 55, '🌭', 'vsaus', 8], ['c4', 'Hawawshi with Fries', 'حواوشي بالبطاطس', 95, '🥙', 'vhaw', 10],
+  ['c5', 'Turkish Coffee (Single)', 'قهوة تركي سنجل', 47, '☕', 'coffee', 5], ['c5', 'Turkish Coffee (Double)', 'قهوة تركي دبل', 57, '☕', 'coffee', 5],
+  ['c5', 'French Coffee', 'قهوة فرنساوي', 57, '☕', 'coffee', 5], ['c5', 'Hazelnut Coffee', 'قهوة بندق', 67, '☕', 'coffee', 5],
+  ['c5', 'Nescafé', 'نسكافيه', 59, '☕', 'coffee', 3], ['c5', 'American Coffee', 'أمريكان كوفي', 69, '☕', 'coffee', 4],
+  ['c5', 'Cappuccino', 'كابتشينو', 77, '☕', 'coffee', 5, 1], ['c5', 'Café Latte', 'كافيه لاتيه', 67, '☕', 'coffee', 5],
+  ['c5', 'Café Mocha', 'كافيه موكا', 79, '☕', 'coffee', 5], ['c5', 'Flat White', 'فلات وايت', 69, '☕', 'coffee', 5],
+  ['c5', 'Espresso (Single)', 'إسبريسو سنجل', 49, '☕', 'coffee', 3], ['c5', 'Espresso (Double)', 'إسبريسو دبل', 59, '☕', 'coffee', 3],
+  ['c5', 'Macchiato (Single)', 'ميكاتو سنجل', 59, '☕', 'coffee', 4], ['c5', 'Macchiato (Double)', 'ميكاتو دبل', 69, '☕', 'coffee', 4],
+  ['c6', 'Iced Coffee Black', 'آيس كوفي بلاك', 77, '🧊', 'iced', 4], ['c6', 'Iced Latte', 'آيس لاتيه', 77, '🧊', 'iced', 4],
+  ['c6', 'Iced Caramel Macchiato', 'آيس كراميل ميكاتو', 89, '🧊', 'iced', 5, 1], ['c6', 'Spanish Latte', 'سبانيش لاتيه', 87, '🧊', 'iced', 5, 1],
+  ['c6', 'Frappuccino', 'فرابتشينو', 79, '🧊', 'iced', 5], ['c6', 'Mochaccino', 'موكاتشينو', 87, '🧊', 'iced', 5], ['c6', 'Iced Tea (Flavors)', 'آيس تي فليفر', 67, '🧊', 'iced', 3],
+  ['c7', 'Hot Chocolate', 'هوت شوكلت', 69, '🍫', 'hot', 5], ['c7', 'Hot White Chocolate', 'هوت وايت شوكلت', 69, '🍫', 'hot', 5],
+  ['c7', 'Hot Chocolate Nutsy', 'هوت شوكلت ناتسي', 69, '🍫', 'hot', 5], ['c7', 'Hot Lotus', 'هوت لوتس', 69, '🍫', 'hot', 5], ['c7', 'Hot Gercy', 'هوت چيرسي', 69, '🍫', 'hot', 5],
+  ['c8', 'Red Tea', 'شاي أحمر', 39, '🫖', 'tea', 3], ['c8', 'Green Tea', 'شاي أخضر', 39, '🍵', 'tea', 3], ['c8', 'Thermos Tea', 'شاي براد', 49, '🫖', 'tea', 4],
+  ['c8', 'Herbals (Anise, Karkade, Ginger, Lemon, Mint)', 'أعشاب (ينسون، قرفة، جنزبيل، ليمون، نعناع)', 49, '🌿', 'tea', 4],
+  ['c8', 'Apple Cider', 'أبل سيدر', 57, '🍎', 'tea', 4], ['c8', 'Caramel Cider', 'كراميل سيدر', 57, '🍎', 'tea', 4],
+  ['c8', 'Sahlab Nuts', 'سحلب مكسرات', 69, '🥣', 'tea', 5, 1], ['c8', 'Sahlab Fruits', 'سحلب فواكه', 77, '🥣', 'tea', 5],
+  ['c9', 'Virgin Mojito', 'فيرجن موخيتو', 81, '🍹', 'soda', 4, 1], ['c9', 'Sun Shine', 'صن شاين', 83, '🍹', 'soda', 4], ['c9', 'Sun Rise', 'صن راي', 79, '🍹', 'soda', 4],
+  ['c9', 'Blue Sky', 'بلو سكاي', 87, '🍹', 'soda', 4], ['c9', 'Mango Passion Soda', 'مانجو باشون صودا', 87, '🍹', 'soda', 4], ['c9', 'Roma Mojito', 'روماهيتو', 71, '🍹', 'soda', 4],
+  ['c9', 'Mix Berry Soda', 'ميكس بيري صودا', 87, '🍹', 'soda', 4], ['c9', 'Vimto Cotton Candy', 'ڤيمتو كوتون كاندي', 87, '🍹', 'soda', 4], ['c9', 'Blue Ocean', 'بلو أوشن', 87, '🍹', 'soda', 4],
+  ['c10', 'Crush Fruit', 'كراش فروت', 89, '🥤', 'cocktail', 5], ['c10', 'Pina Colada', 'بينا كولادا', 89, '🥤', 'cocktail', 5], ['c10', 'Coco Mango', 'كوكو مانجو', 89, '🥭', 'cocktail', 5],
+  ['c10', 'Relax Cocktail', 'ريلاكس كوكتيل', 97, '🥤', 'cocktail', 5], ['c10', 'Yoguy Berry', 'يوجي بيري', 89, '🥤', 'cocktail', 5], ['c10', 'Avonutsy', 'أڤوناتسي', 89, '🥑', 'cocktail', 5],
+  ['c10', 'Iced Passion', 'أيسد باشون', 87, '🥤', 'cocktail', 5], ['c10', 'Berry Bana', 'بيري بانا', 91, '🍌', 'cocktail', 5],
+  ['c11', 'Mango / Guava / Strawberry / Orange', 'مانجو - جوافة - فراولة - برتقال', 77, '🥭', 'juice', 4], ['c11', 'Watermelon / Peach / Pineapple', 'بطيخ - خوخ - أناناس', 79, '🍉', 'juice', 4],
+  ['c11', 'Lemon', 'ليمون', 64, '🍋', 'juice', 3], ['c11', 'Lemon Mint', 'ليمون نعناع', 79, '🍋', 'juice', 3], ['c11', 'Strawberry with Milk', 'فراولة باللبن', 79, '🍓', 'juice', 4],
+  ['c11', 'Kiwi', 'كيوي', 87, '🥝', 'juice', 4], ['c11', 'Avocado', 'أفوكادو', 87, '🥑', 'juice', 5],
+  ['c12', 'Mango / Strawberry / Peach', 'مانجو - فراولة - خوخ', 77, '🍓', 'refresh', 4], ['c12', 'Blueberry / Raspberry', 'بلوبيري - راسبيري', 79, '🫐', 'refresh', 4],
+  ['c12', 'Lemon Mint Refresher', 'ليمون نعناع', 77, '🍋', 'refresh', 4], ['c12', 'Pink Lemon', 'بينك ليمون', 79, '🍋', 'refresh', 4], ['c12', 'Blue Strawberry', 'بلو ستروبري', 79, '🍓', 'refresh', 4],
+  ['c12', 'Passion Peach', 'باشون بيتش', 87, '🍑', 'refresh', 4], ['c12', 'Mix Berry', 'ميكس بيري', 87, '🫐', 'refresh', 4],
+  ['c13', 'Classic Shake (Vanilla / Chocolate / Strawberry / Mango)', 'كلاسيك شيك (ڤانيليا - شوكلت - فراولة - مانجو)', 73, '🥛', 'shake', 5],
+  ['c13', 'Snickers Shake', 'سنيكرز شيك', 107, '🥛', 'shake', 5, 1], ['c13', 'Oreo Shake', 'أوريو شيك', 107, '🥛', 'shake', 5, 1],
+  ['c13', 'Pistachio Shake', 'فستق شيك', 109, '🥛', 'shake', 5], ['c13', 'Lotus Shake', 'لوتس شيك', 97, '🥛', 'shake', 5],
+  ['c13', 'Nutella Shake', 'نوتيلا شيك', 91, '🥛', 'shake', 5], ['c13', 'Red Velvet Shake', 'ريد ڤلفت شيك', 107, '🥛', 'shake', 5],
+  ['c13', 'Waffle Shake', 'وافل شيك', 97, '🥛', 'shake', 5], ['c13', 'Cheesecake Shake', 'تشيز كيك شيك', 107, '🥛', 'shake', 5], ['c13', 'Passion Fruit Shake', 'باشون فروت شيك', 87, '🥛', 'shake', 5],
+  ['c14', 'Cheesecake Slice', 'تشيز كيك سلايز', 117, '🍰', 'dessert', 3, 1], ['c14', 'Molten Cake', 'مولتن كيك', 119, '🍫', 'dessert', 10, 1], ['c14', 'Oreo Madness', 'أوريو مادنيس', 109, '🍨', 'dessert', 5],
+  ['c14', 'Cheese Madness', 'تشيز مادنيس', 119, '🍰', 'dessert', 5], ['c14', 'Fruit Salad', 'فروت سلاد', 109, '🍓', 'dessert', 5], ['c14', 'Brownies', 'براونيز', 109, '🍫', 'dessert', 6],
+  ['c14', 'Nutella / Lotus Waffle', 'وافل نوتيلا - وافل لوتس', 119, '🧇', 'dessert', 9, 1], ['c14', 'Pistachio Waffle', 'وافل فستق', 117, '🧇', 'dessert', 9],
+  ['c14', 'Waffle Half & Half', 'وافل هاف آند هاف', 117, '🧇', 'dessert', 9], ['c14', 'Four Season Waffle', 'وافل فور سيزون (نوتيلا - فستق - لوتس - وايت شوكلت)', 117, '🧇', 'dessert', 9],
+  ['c14', 'Fruit Waffle (Kiwi, Peach, Pineapple, Banana, Honey)', 'وافل فروت (كيوي - خوخ - أناناس - موز - عسل)', 117, '🧇', 'dessert', 9],
+  ['c15', 'Pepsi / 7up / Diet', 'بيبسي - سڤن - بيبسي دايت - سڤن دايت', 41, '🥤', 'soft', 1], ['c15', 'Miranda / Mountain Dew', 'ميرندا برتقال - ميرندا تفاح - مونتن ديو', 41, '🥤', 'soft', 1],
+  ['c15', 'Fayrouz Pineapple / Birell', 'فيروز أناناس - بيريل', 41, '🥤', 'soft', 1], ['c15', 'Red Bull', 'ريدبول', 83, '⚡', 'soft', 1],
+];
+
+const FOOD = new Set(['c1', 'c2', 'c3', 'c4']);
+const items = R.map((r, i) => ({
+  id: 'i' + (i + 1), cat: r[0], name: r[1], name_ar: r[2], price: r[3], cost: Math.round(r[3] * (FOOD.has(r[0]) ? 0.42 : 0.3)),
+  emoji: r[4], desc: '', prep: r[6], featured: !!r[7], img: IMG + r[5] + '.jpg',
+}));
+
+const settings = {
+  name: 'Gizera Cafe', name_ar: 'كافيه الجزيرة', tagline: 'Pasta, pizza, sandwiches & great coffee', tagline_ar: 'باستا، بيتزا، سندوتشات وقهوة تفرق',
+  tagline_sub: 'Scan, order from your table, and watch your order live.', tagline_sub_ar: 'امسح الكود واطلب من مكانك وتابع طلبك لحظة بلحظة.',
+  logo: IMG + 'logo.png', theme: 'custom', palette: { accent: '#2e7d4f', accent2: '#8bc34a', bg: '#f1f6e6', card: '#ffffff', text: '#12301f' },
+  menuLayout: 'cards', heroImg: '', kitchenStations: 2, tax: 0, service: 0, wifi: 'Gizera_Guest', wifiPass: 'welcome2026', requireKey: false,
+  online: F.onlineCfg({ online: { enabled: true, pickup: true, delivery: true } }),
+  promos: [
+    { title: 'Soft opening', title_ar: 'السوفت أوبنج', text: 'Try our pasta, pizza and Fino sandwiches.', text_ar: 'جرّب الباستا والبيتزا وسندوتشات الفينو.' },
+    { title: 'Join our loyalty card', title_ar: 'اعمل كارت الولاء', text: 'Every 10 EGP you spend = 1 point.', text_ar: 'كل 10 جنيه = نقطة، واستخدم نقطك في الحساب.' },
+  ],
+};
+module.exports = { categories, items, settings };

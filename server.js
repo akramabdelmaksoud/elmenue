@@ -78,8 +78,8 @@ function mount(rec) {
   if (t.ensure()) store.save(rec);
   return t;
 }
-function makeRecord({ name, slug, email, password, plan = 'operations', demo = false }) {
-  const data = freshData(demo), cap = F.limitsOf(plan).tables;
+function makeRecord({ name, slug, email, password, plan = 'operations', demo = false, preset }) {
+  const data = freshData(demo, preset), cap = F.limitsOf(plan).tables;
   data.settings.upsell = { enabled: true, max: 4 };   // a new venue gets order recommendations from day one (the plan still decides whether they show)
   if (cap !== null && data.tables.length > cap) data.tables = data.tables.slice(0, cap);   // sample tables must not start above the plan's table limit
   return {
@@ -375,6 +375,24 @@ app.get('/api/demo/qr.png', async (req, res, next) => { try {
   const u = String(req.query.u || ''); if (!u.startsWith(origin(req)) || u.length > 300) return res.status(400).end();   // only this site's own links
   res.type('png').set('Cache-Control', 'public, max-age=3600').send(await QRCode.toBuffer(u, { width: 520, margin: 2, color: { dark: '#111111', light: '#ffffff' } }));
 } catch (e) { next(e); } });
+// Branded prospect demo (rec.prospect): a café built for one owner to try, opened without passwords from /p/<slug>. Only flagged cafés; fake data; same denials as the showroom.
+const PROSPECT_NAMES = { captain: 'Captain', kitchen: 'Kitchen', cashier: 'Cashier' };
+async function prospectOf(slug) { slug = String(slug || '').toLowerCase(); if (!SLUG.test(slug)) return null; const t = STATELESS ? await loadFresh(slug) : tenants.get(slug); return t && t.rec.prospect ? t : null; }
+const prospectLimit = rateLimit({ windowMs: 600000, max: 120, message: 'Too many requests, wait a few minutes' });
+app.get('/api/prospect/info', prospectLimit, async (req, res, next) => { try {
+  const t = await prospectOf(req.query.slug); if (!t) return res.status(404).json({ error: 'not found' });
+  const s = t.db.settings, free = t.db.tables.filter((x) => !t.db.sessions[x.id]).map((x) => x.number);
+  res.json({ slug: t.rec.slug, name: s.name, name_ar: s.name_ar, logo: s.logo, palette: s.palette, tables: t.db.tables.map((x) => x.number), freeTables: free, origin: origin(req) });
+} catch (e) { next(e); } });
+app.post('/api/prospect/login', prospectLimit, async (req, res, next) => { try {
+  const t = await prospectOf(req.body && req.body.slug); if (!t) return res.status(404).json({ error: 'not found' });
+  const role = String(req.body.role || ''), slug = t.rec.slug;
+  if (role === 'admin') return res.json({ slug, token: auth.sign('admin', slug, 8) });
+  if (!PROSPECT_NAMES[role]) return res.status(400).json({ error: 'bad role' });
+  const who = (t.rec.staff || []).find((x) => x.role === role);
+  res.json({ slug, token: auth.sign(role, slug, 8, { u: who ? who.id : 'demo', n: PROSPECT_NAMES[role] }) });
+} catch (e) { next(e); } });
+app.get('/p/:slug', page('prospect.html'));
 app.get('/demo', page('showroom.html'));
 app.get('/demo-local', page('demo.html'));
 app.get('/privacy', page('privacy.html'));
@@ -610,8 +628,11 @@ app.post('/api/super/tenants', needSuper, async (req, res, next) => { try {
   const password = b.password || auth.randomPassword();
   const plan0 = F.PLANS[b.plan] ? b.plan : 'operations';
   if (b.group) { const grp = String(b.group).slice(0, 40), used = (await allTenants()).filter((x) => (x.rec.group || '') === grp).length, c = F.limitCheck('branches', used, plan0); if (!c.ok) return res.status(402).json({ error: `Plan allows ${c.limit} branch(es) in a group`, kind: 'branches', limit: c.limit, used, upgrade: c.upgrade, limits: true }); }
-  const rec = makeRecord({ name: b.name, slug, email: b.email, password, plan: plan0, demo: !!b.demo });
-  rec.data.settings.name = b.name; if (b.group) rec.group = String(b.group).slice(0, 40); if (b.domain) rec.domain = dom.value;
+  const rec = makeRecord({ name: b.name, slug, email: b.email, password, plan: plan0, demo: !!b.demo, preset: b.demo && b.preset === 'gizera' ? 'gizera' : undefined });
+  if (rec.data.settings.logo && b.demo && b.preset === 'gizera') {   // branded prospect demo: opens without passwords from /p/<slug>
+    rec.prospect = true; rec.feat = { carservice: true };
+    rec.staff = [['Captain', 'captain'], ['Kitchen', 'kitchen'], ['Cashier', 'cashier']].map(([name, role]) => ({ id: newId('u'), name, role, hash: auth.hash(SHOW_PINS[role]), active: true, createdAt: Date.now() }));
+  } else rec.data.settings.name = b.name; if (b.group) rec.group = String(b.group).slice(0, 40); if (b.domain) rec.domain = dom.value;
   if (STATELESS) { if (!(await createRecord(rec, !!b.demo))) return res.status(400).json({ error: 'That slug is taken' }); }
   else { const t = mount(rec); if (b.demo) t.seedLive(); store.save(rec); }
   hostIndex.clear();
@@ -985,7 +1006,7 @@ app.post(`${R}/feedback`, tenantMw, async (req, res, next) => { try {
 // The public showroom hands out an admin token to anyone, so it must not reach anything that costs money or stores files:
 // uploads, AI calls, payment/e-invoice settings, staff and account changes.
 const SHOW_DENY = /\/(image|hero-image|logo|bg-image|pay-qr|menu\/ocr|menu\/import|copilot|insights\/ai|pay\/config|eta|staff|account|loyalty\/adjust)(\/|$)/;
-const showGuard = (req, res, next) => (req.tenant.rec.showroom && req.method !== 'GET' && SHOW_DENY.test(req.path) ? res.status(403).json({ error: 'Not available in the demo' }) : next());
+const showGuard = (req, res, next) => ((req.tenant.rec.showroom || req.tenant.rec.prospect) && req.method !== 'GET' && SHOW_DENY.test(req.path) ? res.status(403).json({ error: 'Not available in the demo' }) : next());
 const A = (m, p, ...h) => app[m](`${R}${p}`, tenantMw, needAdmin, showGuard, ...h);
 const bc = (req) => req.tenant.broadcast();
 A('get', '/account', (req, res) => res.json({ name: req.tenant.rec.name, email: req.tenant.rec.owner.email, pin: req.tenant.rec.pin, plan: F.planOf(req.tenant.rec.plan), features: F.featuresOf(req.tenant.rec), group: req.tenant.rec.group || '', limits: F.limitsOf(req.tenant.rec.plan, req.tenant.rec.limits), usage: { tables: req.tenant.db.tables.length, staff: (req.tenant.rec.staff || []).length } }));

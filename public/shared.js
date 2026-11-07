@@ -330,7 +330,7 @@ const App = {
     if (role !== 'admin' && !App.demo) { const go0 = go; go = () => { App.clockPill(role); return go0(); }; }
     if (App.demo) { await App.loadDemo(); return go(); }
     // the shared showroom café opens without a password when reached from the /demo launcher (?auto=1)
-    if (!App.tok(role) && App.slug === 'showroom' && /[?&]auto=1/.test(location.search)) { try { const r = await fetch(location.origin + '/api/demo/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role }) }); if (r.ok) App.ls('tok:showroom:' + role, (await r.json()).token); } catch {} }
+    if (!App.tok(role) && App.slug && /[?&]auto=1/.test(location.search)) { try { const sr = App.slug === 'showroom', r = await fetch(location.origin + (sr ? '/api/demo/login' : '/api/prospect/login'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role, slug: App.slug }) }); if (r.ok) App.ls('tok:' + App.slug + ':' + role, (await r.json()).token); } catch {} }
     const t = App.tok(role);
     if (t) { const r = await fetch(`/api/r/${App.slug}/me?role=${role}`); if (r.ok) return go(); if (r.status === 404 || r.status === 403) { document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif">This restaurant is unavailable.</div>'; return; } }
     await App.loadAuth();
