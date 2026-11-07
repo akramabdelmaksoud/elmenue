@@ -21,3 +21,14 @@ for (const mode of ['ws', 'rpc']) test(`F29 Gizera branded showroom preset [${mo
   assert.equal((await S.J('GET', '/api/prospect/info?slug=gizeraplain')).s, 404, 'ordinary cafés never open without a password');
   assert.equal((await S.J('POST', '/api/prospect/login', { slug: 'gizeraplain', role: 'admin' })).s, 404);
 });
+
+// the built-in showroom creates itself on the first visit: no console login, and it comes with sales history and live tables (not an empty café)
+for (const mode of ['ws', 'rpc']) test(`F29 Gizera showroom self-creates with demo data [${mode}]`, async (t) => {
+  const S = await start(mode); t.after(() => S.stop());
+  assert.equal((await S.J('GET', '/api/prospect/info?slug=nothere')).s, 404);
+  const info = await S.J('GET', '/api/prospect/info?slug=gizera'); assert.equal(info.s, 200); assert.equal(info.j.name_ar, 'كافيه الجزيرة');
+  const adm = (await S.J('POST', '/api/prospect/login', { slug: 'gizera', role: 'admin' })).j.token;
+  const hist = await S.J('GET', '/api/r/gizera/orders?from=2000-01-01&to=2100-01-01', undefined, adm); assert.equal(hist.s, 200);
+  const n = (hist.j.orders || []).length; assert.ok(n > 20, 'sample sales history, got ' + n);
+  const cfg = (await S.J('GET', '/api/r/gizera/config')).j; assert.equal(cfg.items.length, 116);
+});
