@@ -45,3 +45,14 @@ for (const mode of ['ws', 'rpc']) test(`F29 FRÍO showroom [${mode}]`, async (t)
   // a guest can order a customised drink and the price includes the option
   const sess = await S.J('POST', '/api/r/frio/join', { tableNumber: 1, name: 'T' }); assert.ok(sess.s < 500);
 });
+
+// every item has a photo, and an older build of a built-in showroom is rebuilt on the next visit
+for (const mode of ['ws', 'rpc']) test(`F29 showroom photos and rebuild [${mode}]`, async (t) => {
+  const S = await start(mode); t.after(() => S.stop());
+  for (const slug of ['gizera', 'frio']) {
+    assert.equal((await S.J('GET', `/api/prospect/info?slug=${slug}`)).s, 200);
+    const cfg = (await S.J('GET', `/api/r/${slug}/config`)).j;
+    assert.ok(cfg.items.every((i) => /^\/demo\/(photos|gizera)\/[a-z]+\.jpg$/.test(i.img)), slug + ': every item has a photo');
+    for (const i of cfg.items.slice(0, 200)) assert.equal((await fetch(S.base + i.img)).status, 200, i.img);
+  }
+});

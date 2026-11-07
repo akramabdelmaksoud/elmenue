@@ -378,17 +378,21 @@ app.get('/api/demo/qr.png', async (req, res, next) => { try {
 // Branded prospect demo (rec.prospect): a café built for one owner to try, opened without passwords from /p/<slug>. Only flagged cafés; fake data; same denials as the showroom.
 const PROSPECT_NAMES = { captain: 'Captain', kitchen: 'Kitchen', cashier: 'Cashier' };
 // Built-in branded showrooms: created on the first visit (no console login needed), like the main showroom. Add a preset in presets/ and list it here.
-const PRESET_SHOWS = { gizera: { name: 'Gizera Cafe' }, frio: { name: 'FRÍO' } };
-function flagProspect(rec) {
-  rec.prospect = true; rec.showSeed = Date.now(); rec.feat = { carservice: true };
+const PRESET_SHOWS = { gizera: { name: 'Gizera Cafe', v: 2 }, frio: { name: 'FRÍO', v: 2 } };   // bump v after changing a preset: the live demo café is rebuilt once on the next visit
+function flagProspect(rec, v) {
+  rec.prospect = true; rec.presetV = v || 0; rec.showSeed = Date.now(); rec.feat = { carservice: true };
   rec.staff = [['Captain', 'captain'], ['Kitchen', 'kitchen'], ['Cashier', 'cashier']].map(([name, role]) => ({ id: newId('u'), name, role, hash: auth.hash(SHOW_PINS[role]), active: true, createdAt: Date.now() }));
   return rec;
 }
 async function prospectOf(slug) {
   slug = String(slug || '').toLowerCase(); if (!SLUG.test(slug)) return null;
   let t = STATELESS ? await loadFresh(slug) : tenants.get(slug);
+  if (t && t.rec.prospect && PRESET_SHOWS[slug] && (t.rec.presetV || 0) < PRESET_SHOWS[slug].v) {   // older build of this demo: rebuild it with the current preset
+    if (STATELESS) { await store.remove(t.rec.id); await store.clearHist(t.rec.id); } else { t.clients.forEach((c) => c.ws.close()); tenants.delete(slug); await store.remove(t.rec.id); }
+    t = null;
+  }
   if (!t && PRESET_SHOWS[slug]) {
-    const rec = flagProspect(makeRecord({ name: PRESET_SHOWS[slug].name, slug, email: 'demo@elmenu.app', password: auth.randomPassword(), plan: 'vip', demo: true, preset: slug }));
+    const rec = flagProspect(makeRecord({ name: PRESET_SHOWS[slug].name, slug, email: 'demo@elmenu.app', password: auth.randomPassword(), plan: 'vip', demo: true, preset: slug }), PRESET_SHOWS[slug].v);
     if (STATELESS) { await createRecord(rec, true); t = await loadFresh(slug); } else { t = mount(rec); t.seedLive(); store.save(rec); }
   }
   return t && t.rec.prospect ? t : null;
@@ -644,7 +648,7 @@ app.post('/api/super/tenants', needSuper, async (req, res, next) => { try {
   const plan0 = F.PLANS[b.plan] ? b.plan : 'operations';
   if (b.group) { const grp = String(b.group).slice(0, 40), used = (await allTenants()).filter((x) => (x.rec.group || '') === grp).length, c = F.limitCheck('branches', used, plan0); if (!c.ok) return res.status(402).json({ error: `Plan allows ${c.limit} branch(es) in a group`, kind: 'branches', limit: c.limit, used, upgrade: c.upgrade, limits: true }); }
   const rec = makeRecord({ name: b.name, slug, email: b.email, password, plan: plan0, demo: !!b.demo, preset: b.demo && PRESET_SHOWS[b.preset] ? b.preset : undefined });
-  if (rec.data.settings.logo && b.demo && PRESET_SHOWS[b.preset]) flagProspect(rec); else rec.data.settings.name = b.name; if (b.group) rec.group = String(b.group).slice(0, 40); if (b.domain) rec.domain = dom.value;
+  if (rec.data.settings.logo && b.demo && PRESET_SHOWS[b.preset]) flagProspect(rec, PRESET_SHOWS[b.preset].v); else rec.data.settings.name = b.name; if (b.group) rec.group = String(b.group).slice(0, 40); if (b.domain) rec.domain = dom.value;
   if (STATELESS) { if (!(await createRecord(rec, !!b.demo))) return res.status(400).json({ error: 'That slug is taken' }); }
   else { const t = mount(rec); if (b.demo) t.seedLive(); store.save(rec); }
   hostIndex.clear();

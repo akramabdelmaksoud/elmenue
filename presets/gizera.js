@@ -2,6 +2,21 @@
 // so the owner sees his own screens. Used by /api/super/tenants { preset: 'gizera' }.
 const F = require('../features');
 const IMG = '/demo/gizera/';
+const { pick } = require('./photos');
+// item name -> photo key (food keeps the photos cut from the café's own menu)
+const PHOTO = [
+  [/^Mango \/ Guava/, 'mango'], [/^Watermelon/, 'watermelon'], [/^Strawberry with Milk/, 'strawmilk'], [/^Lemon Mint Refresher|^Lemon Mint$/, 'lemonmint'], [/^Lemon$/, 'lemonade'], [/^Kiwi/, 'kiwi'], [/^Avocado$/, 'avocado'],
+  [/^Mango \/ Strawberry/, 'strawberry'], [/^Blueberry|^Mix Berry$|^Yoguy|^Berry Bana/, 'berry'], [/^Pink Lemon/, 'pinksoda'], [/^Blue Strawberry/, 'bluesoda'], [/^Passion Peach|^Iced Passion|Mango Passion/, 'passion'],
+  [/^Crush Fruit/, 'strawberry'], [/^Pina Colada/, 'colada'], [/^Coco Mango/, 'cocomango'], [/^Relax Cocktail|^Sun (Shine|Rise)/, 'sunrise'], [/^Avonutsy/, 'avocado'],
+  [/Mojito/, 'mojito'], [/^Blue (Sky|Ocean)/, 'bluesoda'], [/^Mix Berry Soda/, 'berry'], [/^Vimto/, 'cottoncandy'],
+  [/^Iced Coffee Black/, 'icedcoffee'], [/^Iced Latte|^Spanish Latte/, 'icedlatte'], [/^Iced Caramel/, 'caramelmac'], [/^Frappuccino/, 'frappe'], [/^Mochaccino|Café Mocha/, 'mocha'], [/^Iced Tea/, 'icedtea'],
+  [/^Hot White/, 'whitechoc'], [/^Hot /, 'hotchoc'], [/^(Red|Thermos) Tea/, 'tea'], [/^Green Tea/, 'greentea'], [/^Herbals/, 'herbal'], [/Cider/, 'cider'], [/^Sahlab/, 'sahlab'],
+  [/^Turkish/, 'turkish'], [/^(French|Hazelnut) Coffee/, 'frenchcoffee'], [/^Nescaf/, 'nescafe'], [/^American Coffee/, 'americano'], [/^Cappuccino/, 'cappuccino'], [/Café Latte/, 'latte'], [/^Flat White/, 'flatwhite'], [/^Espresso/, 'espresso'], [/^Macchiato/, 'macchiato'],
+  [/^Classic Shake|^Lotus Shake|^Waffle Shake/, 'shakevanilla'], [/^(Snickers|Nutella) Shake/, 'shakechoc'], [/^Oreo Shake/, 'shakeoreo'], [/^Pistachio Shake/, 'shakepist'], [/^Red Velvet/, 'shakeredvelvet'], [/^Cheesecake Shake/, 'shakestraw'], [/^Passion Fruit Shake/, 'passion'],
+  [/^Cheesecake Slice|^Cheese Madness/, 'cheesecake'], [/^Molten/, 'molten'], [/^Oreo Madness/, 'madness'], [/^Fruit Salad/, 'fruitsalad'], [/^Brownies/, 'brownie'], [/^Fruit Waffle/, 'fruitwaffle'], [/Waffle/, 'waffle'],
+  [/^Pepsi/, 'cola'], [/^Miranda/, 'mirinda'], [/^Fayrouz/, 'lemonsoda'], [/^Red Bull/, 'redbull'],
+];
+
 const categories = [
   { id: 'c1', name: 'Pasta', name_ar: 'باستا', emoji: '🍝', station: 'kitchen' },
   { id: 'c2', name: 'Pizza', name_ar: 'بيتزا', emoji: '🍕', station: 'kitchen' },
@@ -78,9 +93,10 @@ const R = [
 ];
 
 const FOOD = new Set(['c1', 'c2', 'c3', 'c4']);
+const FOODPHOTO = new Set(R.filter((r) => FOOD.has(r[0])).map((r) => r[5]));   // pasta, pizza and sandwiches use the café's own menu photos
 const items = R.map((r, i) => ({
   id: 'i' + (i + 1), cat: r[0], name: r[1], name_ar: r[2], price: r[3], cost: Math.round(r[3] * (FOOD.has(r[0]) ? 0.42 : 0.3)),
-  emoji: r[4], desc: '', prep: r[6], featured: !!r[7], img: IMG + r[5] + '.jpg',
+  emoji: r[4], desc: '', prep: r[6], featured: !!r[7], img: FOODPHOTO.has(r[5]) ? IMG + r[5] + '.jpg' : pick(PHOTO, r[1], IMG + r[5] + '.jpg'),
 }));
 
 const settings = {

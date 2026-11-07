@@ -2,6 +2,15 @@
 // Sizes, milk, flavours and add-ons are real item options (the "options" feature), so the owner sees how customers customise a drink.
 const F = require('../features');
 const IMG = '/demo/frio/';
+const { pick } = require('./photos');
+const PHOTO = [
+  [/^Spanish Latte|^Latte/, 'latte'], [/^Iced Latte/, 'icedlatte'], [/^Iced Mocha|^Ice Caramel|^Caramel Macchiato/, 'caramelmac'], [/^Espresso Red Bull|^Red Bull/, 'redbull'], [/^Espresso/, 'espresso'], [/^Macchiato|^Cortado/, 'macchiato'],
+  [/^Cappuccino/, 'cappuccino'], [/^Flat White/, 'flatwhite'], [/^Mocha/, 'mocha'], [/^Americano/, 'americano'], [/^Matcha|^Iced Matcha/, 'matcha'], [/^Hot Chocolate/, 'hotchoc'], [/^Hot Cider/, 'cider'], [/^Tea$/, 'tea'], [/^Cinnamon Milk/, 'cinnmilk'],
+  [/^Turkish/, 'turkish'], [/French Coffee/, 'frenchcoffee'], [/^Frappuccino/, 'frappe'], [/^Iced Chocolate/, 'shakechoc'], [/^Oreo/, 'shakeoreo'], [/^Milkshake/, 'shakevanilla'], [/^Smoothie/, 'berry'], [/^Sunshine/, 'sunrise'], [/^Cherry Cola/, 'cola'],
+  [/^Iced Tea/, 'icedtea'], [/^Water/, 'water'], [/^Cookies/, 'cookie'], [/^Croissant/, 'croissant'], [/^Granola/, 'granola'], [/^Pasta Salad/, 'pastasalad'], [/^Chicken Salad/, 'chickensalad'], [/^Caesar/, 'caesar'], [/^Greek/, 'greek'], [/^Avocado Salad/, 'avosalad'],
+  [/^Smoked Turkey/, 'baguetteturkey'], [/^Salami/, 'baguettesalami'], [/Baguette/, 'baguette'],
+];
+
 
 const categories = [
   { id: 'c1', name: 'Hot Drinks', name_ar: 'مشروبات ساخنة', emoji: '☕', station: 'bar' },
@@ -84,6 +93,7 @@ const R = [
 
 const items = R.map((r, i) => ({
   id: 'i' + (i + 1), cat: r[0], name: r[1], name_ar: r[2], price: r[3], cost: Math.round(r[3] * 0.3), emoji: r[4], desc: '', prep: r[5], featured: !!r[6],
+  img: pick(PHOTO, r[1], ''),
   ...(r[7].length ? { options: r[7] } : {}),
 }));
 

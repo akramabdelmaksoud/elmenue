@@ -12,6 +12,7 @@ body { background: var(--bg); min-height: 100vh; padding-bottom: 110px; }
 .cat h2 { margin: 18px 0 8px; font-size: 18px; }
 .it { display: flex; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); margin-bottom: 8px; }
 .it .e { font-size: 30px; width: 44px; text-align: center; } .it .i { flex: 1; min-width: 0; } .it b { display: block; } .it small { color: var(--muted); }
+.it .e.ph { width: 68px; flex: none; } .it .e.ph img { width: 68px; height: 68px; object-fit: cover; border-radius: 12px; display: block; background: var(--line); }
 .it.out { opacity: .5; }
 .step { display: flex; align-items: center; gap: 8px; } .step button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: inherit; font-size: 18px; } .step b { min-width: 18px; text-align: center; }
 .bar { position: fixed; bottom: calc(12px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(536px, calc(100% - 24px)); z-index: 20; }
@@ -172,7 +173,7 @@ function render() {
 }
 function row(i, isOpen) {
   const q = qtyOf(i.id), out = i.soldOut || !isOpen;
-  return `<div class="it ${out ? 'out' : ''}"><div class="e">${i.emoji || '🍽️'}</div><div class="i"><b>${App.esc(App.nm(i))}</b>${i.desc ? `<small>${App.esc(i.desc)}</small><br>` : ''}<small>${App.money(i.price)}</small>${Opts.chips(i)}</div>
+  return `<div class="it ${out ? 'out' : ''}"><div class="e ${i.img ? 'ph' : ''}">${i.img ? `<img src="${App.esc(i.img)}" alt="" loading="lazy">` : (i.emoji || '🍽️')}</div><div class="i"><b>${App.esc(App.nm(i))}</b>${i.desc ? `<small>${App.esc(i.desc)}</small><br>` : ''}<small>${App.money(i.price)}</small>${Opts.chips(i)}</div>
   ${out ? `<small>${t('sold')}</small>` : q ? `<div class="step"><button onclick="qty('${i.id}',-1)">−</button><b>${q}</b><button onclick="qty('${i.id}',1)">+</button></div>` : `<button class="ghost" onclick="qty('${i.id}',1)">${t('add')}</button>`}</div>`;
 }
 function setKind(k) { kind = k; render(); if (!panel.hidden) openCart(); }
