@@ -65,7 +65,7 @@ aside button[data-locked="true"]::after { content: ' 🔒'; opacity: .7; }
  </div></div>
 </aside>
 <div class="mainwrap"><div id="rfbar"></div><div class="body"><nav id="subnav" aria-label="Section pages"></nav><main id="main"></main></div></div></div>
-<script src="/vendor/sortable.js"></script><script src="/vendor/chart.js"></script><script src="/shared.js"></script><script src="/itemdlg.js"></script><script src="/office.js"></script><script src="/ar-ui.js"></script>
+<script src="/vendor/sortable.js"></script><script src="/vendor/chart.js"></script><script src="/shared.js"></script><script src="/itemdlg.js"></script><script src="/office.js"></script><script src="/ar-extra.js"></script><script src="/ar-ui.js"></script>
 <script>
 let tab = App.ls('admintab') || 'analytics', cfgKey = '', actCat = null, days = 7, charts = [], A = null;
 const api = (m, u, b) => fetch(u, { method: m, headers: { 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined }).then(r => r.json()).then((r) => { if (m !== 'GET' && !/\/copilot/.test(u) && !(r && r.error)) setTimeout(afterWrite, 0); return r; });

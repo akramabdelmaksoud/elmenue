@@ -126,6 +126,8 @@
     (c.tables || []).forEach(() => {});
     pairs.sort((a, b) => b[0].length - a[0].length); dataMap._c = c; dataMap._m = pairs; return pairs;
   }
+  if (window.AR_EXTRA) for (const k in window.AR_EXTRA) if (EX[k] === undefined) EX[k] = window.AR_EXTRA[k];
+  if (window.AR_RULES) RULES.unshift(...window.AR_RULES);
   function tr(s) {
     if (!s || !LAT.test(s)) return s;
     s = s.replace(/\u00a0/g, ' ');

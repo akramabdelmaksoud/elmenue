@@ -378,7 +378,7 @@ app.get('/api/demo/qr.png', async (req, res, next) => { try {
 // Branded prospect demo (rec.prospect): a café built for one owner to try, opened without passwords from /p/<slug>. Only flagged cafés; fake data; same denials as the showroom.
 const PROSPECT_NAMES = { captain: 'Captain', kitchen: 'Kitchen', cashier: 'Cashier' };
 // Built-in branded showrooms: created on the first visit (no console login needed), like the main showroom. Add a preset in presets/ and list it here.
-const PRESET_SHOWS = { gizera: { name: 'Gizera Cafe', v: 2 }, frio: { name: 'FRÍO', v: 2 } };   // bump v after changing a preset: the live demo café is rebuilt once on the next visit
+const PRESET_SHOWS = { gizera: { name: 'Gizera Cafe', v: 3 }, frio: { name: 'FRÍO', v: 3 } };   // bump v after changing a preset: the live demo café is rebuilt once on the next visit
 function flagProspect(rec, v) {
   rec.prospect = true; rec.presetV = v || 0; rec.showSeed = Date.now(); rec.feat = { carservice: true };
   rec.staff = [['Captain', 'captain'], ['Kitchen', 'kitchen'], ['Cashier', 'cashier']].map(([name, role]) => ({ id: newId('u'), name, role, hash: auth.hash(SHOW_PINS[role]), active: true, createdAt: Date.now() }));

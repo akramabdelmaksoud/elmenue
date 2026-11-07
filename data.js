@@ -80,13 +80,13 @@ settings.floor = { cols: 24, rows: 16, decor: [
   { id: 'd3', type: 'plant', fx: 0, fy: 12, fw: 2, fh: 3, label: '' }, { id: 'd4', type: 'door', fx: 14, fy: 13, fw: 2, fh: 3, label: 'Door' },
 ] };
 
-function buildHistory(menu = items) {
+function buildHistory(menu = items, days = 7) {
   const hist = [];
   const now = Date.now();
   const weights = { 10: 1, 11: 2, 12: 4, 13: 6, 14: 5, 15: 3, 16: 3, 17: 4, 18: 5, 19: 7, 20: 8, 21: 7, 22: 4, 23: 2 };
   const hours = Object.entries(weights).flatMap(([h, w]) => Array(w).fill(+h));
   const payments = ['cash', 'card', 'card', 'cash', 'card'];
-  for (let d = 7; d >= 1; d--) {
+  for (let d = days; d >= 1; d--) {
     const day = new Date(now - d * 86400000); day.setHours(0, 0, 0, 0);
     const weekend = [5, 6].includes(day.getDay());
     tables.forEach((t) => {

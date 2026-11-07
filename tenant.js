@@ -6,7 +6,7 @@ const PRESETS = ['gizera', 'frio'];   // branded prospect showrooms (presets/<na
 function freshData(demo, preset) {
   // demo cafés get the photographed showroom menu (showroom.js); real customers start from the plain seed menu
   const sh = demo && typeof require === 'function' ? (PRESETS.includes(preset) ? require('./presets/' + preset) : require('./showroom')) : null;   // the browser demo has no require: it keeps the plain menu
-  const d = { settings: { ...clone(seed.settings), ...(sh ? clone(sh.settings) : {}) }, categories: clone(sh ? sh.categories : seed.categories), items: clone(sh ? sh.items : seed.items), tables: clone(seed.tables), sessions: {}, history: demo ? seed.buildHistory(sh ? sh.items : undefined) : [] };
+  const d = { settings: { ...clone(seed.settings), ...(sh ? clone(sh.settings) : {}) }, categories: clone(sh ? sh.categories : seed.categories), items: clone(sh ? sh.items : seed.items), tables: clone(seed.tables), sessions: {}, history: demo ? seed.buildHistory(sh ? sh.items : undefined, sh ? 14 : 7) : [] };
   d.itemDaily = {}; d.history.forEach((h) => { const k = new Date(h.closedAt).toISOString().slice(0, 10), m = (d.itemDaily[k] ||= {}); h.items.forEach((l) => (m[l.itemId] = (m[l.itemId] || 0) + l.qty)); });
   return d;
 }
