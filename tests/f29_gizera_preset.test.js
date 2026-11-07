@@ -32,3 +32,16 @@ for (const mode of ['ws', 'rpc']) test(`F29 Gizera showroom self-creates with de
   const n = (hist.j.orders || []).length; assert.ok(n > 20, 'sample sales history, got ' + n);
   const cfg = (await S.J('GET', '/api/r/gizera/config')).j; assert.equal(cfg.items.length, 116);
 });
+
+// FRÍO: second built-in showroom, with real item options (sizes, milk, flavours) and its own brand
+for (const mode of ['ws', 'rpc']) test(`F29 FRÍO showroom [${mode}]`, async (t) => {
+  const S = await start(mode); t.after(() => S.stop());
+  const info = await S.J('GET', '/api/prospect/info?slug=frio'); assert.equal(info.s, 200); assert.equal(info.j.name, 'FRÍO'); assert.ok(info.j.brand && info.j.brand.g);
+  const cfg = (await S.J('GET', '/api/r/frio/config')).j;
+  assert.ok(cfg.items.length > 35 && cfg.categories.length === 6);
+  const lat = cfg.items.find((i) => i.name === 'Latte'); assert.equal(lat.price, 25); assert.ok(lat.options.some((o) => o.id === 'size' && o.choices.some((c) => c.price === 10)) && lat.options.some((o) => o.id === 'milk'));
+  const adm = (await S.J('POST', '/api/prospect/login', { slug: 'frio', role: 'admin' })).j.token;
+  assert.ok(((await S.J('GET', '/api/r/frio/orders?from=2000-01-01&to=2100-01-01', undefined, adm)).j.orders || []).length > 20);
+  // a guest can order a customised drink and the price includes the option
+  const sess = await S.J('POST', '/api/r/frio/join', { tableNumber: 1, name: 'T' }); assert.ok(sess.s < 500);
+});

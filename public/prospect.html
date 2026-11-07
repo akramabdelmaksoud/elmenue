@@ -25,7 +25,7 @@ h1{margin:14px 0 6px;font-size:clamp(26px,5vw,40px);line-height:1.2;color:var(--
 .card p{margin:0;color:var(--muted);font-size:14.5px;flex:1}
 .qr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:8px;width:150px;align-self:center}.qr img{width:100%;display:block}
 .row{display:flex;gap:8px}.row>*{flex:1}
-.how{margin:34px 0 0;background:var(--g);color:#fff;border-radius:22px;padding:22px}.how h2{margin:0 0 8px;font-size:21px}.how ol{margin:0;padding-inline-start:22px;color:#dbe9cf}.how li{margin:4px 0}
+.how{margin:34px 0 0;background:var(--g);color:#fff;border-radius:22px;padding:22px}.how h2{margin:0 0 8px;font-size:21px}.how ol{margin:0;padding-inline-start:22px;color:#f3ead9}.how li{margin:4px 0}
 .foot{margin-top:22px;text-align:center;color:var(--muted);font-size:13.5px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--g);color:#fff;padding:10px 20px;border-radius:99px;opacity:0;transition:.3s;pointer-events:none}.toast.on{opacity:1}
 </style></head>
@@ -70,6 +70,6 @@ function paint() {
 }
 async function copyL(k) { try { await navigator.clipboard.writeText(link(k)); toast(t('copied')); } catch { prompt('', link(k)); } }
 $('lang').onclick = () => { lang = lang === 'ar' ? 'en' : 'ar'; try { localStorage.setItem('plang', lang); } catch {} paint(); };
-(async () => { try { const r = await fetch('/api/prospect/info?slug=' + encodeURIComponent(slug)); if (!r.ok) throw 0; info = await r.json(); tbl = info.freeTables[0] || info.tables[0]; paint(); } catch { $('h1').textContent = lang === 'ar' ? 'الصفحة مش موجودة' : 'Page not found'; } })();
+(async () => { try { const r = await fetch('/api/prospect/info?slug=' + encodeURIComponent(slug)); if (!r.ok) throw 0; info = await r.json(); if (info.brand) { const R = document.documentElement.style, b = info.brand; R.setProperty('--g', b.g); R.setProperty('--bg', b.bg); R.setProperty('--text', b.text); R.setProperty('--muted', b.muted); R.setProperty('--line', b.line); const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = b.g; } tbl = info.freeTables[0] || info.tables[0]; paint(); } catch { $('h1').textContent = lang === 'ar' ? 'الصفحة مش موجودة' : 'Page not found'; } })();
 paint();
 </script></body></html>

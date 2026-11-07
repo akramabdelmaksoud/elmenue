@@ -87,6 +87,7 @@ const settings = {
   name: 'Gizera Cafe', name_ar: 'كافيه الجزيرة', tagline: 'Pasta, pizza, sandwiches & great coffee', tagline_ar: 'باستا، بيتزا، سندوتشات وقهوة تفرق',
   tagline_sub: 'Scan, order from your table, and watch your order live.', tagline_sub_ar: 'امسح الكود واطلب من مكانك وتابع طلبك لحظة بلحظة.',
   logo: IMG + 'logo.png', theme: 'custom', palette: { accent: '#2e7d4f', accent2: '#8bc34a', bg: '#f1f6e6', card: '#ffffff', text: '#12301f' },
+  demoBrand: { g: '#173f2e', bg: '#eef4de', text: '#12301f', muted: '#55705f', line: '#d5e2c0' },
   menuLayout: 'cards', heroImg: '', kitchenStations: 2, tax: 0, service: 0, wifi: 'Gizera_Guest', wifiPass: 'welcome2026', requireKey: false,
   online: F.onlineCfg({ online: { enabled: true, pickup: true, delivery: true } }),
   promos: [
