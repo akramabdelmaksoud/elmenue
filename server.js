@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const QRCode = require('qrcode');
+const { tableQrSvg } = require('./qrstyle');
 const XLSX = require('xlsx');
 const parseSheet = require('./sheetparse');
 const multer = require('multer');
@@ -697,6 +698,14 @@ app.get(`${R}/qr/:n.png`, tenantMw, needAdmin, async (req, res) => {
   const tb = req.tenant.db.tables.find((x) => String(x.number) === req.params.n);
   if (!tb) return res.status(404).end();
   res.type('png').send(await QRCode.toBuffer(`${base}/t/${tb.number}${tb.key ? '?k=' + tb.key : ''}`, { width: 600, margin: 2, color: { dark: '#111111', light: '#ffffff' } }));
+});
+// Designed table QR (rounded dots, glass corners, table badge, side icons, captions) as SVG; the admin turns it into PNG in the browser
+app.get(`${R}/qr/:n.svg`, tenantMw, needAdmin, (req, res) => {
+  const base = String(req.query.base || origin(req) + '/r/' + req.params.slug).replace(/\/$/, '');
+  const tb = req.tenant.db.tables.find((x) => String(x.number) === req.params.n);
+  if (!tb) return res.status(404).end();
+  const cap = (v, d) => (v == null ? d : String(v).replace(/\{n\}/g, tb.number));
+  res.type('image/svg+xml').set('Cache-Control', 'no-store').send(tableQrSvg(`${base}/t/${tb.number}${tb.key ? '?k=' + tb.key : ''}`, { top: cap(req.query.top, 'SCAN TO ORDER'), bottom: cap(req.query.bottom, 'TABLE ' + tb.number + ' · VIEW MENU') }));
 });
 // QR for the parking area: one per numbered spot (or a single general one); opens the guest order page in car mode
 app.get(`${R}/carqr/:n.png`, tenantMw, needAdmin, async (req, res) => {
