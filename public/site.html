@@ -120,6 +120,7 @@ body[dir=rtl] h2,body[dir=rtl] h1{font-family:Cairo,sans-serif;font-weight:700;l
 .yr input:after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.4s var(--ease)}
 .yr input:checked{background:var(--irid);border-color:transparent}.yr input:checked:after{inset-inline-start:23px}
 .sw{display:flex;flex-wrap:wrap;gap:12px 36px;margin-bottom:34px}.sw .yr{margin-bottom:0}
+.ctry{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:999px;margin:0 0 16px;background:rgba(255,255,255,.04)}.ctry button{font:600 14px Inter,Cairo,sans-serif;color:var(--muted);background:none;border:0;padding:9px 18px;border-radius:999px;cursor:pointer}.ctry button.on{color:#1b0f00;background:linear-gradient(135deg,#ffc061,#ff9419)}
 .price .once{display:block;font:400 12.5px var(--mono);color:var(--c4);letter-spacing:.1em;text-transform:uppercase;margin-top:4px}
 .price .svc{font:500 16px Inter,Cairo,sans-serif;letter-spacing:0;color:var(--text);margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}.price .svc em{font-style:normal;color:var(--c1)}
 .cond{margin-top:26px;padding:22px 26px;border-radius:20px;border:1px solid rgba(255,192,97,.45);background:linear-gradient(120deg,rgba(255,192,97,.12),rgba(255,98,0,.08));animation:fade .6s var(--ease)}
@@ -181,7 +182,7 @@ nav .btn{white-space:nowrap}@media(max-width:900px){nav .btn{padding:10px 16px;f
 <div id="ann" hidden></div><canvas id="fx"></canvas><div class="grain"></div><div id="cur"></div><div id="bar"></div>
 <nav id="nav"><div class="wrap"><a class="logo" href="#top"><img class="mk" src="/logo.svg" alt=""><span>Table<b>Tab</b></span></a>
 <div class="links"><a href="#features" data-i="nFeat">Features</a><a href="#new" data-i="nNew">What's new</a><a href="#plans" data-i="nPlans">Plans</a><a href="/build" data-i="nBuild">Build your own</a><a href="#about" data-i="nAbout">About</a><a href="#faq" data-i="nFaq">FAQ</a></div>
-<button class="btn lang" id="lang" onclick="setLang()">عربي</button><a class="btn p mag" id="navDemo" href="#" data-i="tryDemo">Try the demo</a></div></nav>
+<button class="btn lang" id="ctryBtn" onclick="setCountry()" aria-label="Country">EG · EGP</button><button class="btn lang" id="lang" onclick="setLang()">عربي</button><a class="btn p mag" id="navDemo" href="#" data-i="tryDemo">Try the demo</a></div></nav>
 
 <header class="hero" id="top"><div class="wrap">
 <div><div class="tag0 rv"><i></i><span data-i="live">LIVE ON THE FLOOR · 24/7</span></div>
@@ -209,6 +210,7 @@ nav .btn{white-space:nowrap}@media(max-width:900px){nav .btn{padding:10px 16px;f
 <div class="grid" id="newgrid"></div></div></section>
 
 <section class="alt" id="plans"><div class="wrap"><div class="eyebrow rv" data-i="e4">04 / Plans</div><h2 class="rv" data-i="pT">Plans that grow with your place</h2><p class="sub rv" data-i="pS">Monthly pricing in Egyptian pounds. Higher plans include everything in the lower ones.</p>
+<div class="ctry rv" role="group" aria-label="Country"><button type="button" id="c_eg" onclick="setCountry('eg')"><span data-i="cEg">Egypt</span> · EGP</button><button type="button" id="c_ae" onclick="setCountry('ae')"><span data-i="cAe">UAE</span> · AED</button></div>
 <div class="sw rv"><label class="yr"><input type="checkbox" id="yr" onchange="pick('yr')"> <span data-i="yr">Pay yearly, get 2 months free</span></label>
 <label class="yr"><input type="checkbox" id="lf" onchange="pick('lf')"> <span data-i="lf">One lifetime payment + yearly service</span></label></div>
 <div class="plans" id="plangrid"></div>
@@ -261,9 +263,9 @@ var TXT = {
   foot:'QR ordering for cafes and restaurants', priv:'Privacy', terms:'Terms', login:'Venue login', from:'from', mo:'EGP / month', pop:'Most popular', choose:'Talk to us',quote:'Custom quote',yr:'Pay yearly, get 2 months free',yrSave:'billed yearly',
   feat:[['📱','QR menu at every table','Guests scan and see your menu in Arabic or English, with photos, prices and your branding.'],['🧾','Ordering from the table','Guests order and add to the same table together. Orders go straight to staff.'],['🧑‍✈️','Captain screen','A live floor map, new orders with a sound, and table calls with the table number.'],['🍳','Kitchen display','Orders move from pending to cooking to ready, so nothing is forgotten.'],['💳','Cashier and billing','Split bills, cash or card, receipts, and a clean end of day.'],['⭐','Guest reviews','Guests rate quality, portions, price, service and cleanliness after the meal.']],
   newf:[['🛵','Online ordering','Pickup and delivery orders from a link you share. Pay on receipt. Switch it on per venue.'],['📍','Delivery zones','Set distance rings with a fee for each. Guests outside your range cannot order.'],['🔒','On-site ordering lock','Table ordering only works when the guest is actually in your venue, so nobody orders from outside.'],['📊','AI insights','Peaks and quiet hours, items fading, what guests complain about, and how each captain is doing, with plain suggestions.']],
-  plans:[{n:'Starter',f:'QR menu and table ordering for small cafes and restaurants. Orders reach one shared captain screen.',p:600,items:['QR code for every table','Guests order from the table','One shared captain screen','Menu in Arabic and English','Call the waiter requests','Simple admin','Up to 10 tables'],dim:['Kitchen screen','Named staff accounts','Online ordering and insights']},
-   {n:'Operations & Staff POS',f:'The full floor: guests order, staff and kitchen stay in sync.',p:1200,hot:1,items:['Everything in Starter','Captain, kitchen and cashier screens','Online ordering, pickup and delivery','Delivery zones and on-site lock','Guest reviews and AI insights','Offers, coupons and online payment','Up to 30 tables and 10 staff']},
-   {n:'Enterprise VIP & AI',f:'For premium places and groups with more than one branch.',p:2000,items:['Everything in Operations','Loyalty points','Menu photo import and AI assistant','Premium and luxury themes','Gift cards','Up to 3 branches, unlimited tables and staff']},
+  plans:[{n:'Starter',f:'QR menu and table ordering for small cafes and restaurants. Orders reach one shared captain screen.',p:450,items:['QR code for every table','Guests order from the table','One shared captain screen','Menu in Arabic and English','Call the waiter requests','Simple admin','Up to 10 tables'],dim:['Kitchen screen','Named staff accounts','Online ordering and insights']},
+   {n:'Operations & Staff POS',f:'The full floor: guests order, staff and kitchen stay in sync.',p:950,hot:1,items:['Everything in Starter','Captain, kitchen and cashier screens','Online ordering, pickup and delivery','Delivery zones and on-site lock','Guest reviews and AI insights','Offers, coupons and online payment','Up to 30 tables and 10 staff']},
+   {n:'Enterprise VIP & AI',f:'For premium places and groups with more than one branch.',p:1600,items:['Everything in Operations','Loyalty points','Menu photo import and AI assistant','Premium and luxury themes','Gift cards','Up to 3 branches, unlimited tables and staff']},
    {n:'Chain',f:'For groups with many branches or special needs.',custom:1,items:['Everything in VIP','More than 3 branches','Central menu and reports','Priority support and onboarding','Custom integrations on request']}],
   faq:[['Do my guests need to install an app?','No. They scan the QR code and the menu opens in the phone browser.'],['Do you take a cut of my sales?','No. You pay a monthly plan. Guests pay you directly, cash or card, as you do today.'],['What if the internet goes down?','Staff screens keep the latest data and reconnect automatically. Talk to us about your setup.'],['Can I use my own logo and colors?','Yes. Your name, logo and theme appear on every guest screen. Premium themes are on the VIP plan.'],['Is it available in Arabic?','Yes. Every guest and staff screen works in Arabic and English, right to left included.'],['How do I start?','Open the demo, then message us. We set up a pilot with your menu and tables.']] },
  ar: { nFeat:'المميزات', nNew:'الجديد', nPlans:'الباقات', nAbout:'من نحن', nFaq:'أسئلة', tryDemo:'جرّب النسخة التجريبية', seePlans:'شاهد الباقات',
@@ -279,9 +281,9 @@ var TXT = {
   foot:'طلبات QR للكافيهات والمطاعم', priv:'الخصوصية', terms:'الشروط', login:'دخول المكان', from:'من', mo:'جنيه / شهر', pop:'الأكثر طلباً', choose:'كلمنا',quote:'سعر حسب الاتفاق',yr:'ادفع سنوياً واحصل على شهرين مجاناً',yrSave:'تُدفع سنوياً',
   feat:[['📱','منيو QR على كل طاولة','الضيف يمسح ويشوف المنيو بالعربي أو الإنجليزي بالصور والأسعار وهويتك.'],['🧾','الطلب من الطاولة','الضيوف يطلبون ويضيفون على نفس الطاولة معاً، والطلب يروح للفريق مباشرة.'],['🧑‍✈️','شاشة الكابتن','خريطة صالة حية وطلبات جديدة بصوت ونداءات الطاولات برقم الطاولة.'],['🍳','شاشة المطبخ','الطلب يتحرك من منتظر لتحضير لجاهز فلا شيء يتنسى.'],['💳','الكاشير والفواتير','تقسيم الفاتورة وكاش أو كارت وإيصالات وإقفال يوم نظيف.'],['⭐','تقييم الضيوف','الضيف يقيّم الجودة والحجم والسعر والخدمة والنظافة بعد الأكل.']],
   newf:[['🛵','الطلب أونلاين','طلبات استلام وتوصيل من رابط تشاركه. الدفع عند الاستلام. تتفعل لكل مكان.'],['📍','مناطق التوصيل','حدد دوائر مسافة برسوم لكل دائرة. اللي برا النطاق ما يقدرش يطلب.'],['🔒','قفل الطلب داخل المكان','الطلب من الطاولة يشتغل بس لو الضيف فعلاً جوه المكان، فمحدش يطلب من بره.'],['📊','تحليلات بالذكاء الاصطناعي','أوقات الذروة والهدوء والأصناف اللي بتقل وشكاوى الضيوف وأداء كل كابتن مع اقتراحات بسيطة.']],
-  plans:[{n:'ستارتر',f:'منيو QR وطلب من الطاولة للكافيهات والمطاعم الصغيرة. الطلبات تصل لشاشة كابتن واحدة.',p:600,items:['كود QR لكل طاولة','الضيف يطلب من الطاولة','شاشة كابتن واحدة مشتركة','منيو عربي وإنجليزي','طلب نداء الويتر','لوحة تحكم بسيطة','حتى 10 طاولات'],dim:['شاشة المطبخ','حسابات موظفين بأسمائهم','الطلب أونلاين والتحليلات']},
-   {n:'التشغيل الكامل ونقطة البيع',f:'الصالة كاملة: الضيف يطلب والفريق والمطبخ متزامنين.',p:1200,hot:1,items:['كل ما في ستارتر','شاشات الكابتن والمطبخ والكاشير','الطلب أونلاين استلام وتوصيل','مناطق التوصيل وقفل المكان','تقييم الضيوف وتحليلات AI','عروض وكوبونات ودفع أونلاين','حتى 30 طاولة و10 موظفين']},
-   {n:'VIP والذكاء الاصطناعي',f:'للأماكن الفاخرة والمجموعات متعددة الفروع.',p:2000,items:['كل ما في التشغيل','نقاط ولاء','استيراد المنيو من صورة ومساعد AI','ثيمات فاخرة','كروت هدايا','حتى 3 فروع وطاولات وموظفين بلا حد']},
+  plans:[{n:'ستارتر',f:'منيو QR وطلب من الطاولة للكافيهات والمطاعم الصغيرة. الطلبات تصل لشاشة كابتن واحدة.',p:450,items:['كود QR لكل طاولة','الضيف يطلب من الطاولة','شاشة كابتن واحدة مشتركة','منيو عربي وإنجليزي','طلب نداء الويتر','لوحة تحكم بسيطة','حتى 10 طاولات'],dim:['شاشة المطبخ','حسابات موظفين بأسمائهم','الطلب أونلاين والتحليلات']},
+   {n:'التشغيل الكامل ونقطة البيع',f:'الصالة كاملة: الضيف يطلب والفريق والمطبخ متزامنين.',p:950,hot:1,items:['كل ما في ستارتر','شاشات الكابتن والمطبخ والكاشير','الطلب أونلاين استلام وتوصيل','مناطق التوصيل وقفل المكان','تقييم الضيوف وتحليلات AI','عروض وكوبونات ودفع أونلاين','حتى 30 طاولة و10 موظفين']},
+   {n:'VIP والذكاء الاصطناعي',f:'للأماكن الفاخرة والمجموعات متعددة الفروع.',p:1600,items:['كل ما في التشغيل','نقاط ولاء','استيراد المنيو من صورة ومساعد AI','ثيمات فاخرة','كروت هدايا','حتى 3 فروع وطاولات وموظفين بلا حد']},
    {n:'السلاسل',f:'للمجموعات متعددة الفروع أو الاحتياجات الخاصة.',custom:1,items:['كل ما في VIP','أكثر من 3 فروع','منيو وتقارير مركزية','دعم وتجهيز بأولوية','تكاملات خاصة عند الطلب']}],
   faq:[['هل ضيوفي محتاجين يحملوا تطبيق؟','لا. يمسحوا الكود والمنيو يفتح في متصفح الموبايل.'],['هل تاخدوا نسبة من مبيعاتي؟','لا. بتدفع اشتراك شهري. والضيف يدفع لك مباشرة كاش أو كارت زي ما بتعمل دلوقتي.'],['لو النت وقع؟','شاشات الفريق تحتفظ بآخر بيانات وتعيد الاتصال تلقائياً. كلمنا عن تجهيزاتك.'],['ينفع أستخدم لوجو وألوان خاصة بيا؟','أيوه. اسمك ولوجوك وثيمك يظهروا على كل شاشات الضيف. الثيمات الفاخرة في باقة VIP.'],['هل متاح بالعربي؟','أيوه. كل شاشات الضيف والفريق بالعربي والإنجليزي بما فيها الاتجاه من اليمين لليسار.'],['أبدأ إزاي؟','افتح النسخة التجريبية وبعدين ابعتلنا ونجهز تجربة بمنيو وطاولات مكانك.']] }
 };
@@ -296,18 +298,45 @@ var XT = {
   mq:['منيو QR','مطبخ مباشر','تقسيم الفاتورة','خدمة السيارات','نقاط الولاء','الحجوزات','تحليلات AI','عربي · RTL','مناطق التوصيل','كروت الهدايا'] }
 };
 ['en', 'ar'].forEach(function (l) { for (var k in XT[l]) TXT[l][k] = XT[l][k]; });
+TXT.en.cEg = 'Egypt'; TXT.ar.cEg = 'مصر'; TXT.en.cAe = 'UAE'; TXT.ar.cAe = 'الإمارات';
 TXT.en.nBuild = 'Build your own'; TXT.ar.nBuild = 'ابنِ باقتك';
 TXT.en.bT = 'Need something in between?'; TXT.ar.bT = 'تحتاج شيئاً بين الباقات؟';
 TXT.en.bS = 'Start from any plan and add only the features you want. See the price of each one and your total before you ask us.'; TXT.ar.bS = 'ابدأ من أي باقة وأضف المزايا التي تريدها فقط. سترى سعر كل ميزة وإجماليك قبل أن تتواصل معنا.';
 TXT.en.bGo = 'Build your own bundle'; TXT.ar.bGo = 'ابنِ باقتك بنفسك';
 var YR_M = 10, ANN = null;
+// Country price lists. Egypt prices live in TXT.plans (and can be overridden from the super admin); UAE prices are here, in AED, excluding 5% VAT.
+var CT = {
+  eg: { cur: 'EGP', cur_ar: 'جنيه', label: 'EG · EGP', label_ar: 'مصر · جنيه' },
+  ae: { cur: 'AED', cur_ar: 'درهم', label: 'UAE · AED', label_ar: 'الإمارات · درهم', plans: [149, 299, 499],
+    en: { pS: 'Pricing in UAE dirhams (AED) per month, excluding 5% VAT. Every plan includes ordering from the table. Higher plans include everything in the lower ones.', pNote: 'Prices start from the amounts shown, exclude 5% VAT and card processing fees, and depend on your size. Talk to us for an exact quote. Pilot venues get help with setup.', aP2: 'We are a small team, and every pilot venue talks to the people who build the product. If something does not fit your floor, we change it.', cfPlan: 'I am interested in the {p} plan{m} (UAE, AED).' },
+    ar: { pS: 'الأسعار بالدرهم الإماراتي شهرياً، ولا تشمل ضريبة القيمة المضافة 5%. كل الباقات تشمل الطلب من الطاولة. الباقة الأعلى تشمل كل ما في الأقل.', pNote: 'الأسعار تبدأ من المبالغ المعروضة، ولا تشمل ضريبة القيمة المضافة 5% ولا رسوم معالجة البطاقات، وتختلف حسب حجم المكان. تواصل معنا لعرض سعر دقيق. الأماكن التجريبية نساعدها في الإعداد.', aP2: 'نحن فريق صغير، وكل مكان تجريبي يتواصل مع الأشخاص الذين يبنون المنتج. إذا ما ناسب شي صالتك نعدله.', cfPlan: 'أنا مهتم بباقة {p}{m} (الإمارات، درهم).', foot: 'طلبات QR للكافيهات والمطاعم',
+      faq: [['هل ضيوفي يحتاجون تحميل تطبيق؟', 'لا. يمسحون الكود والمنيو يفتح في متصفح الجوال.'], ['هل تاخذون نسبة من مبيعاتي؟', 'لا. تدفع اشتراك شهري. والضيف يدفع لك مباشرة كاش أو بطاقة مثل ما تسوي الحين.'], ['لو انقطع النت؟', 'شاشات الفريق تحتفظ بآخر البيانات وتعيد الاتصال تلقائياً. كلمنا عن تجهيزاتك.'], ['أقدر أستخدم شعاري وألواني؟', 'أكيد. اسمك وشعارك وثيمك يظهرون في كل شاشات الضيف. الثيمات الفاخرة في باقة VIP.'], ['هل متوفر بالعربي؟', 'أكيد. كل شاشات الضيف والفريق بالعربي والإنجليزي بما فيها الاتجاه من اليمين لليسار.'], ['كيف أبدأ؟', 'افتح النسخة التجريبية وبعدها راسلنا ونجهز لك تجربة بمنيو وطاولات مكانك.']] } }
+};
+var country = 'eg';
+try { country = localStorage.getItem('tt:country') || ((Intl.DateTimeFormat().resolvedOptions().timeZone || '') === 'Asia/Dubai' ? 'ae' : 'eg'); } catch (e) {}
+if (!CT[country]) country = 'eg';
+try { var qc = new URLSearchParams(location.search).get('c'); if (qc && CT[qc]) country = qc; } catch (e) {}
+// the page text for the chosen country: currency words swapped, UAE copy and prices laid over the Egypt text
+function loc(l) {
+  var T = TXT[l]; if (country === 'eg') return T;
+  var C = CT[country], o = {}, k; for (k in T) o[k] = typeof T[k] === 'string' ? T[k].replace(/EGP/g, C.cur).replace(/جنيه/g, C.cur_ar) : T[k];
+  var ov = C[l] || {}; for (k in ov) o[k] = ov[k];
+  o.plans = T.plans.map(function (p, i) { var q = {}; for (var j in p) q[j] = p[j]; if (C.plans[i]) q.p = C.plans[i]; return q; });
+  return o;
+}
+function setCountry(c) {
+  country = c && CT[c] ? c : (country === 'ae' ? 'eg' : 'ae');
+  try { localStorage.setItem('tt:country', country); } catch (e) {}
+  render();
+}
 
 var MODE = 'month', lang = 'en'; try { lang = localStorage.getItem('tt:lang') || (/^ar/i.test(navigator.language) ? 'ar' : 'en'); } catch (e) {}
 var seen = {};   // grids that already played their entrance, so switching language or billing does not replay it
 function pick(w) { var y = document.getElementById('yr'), l = document.getElementById('lf'); if (w === 'yr' && y.checked) l.checked = false; if (w === 'lf' && l.checked) y.checked = false; MODE = l.checked ? 'life' : y.checked ? 'year' : 'month'; render(); }
 function render() {
-  var T = TXT[lang]; document.documentElement.lang = lang; document.body.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  var T = loc(lang); document.documentElement.lang = lang; document.body.dir = lang === 'ar' ? 'rtl' : 'ltr';
   document.querySelectorAll('[data-i]').forEach(function (el) { var v = T[el.dataset.i]; if (v != null && typeof v === 'string') el.innerHTML = v; });
+  document.getElementById('ctryBtn').textContent = lang === 'ar' ? CT[country].label_ar : CT[country].label; ['eg', 'ae'].forEach(function (c) { document.getElementById('c_' + c).className = c === country ? 'on' : ''; });
   document.getElementById('lang').textContent = lang === 'ar' ? 'English' : 'عربي';
   var cls = function (id, i) { return 'rv' + (seen[id] ? ' in' : '') + '" style="--i:' + (i % 4); };
   var card = function (id) { return function (a, i) { return '<div class="card ' + cls(id, i) + '"><span class="no">' + ('0' + (i + 1)).slice(-2) + '</span><div class="ic">' + a[0] + '</div><h3>' + a[1] + '</h3><p>' + a[2] + '</p></div>'; }; };
@@ -321,18 +350,19 @@ function render() {
   }).join('');
   document.getElementById('faqs').innerHTML = T.faq.map(function (q, i) { return '<details class="' + cls('faqs', i) + '"><summary>' + q[0] + '</summary><p>' + q[1] + '</p></details>'; }).join('');
   var m = T.mq.concat(T.mq).concat(T.mq).concat(T.mq).map(function (w) { return '<span>' + w + '</span>'; }).join(''); document.getElementById('mq').innerHTML = m;
-  ['navDemo', 'heroDemo', 'finalDemo'].forEach(function (id) { document.getElementById(id).href = DEMO_URL; });
+  ['navDemo', 'heroDemo', 'finalDemo'].forEach(function (id) { document.getElementById(id).href = country === 'ae' ? '/p/dune' : DEMO_URL; });
+  document.querySelectorAll('a[href^="/build"]').forEach(function (a) { a.href = '/build?c=' + country; });
   document.getElementById('cond').hidden = MODE !== 'life';
   document.getElementById('mail').href = '#contact'; document.getElementById('mail').onclick = function () { return openContact(); }; document.getElementById('appLink').href = APP_URL;
   watch();
 }
 function priceBox(p, T) {
   var n = function (v) { return Math.round(v).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US'); };
-  if (MODE === 'life') return '<div class="price"><small>' + T.from + '</small><br>' + n(p.p * LIFE_X) + ' <small>EGP</small><span class="once">' + T.once + '</span><div class="svc">' + T.svc.replace('{n}', '<em>' + n(p.p * SVC_X) + '</em>') + '</div></div>';
+  if (MODE === 'life') return '<div class="price"><small>' + T.from + '</small><br>' + n(p.p * LIFE_X) + ' <small>' + CT[country].cur + '</small><span class="once">' + T.once + '</span><div class="svc">' + T.svc.replace('{n}', '<em>' + n(p.p * SVC_X) + '</em>') + '</div></div>';
   return '<div class="price"><small>' + T.from + '</small><br>' + n(MODE === 'year' ? p.p * YR_M / 12 : p.p) + ' <small>' + T.mo + '</small>' + (MODE === 'year' ? '<div style="font:400 12.5px var(--mono);color:var(--ok);margin-top:4px">' + T.yrSave + '</div>' : '') + '</div>';
 }
 function openContact(i) {
-  var T = TXT[lang], m = document.getElementById('cm'), md = MODE === 'life' ? ' (' + T.lf + ')' : MODE === 'year' ? ' (' + T.cfYr + ')' : '';
+  var T = loc(lang), m = document.getElementById('cm'), md = MODE === 'life' ? ' (' + T.lf + ')' : MODE === 'year' ? ' (' + T.cfYr + ')' : '';
   if (i != null && T.plans[i] && !m.value) m.value = T.cfPlan.replace('{p}', T.plans[i].n).replace('{m}', md);
   document.getElementById('cmsg').textContent = ''; document.getElementById('mdl').classList.add('on'); document.body.style.overflow = 'hidden'; setTimeout(function () { document.getElementById('cn').focus(); }, 60); return false;
 }
