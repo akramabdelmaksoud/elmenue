@@ -479,7 +479,7 @@ document.addEventListener('focusout', () => { if (dirty) setTimeout(() => draw(f
 
 /* ---------------- spec features: tiers, landing, micro-services, grace window, loyalty ---------------- */
 const can = (k) => { const f = (S && S.config && S.config.features) || (App.config && App.config.features); return !f || f[k] !== false; };
-const LANG_NAMES = { en: 'English', ar: 'عامية مصرية', fr: 'Franco' };
+const LANG_NAMES = { en: 'English', get ar() { return App.config && App.config.settings.dialect === 'gulf' ? 'العربية' : 'عامية مصرية'; }, fr: 'Franco' };
 const MICRO = [['water', '💧', 'water'], ['napkins', '🧻', 'napkins'], ['cutlery', '🍴', 'cutlery'], ['waiter', '🛎️', 'callWaiter']];
 const microHTML = (s) => MICRO.map(([t, e, k]) => `<button class="rp ${s.requests.some((r) => !r.done && r.type === t) ? 'sent' : ''}" onclick="req('${t}')"><b>${e}</b>${App.tr(k)}</button>`).join('');
 function setLang(l, ev) { App.transition(() => { App.ls('lang', l); App.applyTheme(); draw(true); }, ev); }

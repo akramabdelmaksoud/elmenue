@@ -2,7 +2,7 @@ const seed = require('./data');
 const F = require('./features');
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
-const PRESETS = ['gizera', 'frio'];   // branded prospect showrooms (presets/<name>.js)
+const PRESETS = ['gizera', 'frio', 'dune', 'sufra'];   // branded prospect showrooms (presets/<name>.js)
 function freshData(demo, preset) {
   // demo cafés get the photographed showroom menu (showroom.js); real customers start from the plain seed menu
   const sh = demo && typeof require === 'function' ? (PRESETS.includes(preset) ? require('./presets/' + preset) : require('./showroom')) : null;   // the browser demo has no require: it keeps the plain menu

@@ -378,7 +378,7 @@ app.get('/api/demo/qr.png', async (req, res, next) => { try {
 // Branded prospect demo (rec.prospect): a café built for one owner to try, opened without passwords from /p/<slug>. Only flagged cafés; fake data; same denials as the showroom.
 const PROSPECT_NAMES = { captain: 'Captain', kitchen: 'Kitchen', cashier: 'Cashier' };
 // Built-in branded showrooms: created on the first visit (no console login needed), like the main showroom. Add a preset in presets/ and list it here.
-const PRESET_SHOWS = { gizera: { name: 'Gizera Cafe', v: 3 }, frio: { name: 'FRÍO', v: 3 } };   // bump v after changing a preset: the live demo café is rebuilt once on the next visit
+const PRESET_SHOWS = { gizera: { name: 'Gizera Cafe', v: 3 }, frio: { name: 'FRÍO', v: 3 }, dune: { name: 'Dune Coffee House', v: 1 }, sufra: { name: 'Sufra Restaurant', v: 1 } };   // bump v after changing a preset: the live demo café is rebuilt once on the next visit
 function flagProspect(rec, v) {
   rec.prospect = true; rec.presetV = v || 0; rec.showSeed = Date.now(); rec.feat = { carservice: true };
   rec.staff = [['Captain', 'captain'], ['Kitchen', 'kitchen'], ['Cashier', 'cashier']].map(([name, role]) => ({ id: newId('u'), name, role, hash: auth.hash(SHOW_PINS[role]), active: true, createdAt: Date.now() }));
@@ -401,7 +401,7 @@ const prospectLimit = rateLimit({ windowMs: 600000, max: 120, message: 'Too many
 app.get('/api/prospect/info', prospectLimit, async (req, res, next) => { try {
   const t = await prospectOf(req.query.slug); if (!t) return res.status(404).json({ error: 'not found' });
   const s = t.db.settings, free = t.db.tables.filter((x) => !t.db.sessions[x.id]).map((x) => x.number);
-  res.json({ slug: t.rec.slug, name: s.name, name_ar: s.name_ar, logo: s.logo, palette: s.palette, brand: s.demoBrand || null, tables: t.db.tables.map((x) => x.number), freeTables: free, origin: origin(req) });
+  res.json({ slug: t.rec.slug, name: s.name, name_ar: s.name_ar, logo: s.logo, palette: s.palette, brand: s.demoBrand || null, dialect: s.dialect || '', tables: t.db.tables.map((x) => x.number), freeTables: free, origin: origin(req) });
 } catch (e) { next(e); } });
 app.post('/api/prospect/login', prospectLimit, async (req, res, next) => { try {
   const t = await prospectOf(req.body && req.body.slug); if (!t) return res.status(404).json({ error: 'not found' });

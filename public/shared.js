@@ -98,7 +98,7 @@ const App = {
   nm(o) { return App.lang === 'ar' && o.name_ar ? o.name_ar : o.name; },
   opt(o) { return (App.lang === 'ar' && o.opt_ar ? o.opt_ar : o.opt) || ''; },   // chosen options on an order line, e.g. "Large · Oat milk"
   // numbers always use Western digits (0-9), even in Arabic; only the words are Arabic
-  money(n) { const cur = App.config ? App.config.settings.currency : ''; return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' ' + (App.lang === 'ar' && cur === 'EGP' ? 'ج.م' : cur); },
+  money(n) { const cur = App.config ? App.config.settings.currency : ''; return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' ' + (App.lang === 'ar' ? ({ EGP: 'ج.م', AED: 'د.إ', SAR: 'ر.س', QAR: 'ر.ق', KWD: 'د.ك' }[cur] || cur) : cur); },
   esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); },
   // 80mm thermal-style receipt; r = {label, kind, customer, at, items[{name,qty,price}], gross, discount, discountNote, service, tax, tip, total, method, pay, by}
   receiptHTML(r) {
@@ -173,6 +173,7 @@ const App = {
   isDark() { return document.documentElement.dataset.dark === '1'; },
   applyTheme() {
     const s = (App.config && App.config.settings) || { theme: 'bloom', lang: 'en' };
+    if (App.i18nApply && s.dialect) App.i18nApply();
     App.lang = App.ls('lang') || s.lang || 'en';
     if (App.langs && !App.langs().includes(App.lang)) App.lang = App.langs()[0];
     let mode = App.ls('mode');
@@ -260,7 +261,7 @@ const App = {
   },
   toggleMode(ev) { const sk = App.skinChoice(); if (sk !== 'default') return App.setSkin(sk === 'maison-dark' ? 'maison-light' : 'maison-dark', ev); App.transition(() => { App.ls('mode', App.isDark() ? 'light' : 'dark'); App.applyTheme(); App.handlers.render && App.handlers.render(); }, ev); },
   // en -> Egyptian Ammiya (ar) -> Franco (fr); the Basic plan has a single language (the café's default)
-  langs() { const f = App.config && App.config.features, def = (App.config && App.config.settings.lang) || 'en'; return f && f.trilingual === false ? [def] : ['en', 'ar', 'fr']; },
+  langs() { const st = App.config && App.config.settings; if (st && Array.isArray(st.langs) && st.langs.length) return st.langs; const f = App.config && App.config.features, def = (App.config && App.config.settings.lang) || 'en'; return f && f.trilingual === false ? [def] : ['en', 'ar', 'fr']; },
   nextLang() { const l = App.langs(), i = l.indexOf(App.lang); return l[(i + 1) % l.length]; },
   langLabel(code) { return { en: 'EN', ar: 'عربي', fr: 'Franco' }[code] || code; },
   toggleLang(ev) { if (App.langs().length < 2) return; App.transition(() => { App.ls('lang', App.nextLang()); App.applyTheme(); App.handlers.render && App.handlers.render(); }, ev); },

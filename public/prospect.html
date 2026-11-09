@@ -48,9 +48,17 @@ const T = {
     table: 'Table', open: 'Open', copy: 'Copy link', copied: 'Link copied ✓', hw: 'Try it in this order',
     s: ['On your phone open “Guest” and order a few items.', 'Open “Kitchen” on a laptop: the order arrives split between kitchen and bar.', 'Open “Waiter” and “Cashier” and take the order through to the bill.', 'Open “Owner” and look at the sales and reports.'],
     foot: 'All data here is demo data. The menu and prices come from the café’s real menu.' } };
+// Gulf wording and a generic "demo venue" text, used by the UAE showrooms (info.dialect === 'gulf')
+const G = {
+  ar: { lead: 'هذا مكان تجريبي على TableTab بمنيو وأسعار على مستوى السوق الإماراتي. افتح كل شاشة على جهاز مختلف وشوف الطلب يتحرك من الضيف للمطبخ للكاشير مباشرة.', live: 'تجربة مباشرة · بدون رقم سري',
+    guest: ['الضيف', 'جوال · يمسح رمز الطاولة', 'يتصفح المنيو بصور الأكل ويطلب من مكانه.'], waiter: ['الكابتن', 'تابلت / جوال · الصالة', 'يستلم الطلبات ويتابع الطاولات.'], kitchen: ['المطبخ', 'لابتوب / شاشة', 'تذاكر مباشرة مقسّمة بين المطبخ والبار.'], cashier: ['الكاشير', 'جهاز الكاشير', 'الحساب والدفع وإقفال الطاولة.'], owner: ['المالك', 'لابتوب · لوحة التحكم', 'المبيعات والتقارير والمنيو والفريق.'], order: ['اطلب أونلاين', 'جوال · استلام وتوصيل', 'نفس المنيو للطلبات الخارجية.'],
+    hw: 'جرّب بهذا الترتيب', s: ['من جوالك افتح «الضيف» واطلب كم صنف من المنيو.', 'افتح «المطبخ» على لابتوب: بتلقى الطلب وصل ومقسّم بين المطبخ والبار.', 'افتح «الكابتن» و«الكاشير» وكمّل الطلب لين الحساب.', 'افتح «المالك» وشوف المبيعات والتقارير.'],
+    foot: 'كل البيانات هنا تجريبية، والأسعار تقريبية حسب السوق.' },
+  en: { lead: 'This is a demo venue on TableTab with a menu and prices at UAE market levels. Open each screen on a different device and watch an order move from the guest to the kitchen to the cashier, live.', foot: 'All data here is demo data. Prices are typical UAE market levels.' },
+};
 const slug = (location.pathname.match(/^\/p\/([^/?#]+)/) || [])[1] || '';
 let lang = (() => { try { return localStorage.getItem('plang') === 'en' ? 'en' : 'ar'; } catch { return 'ar'; } })(), info = null, tbl = null;
-const $ = (id) => document.getElementById(id), t = (k) => T[lang][k];
+const $ = (id) => document.getElementById(id), t = (k) => (info && info.dialect === 'gulf' && G[lang] && G[lang][k]) || T[lang][k];
 const link = (k) => info.origin + (k === 'guest' ? `/r/${info.slug}/t/${tbl}` : k === 'order' ? `/r/${info.slug}/order` : `/r/${info.slug}/${{ waiter: 'captain', kitchen: 'kitchen', cashier: 'cashier', owner: 'admin' }[k]}?auto=1`);
 const qr = (u) => `/api/demo/qr.png?u=${encodeURIComponent(u)}`;
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

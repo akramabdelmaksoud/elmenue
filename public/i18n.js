@@ -89,7 +89,30 @@
     loyaltyPts: 'no2ta', loyaltyEarn: 'Kol {n} geneh = no2ta', loyaltyWorth: '{p} no2ta = 5asm {v}', loyaltyUse: 'Est5dem no2aty', loyaltyApplied: '5asm el no2at', loyaltyRemove: 'Sheel', loyaltyNotMe: 'Mesh ana', loyaltyBad: 'Ekteb raqam mobile masry sa7', loyaltyVisits: 'ziyara', loyaltyHi: 'Nawwarna tany', loyaltyPay: 'no2at hast5demha',
     upgrade: 'Mota7 fi ba2a a3la',
   };
-  window.I18N = { EN, AR, FR };
-  const apply = () => { DICT.fr = DICT.fr || {}; Object.assign(DICT.en, EN); Object.assign(DICT.ar, AR); Object.assign(DICT.fr, FR); };
+  // Gulf (Khaleeji) wording, switched on per café with settings.dialect = 'gulf' (used by the UAE showrooms). Only the guest-facing strings that differ from the Egyptian ones.
+  const GULF = {
+    youPayAll: 'إنت اللي راح تحاسب عن الطاولة كلها', paysAll: 'راح يحاسب عن الطاولة كلها', nothingToPay: 'ما عليك شي تدفعه.', sendAll: 'أرسل طلبات الكل بعد', send: 'أرسل للمطبخ',
+    add: 'أضف', welcome: 'حياك الله', pickName: 'شو اسمك؟', pickAvatar: 'اختر صورتك', yourCart: 'سلتك (ما انرسلت للحين)', empty: 'ما في شي هني للحين',
+    payMine: 'بدفع حسابي بس', payTable: 'بدفع عن الطاولة كلها', card: 'بطاقة', reqBill: 'أبي الحساب', urgent: 'استعجل الطلب', note: 'ملاحظة (إذا تبي)',
+    sent: 'انرسل', received: 'انستلم', served: 'انقدّم', closed: 'انقفل', checkSent: 'طلبت الحساب — الويتر جايك', perPerson: 'للشخص',
+    sessionEnded: 'الجلسة انتهت. امسح الرمز مرة ثانية عشان تبدأ من جديد.', requestSent: 'وصل طلبك!', addToCart: 'انضاف للسلة', orderSent: 'طلبك وصل المطبخ',
+    dayItem: 'طبق اليوم', viewDetails: 'أضف للطاولة', popular: 'الأكثر طلباً', orderNow: 'اطلب الحين', seeAll: 'شوف الكل', search: 'دوّر في المنيو…',
+    menuTitle: 'منيونا', menuSub: 'طازج ويتحضّر على الطلب. اطلبوا مع بعض وقسّموا الحساب.', hello: 'هلا', dark: 'داكن', callQ: 'ناد الويتر', billQ: 'أبي الحساب',
+    statusReceived: 'انستلم', statusKitchen: 'يتحضّر', statusServed: 'انقدّم', nothingFound: 'ما لقينا شي', guests: 'أشخاص', cartEmpty: 'السلة فاضية - اختر شي حلو!',
+    tapToAdd: 'اضغط + عشان تضيف للطاولة', sendFor: 'أرسل اختياراتي', hostYou: 'إنت مسؤول الطاولة. تقدر تعطي الدور لأي أحد جالس معاك:', hostOther: 'مسؤول الطاولة هو اللي يتابعها، والويتر يشوف اسمه.', hostConfirm: 'خله هو المسؤول',
+    addLbl: 'أضف', welcomeTo: 'حياك الله في', howTitle: 'كيف تطلب', step1: 'اختر أكلك', step1s: 'اضغط + عند أي شي يعجبك', step2s: 'غيّر الكميات أو اكتب ملاحظة', step3: 'أرسل للمطبخ', step3s: 'نحضّره ونوصله لين الطاولة',
+    sendNow: 'أرسل للمطبخ', soldSorry: 'عذراً، الصنف هذا خلص الحين', scanTitle: 'امسح رمز QR اللي على الطاولة', scanSub: 'لأمانك، الطلب يفتح بس من الرمز المطبوع على الطاولة. صوّره بكاميرا جوالك.',
+    rateTitle: 'كيف كانت زيارتك؟', rateClean: 'نظافة المكان', rateSub: 'اضغط على نجمة - ما ياخذ منك ثواني', rateNote: 'شي نقدر نسويه أحسن؟ (إذا تبي)', rateSend: 'أرسل', rateThanks: 'مشكور! 💛', rateThanksSub: 'رأيك يساعدنا نخدمك أحسن.',
+    wifiPass: 'الرقم السري', tapCopy: 'اضغط للنسخ', copied: 'اننسخ', partyQ: 'كم شخص جالسين على الطاولة؟', partySub: 'عشان المطبخ والويتر يجهّزون لكم صح.', partyN: 'أشخاص', partyOne: 'أنا بروحي', langName: 'العربية',
+    reviewSub: 'تأكد من كل شي قبل لا يوصل الطلب للويتر.', addMore: '+ أضف أصناف ثانية', pendingTitle: 'ننتظر الويتر', pendingBanner: 'تقدر تعدّل أو تلغي أي صنف إلى أن يدخل الويتر طلبك المطبخ.', lockedBanner: 'طلبك دخل المطبخ، إذا تبي تغيّر شي ناد الويتر.',
+    payOnTitle: 'ادفع بالبطاقة أو المحفظة', payOnPaid: 'تم الدفع أونلاين', payOnErr: 'ما قدرنا نبدأ الدفع - ادفع عند الطاولة.', offlineNote: 'ما في اتصال - ما راح يرسل شي لين يرجع النت.',
+    cpnPh: 'عندك كود خصم؟', cpnRemove: 'إزالة', cpnApplied: 'انطبق', upTitle: 'تبي تضيف شي؟', ratePrivate: 'شكراً - رأيك يوصل للإدارة بشكل خاص.', rateGoogleNote: 'اختياري - إذا تبي بس.', rateGoogle: 'شاركنا تجربتك على قوقل',
+    etaIn: 'يكون جاهز خلال حوالي', etaSoon: 'نقدّمه الحين - لحظات', etaLate: 'شوي زيادة - أطباقك تستاهل', etaWait: 'المطبخ بيأكد قريب', etaCook: 'الشيف يحضّر طلبك الحين', etaDone: 'تم التقديم - بالعافية',
+    cancelAsk: 'تلغي هذا الطلب؟', statusPending: 'بانتظار المراجعة', water: 'ماي', napkins: 'محارم', microTitle: 'تحتاج شي؟', microSent: 'جايك الحين!', viewOnly: 'تصفّح المنيو هني وبعدين قل للويتر وش تبي.',
+    loyaltySub: 'اجمع نقاط مع كل زيارة واستخدمها في حسابك.', phone: 'رقم الجوال', yourNameOpt: 'اسمك (إذا تبي)', loyaltyJoin: 'اشترك برقم جوالك', loyaltyEarn: 'كل {n} درهم = نقطة', loyaltyUse: 'استخدم نقاطي', loyaltyApplied: 'خصم النقاط', loyaltyRemove: 'إزالة',
+    loyaltyNotMe: 'مو أنا', loyaltyBad: 'اكتب رقم جوال صحيح', loyaltyHi: 'هلا فيك من جديد', loyaltyPay: 'نقاط للاستخدام',
+  };
+  window.I18N = { EN, AR, FR, GULF };
+  const apply = () => { DICT.fr = DICT.fr || {}; Object.assign(DICT.en, EN); Object.assign(DICT.ar, AR); Object.assign(DICT.fr, FR); if (App.config && App.config.settings && App.config.settings.dialect === 'gulf') Object.assign(DICT.ar, GULF); };
   App.i18nApply = apply; apply();
 })();

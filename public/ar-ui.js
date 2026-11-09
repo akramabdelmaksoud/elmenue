@@ -128,7 +128,11 @@
   }
   if (window.AR_EXTRA) for (const k in window.AR_EXTRA) if (EX[k] === undefined) EX[k] = window.AR_EXTRA[k];
   if (window.AR_RULES) RULES.unshift(...window.AR_RULES);
-  function tr(s) {
+  const GULF_WORDS = window.AR_GULF || [];
+  const gulf = (t) => { let o = t; for (const [re, f] of GULF_WORDS) o = o.replace(re, f); return o; };
+  const isGulf = () => !!(App.config && App.config.settings && App.config.settings.dialect === 'gulf');
+  function tr(s) { const o = tr0(s); return o !== s && isGulf() ? gulf(o) : o; }
+  function tr0(s) {
     if (!s || !LAT.test(s)) return s;
     s = s.replace(/\u00a0/g, ' ');
     const pre = (s.match(SYM_PRE) || [''])[0], rest = s.slice(pre.length), post = (rest.match(SYM_POST) || [''])[0], core = post ? rest.slice(0, rest.length - post.length) : rest;
