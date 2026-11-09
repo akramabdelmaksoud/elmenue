@@ -26,6 +26,7 @@ function createTenant(rec, persist, onAlert) {
   // what each kind of screen may read from the settings: no AI notes or fiscal setup for guests and floor staff, no wifi password or payment details for the open web
   const settingsFor = (role, open) => {
     const s = db.settings; if (role === 'admin') return s;
+    if (role === 'manager') { const o = { ...s }; delete o.ai; delete o.instapay; if (o.eta) o.eta = { enabled: !!o.eta.enabled }; if (o.onlinePay) o.onlinePay = { enabled: !!o.onlinePay.enabled }; return o; }   // branch / operations managers see the settings without payment details or AI notes
     const o = { ...s }; delete o.ai; if (o.eta) o.eta = { enabled: !!o.eta.enabled }; if (o.fb) o.fb = { enabled: !!o.fb.enabled }; if (o.onlinePay) o.onlinePay = { enabled: !!o.onlinePay.enabled };
     if (open) { delete o.wifiPass; delete o.instapay; }
     return o;
@@ -330,7 +331,7 @@ const upDay = () => { const k = new Date().toISOString().slice(0, 10); return ((
 const upOn = () => F.has(rec, 'upsell') && db.settings.upsell && db.settings.upsell.enabled;
 function snapshotFor(c) {
   // the Google review link is only ever handed out by the feedback endpoint (4-5 stars), never inside the public config
-  const pubSettings = settingsFor(c.role, false);
+  const pubSettings = settingsFor(c.role === 'admin' && c.mgr ? 'manager' : c.role, false);
   const config = { best: bestSellers(), settings: pubSettings, categories: db.categories, items: c.role === 'customer' ? db.items.map(({ cost, recipe, ...i }) => i) : db.items, tables: c.role === 'admin' ? db.tables : db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec), plan: F.planOf(rec.plan) };
   if (c.role !== 'customer') { config.reservations = (db.reservations || []).filter((r) => r.at > Date.now() - 3 * 3600000 && r.status !== 'declined'); config.waitlist = db.waitlist || []; }
   if (c.role === 'customer') {

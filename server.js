@@ -15,6 +15,7 @@ const PAY = require('./payments');
 const ETA = require('./eta');
 const { createTenant, freshData } = require('./tenant');
 const F = require('./features');
+const ROLES = require('./roles');
 const INS = require('./insights');
 const REPORT = require('./report');
 const CHAIN = require('./chain');
@@ -114,12 +115,22 @@ async function bootstrap() {
 
 // ---------- Auth helpers ----------
 const bearer = (req) => (req.headers.authorization || '').replace(/^Bearer /, '') || req.query.token;
-function needAdmin(req, res, next) {
+// An account of the team (branch manager, operations manager) only counts while it exists, is active and has not had its password reset since the token was issued
+const teamAlive = (rec, d) => { const m = (rec.team || []).find((x) => x.id === d.u); return !!m && m.active !== false && m.role === d.r && (m.tv || 0) === (d.tv || 0); };
+const teamLog = (rec, who, act, target, extra) => { const l = (rec.teamLog ||= []); l.push({ at: Date.now(), who: who || '', act, target: target || '', ...(extra || {}) }); if (l.length > 400) l.splice(0, l.length - 400); };
+// perm: what the route needs. The owner and the platform admin pass everything; managers pass only the permissions their role holds. Unlisted routes need "owner".
+const gateAdmin = (perm) => (req, res, next) => {
   const d = auth.verify(bearer(req));
   if (!d) return res.status(401).json({ error: 'auth' });
-  if (d.r !== 'super' && !(d.s === req.params.slug && d.r === 'admin')) return res.status(403).json({ error: 'forbidden' });
-  next();
-}
+  if (d.r === 'super' || (d.s === req.params.slug && d.r === 'admin')) { req.claims = d; return next(); }
+  if (d.s === req.params.slug && ROLES.TEAM.includes(d.r)) {
+    if (!req.tenant || !teamAlive(req.tenant.rec, d)) return res.status(401).json({ error: 'auth' });
+    if (!ROLES.can(d.r, perm)) { teamLog(req.tenant.rec, d.n, 'denied', req.method + ' ' + req.path); persistRec(req.tenant); return res.status(403).json({ error: 'Your role does not have access to this' }); }
+    req.claims = d; return next();
+  }
+  return res.status(403).json({ error: 'forbidden' });
+};
+const needAdmin = gateAdmin('owner');
 // Stateless mode: load the tenant fresh from storage for every request, commit (compare-and-swap) before replying.
 async function loadFresh(slug) {
   let got = await store.getRec(SINGLE ? MAIN : 'r_' + slug);
@@ -692,14 +703,14 @@ app.get(`${R}/config`, tenantMw, (req, res) => {
 // Canonical public address: its own domain, else <slug>.BASE_DOMAIN (production), else the /r/<slug> form. Old /r/<slug> links keep working either way.
 const tenantBase = (req, rec) => (rec.domain ? 'https://' + rec.domain : BASE_DOMAIN && PROD && !SINGLE ? 'https://' + rec.slug + '.' + BASE_DOMAIN : origin(req) + '/r/' + rec.slug);
 app.get(`${R}/info`, tenantMw, (req, res) => res.json({ base: tenantBase(req, req.tenant.rec) }));
-app.get(`${R}/qr/:n.png`, tenantMw, needAdmin, async (req, res) => {
+app.get(`${R}/qr/:n.png`, tenantMw, gateAdmin('tables'), async (req, res) => {
   const base = String(req.query.base || origin(req) + '/r/' + req.params.slug).replace(/\/$/, '');
   const tb = req.tenant.db.tables.find((x) => String(x.number) === req.params.n);
   if (!tb) return res.status(404).end();
   res.type('png').send(await QRCode.toBuffer(`${base}/t/${tb.number}${tb.key ? '?k=' + tb.key : ''}`, { width: 600, margin: 2, color: { dark: '#111111', light: '#ffffff' } }));
 });
 // QR for the parking area: one per numbered spot (or a single general one); opens the guest order page in car mode
-app.get(`${R}/carqr/:n.png`, tenantMw, needAdmin, async (req, res) => {
+app.get(`${R}/carqr/:n.png`, tenantMw, gateAdmin('tables'), async (req, res) => {
   if (!F.has(req.tenant.rec, 'carservice')) return res.status(402).end();
   const base = String(req.query.base || origin(req) + '/r/' + req.params.slug).replace(/\/$/, ''), n = String(req.params.n).replace(/[^\d]/g, '').slice(0, 3);
   res.type('png').send(await QRCode.toBuffer(`${base}/order?car=1${n ? '&spot=' + n : ''}`, { width: 600, margin: 2, color: { dark: '#111111', light: '#ffffff' } }));
@@ -742,7 +753,7 @@ app.post(`${R}/login`, loginLimit, tenantMw, (req, res) => {
 });
 // ----- Screen links: one private link per physical screen (kitchen TV, cashier till, a waiter's phone). Opening it signs the screen in as a named account,
 // so its work is traced like anyone else's, with no PIN to type and no role switching. The owner can delete a link at any time and that screen is signed out.
-const screenAlive = (rec, d) => !d.sc || (rec.screens || []).some((x) => x.id === d.sc);
+const screenAlive = (rec, d) => (ROLES.TEAM.includes(d.r) ? teamAlive(rec, d) : (!d.sc || (rec.screens || []).some((x) => x.id === d.sc)));
 const screenKey = (sc) => auth.unseal(sc.key);
 const safeEq = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && require('crypto').timingSafeEqual(x, y); };
 const screenRow = (req, sc) => { const st = sc.staffId && (req.tenant.rec.staff || []).find((x) => x.id === sc.staffId); return { id: sc.id, role: sc.role, name: sc.name, staffId: sc.staffId || '', staffName: st ? st.name : '', createdAt: sc.createdAt, lastSeen: sc.lastSeen || 0, url: origin(req) + '/r/' + req.tenant.rec.slug + '/s/' + screenKey(sc) }; };
@@ -780,19 +791,20 @@ app.post(`${R}/clock`, tenantMw, needStaff, (req, res) => {
 });
 app.get(`${R}/me`, tenantMw, (req, res) => {
   const d = auth.verify(bearer(req)); const want = req.query.role;
-  const ok = d && (d.r === 'super' || (d.s === req.params.slug && (d.r === want || d.r === 'admin' || (want === 'kitchen' && d.r === 'captain')) && screenAlive(req.tenant.rec, d)));
-  ok ? res.json({ ok: 1, name: req.tenant.rec.name, who: d.n || '' }) : res.status(401).json({ error: 'auth' });
+  const ok = d && (d.r === 'super' || (d.s === req.params.slug && (d.r === want || d.r === 'admin' || (want === 'admin' && ROLES.TEAM.includes(d.r)) || (want === 'kitchen' && d.r === 'captain')) && screenAlive(req.tenant.rec, d)));
+  ok ? res.json({ ok: 1, name: req.tenant.rec.name, who: d.n || '', role: d.r }) : res.status(401).json({ error: 'auth' });
 });
 function needStaff(req, res, next) {
   const d = auth.verify(bearer(req));
   if (!d) return res.status(401).json({ error: 'auth' });
-  if (d.r !== 'super' && !(d.s === req.params.slug && ['admin', 'captain', 'kitchen', 'cashier'].includes(d.r))) return res.status(403).json({ error: 'forbidden' });
+  if (d.r !== 'super' && !(d.s === req.params.slug && ['admin', 'manager', 'captain', 'kitchen', 'cashier'].includes(d.r))) return res.status(403).json({ error: 'forbidden' });
+  if (d.r === 'manager' && !(req.tenant && teamAlive(req.tenant.rec, d))) return res.status(401).json({ error: 'auth' });
   if (d.sc && !(req.tenant && screenAlive(req.tenant.rec, d))) return res.status(401).json({ error: 'auth' });
   req.claims = d; next();
 }
 // ---- cashier till: shifts, X / Z reports, paid in/out, counted-cash variance ----
 // A closed shift (Z report) is immutable: nothing below edits rec.shifts.list entries, and Z numbers come from the persistent counter rec.zSeq.
-const needCash = (req, res, next) => needStaff(req, res, () => (['admin', 'cashier', 'super'].includes(req.claims.r) ? next() : res.status(403).json({ error: 'forbidden' })));
+const needCash = (req, res, next) => needStaff(req, res, () => (['admin', 'manager', 'cashier', 'super'].includes(req.claims.r) ? next() : res.status(403).json({ error: 'forbidden' })));
 const r2 = (n) => Math.round((+n || 0) * 100) / 100;
 const METHODS = ['cash', 'card', 'online', 'gift', 'instapay', 'wallet'];
 // Everything a shift report shows, computed from the closed sessions of the period (unpaid clears are excluded from revenue, as everywhere else)
@@ -847,8 +859,8 @@ app.post(`${R}/shift/close`, tenantMw, needCash, async (req, res) => {
 const csv = (rows) => '\ufeff' + rows.map((r) => r.map((c) => { const x = String(c ?? ''); return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; }).join(',')).join('\n');
 const zRow = (z) => [z.number, new Date(z.openedAt).toISOString(), new Date(z.closedAt).toISOString(), z.by, z.closedBy, z.float, z.sales, z.gross, z.discounts, z.service, z.tax, z.tips, z.total, z.byMethod.cash, z.byMethod.card, z.byMethod.online, z.byMethod.gift, z.paidIn, z.paidOut, z.expected, z.counted, z.variance, z.voidValue];
 const Z_HEAD = ['Z no', 'Opened', 'Closed', 'Opened by', 'Closed by', 'Float', 'Sales', 'Gross', 'Discounts', 'Service', 'Tax', 'Tips', 'Total', 'Cash', 'Card', 'Online', 'Gift card', 'Paid in', 'Paid out', 'Expected cash', 'Counted cash', 'Variance', 'Voids'];
-app.get(`${R}/shifts`, tenantMw, needAdmin, async (req, res) => res.json(await shiftView(req.tenant)));
-app.get(`${R}/shifts/export.csv`, tenantMw, needAdmin, (req, res) => { const l = (req.tenant.rec.shifts || { list: [] }).list; res.type('text/csv').set('Content-Disposition', 'attachment; filename="z-reports.csv"').send(csv([Z_HEAD, ...l.map(zRow)])); });
+app.get(`${R}/shifts`, tenantMw, gateAdmin('billing'), async (req, res) => res.json(await shiftView(req.tenant)));
+app.get(`${R}/shifts/export.csv`, tenantMw, gateAdmin('billing'), (req, res) => { const l = (req.tenant.rec.shifts || { list: [] }).list; res.type('text/csv').set('Content-Disposition', 'attachment; filename="z-reports.csv"').send(csv([Z_HEAD, ...l.map(zRow)])); });
 app.get(`${R}/shift/z/:no/export.csv`, tenantMw, needCash, (req, res) => {
   const z = ((req.tenant.rec.shifts || { list: [] }).list).find((x) => String(x.number) === req.params.no); if (!z) return res.status(404).json({ error: 'not found' });
   res.type('text/csv').set('Content-Disposition', `attachment; filename="z-${z.number}.csv"`).send(csv([Z_HEAD, zRow(z), [], ['Items sold'], ['Item', 'Qty', 'Revenue'], ...z.itemsSold.map((i) => [i.name, i.qty, i.revenue]), [], ['Voids'], ['Table', 'Item', 'Qty', 'Value', 'Reason', 'By'], ...z.voids.map((v) => [v.table, v.name, v.qty, v.value, v.reason, v.by])]));
@@ -1023,12 +1035,12 @@ app.post(`${R}/feedback`, tenantMw, async (req, res, next) => { try {
 // uploads, AI calls, payment/e-invoice settings, staff and account changes.
 const SHOW_DENY = /\/(image|hero-image|logo|bg-image|pay-qr|menu\/ocr|menu\/import|copilot|insights\/ai|pay\/config|eta|staff|account|loyalty\/adjust)(\/|$)/;
 const showGuard = (req, res, next) => ((req.tenant.rec.showroom || req.tenant.rec.prospect) && req.method !== 'GET' && SHOW_DENY.test(req.path) ? res.status(403).json({ error: 'Not available in the demo' }) : next());
-const A = (m, p, ...h) => app[m](`${R}${p}`, tenantMw, needAdmin, showGuard, ...h);
+const A = (m, p, ...h) => app[m](`${R}${p}`, tenantMw, gateAdmin(ROLES.permFor(m, p)), showGuard, ...h);
 const bc = (req) => req.tenant.broadcast();
 A('get', '/account', (req, res) => res.json({ name: req.tenant.rec.name, email: req.tenant.rec.owner.email, pin: req.tenant.rec.pin, plan: F.planOf(req.tenant.rec.plan), features: F.featuresOf(req.tenant.rec), group: req.tenant.rec.group || '', limits: F.limitsOf(req.tenant.rec.plan, req.tenant.rec.limits), usage: { tables: req.tenant.db.tables.length, staff: (req.tenant.rec.staff || []).length } }));
 A('post', '/account', (req, res) => {
   const r = req.tenant.rec, b = req.body || {};
-  if (b.pin) { if (!/^\d{4,8}$/.test(b.pin)) return res.status(400).json({ error: 'PIN must be 4–8 digits' }); if (weakPin(b.pin)) return res.status(400).json({ error: 'That PIN is too easy to guess. Choose another.' }); r.pin = b.pin; }
+  if (b.pin) { { const pp = ROLES.pinProblem(b.pin, PROD); if (pp) return res.status(400).json({ error: pp }); } r.pin = b.pin; }
   if (b.password) { if (String(b.password).length < 6) return res.status(400).json({ error: 'Password must be 6+ characters' }); r.owner.hash = auth.hash(b.password); }
   req.tenant.broadcast(); res.json({ ok: 1, pin: r.pin });
 });
@@ -1057,11 +1069,10 @@ A('post', '/staff', (req, res) => {
   { const h = limitHit(req.tenant, 'staff', (r.staff || []).length); if (h) return res.status(402).json(h); }
   if (!['captain', 'kitchen', 'cashier', 'driver'].includes(b.role)) return res.status(400).json({ error: 'Role must be captain, kitchen, cashier or driver' });
   if (b.role === 'cashier' && !F.has(r, 'cashier')) return res.status(402).json({ error: 'The Cashier role needs the Operations plan', upgrade: F.minPlanFor('cashier') });
-  if (!/^\d{4,8}$/.test(pin)) return res.status(400).json({ error: 'PIN must be 4-8 digits' });
-  if (weakPin(pin)) return res.status(400).json({ error: 'That PIN is too easy to guess (1234, 1111, 4321...). Choose another.' });
+  { const pp = ROLES.pinProblem(pin, PROD); if (pp) return res.status(400).json({ error: pp }); }
   if (nameTaken(r, name)) return res.status(400).json({ error: 'Another person already has this name. Use a different name so reports keep them apart (for example Ahmed K.)' });
   if (pinTaken(r, pin)) return res.status(400).json({ error: 'That PIN is already used - choose another' });
-  const st = { id: newId('u'), name, role: b.role, hash: auth.hash(pin), active: true, createdAt: Date.now(), ...(b.phone ? { phone: String(b.phone).replace(/[^\d+]/g, '').slice(0, 20) } : {}) };
+  const st = { id: newId('u'), name, role: b.role, hash: auth.hash(pin), pl: pin.length, active: true, createdAt: Date.now(), ...(b.phone ? { phone: String(b.phone).replace(/[^\d+]/g, '').slice(0, 20) } : {}) };
   (r.staff ||= []).push(st); bc(req); const { hash, ...pub } = st; res.json(pub);
 });
 A('put', '/staff/:id', (req, res) => {
@@ -1073,7 +1084,7 @@ A('put', '/staff/:id', (req, res) => {
   if (b.active !== undefined) st.active = !!b.active;
   if (b.wage !== undefined) st.wage = F.wageClean(b.wage);
   if (b.shifts !== undefined) st.shifts = F.shiftsClean(b.shifts);
-  if (b.pin) { if (!/^\d{4,8}$/.test(String(b.pin))) return res.status(400).json({ error: 'PIN must be 4-8 digits' }); if (weakPin(b.pin)) return res.status(400).json({ error: 'That PIN is too easy to guess. Choose another.' }); if (pinTaken(r, String(b.pin), st.id)) return res.status(400).json({ error: 'That PIN is already used' }); st.hash = auth.hash(String(b.pin)); }
+  if (b.pin) { const pp = ROLES.pinProblem(b.pin, PROD); if (pp) return res.status(400).json({ error: pp }); if (pinTaken(r, String(b.pin), st.id)) return res.status(400).json({ error: 'That PIN is already used' }); st.hash = auth.hash(String(b.pin)); st.pl = String(b.pin).length; }
   bc(req); res.json({ ok: 1 });
 });
 const gateOR = (req, res, next) => (F.has(req.tenant.rec, 'ownerreport') ? next() : res.status(402).json({ error: 'The owner report needs the ' + F.PLANS[F.minPlanFor('ownerreport')].name + ' plan', upgrade: F.minPlanFor('ownerreport') }));
@@ -1815,8 +1826,8 @@ app.post(`${R}/rpc`, rpcLimit, async (req, res) => {
       const c = { ws: { readyState: 1, send: (d) => out.push(JSON.parse(d)) }, role: null, joined: false, authed: false };
       if (jn.role !== 'customer') {
         const a = auth.verify(jn.token);
-        if (!a || !(a.r === 'super' || (a.s === req.params.slug && (a.r === jn.role || a.r === 'admin' || (jn.role === 'kitchen' && a.r === 'captain')) && screenAlive(t.rec, a)))) return res.status(401).json({ error: 'auth' });
-        c.authed = true; c.staffId = a.u; c.staffName = a.n; c.adm = a.r === 'admin' || a.r === 'super'; c.cashier = jn.role === 'cashier';
+        if (!a || !(a.r === 'super' || (a.s === req.params.slug && (a.r === jn.role || a.r === 'admin' || (jn.role === 'admin' && ROLES.TEAM.includes(a.r)) || (jn.role === 'kitchen' && a.r === 'captain')) && screenAlive(t.rec, a)))) return res.status(401).json({ error: 'auth' });
+        c.authed = true; c.staffId = a.u; c.staffName = a.n; c.adm = a.r === 'admin' || a.r === 'super'; c.mgr = ROLES.TEAM.includes(a.r) ? a.r : ''; c.cashier = jn.role === 'cashier';
       }
       if (jn.role === 'customer') {
         const tb = t.db.tables.find((x) => x.number === +jn.tableNumber);
@@ -1893,9 +1904,9 @@ if (require.main === module && !STATELESS) {
           if (!tenant || tenant.rec.status !== 'active') { ws.send(JSON.stringify({ t: 'error', msg: tenant ? 'This restaurant is suspended' : 'Unknown restaurant' })); tenant = null; return ws.close(); }
           if (m.role !== 'customer') {
             const a = auth.verify(m.token);
-            const ok = a && (a.r === 'super' || (a.s === m.slug && (a.r === m.role || a.r === 'admin' || (m.role === 'kitchen' && a.r === 'captain')) && screenAlive(tenant.rec, a)));
+            const ok = a && (a.r === 'super' || (a.s === m.slug && (a.r === m.role || a.r === 'admin' || (m.role === 'admin' && ROLES.TEAM.includes(a.r)) || (m.role === 'kitchen' && a.r === 'captain')) && screenAlive(tenant.rec, a)));
             if (!ok) { ws.send(JSON.stringify({ t: 'error', msg: 'auth' })); tenant = null; return ws.close(); }
-            c.authed = true; c.staffId = a.u; c.staffName = a.n; c.adm = a.r === 'admin' || a.r === 'super';
+            c.authed = true; c.staffId = a.u; c.staffName = a.n; c.adm = a.r === 'admin' || a.r === 'super'; c.mgr = ROLES.TEAM.includes(a.r) ? a.r : '';
             if (m.role === 'cashier') { c.cashier = true; m.role = 'captain'; }
           }
           tenant.clients.add(c);
