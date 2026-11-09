@@ -37,6 +37,20 @@ header { position: sticky; top: 0; z-index: 30; display: flex; align-items: cent
 .page.still, .page.still .rise, .page.still .pop { animation: none !important; }
 .page.still #grid.anim .rise { animation: rise .6s var(--ease) backwards !important; animation-delay: calc(var(--i, 0) * 60ms) !important; }
 .pop { animation: popIn .55s var(--spring) backwards; animation-delay: calc(var(--i, 0) * 60ms); }
+.fw { max-width: 420px; padding: 30px 24px 22px; }
+.fw-heart { font-size: 66px; animation: popIn .8s var(--spring), fwbeat 2.6s ease-in-out .9s infinite; display: inline-block; }
+@keyframes fwbeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+.fw h2 { margin: 6px 0 8px; font-size: 27px; }
+.fw-msg { margin: 0 0 14px; line-height: 1.7; opacity: .92; }
+.fw-stay { display: flex; gap: 12px; align-items: center; text-align: start; padding: 13px 14px; margin: 0 0 14px; border: 1px dashed var(--line); border-radius: 16px; background: color-mix(in srgb, var(--card) 70%, transparent); }
+.fw-stay span { font-size: 26px; } .fw-stay p { margin: 0; font-size: 14px; line-height: 1.6; }
+.fw-bye { margin: 4px 0 16px; font-size: 18px; color: var(--accent, var(--gold, inherit)); }
+.fw-timer { position: relative; width: 62px; height: 62px; margin: 0 auto 6px; display: grid; place-items: center; }
+.fw-timer svg { position: absolute; inset: 0; transform: rotate(-90deg); } .fw-timer circle { fill: none; stroke-width: 4; } .fw-timer .bg { stroke: var(--line); } .fw-timer .fg { stroke: var(--accent, var(--gold, #c9974a)); stroke-linecap: round; stroke-dasharray: 163.4; stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear; }
+.fw-timer b { font-size: 20px; }
+.fw-own { display: flex; align-items: center; gap: 10px; margin-top: 18px; padding: 11px 14px; border-radius: 14px; border: 1px solid var(--line); text-decoration: none; color: inherit; text-align: start; font-size: 13px; line-height: 1.5; opacity: .9; }
+.fw-own img, .pwr img { border-radius: 6px; } .fw-own b { display: block; color: var(--accent, var(--gold, inherit)); font-size: 13px; }
+.pwr { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 28px auto 96px; width: fit-content; font-size: 12px; opacity: .55; text-decoration: none; color: inherit; letter-spacing: .03em; } .pwr:hover { opacity: .9; }
 @keyframes popIn { from { opacity: 0; transform: scale(.4) rotate(-12deg); } to { opacity: 1; transform: none; } }
 .tilt { transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .3s var(--ease), box-shadow .3s; will-change: transform; }
 .rp { position: relative; overflow: hidden; } .rip { position: absolute; border-radius: 50%; background: currentColor; opacity: .25; transform: scale(0); animation: ripple .7s ease-out forwards; pointer-events: none; }
@@ -293,6 +307,9 @@ const urlKey = new URLSearchParams(location.search).get('k');
 const ENDK = `end:${SLUG}:${tableNumber}`;   // set when the visit is over (paid / table closed): a reload or "back" can't reopen the menu, only a new scan
 if (urlKey) { App.ls(`tk:${SLUG}:${tableNumber}`, urlKey); App.ls(ENDK, ''); try { history.replaceState(null, '', location.pathname); } catch {} }
 const tableKey = App.ls(`tk:${SLUG}:${tableNumber}`) || '';
+Object.assign(DICT.en, { fwTitle: 'Thank you, {n}!', fwTitleNoName: 'Thank you for visiting!', fwMsg: 'It was a real pleasure having you at {v}. We hope every bite and sip made your day a little better.', fwStay: 'Want to stay a little longer, or in the mood for something new? Just scan the QR code on your table again and order whenever you like.', fwBye: 'Come back soon. A table is always waiting for you.', fwClose: 'This page will close in {s} seconds', fwDone: 'All set. You can safely close this page.', fwOwn: 'Loved how easy that was? Bring it to your own cafe or restaurant.', fwSite: 'Visit TableTab', fwPower: 'Powered by TableTab' });
+Object.assign(DICT.ar, { fwTitle: 'شكراً يا {n}!', fwTitleNoName: 'شكراً لزيارتك!', fwMsg: 'كان من دواعي سرورنا إنك كنت معانا في {v}. نتمنى إن كل لقمة وكل رشفة خلّت يومك أحلى.', fwStay: 'عايز تقعد شوية كمان أو نفسك في حاجة جديدة؟ امسح كود الـQR اللي على طاولتك تاني واطلب في أي وقت.', fwBye: 'نورتنا، ونشوفك قريب. في طاولة مستنياك دايماً.', fwClose: 'هتتقفل الصفحة دي بعد {s} ثواني', fwDone: 'كل حاجة تمام. تقدر تقفل الصفحة بأمان.', fwOwn: 'عجبتك السهولة؟ هاتها لكافيهك أو مطعمك.', fwSite: 'زور تابل تاب', fwPower: 'بدعم من تابل تاب' });
+if (DICT.fr) Object.assign(DICT.fr, { fwTitle: 'Shokran ya {n}!', fwTitleNoName: 'Shokran le zyaretak!', fwMsg: 'Kan sharaf lena enak kont ma3ana fe {v}. Netmanna kol loo2ma w kol rashfa 5alet yomak a7la.', fwStay: '3ayez te2ood showaya tany aw nafsak fe 7aga gdeeda? Skan el QR code ely 3ala tarabezetak tany w otlob fe ay wa2t.', fwBye: 'Nawwartena, w nshoofak 2arib. Fe tarabeza mestanyak dayman.', fwClose: 'El safha di hate2fel ba3d {s} sawany', fwDone: 'Kol 7aga tamam. Te2dar te2fel el safha bel aman.', fwOwn: '3agabetak el sohoola? Hatha le cafe aw mat3amak.', fwSite: 'Zoor TableTab', fwPower: 'Powered by TableTab' });
 Object.assign(DICT.en, { themeLbl: 'Light / Dark', geoChecking: 'Checking that you are at the cafe…', geoDeniedTitle: 'Location needed', geoDeniedSub: 'To order from your table we need to confirm you are at the cafe. Please allow location access in your browser, or ask your waiter to open the table for you.', geoFarTitle: 'You seem to be away from the cafe', geoFarSub: 'Ordering from a table is only available inside the cafe. If you are here, move closer to the window or ask your waiter to open the table for you.', geoRetry: 'Try again', hostTitle: 'Table host', hostYou: 'You are the host. Hand it over to anyone at the table:', hostOther: 'The host looks after the table. The captain sees who it is.', hostConfirm: 'Make host', menuLbl: 'Menu', cartLbl: 'My order', addLbl: 'Add', dishes: 'dishes', welcomeTo: 'Welcome to', howTitle: 'How to order', step1: 'Pick your dishes', step1s: 'Tap + Add on anything you like', step2: 'Check your order', step2s: 'Change amounts or add a note', step3: 'Send to kitchen', step3s: 'We cook it and bring it to your table', viewOrder: 'View order', itemsN: 'items', sendNow: 'Send to kitchen', soldOut: 'Sold out', soldSorry: 'Sorry, that is sold out right now', ready: 'Your order is ready!', scanTitle: 'Scan the QR code on your table', scanSub: 'For everyone\'s safety, ordering opens only from the code printed on the table. Please scan it with your camera.', rateTitle: 'How was your visit?', rateSub: 'Tap a star - it takes 5 seconds', rateNote: 'Anything we can do better? (optional)', rateSend: 'Send', rateQuality: 'Food quality', ratePortions: 'Portion size', ratePrice: 'Value for price', rateService: 'Service', rateClean: 'Cleanliness', rateSkip: 'Skip', rateThanks: 'Thank you! 💛', rateThanksSub: 'Your feedback helps us serve you better.', again: 'Start a new order', dietary: 'Dietary' });
 Object.assign(DICT.ar, { themeLbl: 'فاتح / غامق', geoChecking: 'جاري التأكد أنك في الكافيه…', geoDeniedTitle: 'نحتاج موقعك', geoDeniedSub: 'للطلب من طاولتك نحتاج التأكد أنك داخل الكافيه. من فضلك اسمح بالوصول للموقع من المتصفح، أو اطلب من الويتر أن يفتح لك الطاولة.', geoFarTitle: 'يبدو أنك بعيد عن الكافيه', geoFarSub: 'الطلب من الطاولة متاح داخل الكافيه فقط. إن كنت هنا، اقترب من النافذة أو اطلب من الويتر أن يفتح لك الطاولة.', geoRetry: 'حاول مرة أخرى', hostTitle: 'مضيف الطاولة', hostYou: 'أنت المضيف. يمكنك تسليم الدور لأي شخص على الطاولة:', hostOther: 'المضيف يتولى الطاولة، ويراه الكابتن.', hostConfirm: 'اجعل المضيف', menuLbl: 'القائمة', cartLbl: 'طلبي', addLbl: 'أضف', dishes: 'أصناف', welcomeTo: 'أهلاً بك في', howTitle: 'كيف تطلب', step1: 'اختر أطباقك', step1s: 'اضغط + أضف على ما يعجبك', step2: 'راجع طلبك', step2s: 'غيّر الكمية أو أضف ملاحظة', step3: 'أرسل للمطبخ', step3s: 'نحضّره ونوصله إلى طاولتك', viewOrder: 'عرض الطلب', itemsN: 'أصناف', sendNow: 'أرسل للمطبخ', soldOut: 'نفد', soldSorry: 'عذرًا، هذا الصنف نفد حاليًا', ready: 'طلبك جاهز!', scanTitle: 'امسح رمز QR الموجود على طاولتك', scanSub: 'حفاظًا على الجميع، يُفتح الطلب فقط من الرمز المطبوع على الطاولة. من فضلك امسحه بكاميرا هاتفك.', rateTitle: 'كيف كانت زيارتك؟', rateSub: 'اضغط على نجمة - تستغرق 5 ثوانٍ', rateNote: 'هل لديك ملاحظة لتحسين خدمتنا؟ (اختياري)', rateSend: 'إرسال', rateQuality: 'جودة الطعام', ratePortions: 'حجم الأطباق', ratePrice: 'السعر مقابل القيمة', rateService: 'الخدمة', rateClean: 'نظافة المكان', rateSkip: 'تخطي', rateThanks: 'شكرًا لك! 💛', rateThanksSub: 'ملاحظاتك تساعدنا على خدمتك بشكل أفضل.', again: 'ابدأ طلبًا جديدًا', dietary: 'نظام غذائي' });
 const TAGI = { vegan: '🌱', vegetarian: '🥬', 'gluten-free': '🌾', gf: '🌾', spicy: '🌶️', nuts: '🥜', dairy: '🥛', halal: '☪️', sugarfree: '🍬', 'sugar-free': '🍬', new: '✨', popular: '🔥' };
@@ -384,10 +401,46 @@ function endedScreen() {
   const stars = (k, n) => [1, 2, 3, 4, 5].map((i) => `<button class="${i <= n ? 'on' : ''}" onclick="rateCat('${k}',${i})" aria-label="${i}">⭐</button>`).join('');
   const rows = () => CATS.map((k) => `<div class="rcat"><span>${App.tr(CAP[k])}</span><div class="stars" id="st_${k}">${stars(k, 0)}</div></div>`).join('');
   window.rateCat = (k, n) => { window._cats[k] = n; document.getElementById('st_' + k).innerHTML = stars(k, n); document.getElementById('rsend').disabled = CATS.some((c) => !window._cats[c]); };
-  window.sendRate = async () => { const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cats: window._cats, comment: document.getElementById('rc').value, table: tableNumber, name: me.name, guestId: me.id, visit: lastVisit }) }).catch(() => null); rated = true; const rj = r && r.ok ? await r.json().catch(() => ({})) : {}; root.innerHTML = `<div class="join"><div class="c" style="text-align:center"><div style="font-size:64px;animation:popIn .7s var(--spring)">💛</div><h2 class="serif">${App.tr('rateThanks')}</h2><p class="muted">${App.tr(rj.private ? 'ratePrivate' : 'rateThanksSub')}</p>${rj.google ? `<p class="muted" style="font-size:13px">${App.tr('rateGoogleNote')}</p><a class="send rp" id="gbtn" style="display:block;text-decoration:none;margin-bottom:10px" href="${App.esc(rj.google)}" target="_blank" rel="noopener">⭐ ${App.tr('rateGoogle')}</a>` : ''}<p class="muted" style="font-size:13px;margin:4px 0 0">${App.tr('sessionEnded')}</p></div></div>`; burst(innerWidth / 2, innerHeight * .35); };
+  window.sendRate = async () => { const r = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cats: window._cats, comment: document.getElementById('rc').value, table: tableNumber, name: me.name, guestId: me.id, visit: lastVisit }) }).catch(() => null); rated = true; const rj = r && r.ok ? await r.json().catch(() => ({})) : {}; farewell({ rated: true, rj }); burst(innerWidth / 2, innerHeight * .35); };
   window.skipRate = () => { rated = true; endedScreen(); };
   if (lastHad && !rated) { root.innerHTML = `<div class="join"><div class="c" style="text-align:center"><div style="font-size:54px">🧾</div><h2 class="serif" style="margin:6px 0 0">${App.tr('rateTitle')}</h2><p class="muted" style="margin:6px 0 0">${App.tr('rateSub')}</p>${rows()}<textarea id="rc" placeholder="${App.tr('rateNote')}" maxlength="400"></textarea><div class="row" style="margin-top:14px"><button class="ghost" style="flex:1" onclick="skipRate()">${App.tr('rateSkip')}</button><button class="send rp" id="rsend" style="flex:2;padding:14px" disabled onclick="sendRate()">${App.tr('rateSend')}</button></div></div></div>`; return; }
-  root.innerHTML = `<div class="join"><div class="c" style="text-align:center"><div style="font-size:54px">👋</div><p>${App.tr('sessionEnded')}</p></div></div>`;
+  farewell({});
+}
+// Goodbye: warm thank-you, how to come back, then the page closes by itself. Browsers only let a script close a tab it opened, so when closing is refused
+// the card stays (a blank page would feel like an error); the owner can choose to go to a blank page instead with settings.farewell.fallback = 'blank'.
+let fwTimer = 0, fwLeft = 0, fwArgs = null;
+function farewell(a) {
+  a = fwArgs = a || fwArgs || {};
+  const st = (App.config && App.config.settings) || {}, fwc = st.farewell || {}, total = Math.max(5, Math.min(30, +fwc.seconds || 10));
+  const venue = App.esc((App.lang === 'ar' && st.name_ar ? st.name_ar : st.name) || ''), first = App.esc(String(me.name || '').trim().split(/\s+/)[0] || '');
+  const hasGoogle = a.rj && a.rj.google, autoClose = fwc.autoClose !== false && !hasGoogle;
+  if (!fwLeft) fwLeft = total;
+  const fill = (k) => App.tr(k).replace('{n}', first).replace('{v}', venue).replace('{s}', fwLeft);
+  const custom = (App.lang === 'ar' ? fwc.message_ar : fwc.message) ? App.esc(App.lang === 'ar' ? fwc.message_ar : fwc.message) : fill('fwMsg');
+  App.applyTheme(); built = false;
+  root.innerHTML = `<div class="join"><div class="c fw" style="text-align:center"><div class="fw-heart">${a.rated ? '💛' : '👋'}</div><h2 class="serif">${first ? fill('fwTitle') : App.tr('fwTitleNoName')}</h2>
+    ${a.rated ? `<p class="muted" style="margin:0 0 10px">${App.tr(a.rj && a.rj.private ? 'ratePrivate' : 'rateThanksSub')}</p>` : ''}
+    ${hasGoogle ? `<p class="muted" style="font-size:13px">${App.tr('rateGoogleNote')}</p><a class="send rp" id="gbtn" style="display:block;text-decoration:none;margin-bottom:12px" href="${App.esc(a.rj.google)}" target="_blank" rel="noopener">⭐ ${App.tr('rateGoogle')}</a>` : ''}
+    <p class="fw-msg">${custom}</p>
+    <div class="fw-stay"><span>📷</span><p>${App.tr('fwStay')}</p></div>
+    <p class="fw-bye serif">${App.tr('fwBye')}</p>
+    ${autoClose ? `<div class="fw-timer"><svg viewBox="0 0 56 56"><circle class="bg" cx="28" cy="28" r="26"/><circle class="fg" id="fwring" cx="28" cy="28" r="26" style="stroke-dashoffset:${163.4 * (1 - fwLeft / total)}"/></svg><b id="fwn">${fwLeft}</b></div><p class="muted" id="fwt" style="font-size:13px;margin:0">${fill('fwClose')}</p>` : `<p class="muted" style="font-size:13px;margin:0">${App.tr('fwDone')}</p>`}
+    <a class="fw-own" href="${siteUrl('farewell')}" target="_blank" rel="noopener"><img src="/icons/icon-192.png" alt="TableTab" width="34" height="34"><span>${App.tr('fwOwn')}<b>${App.tr('fwSite')} →</b></span></a></div></div>`;
+  App.handlers = { render: () => farewell() };
+  clearInterval(fwTimer); if (!autoClose) return;
+  fwTimer = setInterval(() => {
+    if (document.hidden) return;                    // do not close a page the guest is not looking at (for example while reading the Google review)
+    fwLeft--; const n = document.getElementById('fwn'), r = document.getElementById('fwring'), t = document.getElementById('fwt');
+    if (n) n.textContent = Math.max(fwLeft, 0); if (r) r.style.strokeDashoffset = 163.4 * (1 - Math.max(fwLeft, 0) / total);
+    if (t && fwLeft > 0) t.textContent = fill('fwClose');
+    if (fwLeft > 0) return;
+    clearInterval(fwTimer);
+    try { window.close(); } catch {}
+    setTimeout(() => {                              // still here: the browser refused to close this tab
+      if (fwc.fallback === 'blank') { try { location.replace('about:blank'); } catch {} return; }
+      const t2 = document.getElementById('fwt'); if (t2) t2.textContent = App.tr('fwDone'); const tm = document.querySelector('.fw-timer'); if (tm) tm.remove();
+    }, 450);
+  }, 1000);
 }
 // "your order is ready" notice when the kitchen marks an order served
 function watchReady(s) {
@@ -571,6 +624,9 @@ function gridHTML(cfg, s) {
   const secs = cfg.categories.filter(catOpen).map((c) => [c, cfg.items.filter((i) => i.cat === c.id)]).filter(([, l]) => l.length);
   return secs.map(([c, l]) => sectionHTML(cfg, s, c, l)).join('') || `<div class="empty"><span class="em">🍽️</span>${App.tr('nothingFound')}</div>`;
 }
+// a small, quiet link to our own site: the guest of one venue is the owner of the next one
+const siteUrl = (where) => 'https://tabletab-tt.com/?utm_source=guest_menu&utm_medium=qr&utm_campaign=' + encodeURIComponent(SLUG) + '&utm_content=' + where + ((App.config && App.config.settings && App.config.settings.currency === 'AED') ? '&c=ae' : '&c=eg');
+const pwrHTML = () => `<a class="pwr" href="${siteUrl('menu_footer')}" target="_blank" rel="noopener"><img src="/icons/icon-192.png" alt="TableTab" width="22" height="22"><span>${App.tr('fwPower')}</span></a>`;
 function menuTab(cfg, s) {
   const st = cfg.settings, tags = [...new Set(cfg.items.flatMap((i) => (i.tags || []).map((t) => t.toLowerCase())))].sort();
   const nm = App.lang === 'ar' && st.name_ar ? st.name_ar : st.name, tag = (App.lang === 'ar' ? st.tagline_ar : st.tagline) || App.tr('tagline');
@@ -580,7 +636,7 @@ function menuTab(cfg, s) {
   <div class="search rise" style="--i:3">${ic('search')}<input id="q" value="${App.esc(q)}" placeholder="${App.tr('search')}" oninput="q=this.value;refreshGrid()"></div>
   <div class="stk rise" style="--i:4"><div class="chips">${cfg.categories.filter(catOpen).map((c) => `<button class="chip rp ${c.id === cat && !q && !tagSel.size ? 'on' : ''}" data-c="${c.id}" onclick="setCat('${c.id}')">${c.emoji} ${App.esc(App.nm(c))}</button>`).join('')}</div>
   ${tags.length ? `<div class="tagbar">${tags.map((t) => `<button class="${tagSel.has(t) ? 'on' : ''}" data-t="${App.esc(t)}" onclick="toggleTag(this.dataset.t)">${tagLabel(t)}</button>`).join('')}</div>` : ''}</div>
-  <div id="grid">${gridHTML(cfg, s)}</div>`;
+  <div id="grid">${gridHTML(cfg, s)}</div>${pwrHTML()}`;
 }
 function toggleTag(t) { tagSel.has(t) ? tagSel.delete(t) : tagSel.add(t); document.querySelectorAll('.tagbar button').forEach((b) => b.classList.toggle('on', tagSel.has(b.dataset.t))); refreshGrid(); }
 function refreshGrid() {

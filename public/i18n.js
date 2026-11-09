@@ -91,6 +91,7 @@
   };
   // Gulf (Khaleeji) wording, switched on per café with settings.dialect = 'gulf' (used by the UAE showrooms). Only the guest-facing strings that differ from the Egyptian ones.
   const GULF = {
+    fwTitle: 'شكراً لك يا {n}!', fwTitleNoName: 'شكراً لزيارتك!', fwMsg: 'سعدنا بوجودك في {v}. نتمنى كل لقمة وكل رشفة حسّنت يومك.', fwStay: 'تبي تقعد أكثر أو تشتهي شي جديد؟ امسح كود الـQR اللي على طاولتك مرة ثانية واطلب وقت ما تبي.', fwBye: 'حياك الله دايم، وننتظرك قريب. طاولتك جاهزة لك.', fwClose: 'تنقفل هالصفحة بعد {s} ثواني', fwDone: 'كل شي تمام. تقدر تقفل الصفحة.', fwOwn: 'عجبتك السهولة؟ جيبها لكافيهك أو مطعمك.', fwSite: 'زر تابل تاب', fwPower: 'بدعم من تابل تاب',
     youPayAll: 'إنت اللي راح تحاسب عن الطاولة كلها', paysAll: 'راح يحاسب عن الطاولة كلها', nothingToPay: 'ما عليك شي تدفعه.', sendAll: 'أرسل طلبات الكل بعد', send: 'أرسل للمطبخ',
     add: 'أضف', welcome: 'حياك الله', pickName: 'شو اسمك؟', pickAvatar: 'اختر صورتك', yourCart: 'سلتك (ما انرسلت للحين)', empty: 'ما في شي هني للحين',
     payMine: 'بدفع حسابي بس', payTable: 'بدفع عن الطاولة كلها', card: 'بطاقة', reqBill: 'أبي الحساب', urgent: 'استعجل الطلب', note: 'ملاحظة (إذا تبي)',
