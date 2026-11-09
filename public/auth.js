@@ -4,6 +4,8 @@ const Auth = (() => {
     en: { welcome: 'Welcome back', admin: 'Owner sign-in', pin: 'Staff access', super: 'Platform control', email: 'Email address', remember: 'Keep me signed in on this device (30 days)', password: 'Password', pinLabel: 'Enter your PIN', signin: 'Sign in', enter: 'Unlock', caps: 'Caps Lock is on', secure: 'Encrypted session', ok: 'Welcome', h1a: 'Hospitality,', h1b: 'perfected.', sub: 'The quiet luxury of a floor that runs itself. Every table, every guest, every order - in one calm, living view.', f1: 'Live tables', f2: 'Group ordering', f3: 'Split bills', failed: 'Something went wrong', show: 'Show', hide: 'Hide' },
     ar: { welcome: 'أهلاً بعودتك', admin: 'دخول المالك', pin: 'دخول الطاقم', super: 'لوحة المنصة', email: 'البريد الإلكتروني', remember: 'ابقني مسجلاً على هذا الجهاز (٣٠ يوم)', password: 'كلمة المرور', pinLabel: 'أدخل الرمز السري', signin: 'تسجيل الدخول', enter: 'فتح', caps: 'زر Caps Lock مفعّل', secure: 'جلسة مشفّرة', ok: 'أهلاً بك', h1a: 'الضيافة،', h1b: 'في أبهى صورها.', sub: 'رفاهية هادئة لصالة تُدار بنفسها. كل طاولة وكل ضيف وكل طلب في شاشة واحدة حيّة.', f1: 'طاولات حيّة', f2: 'طلب جماعي', f3: 'تقسيم الحساب', failed: 'حدث خطأ ما', show: 'إظهار', hide: 'إخفاء' },
   };
+  Object.assign(T.en, { username: 'Username', code: 'Authenticator code (6 digits)', teamLink: 'Branch or operations manager? Sign in here', ownerLink: 'Owner sign-in', teamTitle: 'Manager sign-in' });
+  Object.assign(T.ar, { username: 'اسم المستخدم', code: 'رمز تطبيق المصادقة (6 أرقام)', teamLink: 'مدير فرع أو مدير تشغيل؟ سجّل دخولك من هنا', ownerLink: 'دخول المالك', teamTitle: 'دخول المديرين' });
   const t = (k) => (T[App.lang] || T.en)[k] || T.en[k] || k;
   const I = {
     mail: '<path d="M3 6h18v12H3z"/><path d="M3 7l9 7 9-7"/>', lock: '<rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
@@ -51,14 +53,14 @@ const Auth = (() => {
 
   function show(opts) {
     return new Promise((resolve) => {
-      const kind = opts.kind, el = scene(); let pin = '', busy = false;
+      const kind = opts.kind, el = scene(); let pin = '', busy = false, team = false;
       const brand = opts.brand || {}, brandName = (App.lang === 'ar' && brand.name_ar ? brand.name_ar : brand.name) || '';
       const keyHandler = (e) => { if (kind !== 'pin') return; if (/^\d$/.test(e.key)) press(e.key); else if (e.key === 'Backspace') press('del'); else if (e.key === 'Enter') press('go'); };
       async function go(values) {
         if (busy) return; busy = true;
         const btn = el.querySelector('.gold-btn'); if (btn) btn.classList.add('load');
         try { await opts.submit(values); document.removeEventListener('keydown', keyHandler); await success(el, t('ok')); resolve(); }
-        catch (e) { busy = false; if (btn) btn.classList.remove('load'); fail(el, e.message || t('failed')); pin = ''; if (kind === 'pin') dots(); }
+        catch (e) { busy = false; if (btn) btn.classList.remove('load'); fail(el, e.message || t('failed')); if (e.need2fa) { const c = el.querySelector('.codefld'); if (c) { c.style.display = ''; const ci = c.querySelector('input'); ci.required = true; ci.focus(); } } pin = ''; if (kind === 'pin') dots(); }
       }
       function dots() { const d = el.querySelector('.pin-dots'); if (d) d.innerHTML = Array.from({ length: Math.max(4, pin.length) }, (_, i) => `<i class="${i < pin.length ? 'on' : ''}"></i>`).join(''); }
       function press(k) {
@@ -71,18 +73,20 @@ const Auth = (() => {
       function render() {
         refreshTop(el);
         const shell = el.querySelector('.auth-shell');
-        const title = kind === 'admin' ? t('admin') : kind === 'pin' ? t('pin') : t('super');
+        const title = kind === 'admin' ? (team ? t('teamTitle') : t('admin')) : kind === 'pin' ? t('pin') : t('super');
         let body;
         if (kind === 'pin') {
           body = `<p class="kick rz" style="--i:0;margin-bottom:12px">${t('pinLabel')}</p><div class="pin-dots rz" style="--i:1"></div>
           <div class="pad rz" style="--i:2">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n, i) => `<button type="button" data-k="${n}" style="--i:${i}">${n}</button>`).join('')}<button type="button" class="del" data-k="del" style="--i:9">${ic('del')}</button><button type="button" data-k="0" style="--i:10">0</button><button type="button" class="go" data-k="go" style="--i:11">${ic('check')}</button></div><div class="hint" style="text-align:center;margin-top:14px"></div>`;
         } else {
           body = `<form id="af" autocomplete="on">
-            <div class="fld rz" style="--i:0">${ic('mail')}<input name="email" type="email" placeholder=" " autocomplete="username" required><label>${t('email')}</label></div>
+            ${team ? `<div class="fld rz" style="--i:0">${ic('user')}<input name="username" type="text" placeholder=" " autocomplete="username" autocapitalize="none" spellcheck="false" required><label>${t('username')}</label></div>` : `<div class="fld rz" style="--i:0">${ic('mail')}<input name="email" type="email" placeholder=" " autocomplete="username" required><label>${t('email')}</label></div>`}
             <div class="fld rz" style="--i:1">${ic('lock')}<input name="password" type="password" placeholder=" " autocomplete="current-password" required><label>${t('password')}</label><button type="button" class="eye" tabindex="-1" aria-label="${t('show')}">${ic('eye')}</button></div>
+            <div class="fld rz codefld" style="--i:2;display:none">${ic('shield')}<input name="code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder=" "><label>${t('code')}</label></div>
             <div class="hint rz" style="--i:2"></div>
-            <label class="rz" style="--i:2;display:flex;gap:8px;align-items:center;margin:2px 0 12px;font-size:13px;opacity:.85"><input type="checkbox" name="remember" style="width:auto"> ${t('remember')}</label>
-            <button class="gold-btn rz" style="--i:3"><span>${t('signin')}</span>${ic('arrow')}</button></form>`;
+            ${team ? '' : `<label class="rz" style="--i:2;display:flex;gap:8px;align-items:center;margin:2px 0 12px;font-size:13px;opacity:.85"><input type="checkbox" name="remember" style="width:auto"> ${t('remember')}</label>`}
+            <button class="gold-btn rz" style="--i:3"><span>${t('signin')}</span>${ic('arrow')}</button></form>
+            <p class="rz" style="--i:4;text-align:center;margin:16px 0 0;font-size:13px"><a href="#" id="tm" style="color:inherit;opacity:.8;text-decoration:underline">${team ? t('ownerLink') : t('teamLink')}</a></p>`;
         }
         shell.innerHTML = `${hero()}<div class="auth-card"><div class="rz" style="--i:-3">${emblem()}</div><div class="kick rz" style="--i:-2">${t('welcome')}</div><h2 class="rz" style="--i:-1"><span class="foil">${title}</span></h2><div class="brand rz" style="--i:0">${App.esc(brandName)}</div>${body}<div class="secure rz" style="--i:5">${ic('shield')} ${t('secure')}</div>${App.slug ? `<div class="swr rz" style="--i:6"><a href="${App.base === '' ? '/' : '/r/' + App.slug}">← ${App.lang === 'ar' ? 'رجوع' : 'Back'}</a><span>${App.lang === 'ar' ? 'الدخول كـ' : 'Sign in as'}</span>${[['admin', App.lang === 'ar' ? 'المالك' : 'Owner'], ['captain', App.lang === 'ar' ? 'الكابتن' : 'Captain'], ['kitchen', App.lang === 'ar' ? 'المطبخ' : 'Kitchen']].filter(([k]) => k !== App.authRole).map(([k, l]) => `<a href="/r/${App.slug}/${k}">${l}</a>`).join('')}</div>` : ''}</div>`;
         if (kind === 'pin') {
@@ -91,7 +95,8 @@ const Auth = (() => {
           shell.querySelectorAll('.pad button').forEach((b) => (b.onclick = () => press(b.dataset.k)));
         } else {
           const f = shell.querySelector('#af'), pw = f.querySelector('[name=password]');
-          f.onsubmit = (e) => { e.preventDefault(); go(Object.fromEntries(new FormData(f))); };
+          f.onsubmit = (e) => { e.preventDefault(); go(Object.assign(Object.fromEntries(new FormData(f)), team ? { team: true } : {})); };
+          shell.querySelector('#tm').onclick = (e) => { e.preventDefault(); team = !team; render(); };
           shell.querySelector('.eye').onclick = (e) => { const s = pw.type === 'password'; pw.type = s ? 'text' : 'password'; e.currentTarget.innerHTML = ic(s ? 'eyeoff' : 'eye'); };
           pw.addEventListener('keyup', (e) => { const h = shell.querySelector('.hint'); if (e.getModifierState && e.getModifierState('CapsLock')) h.textContent = t('caps'); else if (h.textContent === t('caps')) h.textContent = ''; });
           const gb = shell.querySelector('.gold-btn'); gb.onpointerdown = (e) => ripple(gb, e);

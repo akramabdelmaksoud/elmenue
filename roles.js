@@ -28,6 +28,7 @@ const POLICY = [
   [/^\S+ \/attendance(\.csv|\/|$)/, 'attendance'],
   [/^\S+ \/(staff|screens)(\/|$)/, 'staff'],
   [/^\S+ \/team(\/|$)/, 'team'],
+  [/^GET \/limits$/, 'ui'],
   [/^\S+ \/(coupons|offers)(\/|$)/, 'offers'],
   [/^POST \/settings$/, 'ui'],                       // managers may only save the dashboard refresh choice, see teamSettingsOk
   [/^\S+ \/(tables|tables-rekey|layout|qr|carqr)(\/|$)/, 'tables'],

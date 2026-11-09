@@ -127,7 +127,7 @@ const gateAdmin = (perm) => (req, res, next) => {
     if (!req.tenant || !teamAlive(req.tenant.rec, d)) return res.status(401).json({ error: 'auth' });
     if (!ROLES.can(d.r, perm)) { teamLog(req.tenant.rec, d.n, 'denied', req.method + ' ' + req.path); persistRec(req.tenant); return res.status(403).json({ error: 'Your role does not have access to this' }); }
     const tm = req.tenant.rec.team.find((x) => x.id === d.u);
-    if (tm.mustChange && !/\/me\/(password|2fa\/[a-z]+)$/.test(req.path)) return res.status(403).json({ error: 'You must choose a new password first', code: 'change_password' });
+    if (tm.mustChange && !/\/me\/(password|perms|2fa\/[a-z]+)$/.test(req.path)) return res.status(403).json({ error: 'You must choose a new password first', code: 'change_password' });
     if (req.method !== 'GET') { teamLog(req.tenant.rec, d.n, 'action', req.method + ' ' + req.path, { role: d.r }); persistRec(req.tenant); }
     req.claims = d; return next();
   }
@@ -822,7 +822,7 @@ app.post(`${R}/clock`, tenantMw, needStaff, (req, res) => {
 });
 app.get(`${R}/me`, tenantMw, (req, res) => {
   const d = auth.verify(bearer(req)); const want = req.query.role;
-  const ok = d && (d.r === 'super' || (d.s === req.params.slug && (d.r === want || d.r === 'admin' || (want === 'admin' && ROLES.TEAM.includes(d.r)) || (want === 'kitchen' && d.r === 'captain')) && screenAlive(req.tenant.rec, d)));
+  const ok = d && (d.r === 'super' || (d.s === req.params.slug && (d.r === want || d.r === 'admin' || ((want === 'admin' && ROLES.TEAM.includes(d.r)) || d.r === 'manager') || (want === 'kitchen' && d.r === 'captain')) && screenAlive(req.tenant.rec, d)));
   ok ? res.json({ ok: 1, name: req.tenant.rec.name, who: d.n || '', role: d.r }) : res.status(401).json({ error: 'auth' });
 });
 function needStaff(req, res, next) {
@@ -1090,7 +1090,8 @@ A('post', '/screens', (req, res) => {
   (r.screens ||= []).push(sc); persistRec(t); bc(req); res.json(screenRow(req, sc));
 });
 A('delete', '/screens/:id', (req, res) => { const r = req.tenant.rec; r.screens = (r.screens || []).filter((x) => x.id !== req.params.id); persistRec(req.tenant); bc(req); res.json({ ok: 1 }); });
-A('get', '/staff', (req, res) => res.json({ legacyOff: !!req.tenant.rec.legacyPinOff, staff: (req.tenant.rec.staff || []).map(({ hash, ...x }) => x), stats: (req.tenant.rec.stats || {}).staff || {}, legacyPin: req.tenant.rec.pin }));
+A('get', '/limits', (req, res) => res.json({ limits: F.limitsOf(req.tenant.rec.plan, req.tenant.rec.limits), usage: { tables: req.tenant.db.tables.length, staff: (req.tenant.rec.staff || []).length } }));
+A('get', '/staff', (req, res) => res.json({ legacyOff: !!req.tenant.rec.legacyPinOff, staff: (req.tenant.rec.staff || []).map(({ hash, ...x }) => x), stats: (req.tenant.rec.stats || {}).staff || {}, ...(isOwnerClaim(req.claims) ? { legacyPin: req.tenant.rec.pin } : {}) }));
 const weakPin = (p) => PROD && F.weakPin(String(p));
 const nameTaken = (rec, name, exceptId) => (rec.staff || []).some((x) => x.id !== exceptId && x.active !== false && String(x.name).trim().toLowerCase() === String(name).trim().toLowerCase());
 const pinTaken = (rec, pin, exceptId) => String(rec.pin) === pin || (rec.staff || []).some((x) => x.id !== exceptId && x.hash && auth.check(pin, x.hash));
@@ -1952,7 +1953,7 @@ app.post(`${R}/rpc`, rpcLimit, async (req, res) => {
       const c = { ws: { readyState: 1, send: (d) => out.push(JSON.parse(d)) }, role: null, joined: false, authed: false };
       if (jn.role !== 'customer') {
         const a = auth.verify(jn.token);
-        if (!a || !(a.r === 'super' || (a.s === req.params.slug && (a.r === jn.role || a.r === 'admin' || (jn.role === 'admin' && ROLES.TEAM.includes(a.r)) || (jn.role === 'kitchen' && a.r === 'captain')) && screenAlive(t.rec, a)))) return res.status(401).json({ error: 'auth' });
+        if (!a || !(a.r === 'super' || (a.s === req.params.slug && (a.r === jn.role || a.r === 'admin' || (a.r === 'manager' || (jn.role === 'admin' && a.r === 'opmanager')) || (jn.role === 'kitchen' && a.r === 'captain')) && screenAlive(t.rec, a)))) return res.status(401).json({ error: 'auth' });
         c.authed = true; c.staffId = a.u; c.staffName = a.n; c.adm = a.r === 'admin' || a.r === 'super'; c.mgr = ROLES.TEAM.includes(a.r) ? a.r : ''; c.cashier = jn.role === 'cashier';
       }
       if (jn.role === 'customer') {
@@ -2030,7 +2031,7 @@ if (require.main === module && !STATELESS) {
           if (!tenant || tenant.rec.status !== 'active') { ws.send(JSON.stringify({ t: 'error', msg: tenant ? 'This restaurant is suspended' : 'Unknown restaurant' })); tenant = null; return ws.close(); }
           if (m.role !== 'customer') {
             const a = auth.verify(m.token);
-            const ok = a && (a.r === 'super' || (a.s === m.slug && (a.r === m.role || a.r === 'admin' || (m.role === 'admin' && ROLES.TEAM.includes(a.r)) || (m.role === 'kitchen' && a.r === 'captain')) && screenAlive(tenant.rec, a)));
+            const ok = a && (a.r === 'super' || (a.s === m.slug && (a.r === m.role || a.r === 'admin' || (a.r === 'manager' || (m.role === 'admin' && a.r === 'opmanager')) || (m.role === 'kitchen' && a.r === 'captain')) && screenAlive(tenant.rec, a)));
             if (!ok) { ws.send(JSON.stringify({ t: 'error', msg: 'auth' })); tenant = null; return ws.close(); }
             c.authed = true; c.staffId = a.u; c.staffName = a.n; c.adm = a.r === 'admin' || a.r === 'super'; c.mgr = ROLES.TEAM.includes(a.r) ? a.r : '';
             if (m.role === 'cashier') { c.cashier = true; m.role = 'captain'; }

@@ -54,11 +54,11 @@ aside button[data-locked="true"]::after { content: ' 🔒'; opacity: .7; }
 <h2>⚙️ Admin</h2>
 <div id="groups"></div>
 <span style="flex:1"></span>
-<button onclick="copilotToggle()" data-lock="copilot" class="gbtn"><i>🤖</i><span>AI Copilot</span></button>
+<button onclick="copilotToggle()" data-lock="copilot" class="gbtn" id="cpbtn"><i>🤖</i><span>AI Copilot</span></button>
 <div class="mwrap"><button class="gbtn" id="morebtn" onclick="moreMenu(event)" aria-haspopup="true" aria-expanded="false"><i>⋯</i><span>More</span></button>
  <div class="mm" id="mm" hidden>
   <button onclick="App.toggleLang()"><i>🌐</i><span>EN / عربي</span></button>
-  <button onclick="App.roleMenu(event)"><i>⇄</i><span>Switch role</span></button>
+  <button onclick="App.roleMenu(event)" id="rolebtn"><i>⇄</i><span>Switch role</span></button>
   <button onclick="App.skinMenu(event)"><i>🎨</i><span>Look</span></button>
   <button onclick="App.toggleMode(event)"><i>◐</i><span>Light / Dark</span></button>
   <hr><button onclick="App.logout()"><i>⏻</i><span>Sign out</span></button>
@@ -604,12 +604,39 @@ function savePromo(i, k, v) { const P = (App.config.settings.promos || []).conca
 const GROUPS = [
   { id: 'home', icon: '📊', name: 'Dashboard', tabs: [['analytics', '📊 Analytics']] },
   { id: 'place', icon: '🏠', name: 'Place', tabs: [['menu', '🍽️ Menu builder'], ['floor', '🪑 Floor plan'], ['theme', '🎨 Theme & settings'], ['qr', '🔳 Table QR codes'], ['ocr', '📷 AI menu scan', 'ocr']] },
-  { id: 'team', icon: '👥', name: 'Team', tabs: [['staff', '👥 Staff', 'staff'], ['attendance', '⏱ Attendance & shifts', 'attendance']] },
+  { id: 'team', icon: '👥', name: 'Team', tabs: [['staff', '👥 Staff', 'staff'], ['attendance', '⏱ Attendance & shifts', 'attendance'], ['accounts', '🔐 Team accounts']] },
   { id: 'stock', icon: '📦', name: 'Stock & supply', tabs: [['inventory', '📦 Inventory'], ['recipes', '🧪 Recipes & costing', 'recipes'], ['purchasing', '🚚 Suppliers & purchasing', 'purchasing']] },
   { id: 'sales', icon: '💰', name: 'Sales & guests', tabs: [['orders', '🧾 Orders'], ['invoices', '🧾 Invoices', 'invoicing'], ['offers', '🎟️ Offers & gift cards', 'coupons'], ['loyalty', '💳 Loyalty', 'loyalty']] },
   { id: 'data', icon: '📈', name: 'Data & reports', tabs: [['reports', '📈 Reports'], ['insights', '🧠 Insights', 'insights'], ['ownerreport', '📑 Owner report', 'ownerreport'], ['branches', '🏢 Branches', 'branches'], ['audit', '📜 Audit log']] },
   { id: 'plan', icon: '💎', name: 'Plan & add-ons', tabs: [['plan', '💎 My plan & add-ons']] },
+  { id: 'me', icon: '🛡️', name: 'My security', tabs: [['security', '🛡️ Sign-in & security']] },
 ];
+/* ---------------- who is signed in: owner, branch manager or operations manager (the server enforces this; the page just hides what the role cannot open) ---------------- */
+let ME = { role: 'owner', perms: ['*'], name: '' };
+const can = (p) => ME.perms.includes('*') || ME.perms.includes(p);
+const TABPERM = { analytics: 'reports', menu: 'menu', floor: 'tables', theme: 'owner', qr: 'tables', ocr: 'menu', staff: 'staff', attendance: 'attendance', inventory: 'inventory', recipes: 'inventory', purchasing: 'inventory', orders: 'billing', invoices: 'billing', offers: 'offers', loyalty: 'reports', reports: 'reports', insights: 'reports', ownerreport: 'owner', branches: 'owner', audit: 'reports', plan: 'owner', accounts: 'team', security: 'ui' };
+const tabOk = (t) => { const p = TABPERM[t]; return !p || p === 'ui' || can(p); };
+const ROLE_NAME = { owner: 'Owner', manager: 'Branch manager', opmanager: 'Operations manager' };
+async function loadMe() { const r = await api('GET', '/api/me/perms'); if (r && !r.error) ME = r; else if (r && r.code === 'change_password') ME = { role: 'manager', perms: [], mustChange: true, name: '' }; }
+function applyRole() {
+  for (let i = GROUPS.length - 1; i >= 0; i--) { GROUPS[i].tabs = GROUPS[i].tabs.filter((x) => tabOk(x[0])); if (!GROUPS[i].tabs.length) GROUPS.splice(i, 1); }
+  if (!GROUPS.some((g) => g.tabs.some((x) => x[0] === tab))) tab = GROUPS[0].tabs[0][0];
+  if (ME.role !== 'owner') { const c = document.getElementById('cpbtn'); if (c) c.remove(); }
+  if (ME.role === 'opmanager') { const r = document.getElementById('rolebtn'); if (r) r.remove(); }
+}
+// the first sign-in with a password the owner chose must be followed by a new one
+function forcePassword() {
+  const d = document.createElement('div'); d.style.cssText = 'position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.6);display:grid;place-items:center;padding:16px';
+  d.innerHTML = `<div class="card" style="max-width:420px;width:100%"><h2 style="margin-top:0">🔐 Choose your own password</h2><p class="muted">The password you were given was temporary. Pick a new one that only you know: at least 10 characters with capital and small letters and a number.</p>
+   <input id="fp0" type="password" placeholder="Current (temporary) password" autocomplete="current-password"><input id="fp1" type="password" placeholder="New password" autocomplete="new-password" style="margin-top:8px"><input id="fp2" type="password" placeholder="New password again" autocomplete="new-password" style="margin-top:8px">
+   <p id="fpe" style="color:#e5484d;min-height:20px;margin:8px 0"></p><div class="row"><button class="ghost" onclick="api('GET','/api/me/perms');App.ls('tok:'+App.slug+':admin','');location.reload()">Sign out</button><button class="primary" id="fpg" style="flex:1">Save and continue</button></div></div>`;
+  document.body.appendChild(d);
+  $('#fpg').onclick = async () => {
+    const a = $('#fp0').value, b = $('#fp1').value; if (b !== $('#fp2').value) { $('#fpe').textContent = 'The two new passwords are different'; return; }
+    const r = await api('POST', '/api/me/password', { current: a, password: b }); if (r.error) { $('#fpe').textContent = r.error; return; }
+    App.ls('tok:' + App.slug + ':admin', r.token); location.reload();
+  };
+}
 const groupOf = (t) => GROUPS.find((g) => g.tabs.some((x) => x[0] === t)) || GROUPS[0];
 function drawNav() {
   const g = groupOf(tab), E = App.esc;
@@ -643,14 +670,14 @@ function rfSchedule() { clearTimeout(rfTimer); const mn = rfMin(); if (mn > 0) r
 function rfSet(v) { api('POST', '/api/settings', { refreshMin: +v }).then(() => { rfSchedule(); rfDraw(); }); }
 // after the owner's own change: pick up the new state and redraw (never clobbers a field being typed in)
 async function afterWrite() { try { if (App.poll) await App.poll.call(null); } catch {} render(App.state); rfDraw(); }
-App.gate('admin', () => App.connect({ t: 'join', role: 'admin' }, { render(m) {
+App.gate('admin', async () => { await loadMe(); if (ME.mustChange) return forcePassword(); applyRole(); return App.connect({ t: 'join', role: 'admin' }, { render(m) {
   if (!m) return render(App.state, true);                 // language / theme switches redraw straight away
   if (rfFirst) { rfFirst = false; rfLast = Date.now(); render(m); rfSchedule(); rfDraw(); }
   /* later live pushes are held back until the next refresh */
-} }));
+} }); });
 function render(m, force) {
   if (!App.config) return;
-  document.querySelector('aside h2').textContent = '⚙️ Admin · ' + (PLAN_NAME[App.config.plan] || '');
+  document.querySelector('aside h2').textContent = ME.role === 'owner' ? '⚙️ Admin · ' + (PLAN_NAME[App.config.plan] || '') : '🧭 ' + (ROLE_NAME[ME.role] || '') + (ME.name ? ' · ' + ME.name : '');
   document.querySelectorAll('aside [data-lock]').forEach(b => { b.dataset.locked = FEAT()[b.dataset.lock] === false ? 'true' : 'false'; });
   drawNav();
   if (tab === 'floor' && (FP.dirty || FP.drag)) return;   // never rebuild the editor mid-edit
@@ -659,7 +686,7 @@ function render(m, force) {
   if (key === cfgKey && !force) { if (tab === 'analytics') {} return; }   // ignore live-session noise
   cfgKey = key;
   const focus = document.activeElement; if (focus && focus.closest('#main') && focus.tagName === 'INPUT' && !force) return;  // don't clobber typing
-  ({ analytics, menu, inventory: inventoryTab, recipes: () => (FEAT().recipes === false ? lockedCard('🧪 Recipes & costing', 'recipes') : recipesTab()), orders: ordersTab, floor: floorTab, invoices: () => (FEAT().invoicing === false ? lockedCard('🧾 Invoices', 'invoicing') : Office.invoices()), purchasing: () => (FEAT().purchasing === false ? lockedCard('🚚 Suppliers & purchasing', 'purchasing') : Office.purchasing()), ownerreport: () => (FEAT().ownerreport === false ? lockedCard('📑 Owner report', 'ownerreport') : ownerReportTab()), attendance: () => (FEAT().attendance === false ? lockedCard('⏱ Attendance & shifts', 'attendance') : attendanceTab()), staff: () => (FEAT().staff === false ? lockedCard('👥 Staff', 'staff') : staffTab()), reports: reportsTab, insights: () => (FEAT().insights === false ? lockedCard('🧠 Insights', 'insights') : insightsTab()), theme, qr, audit, offers: offersTab, loyalty: loyaltyTab, ocr: ocrTab, branches: branchesTab, plan: planTab })[tab]();
+  ({ accounts: teamTab, security: securityTab, analytics, menu, inventory: inventoryTab, recipes: () => (FEAT().recipes === false ? lockedCard('🧪 Recipes & costing', 'recipes') : recipesTab()), orders: ordersTab, floor: floorTab, invoices: () => (FEAT().invoicing === false ? lockedCard('🧾 Invoices', 'invoicing') : Office.invoices()), purchasing: () => (FEAT().purchasing === false ? lockedCard('🚚 Suppliers & purchasing', 'purchasing') : Office.purchasing()), ownerreport: () => (FEAT().ownerreport === false ? lockedCard('📑 Owner report', 'ownerreport') : ownerReportTab()), attendance: () => (FEAT().attendance === false ? lockedCard('⏱ Attendance & shifts', 'attendance') : attendanceTab()), staff: () => (FEAT().staff === false ? lockedCard('👥 Staff', 'staff') : staffTab()), reports: reportsTab, insights: () => (FEAT().insights === false ? lockedCard('🧠 Insights', 'insights') : insightsTab()), theme, qr, audit, offers: offersTab, loyalty: loyaltyTab, ocr: ocrTab, branches: branchesTab, plan: planTab })[tab]();
 }
 App.handlers.render = (m) => render(m, true);
 
@@ -1009,8 +1036,65 @@ async function shiftSet(id, day, k, v) {
 async function attAdd() { const v = (i) => document.getElementById(i).value, r = await api('POST', '/api/attendance', { staffId: v('at_s'), in: new Date(v('at_i')).getTime(), out: new Date(v('at_o')).getTime() }); App.toast(r.error || 'Added'); if (!r.error) attendanceTab(); }
 async function attEdit(id, b) { const r = await api('PUT', '/api/attendance/' + id, b); if (r.error) App.toast(r.error); attendanceTab(); }
 async function attDel(id) { if (!confirm('Delete this shift record?')) return; await api('DELETE', '/api/attendance/' + id); attendanceTab(); }
+/* ---------------- Team accounts: branch managers and operations managers ---------------- */
+const ACT = { login: '🔓 Signed in', 'login-failed': '❌ Wrong password', created: '➕ Account created', disabled: '⏸ Switched off', enabled: '▶ Switched on', removed: '🗑 Removed', 'password-reset': '🔑 Password reset', 'password-changed': '🔑 Password changed', unlocked: '🔓 Unlocked', denied: '🚫 Blocked', action: '✏️ Changed something', '2fa-on': '🛡️ Two-step on', '2fa-off': '🛡️ Two-step off', '2fa-reset': '🛡️ Two-step reset' };
+const TROLE = { manager: '🏢 Branch manager', opmanager: '📦 Operations manager' };
+const tfmt = (t) => (t ? new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '-');
+async function teamTab() {
+  const d = await api('GET', '/api/team'), lg = await api('GET', '/api/team/log'), E = App.esc;
+  if (d.error) { $('#main').innerHTML = `<div class="card">${E(d.error)}</div>`; return; }
+  const state = (x) => !x.active ? '<span class="pill">⏸ off</span>' : x.locked ? '<span class="pill" style="color:#e5484d">🔒 locked</span>' : x.expires && x.expires < Date.now() ? '<span class="pill">⌛ expired</span>' : x.mustChange ? '<span class="pill">🕒 waiting for first sign-in</span>' : '<span class="pill" style="color:var(--ok)">● active</span>';
+  $('#main').innerHTML = `<h1>🔐 Team accounts</h1><p class="muted" style="margin-top:-8px">${d.you === 'manager' ? 'You can create operations managers for your branch.' : 'Create branch managers and operations managers. Each one signs in with their own username and a strong password, and sees only what their role needs.'} Floor staff (captain, kitchen, cashier, drivers) use PINs under <b>Staff</b>.</p>
+  <div id="teamNew"></div>
+  <div class="card" style="overflow:auto"><h3>Accounts</h3><table><tr><th>Name</th><th>Username</th><th>Role</th><th>Last sign-in</th><th>Two-step</th><th>Expires</th><th>Status</th><th></th></tr>
+  ${d.team.map((x) => `<tr><td><b>${E(x.name)}</b></td><td><code>${E(x.username)}</code></td><td>${TROLE[x.role]}</td><td>${tfmt(x.lastLogin)}</td><td>${x.twoFactor ? '🛡️ on' : '-'}</td><td>${x.expires ? new Date(x.expires).toLocaleDateString() : '-'}</td><td>${state(x)}</td><td><div class="row wrap" style="gap:4px">
+   ${(d.canCreate.includes(x.role)) ? `<button class="ghost" onclick="teamSet('${x.id}',{active:${!x.active}})">${x.active ? 'Switch off' : 'Switch on'}</button> <button class="ghost" onclick="teamReset('${x.id}')">New password</button> ${x.locked ? `<button class="ghost" onclick="teamSet('${x.id}',{unlock:true})">Unlock</button> ` : ''}${x.twoFactor ? `<button class="ghost" onclick="if(confirm('Remove two-step sign-in (lost phone)? They will have to set it up again.'))teamSet('${x.id}',{resetTwoFactor:true})">Reset two-step</button> ` : ''}<button class="ghost" onclick="teamDel('${x.id}','${E(x.name)}')">🗑</button>` : '<span class="muted">you</span>'}</div></td></tr>`).join('') || '<tr><td colspan="8" class="muted">No accounts yet.</td></tr>'}</table></div>
+  ${d.canCreate.length ? `<div class="card" style="margin-top:14px"><h3>Add an account</h3><div class="row wrap"><input id="tn" placeholder="Full name" style="max-width:190px"><input id="tu" placeholder="username (letters, numbers, . _ -)" autocapitalize="none" style="max-width:220px"><select id="tr" style="max-width:210px">${d.canCreate.map((r) => `<option value="${r}">${TROLE[r]}</option>`).join('')}</select><input id="tp" placeholder="Password (leave empty to generate)" style="max-width:240px" oninput="pwHint(this.value)"><button class="ghost" onclick="api('GET','/api/team/suggest').then(r=>{$('#tp').value=r.password;pwHint(r.password)})">🎲 Strong password</button><label class="muted" style="font-size:13px">Ends on <input id="tx" type="date" style="width:auto"></label><button class="primary" onclick="teamAdd()">Create</button></div><p id="tph" class="muted" style="font-size:12.5px;margin:8px 0 0">Passwords need 10+ characters with capital and small letters and a number. The person must choose their own on first sign-in.</p>
+   <p class="muted" style="font-size:12.5px;margin:6px 0 0"><b>Branch manager</b>: runs this branch (menu, floor, staff, stock, invoices, reports) but not payment keys, the plan or the owner account. <b>Operations manager</b>: inventory and billing only.</p></div>` : ''}
+  <div class="card" style="margin-top:14px;overflow:auto"><h3>Sign-ins and changes</h3><table><tr><th>When</th><th>Who</th><th>What</th><th>Detail</th><th></th></tr>
+  ${(lg.log || []).slice(0, 80).map((x) => `<tr><td>${tfmt(x.at)}</td><td>${E(x.who)}</td><td>${ACT[x.act] || E(x.act)}</td><td><code>${E(x.target)}</code></td><td>${x.newIp ? '<span title="first time from this network" style="color:#d9822b">⚠ new device</span>' : ''}${x.locked ? ' 🔒' : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">Nothing yet.</td></tr>'}</table></div>`;
+}
+function pwHint(v) {
+  const h = $('#tph'); if (!h) return; const ok = v.length >= 10 && /[a-z]/.test(v) && /[A-Z]/.test(v) && /\d/.test(v);
+  h.style.color = !v ? '' : ok ? 'var(--ok)' : '#d9822b'; if (v) h.textContent = ok ? '✓ Looks strong' : 'Needs 10+ characters, capital and small letters, and a number';
+}
+function showCreds(title, username, password) {
+  $('#teamNew').innerHTML = `<div class="card" style="border:2px solid var(--ok);margin-bottom:14px"><h3 style="margin-top:0">✅ ${App.esc(title)}</h3><p class="muted">Copy these now and give them to the person. The password is shown only once.</p><div class="row wrap">${username ? `<div><small class="muted">Username</small><div><code style="font-size:16px">${App.esc(username)}</code></div></div>` : ''}<div><small class="muted">Temporary password</small><div><code style="font-size:16px" id="cpw">${App.esc(password)}</code></div></div><button class="ghost" onclick="navigator.clipboard&&navigator.clipboard.writeText('${username ? 'Username: ' + App.esc(username) + '  ' : ''}Password: ${App.esc(password)}');App.toast('Copied')">📋 Copy</button></div></div>`;
+  window.scrollTo(0, 0);
+}
+async function teamAdd() {
+  const r = await api('POST', '/api/team', { name: $('#tn').value, username: $('#tu').value, role: $('#tr').value, password: $('#tp').value, expires: $('#tx').value });
+  if (r.error) return App.toast(r.error);
+  cfgKey = ''; await teamTab(); showCreds(r.password ? 'Account created' : 'Account created with the password you typed', r.username, r.password || '(the one you typed)');
+}
+async function teamSet(id, b) { const r = await api('PUT', '/api/team/' + id, b); if (r.error) return App.toast(r.error); cfgKey = ''; teamTab(); }
+async function teamReset(id) { if (!confirm('Set a new temporary password? Their current sessions end at once.')) return; const r = await api('POST', '/api/team/' + id + '/reset', {}); if (r.error) return App.toast(r.error); cfgKey = ''; await teamTab(); showCreds('New temporary password', '', r.password); }
+async function teamDel(id, name) { if (!confirm('Remove ' + name + '? They can no longer sign in.')) return; const r = await api('DELETE', '/api/team/' + id); if (r.error) return App.toast(r.error); cfgKey = ''; teamTab(); }
+async function securityTab() {
+  const me = await api('GET', '/api/me/perms'); ME = me.error ? ME : me; const E = App.esc, team = ME.role !== 'owner';
+  $('#main').innerHTML = `<h1>🛡️ Sign-in & security</h1><p class="muted" style="margin-top:-8px">Signed in as <b>${E(ME.name || 'Owner')}</b> · ${ROLE_NAME[ME.role] || ''}</p>
+  ${team ? `<div class="card"><h3>Change my password</h3><div class="row wrap"><input id="pc" type="password" placeholder="Current password" autocomplete="current-password" style="max-width:220px"><input id="pn" type="password" placeholder="New password" autocomplete="new-password" style="max-width:220px"><input id="pn2" type="password" placeholder="New password again" autocomplete="new-password" style="max-width:220px"><button class="primary" onclick="changePw()">Change</button></div><p class="muted" style="font-size:12.5px">10+ characters, capital and small letters and a number. All your other sessions end when you change it.</p></div>` : '<div class="card"><h3>Password</h3><p class="muted">Change the owner password under <b>My plan & add-ons → Account</b>.</p></div>'}
+  <div class="card" style="margin-top:14px"><h3>Two-step sign-in ${ME.twoFactor ? '<span class="pill" style="color:var(--ok)">ON</span>' : ''}</h3>
+   <p class="muted">Adds a 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator, Authy) so a stolen password alone cannot open the account. Recommended for the owner and every manager.</p><div id="tfa"></div></div>`;
+  tfaDraw();
+}
+function tfaDraw() {
+  const b = $('#tfa'); if (!b) return;
+  b.innerHTML = ME.twoFactor ? `<div class="row wrap"><input id="tc" inputmode="numeric" maxlength="6" placeholder="Current 6-digit code" style="max-width:200px"><button class="ghost" onclick="tfaOff()">Turn off</button></div>` : `<button class="primary" onclick="tfaSetup()">Set up two-step sign-in</button>`;
+}
+async function tfaSetup() {
+  const r = await api('POST', '/api/me/2fa/setup', {}); if (r.error) return App.toast(r.error);
+  $('#tfa').innerHTML = `<div class="row wrap" style="align-items:flex-start"><img src="${r.qr}" width="170" height="170" alt="QR" style="border-radius:12px;background:#fff;padding:6px"><div style="max-width:340px"><p>1. Scan this code with your authenticator app, or type the key:</p><code style="word-break:break-all">${App.esc(r.secret)}</code><p style="margin-top:12px">2. Enter the 6-digit code it shows:</p><div class="row"><input id="tc" inputmode="numeric" maxlength="6" placeholder="123456" style="max-width:140px"><button class="primary" onclick="tfaOn()">Turn on</button></div></div></div>`;
+}
+async function tfaOn() { const r = await api('POST', '/api/me/2fa/enable', { code: $('#tc').value }); if (r.error) return App.toast(r.error); ME.twoFactor = true; App.toast('Two-step sign-in is on'); securityTab(); }
+async function tfaOff() { const r = await api('POST', '/api/me/2fa/disable', { code: $('#tc').value }); if (r.error) return App.toast(r.error); ME.twoFactor = false; App.toast('Two-step sign-in is off'); securityTab(); }
+async function changePw() {
+  if ($('#pn').value !== $('#pn2').value) return App.toast('The two new passwords are different');
+  const r = await api('POST', '/api/me/password', { current: $('#pc').value, password: $('#pn').value }); if (r.error) return App.toast(r.error);
+  App.ls('tok:' + App.slug + ':admin', r.token); App.toast('Password changed'); setTimeout(() => location.reload(), 600);
+}
 async function staffTab() {
-  const acc = await api('GET', '/api/account'), d = await api('GET', '/api/staff'), roles = { captain: '🧑‍✈️ Captain / floor', kitchen: '👨‍🍳 Kitchen', cashier: '💵 Cashier', driver: '🛵 Delivery driver' };
+  const acc = await api('GET', '/api/limits'), d = await api('GET', '/api/staff'), roles = { captain: '🧑‍✈️ Captain / floor', kitchen: '👨‍🍳 Kitchen', cashier: '💵 Cashier', driver: '🛵 Delivery driver' };
   const fmt = (x) => x.handled ? Math.round(x.respMs / x.handled / 1000) + 's' : '-';
   $('#main').innerHTML = `${limBar(acc, 'staff')}<h1>👥 Staff</h1><p class="muted" style="margin-top:-8px">Each person gets their own PIN, so every action is logged under their name and you can see who is fast.</p>
   <div class="row2" style="grid-template-columns:minmax(300px,1.2fr) minmax(260px,1fr);align-items:start">
@@ -1018,8 +1102,8 @@ async function staffTab() {
    <table><tr><th>Name</th><th>Role</th><th>Phone</th><th>New PIN</th><th>Active</th><th></th></tr>
    ${d.staff.map((x) => `<tr><td><input value="${App.esc(x.name)}" style="min-width:110px" onchange="stf('${x.id}',{name:this.value})"></td><td><select onchange="stf('${x.id}',{role:this.value})"><option value="captain" ${x.role === 'captain' ? 'selected' : ''}>${roles.captain}</option><option value="kitchen" ${x.role === 'kitchen' ? 'selected' : ''}>${roles.kitchen}</option><option value="cashier" ${x.role === 'cashier' ? 'selected' : ''}>${roles.cashier}</option><option value="driver" ${x.role === 'driver' ? 'selected' : ''}>${roles.driver}</option></select></td>
     <td>${x.role === 'driver' ? `<input type="tel" placeholder="Phone" style="width:130px" value="${App.esc(x.phone || '')}" onchange="stf('${x.id}',{phone:this.value})">` : ''}</td>
-    <td><input placeholder="••••" inputmode="numeric" maxlength="8" style="width:90px" onchange="if(this.value)stf('${x.id}',{pin:this.value}).then(()=>this.value='')"></td><td><input type="checkbox" style="width:22px;height:22px" ${x.active === false ? '' : 'checked'} onchange="stf('${x.id}',{active:this.checked})"></td><td><button class="ghost" onclick="if(confirm('Remove ${App.esc(x.name)}?'))api('DELETE','/api/staff/${x.id}').then(()=>{cfgKey='';render(App.state,true)})">🗑</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">No staff accounts yet - add the first one below.</td></tr>'}</table>
-   <h3 style="margin-top:18px">Add a team member</h3><div class="row wrap"><input id="sn" placeholder="Name" style="max-width:170px"><select id="sr" style="max-width:190px"><option value="captain">${roles.captain}</option><option value="kitchen">${roles.kitchen}</option><option value="cashier">${roles.cashier}</option><option value="driver">${roles.driver}</option></select><input id="sph" type="tel" placeholder="Phone (drivers)" style="max-width:140px"><input id="sp" placeholder="PIN (4-8 digits)" inputmode="numeric" maxlength="8" style="max-width:150px"><button class="ghost" onclick="$('#sp').value=String(Math.floor(1000+Math.random()*9000))">🎲</button><button class="primary" onclick="addStaff()">Add</button></div>
+    <td><input placeholder="••••••" inputmode="numeric" maxlength="10" style="width:110px" onchange="if(this.value)stf('${x.id}',{pin:this.value}).then(()=>this.value='')">${!x.pl || x.pl < 6 ? '<div title="PINs are now 6 to 10 digits. Set a new one." style="color:#d9822b;font-size:11.5px;margin-top:3px">⚠ short PIN, reset it</div>' : ''}</td><td><input type="checkbox" style="width:22px;height:22px" ${x.active === false ? '' : 'checked'} onchange="stf('${x.id}',{active:this.checked})"></td><td><button class="ghost" onclick="if(confirm('Remove ${App.esc(x.name)}?'))api('DELETE','/api/staff/${x.id}').then(()=>{cfgKey='';render(App.state,true)})">🗑</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">No staff accounts yet - add the first one below.</td></tr>'}</table>
+   <h3 style="margin-top:18px">Add a team member</h3><div class="row wrap"><input id="sn" placeholder="Name" style="max-width:170px"><select id="sr" style="max-width:190px"><option value="captain">${roles.captain}</option><option value="kitchen">${roles.kitchen}</option><option value="cashier">${roles.cashier}</option><option value="driver">${roles.driver}</option></select><input id="sph" type="tel" placeholder="Phone (drivers)" style="max-width:140px"><input id="sp" placeholder="PIN (6-10 digits)" inputmode="numeric" maxlength="10" style="max-width:150px"><button class="ghost" onclick="$('#sp').value=String(Math.floor(100000+Math.random()*900000))">🎲</button><button class="primary" onclick="addStaff()">Add</button></div>
    <p class="muted" style="font-size:12.5px;margin-top:12px">Captains sign in at <b>/captain</b>, kitchen staff at <b>/kitchen</b>, cashiers at <b>/cashier</b>, delivery drivers at <b>/driver</b>. <label class="row" style="gap:6px;margin:8px 0"><input type="checkbox" style="width:auto" ${d.legacyOff ? 'checked' : ''} onchange="api('POST','/api/legacy-pin',{off:this.checked}).then(staffTab)"> <b>Turn the old shared PIN off</b> (recommended: with a shared PIN, everyone who uses it is counted as one person in the reports)</label>The old shared PIN (${App.esc(d.legacyPin)}) still works as "Captain" - change it under Theme & settings or stop using it once everyone has their own.</p></div>
   <div class="card" style="overflow:auto"><h3>Performance</h3><table><tr><th>Name</th><th>Requests</th><th>Avg reply</th><th>Started</th><th>Served</th><th>Closed</th></tr>
    ${Object.values(d.stats).map((x) => `<tr><td><b>${App.esc(x.name)}</b></td><td>${x.handled || 0}</td><td>${fmt(x)}</td><td>${x.started || 0}</td><td>${x.served || 0}</td><td>${x.closed || 0}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Numbers appear once staff start handling tables.</td></tr>'}</table></div></div><div class="card" id="screens" style="overflow:auto;margin-top:14px"></div><div class="card" id="shifts" style="overflow:auto;margin-top:14px"></div>`;

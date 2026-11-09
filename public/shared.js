@@ -342,10 +342,10 @@ const App = {
       kind: role === 'admin' ? 'admin' : 'pin',
       brand: cfg && cfg.settings,
       async submit(values) {
-        const body = { ...values, role };
+        const body = { ...values, role: values.team ? 'team' : role }; delete body.team;
         const r = await fetch(`/api/r/${App.slug}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const j = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(j.error || 'Failed');
+        if (!r.ok) { const er = new Error(j.error || 'Failed'); er.need2fa = !!j.need2fa; throw er; }
         App.ls(`tok:${App.slug}:${role}`, j.token);
       },
     });
