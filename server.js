@@ -116,7 +116,7 @@ async function bootstrap() {
 // ---------- Auth helpers ----------
 const bearer = (req) => (req.headers.authorization || '').replace(/^Bearer /, '') || req.query.token;
 // An account of the team (branch manager, operations manager) only counts while it exists, is active and has not had its password reset since the token was issued
-const teamAlive = (rec, d) => { const m = (rec.team || []).find((x) => x.id === d.u); return !!m && m.active !== false && m.role === d.r && (m.tv || 0) === (d.tv || 0); };
+const teamAlive = (rec, d) => { const m = (rec.team || []).find((x) => x.id === d.u); return !!m && m.active !== false && m.role === d.r && (m.tv || 0) === (d.tv || 0) && !(m.expires && m.expires < Date.now()); };
 const teamLog = (rec, who, act, target, extra) => { const l = (rec.teamLog ||= []); l.push({ at: Date.now(), who: who || '', act, target: target || '', ...(extra || {}) }); if (l.length > 400) l.splice(0, l.length - 400); };
 // perm: what the route needs. The owner and the platform admin pass everything; managers pass only the permissions their role holds. Unlisted routes need "owner".
 const gateAdmin = (perm) => (req, res, next) => {
@@ -126,6 +126,9 @@ const gateAdmin = (perm) => (req, res, next) => {
   if (d.s === req.params.slug && ROLES.TEAM.includes(d.r)) {
     if (!req.tenant || !teamAlive(req.tenant.rec, d)) return res.status(401).json({ error: 'auth' });
     if (!ROLES.can(d.r, perm)) { teamLog(req.tenant.rec, d.n, 'denied', req.method + ' ' + req.path); persistRec(req.tenant); return res.status(403).json({ error: 'Your role does not have access to this' }); }
+    const tm = req.tenant.rec.team.find((x) => x.id === d.u);
+    if (tm.mustChange && !/\/me\/(password|2fa\/[a-z]+)$/.test(req.path)) return res.status(403).json({ error: 'You must choose a new password first', code: 'change_password' });
+    if (req.method !== 'GET') { teamLog(req.tenant.rec, d.n, 'action', req.method + ' ' + req.path, { role: d.r }); persistRec(req.tenant); }
     req.claims = d; return next();
   }
   return res.status(403).json({ error: 'forbidden' });
@@ -730,7 +733,35 @@ app.post(`${R}/login`, loginLimit, tenantMw, (req, res) => {
   const kind = role === 'admin' ? 'admin' : 'pin', now0 = Date.now(), flog = ((t.rec.failLog ||= {})[kind] = (t.rec.failLog[kind] || []).filter((x) => now0 - x < 600000));
   if (flog.length >= (kind === 'admin' ? 40 : 30)) return res.status(429).json({ error: 'Too many wrong attempts on this venue. Staff sign-in is paused for a few minutes.' });
   const ok = (token) => { if (fails[key]) { delete fails[key]; persistRec(t); } return res.json({ token }); };
-  if (role === 'admin' && String(email).toLowerCase() === t.rec.owner.email && auth.check(password, t.rec.owner.hash)) return ok(auth.sign('admin', t.rec.slug, req.body && req.body.remember ? 30 : 0.5));
+  const ip = String(req.ip || '');
+  if (role === 'admin' && String(email).toLowerCase() === t.rec.owner.email && auth.check(password, t.rec.owner.hash)) {
+    const tp = t.rec.owner.totp;
+    if (tp && tp.on) {
+      if (!(req.body && req.body.code)) return res.status(401).json({ error: 'Enter the 6-digit code from your authenticator app', need2fa: true });
+      const st = ROLES.totpCheck(auth.unseal(tp.secret), req.body.code, tp.last || 0);
+      if (st) { tp.last = st; persistRec(t); return ok(auth.sign('admin', t.rec.slug, req.body && req.body.remember ? 30 : 0.5)); }
+    } else return ok(auth.sign('admin', t.rec.slug, req.body && req.body.remember ? 30 : 0.5));
+  }
+  if (role === 'team') {
+    // branch manager / operations manager: username + strong password (+ authenticator code when switched on). Five misses lock that username for 15 minutes, whether or not it exists.
+    const uname = String((req.body || {}).username || '').trim().toLowerCase().slice(0, 40), lk = 'u:' + uname, lf = fails[lk] || { n: 0, t: 0 };
+    if (lf.n >= 5 && Date.now() - lf.t < 15 * 60000) return res.status(429).json({ error: 'This account is locked for 15 minutes after too many wrong attempts' });
+    const m = (t.rec.team || []).find((x) => x.username === uname), pwOk = auth.check(String(password || ''), m && m.hash ? m.hash : ROLES.DUMMY_HASH);
+    if (m && pwOk && m.active !== false && !(m.expires && m.expires < Date.now())) {
+      const tp = m.totp;
+      let good = true;
+      if (tp && tp.on) {
+        if (!(req.body && req.body.code)) return res.status(401).json({ error: 'Enter the 6-digit code from your authenticator app', need2fa: true });
+        const st = ROLES.totpCheck(auth.unseal(tp.secret), req.body.code, tp.last || 0); if (st) tp.last = st; else good = false;
+      }
+      if (good) {
+        delete fails[lk]; const newIp = !(m.ips || []).includes(ip); m.ips = [ip, ...(m.ips || []).filter((x) => x !== ip)].slice(0, 8); m.lastLogin = Date.now();
+        teamLog(t.rec, m.name, 'login', m.username, { role: m.role, ip, ...(newIp ? { newIp: true } : {}) }); persistRec(t);
+        return ok(auth.sign(m.role, t.rec.slug, 0.34, { u: m.id, n: m.name, tv: m.tv || 0 }));
+      }
+    }
+    fails[lk] = { n: lf.n + 1, t: Date.now() }; teamLog(t.rec, uname, 'login-failed', uname, { ip, ...(fails[lk].n >= 5 ? { locked: true } : {}) });
+  }
   if (role === 'cashier') {
     if (!F.has(t.rec, 'cashier')) return res.status(402).json({ error: 'The Cashier role needs the Operations plan', upgrade: F.minPlanFor('cashier') });
     const p = String(pin || '');
@@ -1202,6 +1233,101 @@ A('get', '/attendance.csv', gateAt, async (req, res) => {
   res.type('text/csv').set('Content-Disposition', 'attachment; filename="attendance.csv"').send(csv([['Name', 'Role', 'Day', 'Clock in', 'Clock out', 'Hours', 'Late (min)', 'Note'], ...a.records.map((r) => [r.name, r.role, r.day, d(r.in), d(r.out), r.hours, r.lateMin, r.auto ? 'forgot to clock out (auto-closed)' : r.open ? 'still on shift' : '']), [], ['Name', 'Hourly wage', 'Days', 'Hours', 'Late shifts', 'Cost'], ...a.staff.map((s) => [s.name, s.wage, s.days, s.hours, s.late, s.cost]), [], ['Total labour cost', a.laborCost, 'Sales', a.sales, 'Labour %', a.laborPct]]));
 });
 A('delete', '/staff/:id', (req, res) => { const r = req.tenant.rec; r.staff = (r.staff || []).filter((x) => x.id !== req.params.id); bc(req); res.json({ ok: 1 }); });
+
+// ---------- Team accounts: branch manager and operations manager ----------
+// The owner creates managers and operations managers; a branch manager can create operations managers for his own branch. Nobody can create or change an account above their own level.
+const isOwnerClaim = (c) => c.r === 'admin' || c.r === 'super';
+const teamPub = (m) => ({ id: m.id, username: m.username, name: m.name, role: m.role, active: m.active !== false, createdAt: m.createdAt, createdBy: m.createdBy || '', lastLogin: m.lastLogin || 0, expires: m.expires || 0, mustChange: !!m.mustChange, twoFactor: !!(m.totp && m.totp.on), locked: false });
+const mayManage = (c, role) => isOwnerClaim(c) || (c.r === 'manager' && role === 'opmanager');
+const endOfDay = (v) => { const d = new Date(String(v || '') + 'T23:59:59'); return isNaN(+d) ? 0 : +d; };
+const pwCtx = (rec, m) => ({ username: m.username, name: m.name, venue: rec.name, email: rec.owner && rec.owner.email });
+A('get', '/team/suggest', (req, res) => res.json({ password: ROLES.generatePassword() }));
+A('get', '/team', (req, res) => {
+  const r = req.tenant.rec, own = isOwnerClaim(req.claims), list = (r.team || []).filter((m) => own || m.role === 'opmanager' || m.id === req.claims.u);
+  const locked = (m) => { const f = (r.fails || {})['u:' + m.username]; return !!f && f.n >= 5 && Date.now() - f.t < 15 * 60000; };
+  res.json({ team: list.map((m) => ({ ...teamPub(m), locked: locked(m) })), canCreate: own ? ['manager', 'opmanager'] : req.claims.r === 'manager' ? ['opmanager'] : [], you: req.claims.r });
+});
+A('post', '/team', (req, res) => {
+  const r = req.tenant.rec, b = req.body || {}, role = String(b.role || ''), name = String(b.name || '').replace(/[<>]/g, '').trim().slice(0, 40), username = String(b.username || '').trim().toLowerCase();
+  if (!ROLES.TEAM.includes(role)) return res.status(400).json({ error: 'Choose Branch manager or Operations manager' });
+  if (!mayManage(req.claims, role)) return res.status(403).json({ error: 'You can only create accounts below your own level' });
+  if (!name) return res.status(400).json({ error: 'Name required' });
+  const up = ROLES.userProblem(username); if (up) return res.status(400).json({ error: up });
+  if ((r.team || []).some((x) => x.username === username)) return res.status(400).json({ error: 'That username is already taken' });
+  if ((r.team || []).length >= 25) return res.status(400).json({ error: 'You already have 25 team accounts. Remove one you do not use.' });
+  const generated = !b.password, password = b.password ? String(b.password) : ROLES.generatePassword();
+  const pp = ROLES.passwordProblem(password, pwCtx(r, { username, name })); if (pp) return res.status(400).json({ error: pp });
+  let expires = 0; if (b.expires) { expires = endOfDay(b.expires); if (!expires || expires < Date.now()) return res.status(400).json({ error: 'The expiry date must be in the future' }); }
+  const m = { id: 'm' + require('crypto').randomBytes(6).toString('hex'), username, name, role, hash: auth.hash(password), tv: 0, active: true, mustChange: true, createdAt: Date.now(), createdBy: req.claims.n || (isOwnerClaim(req.claims) ? 'Owner' : req.claims.r), ...(expires ? { expires } : {}) };
+  (r.team ||= []).push(m); teamLog(r, req.claims.n || 'Owner', 'created', username, { role }); persistRec(req.tenant);
+  res.json({ ...teamPub(m), ...(generated ? { password } : {}) });
+});
+A('put', '/team/:id', (req, res) => {
+  const r = req.tenant.rec, m = (r.team || []).find((x) => x.id === req.params.id), b = req.body || {};
+  if (!m) return res.status(404).json({ error: 'not found' });
+  if (!mayManage(req.claims, m.role)) return res.status(403).json({ error: 'You can only change accounts below your own level' });
+  if (m.id === req.claims.u && b.active === false) return res.status(400).json({ error: 'You cannot switch off your own account' });
+  if (b.name !== undefined) { const n = String(b.name).replace(/[<>]/g, '').trim().slice(0, 40); if (n) m.name = n; }
+  if (b.expires !== undefined) { if (!b.expires) delete m.expires; else { const e = endOfDay(b.expires); if (!e || e < Date.now()) return res.status(400).json({ error: 'The expiry date must be in the future' }); m.expires = e; } }
+  if (b.active !== undefined) { m.active = !!b.active; if (!m.active) m.tv = (m.tv || 0) + 1; teamLog(r, req.claims.n || 'Owner', m.active ? 'enabled' : 'disabled', m.username); }
+  if (b.unlock) { delete (r.fails || {})['u:' + m.username]; teamLog(r, req.claims.n || 'Owner', 'unlocked', m.username); }
+  if (b.resetTwoFactor) { delete m.totp; m.tv = (m.tv || 0) + 1; teamLog(r, req.claims.n || 'Owner', '2fa-reset', m.username); }
+  persistRec(req.tenant); res.json(teamPub(m));
+});
+A('post', '/team/:id/reset', (req, res) => {
+  const r = req.tenant.rec, m = (r.team || []).find((x) => x.id === req.params.id), b = req.body || {};
+  if (!m) return res.status(404).json({ error: 'not found' });
+  if (!mayManage(req.claims, m.role)) return res.status(403).json({ error: 'You can only change accounts below your own level' });
+  const generated = !b.password, password = b.password ? String(b.password) : ROLES.generatePassword();
+  const pp = ROLES.passwordProblem(password, pwCtx(r, m)); if (pp) return res.status(400).json({ error: pp });
+  m.hash = auth.hash(password); m.tv = (m.tv || 0) + 1; m.mustChange = true; delete (r.fails || {})['u:' + m.username];
+  teamLog(r, req.claims.n || 'Owner', 'password-reset', m.username); persistRec(req.tenant); res.json({ ok: 1, ...(generated ? { password } : {}) });
+});
+A('delete', '/team/:id', (req, res) => {
+  const r = req.tenant.rec, m = (r.team || []).find((x) => x.id === req.params.id);
+  if (!m) return res.status(404).json({ error: 'not found' });
+  if (!mayManage(req.claims, m.role)) return res.status(403).json({ error: 'You can only remove accounts below your own level' });
+  if (m.id === req.claims.u) return res.status(400).json({ error: 'You cannot remove your own account' });
+  r.team = r.team.filter((x) => x.id !== m.id); teamLog(r, req.claims.n || 'Owner', 'removed', m.username); persistRec(req.tenant); res.json({ ok: 1 });
+});
+A('get', '/team/log', (req, res) => {
+  const own = isOwnerClaim(req.claims), l = (req.tenant.rec.teamLog || []).filter((x) => own || x.role !== 'manager' || x.who === req.claims.n).slice(-200).reverse();
+  res.json({ log: l });
+});
+// what the signed-in person may do (the page hides what the role cannot open; the server enforces it anyway)
+app.get(`${R}/me/perms`, tenantMw, gateAdmin('ui'), (req, res) => {
+  const c = req.claims, own = isOwnerClaim(c), m = !own && (req.tenant.rec.team || []).find((x) => x.id === c.u);
+  res.json({ role: own ? 'owner' : c.r, name: c.n || 'Owner', perms: own ? ['*'] : [...ROLES.PERMS[c.r]], twoFactor: own ? !!(req.tenant.rec.owner.totp && req.tenant.rec.owner.totp.on) : !!(m && m.totp && m.totp.on), mustChange: !!(m && m.mustChange) });
+});
+app.post(`${R}/me/password`, loginLimit, tenantMw, gateAdmin('ui'), (req, res) => {
+  const r = req.tenant.rec, b = req.body || {}, c = req.claims;
+  const m = (r.team || []).find((x) => x.id === c.u);
+  if (!m) return res.status(400).json({ error: 'Owners change their password under Account' });
+  if (!auth.check(String(b.current || ''), m.hash)) return res.status(401).json({ error: 'Your current password is not correct' });
+  const pp = ROLES.passwordProblem(b.password, pwCtx(r, m)); if (pp) return res.status(400).json({ error: pp });
+  if (auth.check(String(b.password), m.hash)) return res.status(400).json({ error: 'Choose a password you have not used before' });
+  m.hash = auth.hash(String(b.password)); m.tv = (m.tv || 0) + 1; m.mustChange = false; teamLog(r, m.name, 'password-changed', m.username); persistRec(req.tenant);
+  res.json({ ok: 1, token: auth.sign(m.role, r.slug, 0.34, { u: m.id, n: m.name, tv: m.tv }) });
+});
+// authenticator app: set up (shows the key and a QR), switch on with a first code, switch off with a code
+const totpHolder = (req) => { const c = req.claims; if (isOwnerClaim(c)) return req.tenant.rec.owner; return (req.tenant.rec.team || []).find((x) => x.id === c.u); };
+app.post(`${R}/me/2fa/setup`, loginLimit, tenantMw, gateAdmin('ui'), async (req, res, next) => { try {
+  const h = totpHolder(req); if (!h) return res.status(400).json({ error: 'no account' });
+  if (h.totp && h.totp.on) return res.status(400).json({ error: 'Two-step sign-in is already on' });
+  const secret = ROLES.newTotpSecret(); h.totp = { on: false, secret: auth.seal(secret) }; persistRec(req.tenant);
+  const uri = ROLES.totpUri(secret, (h.username || h.email || 'owner') + '@' + req.tenant.rec.slug);
+  res.json({ secret, uri, qr: await QRCode.toDataURL(uri, { width: 300, margin: 1 }) });
+} catch (e) { next(e); } });
+app.post(`${R}/me/2fa/enable`, loginLimit, tenantMw, gateAdmin('ui'), (req, res) => {
+  const h = totpHolder(req); if (!h || !h.totp || h.totp.on) return res.status(400).json({ error: 'Start the setup first' });
+  const st = ROLES.totpCheck(auth.unseal(h.totp.secret), (req.body || {}).code, 0); if (!st) return res.status(400).json({ error: 'That code is not right. Check the time on your phone and try again.' });
+  h.totp.on = true; h.totp.last = st; teamLog(req.tenant.rec, req.claims.n || 'Owner', '2fa-on', h.username || 'owner'); persistRec(req.tenant); res.json({ ok: 1 });
+});
+app.post(`${R}/me/2fa/disable`, loginLimit, tenantMw, gateAdmin('ui'), (req, res) => {
+  const h = totpHolder(req); if (!h || !h.totp || !h.totp.on) return res.status(400).json({ error: 'Two-step sign-in is not on' });
+  const st = ROLES.totpCheck(auth.unseal(h.totp.secret), (req.body || {}).code, h.totp.last || 0); if (!st) return res.status(400).json({ error: 'Enter a current code from your authenticator app' });
+  delete h.totp; teamLog(req.tenant.rec, req.claims.n || 'Owner', '2fa-off', h.username || 'owner'); persistRec(req.tenant); res.json({ ok: 1 });
+});
 A('get', '/feedback', (req, res) => res.json({ reviews: req.tenant.rec.reviews || [] }));
 // ---- upsell metrics (non-destructive Clear: only moves resetAt) ----
 function upStats(t, from, to) {
@@ -1384,7 +1510,7 @@ A('get', '/export.json', async (req, res) => {
   const out = { exportedAt: new Date().toISOString(), restaurant: { name: rec.name, slug: rec.slug }, settings: t.db.settings, categories: t.db.categories, items: t.db.items.map((i) => ({ ...i, img: i.img && i.img.startsWith('data:') ? '' : i.img })), tables: t.db.tables, staff: (staff || []).map(({ hash, ...x }) => x), reviews: rec.reviews || [], history: STATELESS ? await store.getHist(rec.id) : t.db.history };
   res.setHeader('Content-Disposition', `attachment; filename=backup-${new Date().toISOString().slice(0, 10)}.json`); res.type('json').send(JSON.stringify(out));
 });
-A('post', '/settings', (req, res) => {
+A('post', '/settings', (req, res, next) => (ROLES.TEAM.includes(req.claims.r) && !ROLES.teamSettingsOk(req.body) ? res.status(403).json({ error: 'Only the owner can change these settings' }) : next()), (req, res) => {
   const d = req.tenant.db; const b = req.body || {}; delete b.presets;
   if (F.PREMIUM_THEMES.includes(b.theme) && !F.has(req.tenant.rec, 'themes')) return res.status(402).json({ error: 'Custom themes need the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' });
   if (b.loyalty) { if (!F.has(req.tenant.rec, 'loyalty')) return res.status(402).json({ error: 'Loyalty needs the ' + F.PLANS.vip.name + ' plan', upgrade: 'vip' }); const l = b.loyalty; b.loyalty = { enabled: l.enabled !== false, egpPerPoint: Math.max(1, +l.egpPerPoint || 10), pointsPerRedeem: Math.max(1, +l.pointsPerRedeem || 100), redeemValue: Math.max(0, +l.redeemValue || 0) }; }

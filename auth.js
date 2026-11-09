@@ -20,7 +20,8 @@ exports.verify = (tok) => {
 exports.hash = (pw) => { const salt = crypto.randomBytes(16).toString('hex'); return salt + ':' + crypto.scryptSync(pw, salt, 32).toString('hex'); };
 exports.check = (pw, h) => { if (!h) return false; const [salt, hex] = h.split(':'); const x = crypto.scryptSync(String(pw), salt, 32); const y = Buffer.from(hex, 'hex'); return x.length === y.length && crypto.timingSafeEqual(x, y); };
 exports.randomPassword = () => crypto.randomBytes(6).toString('base64url');
-exports.pin = () => String(crypto.randomInt(1000, 9999));
+// six random digits, never an easy one (123456, 111111, 121212 ...)
+exports.pin = () => { const R = require('./roles'); for (let i = 0; i < 50; i++) { const p = String(crypto.randomInt(100000, 999999)); if (!R.pinProblem(p)) return p; } return '482915'; };
 // Secrets kept in the database (a café's payment-provider keys) are encrypted with AES-256-GCM using a key derived from SECRET,
 // so a leaked backup or database row does not reveal them. Plain legacy values are still readable and get sealed on their next save.
 // NOTE: changing SECRET makes sealed values unreadable (they must be entered again).

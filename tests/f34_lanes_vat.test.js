@@ -2,7 +2,7 @@ const test = require('node:test'), assert = require('node:assert/strict');
 const { start } = require('./helper');
 for (const mode of ['ws', 'rpc']) test(`F34 kitchen priority lanes and monthly VAT summary [${mode}]`, async (t) => {
   const S = await start(mode); t.after(() => S.stop()); const T = await S.tenant('vip', { demo: true }), B = await S.tenant('basic');
-  const cap = await T.staff('captain', 'Wael', '4321'), kit = await T.staff('kitchen', 'Hany', '5555'), cfg = (await T.api('GET', '/config', null, null)).j;
+  const cap = await T.staff('captain', 'Wael', '43214321'), kit = await T.staff('kitchen', 'Hany', '55555555'), cfg = (await T.api('GET', '/config', null, null)).j;
   const item = cfg.items.find((i) => !i.soldOut && i.stock == null), tb = cfg.tables.find((x) => x.number === 9) || cfg.tables[cfg.tables.length - 1];
   await T.rpc('captain', cap, { t: 'staff_order', tableId: tb.id, items: [{ itemId: item.id, qty: 1 }] });
   const get = async () => Object.values((await T.state(cap)).sessions).find((x) => x.tableId === tb.id).orders[0];

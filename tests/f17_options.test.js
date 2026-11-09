@@ -39,7 +39,7 @@ for (const mode of ['ws', 'rpc']) test(`F17 item options and details [${mode}]`,
   await g.call({ t: 'cart_add', itemId: item.id, opts: { must: 'a' }, price: 0.01, add: -50 }); assert.ok((await cart()).every((x) => x.price >= base));
   // order and bill carry the options and the right total
   await g.call({ t: 'send_order', scope: 'all' });
-  const cap = await T.staff('captain', 'Wael', '4321'), st = await T.state(cap), ses = Object.values(st.sessions).find((x) => x.orders.length);
+  const cap = await T.staff('captain', 'Wael', '43214321'), st = await T.state(cap), ses = Object.values(st.sessions).find((x) => x.orders.length);
   const lines = ses.orders[0].items; assert.ok(lines.some((x) => /Large/.test(x.opt)));
   const total = lines.reduce((n, x) => n + x.price * x.qty, 0); assert.ok(total > base * 4);
 

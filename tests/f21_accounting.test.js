@@ -7,7 +7,7 @@ for (const mode of ['ws', 'rpc']) test(`F21 accounting export [${mode}]`, async 
   const item = (await cfg()).items.find((i) => !i.soldOut && i.stock == null && i.price > 0 && !(i.options || []).some((o) => o.required));
   assert.equal((await B.api('GET', '/accounting')).s, 402); assert.equal((await B.api('GET', '/accounting.csv')).s, 402);
 
-  const cap = await T.staff('captain', 'Wael', '4321'), cash = await T.staff('cashier', 'Mona', '6666');
+  const cap = await T.staff('captain', 'Wael', '43214321'), cash = await T.staff('cashier', 'Mona', '66666666');
   assert.equal((await S.J('POST', T.u('/shift/open'), { opening: 100 }, cash)).s, 200);
   const sell = async (n, method, body = {}) => {
     const tb = (await cfg()).tables[n], g = T.guest(tb.number); await g.join();

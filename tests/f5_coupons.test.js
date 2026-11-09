@@ -22,7 +22,7 @@ test('F5 pure rules', () => {
 for (const mode of ['ws', 'rpc']) test(`F5 coupons/offers/gifts [${mode}]`, async (t) => {
   const S = await start(mode); t.after(() => S.stop());
   const T = await S.tenant('vip', { demo: true }), O = await S.tenant('operations'), B = await S.tenant('basic');
-  const C = await T.staff('cashier', 'Mona', '7788');
+  const C = await T.staff('cashier', 'Mona', '77887788');
   // CPN-01 off by default: a code does nothing, no discount
   const g = T.guest(15, 'Karim'); let st = (await g.join()).j.state; const cfg = st.config; const it = cfg.items.find((x) => x.name === 'Rack of Lamb');
   assert.equal(cfg.settings.promo.enabled, false);

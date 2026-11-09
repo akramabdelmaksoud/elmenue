@@ -3,7 +3,7 @@ const { start } = require('./helper');
 for (const mode of ['ws', 'rpc']) test(`F43 one booking per table [${mode}]`, async (t) => {
   const S = await start(mode); t.after(() => S.stop());
   const T = await S.tenant('operations');
-  const cap = await T.staff('captain', 'Wael', '4321'), c = (await T.api('GET', '/config', null, null)).j, tb = c.tables[1], at = Date.now() + 3 * 3600000;
+  const cap = await T.staff('captain', 'Wael', '43214321'), c = (await T.api('GET', '/config', null, null)).j, tb = c.tables[1], at = Date.now() + 3 * 3600000;
   const add = (m) => T.rpc('captain', cap, { t: 'res_add', tableId: tb.id, name: 'Sara', guests: 2, at, ...m });
   const mine = async () => ((await T.state(cap)).config.reservations || []).filter((r) => r.tableId === tb.id);
 

@@ -13,7 +13,7 @@ test('F7 queueable whitelist (OFF: money never queued)', () => {
 for (const mode of ['ws', 'rpc']) test(`F7 offline queue server rules [${mode}]`, async (t) => {
   const S = await start(mode); t.after(() => S.stop());
   const T = await S.tenant('operations', { demo: true }), B = await S.tenant('basic'), O2 = await S.tenant('operations');
-  const W = await T.staff('captain', 'Ali', '1234');
+  const W = await T.staff('captain', 'Ali', '482915');
   const st0 = (await T.rpc('captain', W, null)).j.state, cfg = st0.config, tid = cfg.tables.find((x) => !st0.sessions[x.id]).id;
   const item = cfg.items.find((x) => !x.soldOut), item2 = cfg.items.filter((x) => !x.soldOut)[1];
   // OFF-01 flag off by default; basic tier cannot enable
@@ -33,7 +33,7 @@ for (const mode of ['ws', 'rpc']) test(`F7 offline queue server rules [${mode}]`
   r = await T.rpc('captain', W, { t: 'staff_order', tableId: tid, items: [{ itemId: item2.id, qty: 1 }], k: 'key-aaa-3' });
   assert.ok(r.j.notices.some((n) => n.startsWith('Sold out, not added') && n.includes(item2.name)), JSON.stringify(r.j.notices)); assert.equal(await qty(), 3);
   // OFF-06 keys are per venue-database: another venue's identical key is independent
-  const W2 = await O2.staff('captain', 'Zed', '4321'); const bs = (await O2.rpc('captain', W2, null)).j.state, tid2 = bs.config.tables[0].id, it2 = bs.config.items[0];
+  const W2 = await O2.staff('captain', 'Zed', '43214321'); const bs = (await O2.rpc('captain', W2, null)).j.state, tid2 = bs.config.tables[0].id, it2 = bs.config.items[0];
   await O2.rpc('captain', W2, { t: 'staff_order', tableId: tid2, items: [{ itemId: it2.id, qty: 1 }], k: 'key-aaa-1' });
   assert.equal((await O2.rpc('captain', W2, null)).j.state.sessions[tid2].orders.length > 0, true);
   // OFF-07 payments are not idempotency-queued: closing is a normal live action, and an unkeyed close works

@@ -24,7 +24,7 @@ for (const mode of ['ws', 'rpc']) test(`F19 guest reservations and waitlist [${m
   assert.equal(await bad({ phone: '01099999999', guests: 5 }), 'full', 'capacity 8 is used up around that time');
 
   // staff sees the pending request, confirms with a table
-  const cap = await T.staff('captain', 'Wael', '4321'), st = await T.state(cap), c = await cfg();
+  const cap = await T.staff('captain', 'Wael', '43214321'), st = await T.state(cap), c = await cfg();
   const rv = (st.config.reservations || st.reservations || []).find((r) => r.name.startsWith('Sara')); assert.ok(rv, 'staff receive the request'); assert.equal(rv.status, 'pending'); assert.ok(!/[<>]/.test(rv.name));
   const stat = async (id) => (await pub('GET', '/book/status/' + id)).j;
   assert.equal((await stat(rv.id)).status, 'pending'); assert.equal((await pub('GET', '/book/status/nope')).s, 404);

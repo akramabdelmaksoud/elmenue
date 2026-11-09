@@ -52,7 +52,7 @@ test('X-08 demo engine loads in a browser-like sandbox', () => {
 for (const mode of ['ws', 'rpc']) test(`X security + concurrency [${mode}]`, async (t) => {
   const S = await start(mode); t.after(() => S.stop());
   const T = await S.tenant('vip', { demo: true }), O = await S.tenant('vip');
-  const C = await T.staff('cashier', 'Mona', '7788');
+  const C = await T.staff('cashier', 'Mona', '77887788');
   // X-09 security sweep: unauthenticated / wrong-role / cross-venue calls are refused on every new route
   const adminRoutes = [['GET', '/coupons'], ['POST', '/coupons'], ['GET', '/gifts'], ['GET', '/promo/report'], ['GET', '/pay/config'], ['POST', '/pay/config'], ['GET', '/pay/intents'], ['GET', '/eta/config'], ['POST', '/eta/config'], ['GET', '/eta/queue'], ['POST', '/eta/run'], ['GET', '/eta/export.json'], ['GET', '/upsell/stats'], ['GET', '/feedback/summary'], ['GET', '/shifts']];
   for (const [m, p] of adminRoutes) {

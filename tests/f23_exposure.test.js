@@ -10,7 +10,7 @@ for (const mode of ['ws', 'rpc']) test(`F23 nothing private leaks to the open we
   const adminCfg = (await T.api('GET', '/config')).j; assert.ok(JSON.stringify(adminCfg).includes('secret-wifi-123'), 'the owner still sees it');
 
   // staff screens never receive AI notes or fiscal details
-  const cap = await T.staff('captain', 'Wael', '4321'), st = JSON.stringify((await T.state(cap)).config.settings);
+  const cap = await T.staff('captain', 'Wael', '43214321'), st = JSON.stringify((await T.state(cap)).config.settings);
   assert.ok(!/"ai":/.test(st));
 
   // guest ids are random, not a counter

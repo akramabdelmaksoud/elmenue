@@ -7,7 +7,7 @@ for (const mode of ['ws', 'rpc']) test(`F12 insights API + captain log [${mode}]
   assert.equal((await B.api('GET', '/insights')).s, 402); assert.equal((await S.J('GET', T.u('/insights'), null, null)).s, 401);
   assert.equal((await T.api('POST', '/insights/ai', { lang: 'en' })).s, 402);
   // a real captain does real work: every action lands in that captain's hourly log
-  const cap = await T.staff('captain', 'Wael', '4321'), item = (await T.api('GET', '/config', null, null)).j.items.find((i) => !i.soldOut && i.stock == null), tb = (await T.api('GET', '/config', null, null)).j.tables[0];
+  const cap = await T.staff('captain', 'Wael', '43214321'), item = (await T.api('GET', '/config', null, null)).j.items.find((i) => !i.soldOut && i.stock == null), tb = (await T.api('GET', '/config', null, null)).j.tables[0];
   await T.rpc('captain', cap, { t: 'staff_order', tableId: tb.id, items: [{ itemId: item.id, qty: 2 }] });
   const st = await T.state(cap), ses = Object.values(st.sessions).find((x) => x.tableId === tb.id), oid = ses.orders[0].id;
   await T.rpc('captain', cap, { t: 'order_status', orderId: oid, status: 'kitchen' }); await T.rpc('captain', cap, { t: 'order_status', orderId: oid, status: 'served' });

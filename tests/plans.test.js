@@ -26,14 +26,14 @@ test('plan limits are enforced end to end (basic / operations / vip) and overrid
     const lim = F.PLANS.basic.limits.tables;
     let res; for (let i = 0; i < lim + 3; i++) { res = await addTable('basic'); if (res.status === 402) break; }
     assert.equal(res.status, 402); assert.equal(await tables('basic'), lim); assert.ok(res.json.upgrade, 'tells the owner which plan to upgrade to');
-    assert.equal((await j(srv.base, 'POST', '/api/r/p-basic/staff', { token: admin.basic, body: { name: 'Sam', role: 'captain', pin: '4321' } })).status, 402);
+    assert.equal((await j(srv.base, 'POST', '/api/r/p-basic/staff', { token: admin.basic, body: { name: 'Sam', role: 'captain', pin: '43214321' } })).status, 402);
 
     // an owner override raises the limit for that one restaurant
     const up = await j(srv.base, 'PUT', '/api/super/tenants/p-basic', { token: su, body: { limits: { tables: lim + 2 } } }); assert.equal(up.status, 200);
     assert.equal((await addTable('basic')).status, 200);
 
     // OPERATIONS: staff allowed, cashier role allowed; basic is refused the cashier role
-    const s1 = await j(srv.base, 'POST', '/api/r/p-operations/staff', { token: admin.operations, body: { name: 'Mona', role: 'cashier', pin: '5555' } }); assert.equal(s1.status, 200, JSON.stringify(s1.json));
+    const s1 = await j(srv.base, 'POST', '/api/r/p-operations/staff', { token: admin.operations, body: { name: 'Mona', role: 'cashier', pin: '55555555' } }); assert.equal(s1.status, 200, JSON.stringify(s1.json));
 
     // VIP: no table limit
     const before = await tables('vip'); for (let i = 0; i < 3; i++) assert.equal((await addTable('vip')).status, 200); assert.equal(await tables('vip'), before + 3);

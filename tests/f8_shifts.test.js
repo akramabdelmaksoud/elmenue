@@ -4,7 +4,7 @@ const near = (a, b, m) => assert.ok(Math.abs(a - b) < 0.011, `${m}: ${a} vs ${b}
 for (const mode of ['ws', 'rpc']) test(`F8 shifts X/Z [${mode}]`, async (t) => {
   const S = await start(mode); t.after(() => S.stop());
   const T = await S.tenant('operations', { demo: true });
-  const C = await T.staff('cashier', 'Mona', '7788');
+  const C = await T.staff('cashier', 'Mona', '77887788');
   const sh = (m, p, b) => T.api(m, p, b, C);
   assert.equal((await sh('GET', '/shift/x')).s, 400, 'X without open shift');
   // SHF-01 open with float

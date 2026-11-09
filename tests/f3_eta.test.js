@@ -30,7 +30,7 @@ test('F3 client against a fake gateway: login headers, batch, accepted / rejecte
 for (const mode of ['ws', 'rpc']) test(`F3 e-receipt pipeline [${mode}]`, async (t) => {
   const S = await start(mode); t.after(() => S.stop());
   const T = await S.tenant('operations', { demo: true }), B = await S.tenant('basic');
-  const C = await T.staff('cashier', 'Mona', '7788'), T0 = Date.now();
+  const C = await T.staff('cashier', 'Mona', '77887788'), T0 = Date.now();
   const st0 = (await T.rpc('cashier', C, null)).j.state, it = st0.config.items.find((x) => !x.soldOut);
   // ETA-01 off by default: sales create no queue; basic tier gated
   assert.equal(st0.config.settings.eta.enabled, false); assert.equal((await B.api('POST', '/settings', { eta: { enabled: true, env: 'mock' } })).s, 402); assert.equal((await B.api('GET', '/eta/queue')).s, 402);
@@ -53,7 +53,7 @@ for (const mode of ['ws', 'rpc']) test(`F3 e-receipt pipeline [${mode}]`, async 
   run = (await T.api('POST', '/eta/run', { force: true })).j; assert.equal(run.stats.accepted, 2); assert.equal(run.stats.queued, 0); run = (await T.api('POST', '/eta/run', { force: true })).j; assert.equal(run.sent, 0, 'nothing is sent twice');
   // ETA-06 rejected receipt is kept and can be re-issued as a correction referencing the old one
   const T2 = await S.tenant('operations', { demo: true }); await T2.api('POST', '/eta/config', { rin: '1', tradeName: 'X', mockMode: 'reject' }); await T2.api('POST', '/settings', { eta: { enabled: true, env: 'mock' } });
-  const C2 = await T2.staff('cashier', 'Z', '1357'), it2 = (await T2.rpc('cashier', C2, null)).j.state.config.items.find((x) => !x.soldOut); const g2 = T2.guest(14, 'R'); await g2.join(); await g2.call({ t: 'cart_add', itemId: it2.id }); await g2.call({ t: 'send_order', scope: 'all' });
+  const C2 = await T2.staff('cashier', 'Z', '13571357'), it2 = (await T2.rpc('cashier', C2, null)).j.state.config.items.find((x) => !x.soldOut); const g2 = T2.guest(14, 'R'); await g2.join(); await g2.call({ t: 'cart_add', itemId: it2.id }); await g2.call({ t: 'send_order', scope: 'all' });
   const s2 = Object.values((await T2.rpc('cashier', C2, null)).j.state.sessions).find((x) => x.tableNumber === 14); await T2.rpc('cashier', C2, { t: 'close_table', tableId: s2.tableId, method: 'card', pay: { tip: 0 } });
   await T2.api('GET', '/eta/queue'); let r2_ = (await T2.api('POST', '/eta/run')).j; assert.equal(r2_.stats.rejected, 1); let it_ = (await T2.api('GET', '/eta/queue')).j.items[0]; assert.equal(it_.status, 'rejected'); assert.ok(it_.error);
   await T2.api('POST', '/eta/config', { mockMode: 'ok' }); assert.equal((await T2.api('POST', `/eta/retry/${it_.id}`)).s, 200); r2_ = (await T2.api('POST', '/eta/run')).j; assert.equal(r2_.stats.accepted, 1); assert.equal(r2_.stats.superseded, 1);

@@ -19,13 +19,13 @@ for (const mode of ['ws', 'rpc']) test(`F6 plan limits [${mode}]`, async (t) => 
   for (let i = 0; i < 12; i++) assert.equal((await O.api('POST', '/tables', {})).s, 200, 'add table ' + i);
   const full = await O.api('POST', '/tables', {}); assert.equal(full.s, 402); assert.equal(full.j.limit, 30); assert.equal(full.j.upgrade, 'vip');
   // LIM-02 staff: operations 10
-  for (let i = 0; i < 10; i++) assert.equal((await O.api('POST', '/staff', { name: 'S' + i, role: 'captain', pin: String(2000 + i) })).s, 200);
-  const sf = await O.api('POST', '/staff', { name: 'X', role: 'captain', pin: '9999' }); assert.equal(sf.s, 402); assert.equal(sf.j.kind, 'staff');
+  for (let i = 0; i < 10; i++) assert.equal((await O.api('POST', '/staff', { name: 'S' + i, role: 'captain', pin: String(200000 + i * 7) })).s, 200);
+  const sf = await O.api('POST', '/staff', { name: 'X', role: 'captain', pin: '99999999' }); assert.equal(sf.s, 402); assert.equal(sf.j.kind, 'staff');
   // basic has no staff feature/limit 0
-  assert.equal((await B.api('POST', '/staff', { name: 'X', role: 'captain', pin: '9999' })).s, 402);
+  assert.equal((await B.api('POST', '/staff', { name: 'X', role: 'captain', pin: '99999999' })).s, 402);
   // vip: unlimited tables and staff
   for (let i = 0; i < 3; i++) assert.equal((await V.api('POST', '/tables', {})).s, 200);
-  assert.equal((await V.api('POST', '/staff', { name: 'A', role: 'captain', pin: '3333' })).s, 200);
+  assert.equal((await V.api('POST', '/staff', { name: 'A', role: 'captain', pin: '33333333' })).s, 200);
   assert.equal((await V.api('GET', '/account')).j.limits.tables, null);
   // LIM-04 tier change updates limits immediately
   assert.equal((await S.J('PUT', `/api/super/tenants/${O.slug}`, { plan: 'vip' }, S.sup)).s, 200);

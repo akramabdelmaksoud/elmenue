@@ -4,7 +4,7 @@ const F = require('../features');
 for (const mode of ['ws', 'rpc']) test(`F36 separate checks, serving, empty tables, recommendations [${mode}]`, async (t) => {
   const S = await start(mode); t.after(() => S.stop());
   const T = await S.tenant('operations');
-  const cap = await T.staff('captain', 'Wael', '4321');
+  const cap = await T.staff('captain', 'Wael', '43214321');
   const cfg = (await T.guest(1).join()).j.state.config, item = (n) => cfg.items.find((x) => x.name === n);
   const state = async () => await T.state(cap), sess = async (n) => Object.values((await state()).sessions).find((x) => x.tableNumber === n);
   // ---- two guests at table 21, each orders their own dish

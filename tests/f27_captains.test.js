@@ -5,9 +5,9 @@ for (const mode of ['ws', 'rpc']) test(`F27 several captains on at once are kept
   const T = await S.tenant('operations', { demo: true }), cfg = (await T.api('GET', '/config', null, null)).j;
   const item = cfg.items.find((i) => !i.soldOut && i.stock == null && i.price > 0 && !(i.options || []).some((o) => o.required));
   // two people cannot share a name (the reports would merge them)
-  const a = await T.staff('captain', 'Ahmed', '1111'), b = await T.staff('captain', 'Salma', '2222');
-  assert.equal((await T.api('POST', '/staff', { name: ' ahmed ', role: 'captain', pin: '3333' })).s, 400);
-  const cash = await T.staff('cashier', 'Mona', '6666'); assert.equal((await S.J('POST', T.u('/shift/open'), { opening: 50 }, cash)).s, 200);
+  const a = await T.staff('captain', 'Ahmed', '11111111'), b = await T.staff('captain', 'Salma', '22222222');
+  assert.equal((await T.api('POST', '/staff', { name: ' ahmed ', role: 'captain', pin: '33333333' })).s, 400);
+  const cash = await T.staff('cashier', 'Mona', '66666666'); assert.equal((await S.J('POST', T.u('/shift/open'), { opening: 50 }, cash)).s, 200);
 
   // both are on shift at the same time; each serves a different table; the cashier closes both
   const served = {};

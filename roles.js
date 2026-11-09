@@ -83,7 +83,22 @@ const pinProblem = (pin, strict = true) => {
   return null;
 };
 
+// ---- authenticator-app codes (TOTP, RFC 6238: 6 digits, 30 s) so a stolen password alone is not enough ----
+const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+const b32 = (buf) => { let bits = 0, v = 0, o = ''; for (const x of buf) { v = (v << 8) | x; bits += 8; while (bits >= 5) { o += B32[(v >>> (bits - 5)) & 31]; bits -= 5; } } if (bits) o += B32[(v << (5 - bits)) & 31]; return o; };
+const unb32 = (str) => { let bits = 0, v = 0; const out = []; for (const ch of String(str).toUpperCase().replace(/[^A-Z2-7]/g, '')) { v = (v << 5) | B32.indexOf(ch); bits += 5; if (bits >= 8) { out.push((v >>> (bits - 8)) & 255); bits -= 8; } } return Buffer.from(out); };
+const newTotpSecret = () => b32(crypto.randomBytes(20));
+const hotp = (secret, step) => { const c = Buffer.alloc(8); c.writeBigUInt64BE(BigInt(step)); const h = crypto.createHmac('sha1', unb32(secret)).update(c).digest(), o = h[19] & 15; return String(((h[o] & 127) << 24 | h[o + 1] << 16 | h[o + 2] << 8 | h[o + 3]) % 1000000).padStart(6, '0'); };
+// returns the accepted time step (store it as "last" so a code cannot be used twice) or null
+const totpCheck = (secret, code, lastStep = 0, now = Date.now()) => {
+  code = String(code || '').replace(/\s/g, ''); if (!/^\d{6}$/.test(code) || !secret) return null;
+  const cur = Math.floor(now / 30000);
+  for (const st of [cur, cur - 1, cur + 1]) if (st > lastStep && crypto.timingSafeEqual(Buffer.from(hotp(secret, st)), Buffer.from(code))) return st;
+  return null;
+};
+const totpUri = (secret, label, issuer = 'TableTab') => `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(label)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&digits=6&period=30`;
+
 // A fixed hash to compare against when the username does not exist, so a wrong username takes as long as a wrong password
 const DUMMY_HASH = 'a1b2c3d4e5f60718293a4b5c6d7e8f90:' + '0'.repeat(64);
 
-module.exports = { TEAM, PERMS, can, permFor, teamSettingsOk, userProblem, passwordProblem, generatePassword, pinProblem, DUMMY_HASH, POLICY };
+module.exports = { newTotpSecret, totpCheck, totpUri, hotp, TEAM, PERMS, can, permFor, teamSettingsOk, userProblem, passwordProblem, generatePassword, pinProblem, DUMMY_HASH, POLICY };

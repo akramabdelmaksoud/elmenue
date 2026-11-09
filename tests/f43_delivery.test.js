@@ -40,12 +40,12 @@ for (const mode of ['ws', 'rpc']) test(`F43 delivery: accounts, areas, drivers, 
   assert.ok(Math.abs(ok.j.total - (food.price * 2 + 30)) < 0.6 || ok.j.total > food.price * 2 + 29, 'area fee is in the total');
   const me = (await S.J('GET', T.u('/cust/me'), undefined, tok)).j; assert.equal(me.orders[0].number, ok.j.number); assert.equal(me.orders[0].status, 'received');
   // staff: a driver with a phone; PIN never opens the kitchen
-  const mk = await T.api('POST', '/staff', { name: 'Hassan', role: 'driver', pin: '7391', phone: '0100 555 6677' }); assert.equal(mk.s, 200);
-  await T.api('POST', '/staff', { name: 'Sayed', role: 'driver', pin: '8264' });
-  assert.equal((await S.J('POST', T.u('/login'), { role: 'kitchen', pin: '7391' }, null, ip(7))).s, 401, 'driver PIN is not a kitchen PIN');
-  assert.equal((await S.J('POST', T.u('/login'), { role: 'driver', pin: '1111' }, null, ip(7))).s, 401);
-  const dl = await S.J('POST', T.u('/login'), { role: 'driver', pin: '7391' }, null, ip(8)); assert.equal(dl.s, 200); const drv = dl.j.token;
-  const dl2 = (await S.J('POST', T.u('/login'), { role: 'driver', pin: '8264' }, null, ip(8))).j.token;
+  const mk = await T.api('POST', '/staff', { name: 'Hassan', role: 'driver', pin: '73917391', phone: '0100 555 6677' }); assert.equal(mk.s, 200);
+  await T.api('POST', '/staff', { name: 'Sayed', role: 'driver', pin: '82648264' });
+  assert.equal((await S.J('POST', T.u('/login'), { role: 'kitchen', pin: '73917391' }, null, ip(7))).s, 401, 'driver PIN is not a kitchen PIN');
+  assert.equal((await S.J('POST', T.u('/login'), { role: 'driver', pin: '11111111' }, null, ip(7))).s, 401);
+  const dl = await S.J('POST', T.u('/login'), { role: 'driver', pin: '73917391' }, null, ip(8)); assert.equal(dl.s, 200); const drv = dl.j.token;
+  const dl2 = (await S.J('POST', T.u('/login'), { role: 'driver', pin: '82648264' }, null, ip(8))).j.token;
   assert.equal((await S.J('GET', T.u('/me?role=driver'), undefined, drv)).s, 200);
   assert.equal((await S.J('GET', T.u('/me?role=kitchen'), undefined, drv)).s, 401);
   const act = (tk, b) => S.J('POST', T.u('/delivery/act'), b, tk, ip(9));
@@ -54,7 +54,7 @@ for (const mode of ['ws', 'rpc']) test(`F43 delivery: accounts, areas, drivers, 
   let j = (await jobs(drv)).find((x) => x.number === ok.j.number); assert.ok(j); assert.equal(j.stage, 'cooking'); assert.equal(j.phone, '01112223334'); assert.match(j.nav, /destination=30.05,31.33/); assert.equal(j.items[0].qty, 2); assert.equal(j.area, 'Nasr City');
   assert.equal((await act(drv, { tid: ok.j.tid, act: 'pickup' })).j.code, 'cooking', 'cannot leave before the food is ready');
   // kitchen path: captain sends to kitchen, kitchen marks ready
-  const cap = await T.staff('captain', 'Wael', '4321'), st = await T.state(cap), ses = Object.values(st.sessions || {}).find((x) => x.tableNumber === ok.j.number), oid = ses.orders[0].id;
+  const cap = await T.staff('captain', 'Wael', '43214321'), st = await T.state(cap), ses = Object.values(st.sessions || {}).find((x) => x.tableNumber === ok.j.number), oid = ses.orders[0].id;
   assert.equal(ses.delivery.status, 'new');
   const stat = async () => (await S.J('GET', T.u('/online/status/' + ok.j.tid))).j;
   await T.rpc('captain', cap, { t: 'order_status', orderId: oid, status: 'kitchen' }); assert.equal((await stat()).status, 'preparing');

@@ -16,7 +16,7 @@ for (const mode of ['ws', 'rpc']) test(`F18 InstaPay and wallet at the table [${
   const tb = (await cfg()).tables[3], g = T.guest(tb.number); await g.join();
   await g.call({ t: 'cart_add', itemId: item.id }); await g.call({ t: 'send_order', scope: 'all' });
   await g.call({ t: 'check', method: 'instapay', split: 'table', tipPct: 0 });
-  const cap = await T.staff('captain', 'Wael', '4321'), cash = await T.staff('cashier', 'Mona', '6666');
+  const cap = await T.staff('captain', 'Wael', '43214321'), cash = await T.staff('cashier', 'Mona', '66666666');
   let ses = Object.values((await T.state(cap)).sessions).find((x) => x.tableId === tb.id); assert.equal(ses.check.method, 'instapay');
   await g.call({ t: 'pay_claim', method: 'instapay', ref: 'AB-123 <img>', amount: 99 });
   ses = Object.values((await T.state(cap)).sessions).find((x) => x.tableId === tb.id);

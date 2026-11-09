@@ -23,7 +23,7 @@ for (const mode of ['ws', 'rpc']) test(`F4 feedback + Google [${mode}]`, async (
   // FB-07 Arabic round-trips
   assert.ok(all.some((x) => x.comment === 'ممتاز جداً ☕'));
   // FB-03 owner is alerted for the low rating (captain alert feed) and admin badge count
-  const cap = await T.staff('captain', 'Wael', '4321'); const al = await S.J('POST', T.u('/rpc'), { join: { role: 'captain', token: cap }, msg: null, since: 0 }, cap); assert.ok(al.j.alerts.some((a) => a.kind === 'feedback'), 'alert for low rating');
+  const cap = await T.staff('captain', 'Wael', '43214321'); const al = await S.J('POST', T.u('/rpc'), { join: { role: 'captain', token: cap }, msg: null, since: 0 }, cap); assert.ok(al.j.alerts.some((a) => a.kind === 'feedback'), 'alert for low rating');
   // FB-04 dashboard numbers vs seeded reviews
   for (const [s, g] of [[4, 'g3'], [3, 'g4'], [5, 'g5']]) await post({ stars: s, table: 5, guestId: g, visit: 'v2' }, '10.0.1.' + g);
   const sm = (await T.api('GET', '/feedback/summary')).j; assert.equal(sm.count, 6); assert.deepEqual(sm.distribution, [0, 1, 1, 1, 2 + 1].map((x, i) => [0, 1, 1, 1, 3][i]));

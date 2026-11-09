@@ -7,9 +7,9 @@ for (const mode of ['ws', 'rpc']) test(`F25 attendance, shifts and labour cost [
   assert.equal((await B.api('GET', '/attendance' + qs)).s, 402);
 
   // signing in with a PIN clocks the person in (once), the pill state follows
-  await T.api('POST', '/staff', { name: 'Layla', role: 'captain', pin: '7777' });
-  const tok = (await S.J('POST', T.u('/login'), { role: 'captain', pin: '7777' })).j.token; assert.ok(tok);
-  await S.J('POST', T.u('/login'), { role: 'captain', pin: '7777' });   // a second sign-in does not double-count
+  await T.api('POST', '/staff', { name: 'Layla', role: 'captain', pin: '77777777' });
+  const tok = (await S.J('POST', T.u('/login'), { role: 'captain', pin: '77777777' })).j.token; assert.ok(tok);
+  await S.J('POST', T.u('/login'), { role: 'captain', pin: '77777777' });   // a second sign-in does not double-count
   let a = (await T.api('GET', '/attendance' + qs)).j; assert.equal(a.records.filter((r) => r.name === 'Layla').length, 1); assert.equal(a.here.length >= 1, true);
   assert.equal((await S.J('GET', T.u('/clock'), undefined, tok)).j.on, true);
 

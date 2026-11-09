@@ -5,7 +5,7 @@ for (const mode of ['ws', 'rpc']) test(`F22 loyalty PIN and fresh visits [${mode
   const T = await S.tenant('vip', { demo: true });
   const cfg = (await T.api('GET', '/config', null, null)).j, tb = cfg.tables[5];
   assert.equal((await T.api('POST', '/settings', { loyalty: { enabled: true } })).s, 200);
-  const cap = await T.staff('captain', 'Wael', '4321');
+  const cap = await T.staff('captain', 'Wael', '43214321');
   const mine = async (n) => Object.values((await T.state(cap)).sessions).find((x) => x.tableNumber === n);
 
   // a phone number alone never opens a card

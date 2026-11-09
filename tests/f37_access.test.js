@@ -12,7 +12,7 @@ for (const mode of ['ws', 'rpc']) test(`F37 venues are separate, guessing is sto
   const capA = (await S.J('POST', A.u('/login'), { role: 'captain', pin: A.pin })).j.token, capB = (await S.J('POST', B.u('/login'), { role: 'captain', pin: B.pin })).j.token;
   assert.ok(capA && capB);
   // ---- venue A's tokens open nothing in venue B (admin, captain, kitchen), on pages, data, exports, staff tools and the live connection
-  const kitA = await A.staff('kitchen', 'Kim', '5555');
+  const kitA = await A.staff('kitchen', 'Kim', '55555555');
   const probes = [['GET', '/staff'], ['GET', '/screens'], ['POST', '/screens'], ['GET', '/report?from=0&to=9999999999999'], ['GET', '/orders?from=0&to=9999999999999'], ['GET', '/export.json'], ['GET', '/account'], ['POST', '/settings'], ['GET', '/ownerreport'], ['GET', '/clock'], ['GET', '/invoices'], ['GET', '/suppliers'], ['GET', '/food-cost'], ['POST', '/tables']];
   for (const [who, tok] of [['A admin', A.admin], ['A captain', capA], ['A kitchen', kitA]]) for (const [m, p] of probes) {
     const r = await S.J(m, B.u(p), m === 'POST' ? {} : undefined, tok); assert.ok([401, 403].includes(r.s), `${who} -> B ${m} ${p} = ${r.s}`);
@@ -32,7 +32,7 @@ for (const mode of ['ws', 'rpc']) test(`F37 venues are separate, guessing is sto
   assert.equal((await S.J('POST', A.u('/login'), { role: 'admin', email: `${A.slug}@test.dev`, password: 'Owner123!' })).s, 200, 'the owner can always sign in');
   // ---- screen links
   assert.equal((await S.J('POST', B.u('/screens'), { role: 'kitchen', name: 'x' }, capB)).s, 403, 'only the owner makes links');
-  const stf = (await A.api('POST', '/staff', { name: 'Chef Hany', role: 'kitchen', pin: '8426' })).j;
+  const stf = (await A.api('POST', '/staff', { name: 'Chef Hany', role: 'kitchen', pin: '84268426' })).j;
   const k1 = (await A.api('POST', '/screens', { role: 'kitchen', name: 'Kitchen TV' })).j, k2 = (await A.api('POST', '/screens', { role: 'kitchen', staffId: stf.id })).j;
   assert.ok(k1.url.includes('/r/' + A.slug + '/s/') && /\/s\/[a-f0-9]{32}$/.test(k1.url)); assert.equal(k2.staffName, 'Chef Hany'); assert.equal(k2.name, 'Chef Hany');
   assert.equal((await A.api('POST', '/screens', { role: 'chef', name: 'x' })).s, 400); assert.equal((await A.api('POST', '/screens', { role: 'captain' })).s, 400, 'needs a name');

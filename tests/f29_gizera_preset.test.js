@@ -12,7 +12,7 @@ for (const mode of ['ws', 'rpc']) test(`F29 Gizera branded showroom preset [${mo
   const info = await S.J('GET', '/api/prospect/info?slug=gizeratest'); assert.equal(info.s, 200); assert.equal(info.j.name_ar, 'كافيه الجزيرة'); assert.ok(info.j.tables.length);
   const own = await S.J('POST', '/api/prospect/login', { slug: 'gizeratest', role: 'admin' }); assert.equal(own.s, 200);
   assert.equal((await S.J('GET', '/api/r/gizeratest/stats', undefined, own.j.token)).s < 500, true);
-  assert.equal((await S.J('POST', '/api/r/gizeratest/staff', { name: 'x', role: 'captain', pin: '9999' }, own.j.token)).s, 403, 'staff changes stay blocked in the demo');
+  assert.equal((await S.J('POST', '/api/r/gizeratest/staff', { name: 'x', role: 'captain', pin: '99999999' }, own.j.token)).s, 403, 'staff changes stay blocked in the demo');
   const kit = await S.J('POST', '/api/prospect/login', { slug: 'gizeratest', role: 'kitchen' }); assert.equal(kit.s, 200); assert.equal((await S.J('POST', '/api/prospect/login', { slug: 'gizeratest', role: 'super' })).s, 400);
   assert.equal((await S.J('GET', '/p/gizeratest')).s, 200);
   // an unknown preset is ignored: normal showroom

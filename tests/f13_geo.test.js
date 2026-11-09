@@ -28,7 +28,7 @@ for (const mode of ['ws', 'rpc']) test(`F13 delivery zones + in-cafe lock [${mod
   const near = await order({ geo: north(1500) }, '10.5.0.2'); assert.equal(near.s, 200); assert.equal(Math.round((near.j.total - food.price * (1 + 0)) * 1) > 0, true);
   const mid = await order({ geo: north(5000) }, '10.5.0.3'); assert.equal(mid.s, 200); assert.ok(mid.j.total > near.j.total, 'farther zone costs more');
   const far = await order({ geo: north(12000) }, '10.5.0.4'); assert.equal(far.s, 400); assert.equal(far.j.code, 'far'); assert.equal(far.j.max, 8);
-  const cap = await T.staff('captain', 'Wael', '4321'), st = await T.state(cap), tk = Object.values(st.sessions).find((x) => x.tableNumber === near.j.number);
+  const cap = await T.staff('captain', 'Wael', '43214321'), st = await T.state(cap), tk = Object.values(st.sessions).find((x) => x.tableNumber === near.j.number);
   const fee = tk.orders[0].items.find((l) => l.itemId === 'delivery_fee'); assert.equal(fee.price, 20); assert.match(tk.customer.map, /google\.com\/maps\?q=30\.0/); assert.equal(tk.customer.km, 1.5);
   assert.equal((await order({ kind: 'takeaway' }, '10.5.0.5')).j.number.startsWith('TA-'), true, 'pickup never needs a location');
   // refused orders must not have taken stock; pickup + zones removed -> flat fee item again

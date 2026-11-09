@@ -22,7 +22,7 @@ test('F2 paymob order registration (mocked network)', async () => {
 for (const mode of ['ws', 'rpc']) test(`F2 online payments [${mode}]`, async (t) => {
   const S = await start(mode); t.after(() => S.stop());
   const T = await S.tenant('operations', { demo: true }), B = await S.tenant('basic'), O = await S.tenant('operations');
-  const C = await T.staff('cashier', 'Mona', '7788'), T0 = Date.now();
+  const C = await T.staff('cashier', 'Mona', '77887788'), T0 = Date.now();
   const g = T.guest(15, 'Karim'); const st = (await g.join()).j.state; const it = st.config.items.find((x) => x.name === 'Rack of Lamb');
   const intent = (b, base = T) => S.J('POST', base.u('/pay/intent'), { tableNumber: 15, guestId: g.g.guestId, ...b });
   await g.call({ t: 'cart_add', itemId: it.id }); await g.call({ t: 'cart_add', itemId: it.id }); await g.call({ t: 'send_order', scope: 'all' });

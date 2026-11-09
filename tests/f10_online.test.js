@@ -23,7 +23,7 @@ for (const mode of ['ws', 'rpc']) test(`F10 online ordering [${mode}]`, async (t
   assert.equal((await order({ ...big, items: [{ itemId: 'nope', qty: 1 }] })).j.code, 'empty');
   // pickup order succeeds: a TA-n ticket appears for the captain, unpaid, with the customer on it
   const ok = await order(big, '10.3.0.2'); assert.equal(ok.s, 200); assert.equal(ok.j.ok, 1); assert.match(ok.j.number, /^TA-\d+$/); assert.ok(ok.j.total >= food.price * 5);
-  const cap = await T.staff('captain', 'Wael', '4321'), st = await T.state(cap), ses = Object.values(st.sessions || {}).find((x) => x.tableNumber === ok.j.number);
+  const cap = await T.staff('captain', 'Wael', '43214321'), st = await T.state(cap), ses = Object.values(st.sessions || {}).find((x) => x.tableNumber === ok.j.number);
   assert.ok(ses, 'ticket visible to captain'); assert.equal(ses.kind, 'takeaway'); assert.equal(ses.customer.phone, '01001234567'); assert.equal(ses.orders[0].status, 'received');
   // guest tracking follows the kitchen: received -> preparing -> ready -> done after payment
   const status = async () => (await S.J('GET', T.u('/online/status/' + ok.j.tid))).j.status;
