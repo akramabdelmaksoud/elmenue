@@ -784,7 +784,9 @@ app.post(`${R}/login`, loginLimit, tenantMw, (req, res) => {
 });
 // ----- Screen links: one private link per physical screen (kitchen TV, cashier till, a waiter's phone). Opening it signs the screen in as a named account,
 // so its work is traced like anyone else's, with no PIN to type and no role switching. The owner can delete a link at any time and that screen is signed out.
-const screenAlive = (rec, d) => (ROLES.TEAM.includes(d.r) ? teamAlive(rec, d) : (!d.sc || (rec.screens || []).some((x) => x.id === d.sc)));
+// a floor token also dies the moment that person is switched off or removed (not only when it expires)
+const staffAlive = (rec, d) => !/^u[0-9a-z]+$/.test(String(d.u || '')) || (rec.staff || []).some((x) => x.id === d.u && x.active !== false);
+const screenAlive = (rec, d) => (ROLES.TEAM.includes(d.r) ? teamAlive(rec, d) : staffAlive(rec, d) && (!d.sc || (rec.screens || []).some((x) => x.id === d.sc)));
 const screenKey = (sc) => auth.unseal(sc.key);
 const safeEq = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && require('crypto').timingSafeEqual(x, y); };
 const screenRow = (req, sc) => { const st = sc.staffId && (req.tenant.rec.staff || []).find((x) => x.id === sc.staffId); return { id: sc.id, role: sc.role, name: sc.name, staffId: sc.staffId || '', staffName: st ? st.name : '', createdAt: sc.createdAt, lastSeen: sc.lastSeen || 0, url: origin(req) + '/r/' + req.tenant.rec.slug + '/s/' + screenKey(sc) }; };
@@ -830,7 +832,7 @@ function needStaff(req, res, next) {
   if (!d) return res.status(401).json({ error: 'auth' });
   if (d.r !== 'super' && !(d.s === req.params.slug && ['admin', 'manager', 'captain', 'kitchen', 'cashier'].includes(d.r))) return res.status(403).json({ error: 'forbidden' });
   if (d.r === 'manager' && !(req.tenant && teamAlive(req.tenant.rec, d))) return res.status(401).json({ error: 'auth' });
-  if (d.sc && !(req.tenant && screenAlive(req.tenant.rec, d))) return res.status(401).json({ error: 'auth' });
+  if (d.r !== 'super' && d.r !== 'admin' && !(req.tenant && screenAlive(req.tenant.rec, d))) return res.status(401).json({ error: 'auth' });
   req.claims = d; next();
 }
 // ---- cashier till: shifts, X / Z reports, paid in/out, counted-cash variance ----
@@ -989,7 +991,7 @@ function needDelivery(req, res, next) {
   const d = auth.verify(bearer(req));
   if (!d) return res.status(401).json({ error: 'auth' });
   if (d.r !== 'super' && !(d.s === req.params.slug && ['admin', 'captain', 'cashier', 'kitchen', 'driver'].includes(d.r))) return res.status(403).json({ error: 'forbidden' });
-  if (d.sc && !(req.tenant && screenAlive(req.tenant.rec, d))) return res.status(401).json({ error: 'auth' });
+  if (d.r !== 'super' && d.r !== 'admin' && !(req.tenant && screenAlive(req.tenant.rec, d))) return res.status(401).json({ error: 'auth' });
   if (d.r === 'driver') {
     const st = (req.tenant.rec.staff || []).find((x) => x.id === d.u && x.role === 'driver' && x.active !== false);
     if (!st) return res.status(401).json({ error: 'auth' });
@@ -1090,6 +1092,37 @@ A('post', '/screens', (req, res) => {
   (r.screens ||= []).push(sc); persistRec(t); bc(req); res.json(screenRow(req, sc));
 });
 A('delete', '/screens/:id', (req, res) => { const r = req.tenant.rec; r.screens = (r.screens || []).filter((x) => x.id !== req.params.id); persistRec(req.tenant); bc(req); res.json({ ok: 1 }); });
+// Loss controls: the numbers that expose voids, discounts and tables closed without payment, per person, with plain-words flags.
+// Rules of thumb used by the trade: voids above about 2% and discounts/comps above about 1% of sales deserve a look; one person far above the rest deserves a conversation.
+A('get', '/controls', async (req, res) => {
+  const t = req.tenant, days = [7, 14, 30, 90].includes(+req.query.days) ? +req.query.days : 30, from = Date.now() - days * 86400000;
+  if (STATELESS) t.db.history = await store.getHist(t.rec.id);
+  const H = (t.db.history || []).filter((h) => h.closedAt >= from), paid = H.filter((h) => !h.unpaid), sales = paid.reduce((n, h) => n + (h.total || 0), 0), gross = paid.reduce((n, h) => n + (h.sub || 0), 0);
+  const by = {}, who = (n) => (by[n || 'Unknown'] ||= { name: n || 'Unknown', voids: 0, voidValue: 0, waste: 0, discounts: 0, discountValue: 0, unpaid: 0, unpaidValue: 0, tables: 0 });
+  let voidValue = 0, discountValue = 0, unpaidValue = 0, unpaidN = 0, lateVoids = 0;
+  const reasons = {};
+  for (const h of H) {
+    const w = who(h.closedBy); w.tables++;
+    for (const v of h.voids || []) { const val = (v.qty || 0) * (v.price || 0), p = who(v.by || h.closedBy); p.voids++; p.voidValue += val; if (v.waste) p.waste++; voidValue += val; const k = (v.reason || 'no reason given').toLowerCase().slice(0, 40); reasons[k] = (reasons[k] || 0) + 1; if (v.at && h.checkAt && v.at > h.checkAt) lateVoids++; }
+    if (h.discount > 0 && !h.unpaid) { const p = who(h.discountBy || h.closedBy); p.discounts++; p.discountValue += h.discount; discountValue += h.discount; }
+    if (h.unpaid) { w.unpaid++; w.unpaidValue += h.sub || 0; unpaidValue += h.sub || 0; unpaidN++; }
+  }
+  const staff = Object.values(by).map((x) => ({ ...x, voidValue: Math.round(x.voidValue * 100) / 100, discountValue: Math.round(x.discountValue * 100) / 100, unpaidValue: Math.round(x.unpaidValue * 100) / 100 })).sort((a, b) => (b.voidValue + b.discountValue + b.unpaidValue) - (a.voidValue + a.discountValue + a.unpaidValue));
+  const pct = (a, b) => (b > 0 ? Math.round(a / b * 1000) / 10 : 0), flags = [], vp = pct(voidValue, gross + voidValue), dp = pct(discountValue, gross);
+  if (vp > 2) flags.push({ level: 'high', text: `Voids are ${vp}% of sales. Above about 2% is worth checking: ask for the reason on each one.` });
+  if (dp > 1) flags.push({ level: 'high', text: `Discounts and comps are ${dp}% of sales. Above about 1% is worth checking: who gives them and why?` });
+  if (unpaidN) flags.push({ level: 'high', text: `${unpaidN} table(s) were closed without payment (${Math.round(unpaidValue)} in value). Each one should have a written reason.` });
+  if (lateVoids) flags.push({ level: 'high', text: `${lateVoids} item(s) were voided after the bill was requested. This is the classic way to pocket cash, so check them first.` });
+  if (reasons['no reason given']) flags.push({ level: 'mid', text: `${reasons['no reason given']} void(s) have no reason written. Make a reason a habit.` });
+  const act = staff.filter((x) => x.tables >= 3 || x.voids + x.discounts + x.unpaid > 0);
+  for (const x of act) {
+    const others = act.filter((y) => y !== x); if (!others.length) continue;
+    const avgV = others.reduce((n, y) => n + y.voidValue, 0) / others.length, avgD = others.reduce((n, y) => n + y.discountValue, 0) / others.length;
+    if (x.voids >= 3 && x.voidValue > Math.max(avgV * 2, 1)) flags.push({ level: 'mid', text: `${x.name} voided ${Math.round(x.voidValue)} (${x.voids} items), more than twice the average of the others (${Math.round(avgV)}).` });
+    if (x.discounts >= 3 && x.discountValue > Math.max(avgD * 2, 1)) flags.push({ level: 'mid', text: `${x.name} gave ${Math.round(x.discountValue)} in discounts (${x.discounts} tables), more than twice the average of the others (${Math.round(avgD)}).` });
+  }
+  res.json({ days, sales: Math.round(sales), voidValue: Math.round(voidValue * 100) / 100, voidPct: vp, discountValue: Math.round(discountValue * 100) / 100, discountPct: dp, unpaidN, unpaidValue: Math.round(unpaidValue), lateVoids, reasons: Object.entries(reasons).sort((a, b) => b[1] - a[1]).slice(0, 6), staff, flags, enough: H.length >= 5 });
+});
 A('get', '/limits', (req, res) => res.json({ limits: F.limitsOf(req.tenant.rec.plan, req.tenant.rec.limits), usage: { tables: req.tenant.db.tables.length, staff: (req.tenant.rec.staff || []).length } }));
 A('get', '/staff', (req, res) => res.json({ legacyOff: !!req.tenant.rec.legacyPinOff, staff: (req.tenant.rec.staff || []).map(({ hash, ...x }) => x), stats: (req.tenant.rec.stats || {}).staff || {}, ...(isOwnerClaim(req.claims) ? { legacyPin: req.tenant.rec.pin } : {}) }));
 const weakPin = (p) => PROD && F.weakPin(String(p));

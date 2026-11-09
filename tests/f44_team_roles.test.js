@@ -171,3 +171,30 @@ for (const mode of ['ws', 'rpc']) test(`F44 floor staff PINs are 6 to 10 digits 
   assert.equal((await S.J('POST', T.u('/login'), { role: 'captain', pin: '7302846' })).s, 200);
   assert.ok(String(T.pin).length >= 6, 'a new venue gets a 6-digit owner PIN');
 });
+
+for (const mode of ['ws', 'rpc']) test(`F44 loss controls report [${mode}]`, async (t) => {
+  const S = await start(mode); t.after(() => S.stop());
+  const T = await S.tenant('vip');
+  const r = await T.api('GET', '/controls?days=30'); assert.equal(r.s, 200);
+  for (const k of ['voidPct', 'discountPct', 'unpaidN', 'lateVoids', 'staff', 'flags', 'reasons']) assert.ok(k in r.j, k);
+  assert.equal(r.j.enough, false);
+  const mk = await T.api('POST', '/team', { name: 'Op', username: 'op.one', role: 'opmanager' });
+  const op = (await S.J('POST', T.u('/login'), { role: 'team', username: 'op.one', password: mk.j.password })).j.token;
+  const tok = (await S.J('POST', T.u('/me/password'), { current: mk.j.password, password: 'Quiet-Harbor-Lamp-5520' }, op)).j.token;
+  assert.equal((await S.J('GET', T.u('/controls'), undefined, tok)).s, 403, 'operations managers do not see staff loss reports');
+  assert.equal((await S.J('GET', T.u('/limits'), undefined, tok)).s, 200);
+});
+
+for (const mode of ['ws', 'rpc']) test(`F44 a floor staff token dies when the person is switched off or removed [${mode}]`, async (t) => {
+  const S = await start(mode); t.after(() => S.stop());
+  const T = await S.tenant('operations');
+  const cap = await T.staff('captain', 'Hana', '482915'), st = (await T.api('GET', '/staff')).j.staff.find((x) => x.name === 'Hana');
+  assert.equal((await T.rpc('captain', cap, null)).s, 200);
+  await T.api('PUT', '/staff/' + st.id, { active: false });
+  assert.equal((await T.rpc('captain', cap, null)).s, 401, 'switched off: the open session ends at once');
+  assert.equal((await S.J('GET', T.u('/me?role=captain'), undefined, cap)).s, 401);
+  await T.api('PUT', '/staff/' + st.id, { active: true });
+  assert.equal((await T.rpc('captain', cap, null)).s, 200);
+  await T.api('DELETE', '/staff/' + st.id);
+  assert.equal((await T.rpc('captain', cap, null)).s, 401, 'removed: gone');
+});

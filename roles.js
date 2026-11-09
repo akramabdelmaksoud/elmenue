@@ -29,6 +29,7 @@ const POLICY = [
   [/^\S+ \/(staff|screens)(\/|$)/, 'staff'],
   [/^\S+ \/team(\/|$)/, 'team'],
   [/^GET \/limits$/, 'ui'],
+  [/^GET \/controls$/, 'reports'],
   [/^\S+ \/(coupons|offers)(\/|$)/, 'offers'],
   [/^POST \/settings$/, 'ui'],                       // managers may only save the dashboard refresh choice, see teamSettingsOk
   [/^\S+ \/(tables|tables-rekey|layout|qr|carqr)(\/|$)/, 'tables'],
