@@ -475,7 +475,7 @@ function quoteFor(q, conf) {
   const month = P.price[0] + addons.reduce((n, a) => n + a.price, 0), mode = q.mode === 'year' || q.mode === 'life' ? q.mode : 'month';
   return { plan: q.plan, name: P.name, base: P.price[0], mode, addons, month, total: mode === 'life' ? month * M.life : mode === 'year' ? month * M.yearMonths : month, service: mode === 'life' ? month * M.svc : 0 };
 }
-const quoteText = (q) => `BUNDLE REQUEST\nBase plan: ${q.name} (${q.base} EGP / month)\nAdd-ons: ${q.addons.length ? '' : 'none'}\n${q.addons.map((a) => ' - ' + a.en + ': ' + a.price + ' EGP / month').join('\n')}${q.addons.length ? '\n' : ''}Monthly total: ${q.month} EGP\nBilling: ${q.mode === 'life' ? 'one lifetime payment ' + q.total + ' EGP + ' + q.service + ' EGP service per year' : q.mode === 'year' ? 'yearly ' + q.total + ' EGP (2 months free)' : 'monthly'}`;
+const quoteText = (q) => `BUNDLE REQUEST\nBase plan: ${q.name} (${q.base} EGP / month)\nAdd-ons: ${q.addons.length ? '' : 'none'}\n${q.addons.map((a) => ' - ' + a.en + ': ' + a.price + ' EGP / month').join('\n')}${q.addons.length ? '\n' : ''}Monthly total: ${q.month} EGP\nBilling: ${q.mode === 'life' ? 'one lifetime payment ' + q.total + ' EGP + ' + q.service + ' EGP service per year' : q.mode === 'year' ? 'annual billing ' + q.total + ' EGP (2 months free)' : 'monthly'}`;
 async function popularAddons() {
   const rows = ((await store.getAux('contacts')) || { rows: [] }).rows || [], n = {};
   rows.forEach((m) => ((m.quote && m.quote.addons) || []).forEach((a) => { n[a.id] = (n[a.id] || 0) + 1; }));
@@ -604,7 +604,7 @@ app.get('/api/super/site', needSuper, async (req, res, next) => { try {
 app.put('/api/super/site', needSuper, async (req, res, next) => { try {
   const b = req.body || {}, out = { at: Date.now() }, num = (v, lo, hi) => (v !== '' && v !== null && v !== undefined && +v >= lo && +v <= hi ? +v : null);
   const m = b.mult || {}, life = num(m.life, 1, 200), svc = num(m.svc, 0, 50), ym = num(m.yearMonths, 1, 12);
-  if (life === null || svc === null || ym === null) return res.status(400).json({ error: 'Lifetime, service and yearly multipliers must be numbers' });
+  if (life === null || svc === null || ym === null) return res.status(400).json({ error: 'Lifetime, service and annual multipliers must be numbers' });
   out.mult = { life, svc, yearMonths: ym };
   out.announce = { on: !!(b.announce && b.announce.on), en: clip(b.announce && b.announce.en, 200), ar: clip(b.announce && b.announce.ar, 200) };
   out.text = { en: {}, ar: {} };
