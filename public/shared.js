@@ -476,7 +476,7 @@ window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); App.
 if (/\/(captain|kitchen|cashier)(\/|$)/.test(location.pathname) && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 
 // the TableTab mark in the browser tab, for every page that does not set its own
-if (!document.querySelector('link[rel~="icon"]')) { const l = document.createElement('link'); l.rel = 'icon'; l.type = 'image/png'; l.href = '/icons/icon-192.png'; document.head.appendChild(l); }
+if (!document.querySelector('link[rel~="icon"]')) { const l = document.createElement('link'); l.rel = 'icon'; l.type = 'image/png'; l.href = '/icons/mark-64.png'; document.head.appendChild(l); }
 
 // staff screens: all header buttons sit behind one menu icon
 document.addEventListener('DOMContentLoaded', () => { if (!App.canSwitch()) App.hideSwitch(); App.foldHeader(); });

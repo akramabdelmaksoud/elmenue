@@ -39,7 +39,7 @@ const Auth = (() => {
     return el;
   }
   function refreshTop(el) { const l = el.querySelector('#a-lang'); if (l) l.textContent = App.langLabel(App.nextLang()); }
-  const emblem = () => `<div class="emblem"><svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47"/></svg><img class="leaf" src="/icons/icon-192.png" alt=""></div>`;
+  const emblem = () => `<div class="emblem"><svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47"/></svg><img class="leaf" src="/icons/mark-192.png" alt=""></div>`;
   const hero = () => `<div class="auth-hero"><div class="kick">TableTab</div><h1><span class="foil">${t('h1a')}</span><span>${t('h1b')}</span></h1><p>${t('sub')}</p>
     <div class="minifloor">${Array.from({ length: 10 }, (_, i) => `<i style="--dl:${(-i * 0.9).toFixed(1)}s"></i>`).join('')}</div>
     <div class="feats"><div><b class="foil">24/7</b>${t('f1')}</div><div><b class="foil">∞</b>${t('f2')}</div><div><b class="foil">1-tap</b>${t('f3')}</div></div></div>`;
@@ -86,7 +86,7 @@ const Auth = (() => {
             <div class="hint rz" style="--i:2"></div>
             ${team ? '' : `<label class="rz" style="--i:2;display:flex;gap:8px;align-items:center;margin:2px 0 12px;font-size:13px;opacity:.85"><input type="checkbox" name="remember" style="width:auto"> ${t('remember')}</label>`}
             <button class="gold-btn rz" style="--i:3"><span>${t('signin')}</span>${ic('arrow')}</button></form>
-            <p class="rz" style="--i:4;text-align:center;margin:16px 0 0;font-size:13px"><a href="#" id="tm" style="color:inherit;opacity:.8;text-decoration:underline">${team ? t('ownerLink') : t('teamLink')}</a></p>`;
+            ${kind !== 'admin' ? '' : `<p class="rz" style="--i:4;text-align:center;margin:16px 0 0;font-size:13px"><a href="#" id="tm" style="color:inherit;opacity:.8;text-decoration:underline">${team ? t('ownerLink') : t('teamLink')}</a></p>`}`;
         }
         shell.innerHTML = `${hero()}<div class="auth-card"><div class="rz" style="--i:-3">${emblem()}</div><div class="kick rz" style="--i:-2">${t('welcome')}</div><h2 class="rz" style="--i:-1"><span class="foil">${title}</span></h2><div class="brand rz" style="--i:0">${App.esc(brandName)}</div>${body}<div class="secure rz" style="--i:5">${ic('shield')} ${t('secure')}</div>${App.slug ? `<div class="swr rz" style="--i:6"><a href="${App.base === '' ? '/' : '/r/' + App.slug}">← ${App.lang === 'ar' ? 'رجوع' : 'Back'}</a><span>${App.lang === 'ar' ? 'الدخول كـ' : 'Sign in as'}</span>${[['admin', App.lang === 'ar' ? 'المالك' : 'Owner'], ['captain', App.lang === 'ar' ? 'الكابتن' : 'Captain'], ['kitchen', App.lang === 'ar' ? 'المطبخ' : 'Kitchen']].filter(([k]) => k !== App.authRole).map(([k, l]) => `<a href="/r/${App.slug}/${k}">${l}</a>`).join('')}</div>` : ''}</div>`;
         if (kind === 'pin') {
@@ -96,7 +96,7 @@ const Auth = (() => {
         } else {
           const f = shell.querySelector('#af'), pw = f.querySelector('[name=password]');
           f.onsubmit = (e) => { e.preventDefault(); go(Object.assign(Object.fromEntries(new FormData(f)), team ? { team: true } : {})); };
-          shell.querySelector('#tm').onclick = (e) => { e.preventDefault(); team = !team; render(); };
+          const tmEl = shell.querySelector('#tm'); if (tmEl) tmEl.onclick = (e) => { e.preventDefault(); team = !team; render(); };
           shell.querySelector('.eye').onclick = (e) => { const s = pw.type === 'password'; pw.type = s ? 'text' : 'password'; e.currentTarget.innerHTML = ic(s ? 'eyeoff' : 'eye'); };
           pw.addEventListener('keyup', (e) => { const h = shell.querySelector('.hint'); if (e.getModifierState && e.getModifierState('CapsLock')) h.textContent = t('caps'); else if (h.textContent === t('caps')) h.textContent = ''; });
           const gb = shell.querySelector('.gold-btn'); gb.onpointerdown = (e) => ripple(gb, e);
