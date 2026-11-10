@@ -4,7 +4,7 @@
 const PX = (() => {
   const E = (s) => App.esc(s), $ = (id) => document.getElementById(id), M = (n) => App.money(n);
   const r2 = (n) => Math.round(n * 100) / 100;
-  let PO = null, PY = null;
+  let PO = null, PY = null, LASTA = null;
   const host = () => $('dlg');
   const shell = (inner, wide) => { host().innerHTML = `<div class="modal" onclick="if(event.target===this)PX.close()"><div class="card" style="${wide ? 'width:min(980px,96vw)' : ''}">${inner}</div></div>`; };
   const close = () => { PO = null; PY = null; host().innerHTML = ''; };
@@ -147,7 +147,7 @@ const PX = (() => {
   }
   function doVoid(tid, itemId) {
     const sel = $('vr'), o = sel.options[sel.selectedIndex];
-    App.send({ t: 'void_item', tableId: tid, itemId, qty: +$('vq').value || 1, reason: o.text, waste: !!o.dataset.w }); close();
+    PX.sendA({ t: 'void_item', tableId: tid, itemId, qty: +$('vq').value || 1, reason: o.text, waste: !!o.dataset.w }); close();
   }
   function moveDlg(tid) {
     const free = S.config.tables.filter((t) => !S.sessions[t.id]);
@@ -181,13 +181,22 @@ const PX = (() => {
   }
 
   return {
+    sendA(msg) { LASTA = msg; App.send(msg); },
+    approve(n) {   // the server asked for a manager PIN: show a small box over whatever is open, then resend the same action with the PIN
+      const old = document.getElementById('apbox'); if (old) old.remove();
+      const d = document.createElement('div'); d.id = 'apbox'; d.className = 'modal'; d.style.zIndex = 99;
+      d.innerHTML = `<div class="card" style="max-width:340px"><h3>🔐 Manager approval</h3><p class="muted">${E(n.msg)}</p><input id="apin" type="password" inputmode="numeric" autocomplete="off" placeholder="Approval PIN" style="width:100%;font-size:20px;text-align:center"><div class="row" style="margin-top:12px"><button onclick="document.getElementById('apbox').remove()">Cancel</button><button class="primary" id="apgo">Approve</button></div></div>`;
+      document.body.appendChild(d); const i = document.getElementById('apin'); i.focus();
+      const go = () => { const v = i.value.trim(); if (!v || !LASTA) return; d.remove(); App.send({ ...LASTA, approvalPin: v }); };
+      document.getElementById('apgo').onclick = go; i.onkeydown = (e) => { if (e.key === 'Enter') go(); };
+    },
     close, openPOS, newTicket, startTicket, openPay, voidDlg, doVoid, moveDlg, doMove, mergeDlg, doMerge, resDlg, addRes, printBill, printGuest, confirmPay,
     add(id) { const it = item(id); if (it && Opts.has(it)) return Opts.open(it, (sel) => PX.addLine(id, sel)); PX.addLine(id, {}); },
     addLine(id, sel) { const k = JSON.stringify(sel || {}, Object.keys(sel || {}).sort()), c = PO.cart.find((x) => x.itemId === id && x.k === k); if (c) { if (c.qty < 20) c.qty++; } else PO.cart.push({ itemId: id, qty: 1, note: '', opts: sel, k }); drawCart(); },
     qty(i, d) { PO.cart[i].qty += d; if (PO.cart[i].qty <= 0) PO.cart.splice(i, 1); drawCart(); },
     note(i, v) { PO.cart[i].note = v; }, guest(v) { PO.guestId = v; }, search(v) { PO.q = v; $('pogrid').innerHTML = posGrid(); }, cat(c) { PO.cat = c; drawPOS(); },
     send, dtype(v) { PY.dtype = v; },
-    applyDisc() { App.send({ t: 'discount', tableId: PY.tid, type: PY.dtype, value: +$('pdv').value || 0, reason: $('pdr').value.trim() }); },
+    applyDisc() { PX.sendA({ t: 'discount', tableId: PY.tid, type: PY.dtype, value: +$('pdv').value || 0, reason: $('pdr').value.trim() }); },
     coupon() { App.send({ t: 'promo_set', tableId: PY.tid, coupon: $('pcp').value.trim() }); }, couponOff() { App.send({ t: 'promo_set', tableId: PY.tid, coupon: '' }); },
     giftOn() { App.send({ t: 'promo_set', tableId: PY.tid, gift: $('pgf').value.trim() }); }, giftOff() { App.send({ t: 'promo_set', tableId: PY.tid, gift: '' }); },
     removeDisc() { App.send({ t: 'discount', tableId: PY.tid, value: 0 }); },

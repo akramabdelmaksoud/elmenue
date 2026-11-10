@@ -183,7 +183,7 @@ function start() {
   $('who').textContent = App.who() ? '· ' + App.who() : ''; ESCPOS.auto().then(paintHdr); loadShift();
   App.connect({ t: 'join', role: 'cashier' }, {
     render(m) { const first = !S; render(m); if (first) loadShift(); },
-    notice(m) { App.toast('⚠ ' + m.msg); },
+    notice(m) { if (m.code === 'approve') return PX.approve(m); App.toast('⚠ ' + m.msg); },
     alert(m) { if (m.kind === 'check' || m.kind === 'ready') { beep(); const b = document.createElement('div'); b.className = 'banner'; b.textContent = (m.kind === 'check' ? '🧾 ' : '✅ ') + m.text; $('banners').appendChild(b); setTimeout(() => b.remove(), 6500); } },
   });
 }

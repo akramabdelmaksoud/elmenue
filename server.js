@@ -1114,6 +1114,8 @@ A('get', '/controls', async (req, res) => {
   if (unpaidN) flags.push({ level: 'high', text: `${unpaidN} table(s) were closed without payment (${Math.round(unpaidValue)} in value). Each one should have a written reason.` });
   if (lateVoids) flags.push({ level: 'high', text: `${lateVoids} item(s) were voided after the bill was requested. This is the classic way to pocket cash, so check them first.` });
   if (reasons['no reason given']) flags.push({ level: 'mid', text: `${reasons['no reason given']} void(s) have no reason written. Make a reason a habit.` });
+  const same = (t.db.pos || []).filter((p) => p.receivedBy && p.createdBy && p.receivedBy === p.createdBy && (p.receivedAt || p.date) >= from);
+  if (same.length) flags.push({ level: 'mid', text: `${same.length} purchase order(s) were created and received by the same person. Let a second person count deliveries.` });
   const act = staff.filter((x) => x.tables >= 3 || x.voids + x.discounts + x.unpaid > 0);
   for (const x of act) {
     const others = act.filter((y) => y !== x); if (!others.length) continue;
@@ -1121,7 +1123,7 @@ A('get', '/controls', async (req, res) => {
     if (x.voids >= 3 && x.voidValue > Math.max(avgV * 2, 1)) flags.push({ level: 'mid', text: `${x.name} voided ${Math.round(x.voidValue)} (${x.voids} items), more than twice the average of the others (${Math.round(avgV)}).` });
     if (x.discounts >= 3 && x.discountValue > Math.max(avgD * 2, 1)) flags.push({ level: 'mid', text: `${x.name} gave ${Math.round(x.discountValue)} in discounts (${x.discounts} tables), more than twice the average of the others (${Math.round(avgD)}).` });
   }
-  res.json({ days, sales: Math.round(sales), voidValue: Math.round(voidValue * 100) / 100, voidPct: vp, discountValue: Math.round(discountValue * 100) / 100, discountPct: dp, unpaidN, unpaidValue: Math.round(unpaidValue), lateVoids, reasons: Object.entries(reasons).sort((a, b) => b[1] - a[1]).slice(0, 6), staff, flags, enough: H.length >= 5 });
+  res.json({ days, sales: Math.round(sales), voidValue: Math.round(voidValue * 100) / 100, voidPct: vp, discountValue: Math.round(discountValue * 100) / 100, discountPct: dp, unpaidN, unpaidValue: Math.round(unpaidValue), lateVoids, reasons: Object.entries(reasons).sort((a, b) => b[1] - a[1]).slice(0, 6), staff, flags, selfReceived: same.length, enough: H.length >= 5 });
 });
 A('get', '/limits', (req, res) => res.json({ limits: F.limitsOf(req.tenant.rec.plan, req.tenant.rec.limits), usage: { tables: req.tenant.db.tables.length, staff: (req.tenant.rec.staff || []).length } }));
 A('get', '/staff', (req, res) => res.json({ legacyOff: !!req.tenant.rec.legacyPinOff, staff: (req.tenant.rec.staff || []).map(({ hash, ...x }) => x), stats: (req.tenant.rec.stats || {}).staff || {}, ...(isOwnerClaim(req.claims) ? { legacyPin: req.tenant.rec.pin } : {}) }));
@@ -1210,7 +1212,7 @@ A('post', '/pos', gatePur, (req, res) => {
   const t = req.tenant, d = t.db, b = req.body || {}, s = (d.suppliers || []).find((x) => x.id === b.supplier); if (!s) return res.status(400).json({ error: 'Pick a supplier' });
   const lines = poLines(b.lines, d); if (!lines.length) return res.status(400).json({ error: 'Add at least one line' });
   const brand = brandOf(t), tax = Math.min(100, Math.max(0, +(b.taxPct === undefined ? 0 : b.taxPct) || 0)), tot = F.docTotals(lines.map((l) => ({ qty: l.qty, price: l.price })), 0, 0, tax);
-  const po = { id: newId('po'), no: docNo(t, 'po', brand), kind: 'po', status: 'draft', date: Date.now(), expected: +b.expected > 0 ? +b.expected : 0, supplier: s.id, to: F.partyClean(s), lines, ...tot, taxPct: tax, note: String(b.note || '').replace(/[<>]/g, '').slice(0, 300), paid: false, createdAt: Date.now() };
+  const po = { id: newId('po'), no: docNo(t, 'po', brand), kind: 'po', status: 'draft', date: Date.now(), expected: +b.expected > 0 ? +b.expected : 0, supplier: s.id, to: F.partyClean(s), lines, ...tot, taxPct: tax, note: String(b.note || '').replace(/[<>]/g, '').slice(0, 300), paid: false, createdAt: Date.now(), createdBy: req.claims.n || 'Owner' };
   (d.pos ||= []).push(po); if (d.pos.length > 500) d.pos = d.pos.slice(-500); persistRec(t); bc(req); res.json(po);
 });
 A('put', '/pos/:id', gatePur, (req, res) => {
@@ -1228,7 +1230,7 @@ A('post', '/pos/:id/receive', gatePur, (req, res) => {
   po.lines.forEach((l, i) => { const q = got.length ? Math.max(0, +(got.find((x) => +x.i === i) || {}).qty || 0) : Math.max(0, l.qty - l.got); const add = Math.min(q, Math.max(0, l.qty - l.got)); if (!(add > 0)) return; l.got = Math.round((l.got + add) * 1000) / 1000; any = true;
     const g = l.ing && (d.ingredients || []).find((x) => x.id === l.ing); if (g) { g.stock = Math.round((g.stock + add) * 1000) / 1000; if (l.price > 0) g.cost = F.ingClean({ cost: l.price }).cost; t.rec.ingLog = [{ at: Date.now(), ingId: g.id, ing: g.name, unit: g.unit, delta: add, type: 'purchase', item: '', who: 'PO ' + po.no, left: g.stock }, ...(t.rec.ingLog || [])].slice(0, 400); } });
   if (!any) return res.status(400).json({ error: 'Enter what arrived' });
-  po.status = po.lines.every((l) => l.got >= l.qty) ? 'received' : 'partial'; if (po.status === 'received') po.receivedAt = Date.now(); F.recost(d.items, d.ingredients);
+  po.status = po.lines.every((l) => l.got >= l.qty) ? 'received' : 'partial'; if (po.status === 'received') po.receivedAt = Date.now(); po.receivedBy = req.claims.n || 'Owner'; F.recost(d.items, d.ingredients);
   persistRec(t); bc(req); res.json(po);
 });
 A('delete', '/pos/:id', gatePur, (req, res) => { const d = req.tenant.db, po = (d.pos || []).find((x) => x.id === req.params.id); if (po && po.status !== 'draft') return res.status(400).json({ error: 'Only drafts can be deleted. Cancel it instead.' }); d.pos = (d.pos || []).filter((x) => x.id !== req.params.id); bc(req); res.json({ ok: 1 }); });
@@ -1328,10 +1330,58 @@ A('get', '/team/log', (req, res) => {
   const own = isOwnerClaim(req.claims), l = (req.tenant.rec.teamLog || []).filter((x) => own || x.role !== 'manager' || x.who === req.claims.n).slice(-200).reverse();
   res.json({ log: l });
 });
+// Approval by a manager PIN: a captain or cashier voiding or discounting above the owner's limits must have a manager or the owner type their approval PIN.
+// The approver is checked here, before the order logic sees the message, and a client can never send "approvedBy" itself.
+function approveGate(t, c, m) {
+  if (!m) return true; delete m.approvedBy;
+  const pin = m.approvalPin; delete m.approvalPin;
+  if (!c.authed || c.adm || c.mgr || (m.t !== 'void_item' && m.t !== 'discount')) return true;
+  const set = (t.db.settings && t.db.settings.approvals) || {}, s = t.db.sessions[m.tableId]; if (!s) return true;
+  let need = false, why = '';
+  if (m.t === 'void_item') {
+    let it; s.orders.forEach((o) => o.items.forEach((i) => { if (i.id === m.itemId) it = i; }));
+    const val = it ? Math.min(it.qty, Math.max(1, Math.floor(+m.qty) || it.qty)) * it.price : 0, lim = +set.voidOver || 0;
+    if (it && lim > 0 && val >= lim) { need = true; why = `Removing ${Math.round(val)} or more needs a manager PIN`; }
+  } else if (+m.value > 0) {
+    const lim = +set.discountOverPct || 0, gross = (s.orders || []).reduce((n, o) => n + o.items.reduce((k, i) => k + i.qty * i.price, 0), 0);
+    const pct = m.type === 'amt' ? (gross ? +m.value / gross * 100 : 100) : +m.value;
+    if (lim > 0 && pct >= lim) { need = true; why = `A discount of ${lim}% or more needs a manager PIN`; }
+  }
+  if (!need) return true;
+  const say = (msg) => c.ws.send(JSON.stringify({ t: 'notice', code: 'approve', msg }));
+  const key = 'apin:' + t.rec.slug + ':' + (c.staffId || 'x');
+  if (!pin) { say(why); return false; }
+  if (auth.throttled(key)) { say('Too many wrong PINs. Wait a few minutes.'); return false; }
+  const now = Date.now(), holders = [t.rec.owner, ...(t.rec.team || []).filter((x) => x.role === 'manager' && x.active !== false && (!x.expires || x.expires > now))];
+  const who = holders.find((h) => h && h.apin && auth.check(String(pin), h.apin));
+  if (!who) { auth.fail(key); say('That approval PIN is not right'); return false; }
+  auth.ok(key); m.approvedBy = who.name || who.username || 'Owner'; return true;
+}
+// things the owner should hear about: sign-ins from a new place, failed sign-ins that locked an account, accounts changed, since the owner last marked them seen
+const ALERT_ACTS = ['login-failed', 'login', 'created', 'removed', 'reset', '2fa-off', 'approval-pin-set'];
+const alertList = (rec) => (rec.teamLog || []).filter((x) => x.at > (rec.alertsSeen || 0) && ((x.act === 'login' && x.newIp) || (x.act === 'login-failed' && x.locked) || ['removed', 'reset', '2fa-off', 'approval-pin-set'].includes(x.act)));
+app.get(`${R}/me/alerts`, tenantMw, gateAdmin('ui'), (req, res) => res.json({ alerts: isOwnerClaim(req.claims) ? alertList(req.tenant.rec).slice(-30).reverse() : [] }));
+app.post(`${R}/me/alerts/seen`, tenantMw, gateAdmin('ui'), (req, res) => { if (!isOwnerClaim(req.claims)) return res.status(403).json({ error: 'Owner only' }); req.tenant.rec.alertsSeen = Date.now(); persistRec(req.tenant); res.json({ ok: 1 }); });
+// guests who joined loyalty and have not been back for a while, with a ready WhatsApp message
+A('get', '/winback', (req, res) => {
+  const days = [14, 30, 60, 90].includes(+req.query.days) ? +req.query.days : 30, lim = Date.now() - days * 86400000, name = req.tenant.rec.name || 'us';
+  const L = (req.tenant.db.loyalty && req.tenant.db.loyalty.members) || {};
+  const list = Object.values(L).filter((m) => m.last && m.last < lim && m.visits >= 1).sort((a, b) => b.points - a.points).slice(0, 100).map((m) => ({ name: m.name || '', phone: m.phone, points: m.points, visits: m.visits, daysAway: Math.floor((Date.now() - m.last) / 86400000) }));
+  res.json({ days, name, list });
+});
+app.post(`${R}/me/approval-pin`, loginLimit, tenantMw, gateAdmin('ui'), (req, res) => {
+  const c = req.claims; if (c.r === 'opmanager') return res.status(403).json({ error: 'This account cannot approve floor actions' });
+  const h = totpHolder(req), b = req.body || {}; if (!h) return res.status(400).json({ error: 'no account' });
+  if (b.pin === '' || b.pin === null) { delete h.apin; persistRec(req.tenant); return res.json({ ok: 1, on: false }); }
+  const p = ROLES.pinProblem(b.pin, true); if (p) return res.status(400).json({ error: p });
+  const staffPins = (req.tenant.rec.staff || []).some((x) => x.hash && auth.check(String(b.pin), x.hash));
+  if (staffPins) return res.status(400).json({ error: 'Do not reuse a floor staff PIN as an approval PIN' });
+  h.apin = auth.hash(String(b.pin)); teamLog(req.tenant.rec, c.n || 'Owner', 'approval-pin-set', h.username || 'owner'); persistRec(req.tenant); res.json({ ok: 1, on: true });
+});
 // what the signed-in person may do (the page hides what the role cannot open; the server enforces it anyway)
 app.get(`${R}/me/perms`, tenantMw, gateAdmin('ui'), (req, res) => {
   const c = req.claims, own = isOwnerClaim(c), m = !own && (req.tenant.rec.team || []).find((x) => x.id === c.u);
-  res.json({ role: own ? 'owner' : c.r, name: c.n || 'Owner', perms: own ? ['*'] : [...ROLES.PERMS[c.r]], twoFactor: own ? !!(req.tenant.rec.owner.totp && req.tenant.rec.owner.totp.on) : !!(m && m.totp && m.totp.on), mustChange: !!(m && m.mustChange) });
+  res.json({ role: own ? 'owner' : c.r, name: c.n || 'Owner', perms: own ? ['*'] : [...ROLES.PERMS[c.r]], twoFactor: own ? !!(req.tenant.rec.owner.totp && req.tenant.rec.owner.totp.on) : !!(m && m.totp && m.totp.on), mustChange: !!(m && m.mustChange), approvalPin: !!((own ? req.tenant.rec.owner : m) || {}).apin, alerts: own ? alertList(req.tenant.rec).length : 0 });
 });
 app.post(`${R}/me/password`, loginLimit, tenantMw, gateAdmin('ui'), (req, res) => {
   const r = req.tenant.rec, b = req.body || {}, c = req.claims;
@@ -1570,6 +1620,8 @@ A('post', '/settings', (req, res, next) => (ROLES.TEAM.includes(req.claims.r) &&
   if (b.reserve) { if (!F.has(req.tenant.rec, 'reservations')) return res.status(402).json({ error: 'Reservations need the ' + F.PLANS[F.minPlanFor('reservations')].name + ' plan', upgrade: F.minPlanFor('reservations') }); b.reserve = F.reserveClean(b.reserve); }
   if (b.instapay) { if (!F.has(req.tenant.rec, 'instapay')) return res.status(402).json({ error: 'InstaPay & wallet payment needs the ' + F.PLANS[F.minPlanFor('instapay')].name + ' plan', upgrade: F.minPlanFor('instapay') }); const cur = req.tenant.db.settings.instapay || {}; b.instapay = F.ipClean({ ...b.instapay, qr: cur.qr || '' }); }
   if (b.promo) { if (!F.has(req.tenant.rec, 'coupons')) return res.status(402).json({ error: 'Coupons & offers need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.promo = { enabled: !!b.promo.enabled, stack: !!b.promo.stack }; }
+  if (b.approvals) { const a = b.approvals; b.approvals = { voidOver: Math.min(1e6, Math.max(0, +a.voidOver || 0)), discountOverPct: Math.min(100, Math.max(0, +a.discountOverPct || 0)) }; }
+  if (b.farewell) { const f = b.farewell; b.farewell = { seconds: Math.min(30, Math.max(5, Math.round(+f.seconds) || 10)), message: String(f.message || '').slice(0, 160), message_ar: String(f.message_ar || '').slice(0, 160), autoClose: f.autoClose !== false, fallback: f.fallback === 'blank' ? 'blank' : 'stay' }; }
   delete b.logo; delete b.bgImg; delete b.heroImg;   // images only arrive through their upload routes, never as a typed URL
   if ('bgBlur' in b) b.bgBlur = Math.min(30, Math.max(0, Math.round(+b.bgBlur) || 0));
   if ('bgDim' in b) b.bgDim = Math.min(80, Math.max(0, Math.round(+b.bgDim) || 0));
@@ -1998,7 +2050,7 @@ app.post(`${R}/rpc`, rpcLimit, async (req, res) => {
         else if (jn.fresh === false) { c.role = 'customer'; c.joined = true; c.tableNumber = tb.number; }   // session ended while the page was open: show the end screen, do not reopen the table
         else t.handle(c, { t: 'join', role: 'customer', tableNumber: jn.tableNumber, guestId: jn.guestId, name: jn.name, avatar: jn.avatar, key: jn.key, geo: jn.geo, resume: jn.resume });
       } else t.handle(c, { t: 'join', role: jn.role === 'cashier' ? 'captain' : jn.role });
-      if (j.msg) t.handle(c, j.msg);
+      if (j.msg && approveGate(t, c, j.msg)) t.handle(c, j.msg);
       const er = out.find((m) => m.t === 'error');
       if (er) {   // guessing table keys: a few wrong scans per connection are fine, a stream of them is an attack
         if (er.msg === 'scan' || er.msg === 'geo') { const k = req.ip + ':' + req.params.slug, now = Date.now(), h = (scanFails[k] = (scanFails[k] || []).filter((x) => now - x < 600000)); h.push(now); if (h.length > 15) return res.status(429).json({ error: 'Too many wrong scans. Please wait a few minutes.' }); for (const x of Object.keys(scanFails)) if (!scanFails[x].length || now - scanFails[x][scanFails[x].length - 1] > 600000) delete scanFails[x]; }
@@ -2071,7 +2123,7 @@ if (require.main === module && !STATELESS) {
           }
           tenant.clients.add(c);
         }
-        tenant.handle(c, m);
+        if (approveGate(tenant, c, m)) tenant.handle(c, m);
       } catch (e) { console.error(e); }
     });
     ws.on('close', () => tenant && tenant.clients.delete(c));

@@ -21,8 +21,8 @@ Trade sources for the scenarios are linked at the bottom; most are vendor blogs,
 | A new feature forgets to restrict access | Leak by accident | Routes are closed to managers unless listed on purpose | Built |
 | Who did what | Nothing to show in a dispute | Log of sign-ins, failures, lockouts, account changes and every change a manager makes, with "new device" flags | Built |
 | Operations manager needs a floor view | - | Not part of the role (inventory and billing only) | By design |
-| Sign-in alerts by push or email | Owner hears late | The log shows it; push/email alerts not yet | Next |
-| Approve void above an amount with a manager PIN | Collusion with a swamped manager | Reasons are mandatory to review; a PIN prompt on the captain screen is not built | Next |
+| Sign-in alerts | Owner hears late | Alert badge and list for new-place sign-ins, lockouts, resets and 2-step turned off, with Mark as seen; push/email not yet | Built (in-app) |
+| Approve void above an amount with a manager PIN | Collusion with a swamped manager | Owner sets void value and discount % limits; the captain screen asks for a manager's approval PIN, the approver is saved on the record, wrong PINs are throttled | Built |
 
 ## 2. Money and fraud
 
@@ -37,7 +37,7 @@ Trade sources for the scenarios are linked at the bottom; most are vendor blogs,
 | Walk-outs (dine and dash) | Orders stay open until paid; online payment for those who want it; unpaid closures flagged | Partly (cash venues still depend on the floor) |
 | Split bill arguments | Split per guest or per item, itemised | Built |
 | VAT or service mistakes | Monthly VAT summary; tax and service set by the owner only | Built |
-| Refunds above a limit need approval | - | Next |
+| Refunds above a limit need approval | Voids and discounts use the approval PIN; there is no separate refund flow | Built (voids, discounts) |
 
 ## 3. The floor
 
@@ -61,7 +61,7 @@ Trade sources for the scenarios are linked at the bottom; most are vendor blogs,
 | Counts that never match | Stocktakes with variance and a stock log | Built |
 | Waste hidden as "sold" | Waste causes on voids | Built |
 | Supplier invoice differs from the order | Purchase orders and invoices, per supplier | Partly (no automatic three-way match yet) |
-| Receiving by the person who ordered | - | Next (named receiver per delivery) |
+| Receiving by the person who ordered | Creator and receiver are saved on each purchase order; same person is flagged in Loss controls | Built |
 
 ## 5. The guest after the meal
 
@@ -76,7 +76,7 @@ Already in the product: guest name on the goodbye, scan-again prompt, Google rev
 Next, in order of effect:
 1. **Your own growth loop.** Every guest page links to TableTab with `utm_campaign=<venue>`. Count visits per venue in your analytics and reward the venues that bring leads (a free month per signed referral).
 2. **Second-visit nudge.** On the goodbye, show the loyalty progress ("2 more visits for a free coffee") and a one-tap save to home screen.
-3. **Win-back.** A WhatsApp or SMS offer to guests who joined loyalty and have not come for 30 days (needs opt-in).
+3. **Win-back** (built: list in the Loyalty tab with a ready WhatsApp message). Message only guests who opted in.
 4. **Digital receipt by WhatsApp or email** with the QR for the next visit and a review link.
 5. **Birthday and anniversary treats** from the loyalty phone number.
 6. **Time-boxed offers on the goodbye** ("show this at the counter for a free cookie today") to move quiet-hour traffic.

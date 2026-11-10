@@ -22,7 +22,7 @@ const POLICY = [
   [/^\S+ \/(invoice-brand|invoice-logo)$/, 'billing_admin'],
   [/^\S+ \/(invoices|invoice-source)(\/|$)/, 'billing'],
   [/^GET \/(orders|accounting|accounting\.csv|accounting\.xlsx|vat-summary)$/, 'billing'],
-  [/^GET \/(report|report\.xlsx|analytics|insights|insights\/staff\.csv|feedback|feedback\/summary|feedback\/export\.csv|upsell\/stats|upsell\/export\.csv|promo\/report|loyalty|gifts)$/, 'reports'],
+  [/^GET \/(report|report\.xlsx|analytics|insights|insights\/staff\.csv|feedback|feedback\/summary|feedback\/export\.csv|upsell\/stats|upsell\/export\.csv|promo\/report|loyalty|gifts|winback)$/, 'reports'],
   [/^PUT \/feedback\/:id$/, 'reports'],
   [/^GET \/ownerreport$/, 'owner'],
   [/^\S+ \/attendance(\.csv|\/|$)/, 'attendance'],

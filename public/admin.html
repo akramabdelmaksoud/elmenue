@@ -110,7 +110,16 @@ async function loyaltyTab() {
     <div class="grid" style="margin-top:8px"><div><label class="muted">Redemption: points…</label><input type="number" min="1" value="${c.pointsPerRedeem}" onchange="saveLoy({pointsPerRedeem:+this.value})"></div><div><label class="muted">…are worth (${cur} off the bill)</label><input type="number" min="0" value="${c.redeemValue}" onchange="saveLoy({redeemValue:+this.value})"></div></div>
     <p class="muted" style="margin-top:12px">Every <b>${c.egpPerPoint} ${cur}</b> spent = <b>1 point</b> · <b>${c.pointsPerRedeem} points</b> = <b>${c.redeemValue} ${cur}</b> discount. Guests join with their phone number from the Profile tab.</p></div>
    <div class="card"><h3>Today</h3><div class="kpis"><div><b>${d.members}</b><span class="muted">members</span></div><div><b>${d.outstanding}</b><span class="muted">points outstanding</span></div><div><b>${d.earnedToday}</b><span class="muted">earned today</span></div><div><b>${d.redeemedToday}</b><span class="muted">redeemed today (${Math.round(d.redeemedEgpToday)} ${cur})</span></div></div></div></div>
-   <div class="card" style="margin-top:14px"><h3>Top members</h3>${d.top.length ? `<table><tr><th>Name</th><th>Phone</th><th>Points</th><th>Visits</th><th></th></tr>${d.top.map((m) => `<tr><td>${App.esc(m.name || '—')}</td><td>${App.esc(m.phone)}</td><td><b>${m.points}</b></td><td>${m.visits}</td><td><button onclick="adjPts('${m.phone}')">± points</button></td></tr>`).join('')}</table>` : '<p class="muted">No members yet - guests join from the Profile tab of the menu.</p>'}</div>`;
+   <div class="card" style="margin-top:14px"><h3>Top members</h3>${d.top.length ? `<table><tr><th>Name</th><th>Phone</th><th>Points</th><th>Visits</th><th></th></tr>${d.top.map((m) => `<tr><td>${App.esc(m.name || '—')}</td><td>${App.esc(m.phone)}</td><td><b>${m.points}</b></td><td>${m.visits}</td><td><button onclick="adjPts('${m.phone}')">± points</button></td></tr>`).join('')}</table>` : '<p class="muted">No members yet - guests join from the Profile tab of the menu.</p>'}</div>
+   <div class="card" style="margin-top:14px" id="wb"></div>`;
+  winbackDraw();
+}
+async function winbackDraw() {
+  const dd = +(App.ls('wb_days') || 30), r = await api('GET', '/api/winback?days=' + dd), b = $('#wb'); if (!b || r.error) return; const E = App.esc;
+  const msg = (m) => `Hi${m.name ? ' ' + m.name : ''}, we miss you at ${r.name}! You have ${m.points} points waiting. Come by this week and enjoy them.`;
+  const link = (m) => `https://wa.me/${String(m.phone).replace(/\D/g, '')}?text=${encodeURIComponent(msg(m))}`;
+  b.innerHTML = `<div class="spread"><h3>💌 Win back guests</h3><select onchange="App.ls('wb_days',this.value);winbackDraw()" style="width:auto">${[14, 30, 60, 90].map((n) => `<option value="${n}" ${n === dd ? 'selected' : ''}>Not back for ${n}+ days</option>`).join('')}</select></div><p class="muted">Members who have not visited for a while. Message only guests who agreed to hear from you.</p>
+  ${r.list.length ? `<table><tr><th>Name</th><th>Phone</th><th>Points</th><th>Days away</th><th></th></tr>${r.list.map((m) => `<tr><td>${E(m.name || '-')}</td><td>${E(m.phone)}</td><td>${m.points}</td><td>${m.daysAway}</td><td><a class="pill" target="_blank" rel="noopener" href="${E(link(m))}">WhatsApp</a></td></tr>`).join('')}</table>` : '<p class="muted">Nobody to win back yet. Great!</p>'}`;
 }
 async function saveLoy(p) { const r = await api('POST', '/api/settings', { loyalty: { ...(App.config.settings.loyalty || {}), ...p } }); if (r.error) App.toast(r.error); }
 async function adjPts(phone) { const v = prompt('Add or remove points (e.g. 50 or -20)'); if (!v) return; const r = await api('POST', '/api/loyalty/adjust', { phone, delta: +v }); App.toast(r.error || 'Updated'); cfgKey = ''; render(App.state, true); }
@@ -617,7 +626,7 @@ const can = (p) => ME.perms.includes('*') || ME.perms.includes(p);
 const TABPERM = { analytics: 'reports', menu: 'menu', floor: 'tables', theme: 'owner', qr: 'tables', ocr: 'menu', staff: 'staff', attendance: 'attendance', inventory: 'inventory', recipes: 'inventory', purchasing: 'inventory', orders: 'billing', invoices: 'billing', offers: 'offers', loyalty: 'reports', reports: 'reports', insights: 'reports', ownerreport: 'owner', branches: 'owner', audit: 'reports', plan: 'owner', accounts: 'team', security: 'ui', controls: 'reports' };
 const tabOk = (t) => { const p = TABPERM[t]; return !p || p === 'ui' || can(p); };
 const ROLE_NAME = { owner: 'Owner', manager: 'Branch manager', opmanager: 'Operations manager' };
-async function loadMe() { const r = await api('GET', '/api/me/perms'); if (r && !r.error) ME = r; else if (r && r.code === 'change_password') ME = { role: 'manager', perms: [], mustChange: true, name: '' }; }
+async function loadMe() { const r = await api('GET', '/api/me/perms'); if (r && !r.error) { ME = r; if (r.alerts) setTimeout(() => App.toast('🔔 ' + r.alerts + ' security alert(s): open Sign-in & security'), 1500); } else if (r && r.code === 'change_password') ME = { role: 'manager', perms: [], mustChange: true, name: '' }; }
 function applyRole() {
   for (let i = GROUPS.length - 1; i >= 0; i--) { GROUPS[i].tabs = GROUPS[i].tabs.filter((x) => tabOk(x[0])); if (!GROUPS[i].tabs.length) GROUPS.splice(i, 1); }
   if (!GROUPS.some((g) => g.tabs.some((x) => x[0] === tab))) tab = GROUPS[0].tabs[0][0];
@@ -1086,8 +1095,24 @@ async function securityTab() {
   $('#main').innerHTML = `<h1>🛡️ Sign-in & security</h1><p class="muted" style="margin-top:-8px">Signed in as <b>${E(ME.name || 'Owner')}</b> · ${ROLE_NAME[ME.role] || ''}</p>
   ${team ? `<div class="card"><h3>Change my password</h3><div class="row wrap"><input id="pc" type="password" placeholder="Current password" autocomplete="current-password" style="max-width:220px"><input id="pn" type="password" placeholder="New password" autocomplete="new-password" style="max-width:220px"><input id="pn2" type="password" placeholder="New password again" autocomplete="new-password" style="max-width:220px"><button class="primary" onclick="changePw()">Change</button></div><p class="muted" style="font-size:12.5px">10+ characters, capital and small letters and a number. All your other sessions end when you change it.</p></div>` : '<div class="card"><h3>Password</h3><p class="muted">Change the owner password under <b>My plan & add-ons → Account</b>.</p></div>'}
   <div class="card" style="margin-top:14px"><h3>Two-step sign-in ${ME.twoFactor ? '<span class="pill" style="color:var(--ok)">ON</span>' : ''}</h3>
-   <p class="muted">Adds a 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator, Authy) so a stolen password alone cannot open the account. Recommended for the owner and every manager.</p><div id="tfa"></div></div>`;
-  tfaDraw();
+   <p class="muted">Adds a 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator, Authy) so a stolen password alone cannot open the account. Recommended for the owner and every manager.</p><div id="tfa"></div></div>
+  ${ME.role === 'owner' ? '<div id="alr"></div>' : ''}
+  ${ME.role !== 'opmanager' ? `<div class="card" style="margin-top:14px"><h3>Approval PIN ${ME.approvalPin ? '<span class="pill" style="color:var(--ok)">SET</span>' : ''}</h3>
+   <p class="muted">A private 6-10 digit PIN you type on a captain or cashier screen to approve a large void or discount. Never share it and never use a staff PIN.</p>
+   <div class="row wrap"><input id="apn" type="password" inputmode="numeric" maxlength="10" placeholder="New approval PIN" autocomplete="off" style="max-width:200px"><button class="primary" onclick="apinSave()">Save</button>${ME.approvalPin ? '<button class="ghost" onclick="apinSave(true)">Remove</button>' : ''}</div></div>` : ''}`;
+  tfaDraw(); if (ME.role === 'owner') alertsDraw();
+}
+async function alertsDraw() {
+  const r = await api('GET', '/api/me/alerts'), b = $('#alr'); if (!b || !r.alerts) return; const E = App.esc, W = { login: 'signed in from a new place', 'login-failed': 'account locked after wrong passwords', removed: 'account removed', reset: 'password reset', '2fa-off': 'two-step sign-in turned off', 'approval-pin-set': 'approval PIN changed' };
+  b.innerHTML = r.alerts.length ? `<div class="card" style="margin-top:14px;border-color:#e5484d"><div class="spread"><h3>🔔 Security alerts (${r.alerts.length})</h3><button class="ghost" onclick="api('POST','/api/me/alerts/seen',{}).then(()=>{ME.alerts=0;securityTab()})">Mark as seen</button></div>${r.alerts.map((x) => `<p style="margin:6px 0">${new Date(x.at).toLocaleString()} · <b>${E(x.who || x.target)}</b> ${E(W[x.act] || x.act)}${x.ip ? ' · ' + E(x.ip) : ''}</p>`).join('')}</div>` : '';
+}
+async function fwSave(p) {
+  const cur = Object.assign({ seconds: 10, message: '', message_ar: '', autoClose: true, fallback: 'stay' }, App.config.settings.farewell || {}, p);
+  const r = await api('POST', '/api/settings', { farewell: cur }); if (r.error) return App.toast(r.error); App.config.settings.farewell = cur; App.toast('Saved');
+}
+async function apinSave(clear) {
+  const r = await api('POST', '/api/me/approval-pin', { pin: clear ? '' : $('#apn').value.trim() }); if (r.error) return App.toast(r.error);
+  App.toast(r.on ? 'Approval PIN saved' : 'Approval PIN removed'); securityTab();
 }
 function tfaDraw() {
   const b = $('#tfa'); if (!b) return;
@@ -1367,7 +1392,18 @@ function receiptCard() {
   const f = (k, l, ph) => `<label class="muted" style="display:block;margin-top:8px;font-size:12px">${l}</label><input value="${App.esc(s[k] || '')}" placeholder="${ph || ''}" onchange="api('POST','/api/settings',{${k}:this.value})">`;
   el.innerHTML = `<h3>🧾 Bills, receipts & discounts</h3>${f('address', 'Address on receipts')}${f('phone', 'Phone on receipts')}${f('taxId', 'Tax / VAT number')}${f('receiptFooter', 'Receipt footer', 'Thank you - see you soon!')}
    <label class="muted" style="display:block;margin-top:12px;font-size:12px">Largest discount a captain may give without you (%)</label>
-   <div class="row"><input type="number" min="0" max="100" style="max-width:120px" value="${s.discountCapPct === undefined || s.discountCapPct === '' ? 20 : s.discountCapPct}" onchange="api('POST','/api/settings',{discountCapPct:Math.min(100,Math.max(0,+this.value||0))})"><small class="muted">Anything bigger is refused unless the owner is signed in on the captain screen. Every discount, void and refund is written to the table's log.</small></div>`;
+   <div class="row"><input type="number" min="0" max="100" style="max-width:120px" value="${s.discountCapPct === undefined || s.discountCapPct === '' ? 20 : s.discountCapPct}" onchange="api('POST','/api/settings',{discountCapPct:Math.min(100,Math.max(0,+this.value||0))})"><small class="muted">Anything bigger is refused unless the owner is signed in on the captain screen. Every discount, void and refund is written to the table's log.</small></div>
+   <label class="muted" style="display:block;margin-top:12px;font-size:12px">Ask for a manager PIN when a captain removes items worth at least (0 = never)</label>
+   <div class="row"><input type="number" min="0" style="max-width:120px" value="${(s.approvals || {}).voidOver || 0}" onchange="api('POST','/api/settings',{approvals:{voidOver:+this.value||0,discountOverPct:(App.config.settings.approvals||{}).discountOverPct||0}}).then(()=>{App.config.settings.approvals=Object.assign({},App.config.settings.approvals,{voidOver:+this.value||0})})"><small class="muted">The manager or you types an approval PIN (set under Sign-in &amp; security). The approver's name is saved with the void.</small></div>
+   <label class="muted" style="display:block;margin-top:12px;font-size:12px">Ask for a manager PIN for discounts of at least (%), 0 = never</label>
+   <div class="row"><input type="number" min="0" max="100" style="max-width:120px" value="${(s.approvals || {}).discountOverPct || 0}" onchange="api('POST','/api/settings',{approvals:{discountOverPct:+this.value||0,voidOver:(App.config.settings.approvals||{}).voidOver||0}}).then(()=>{App.config.settings.approvals=Object.assign({},App.config.settings.approvals,{discountOverPct:+this.value||0})})"></div>
+   <h3 style="margin-top:18px">👋 Goodbye screen for guests</h3>
+   <label class="muted" style="display:block;margin-top:8px;font-size:12px">Seconds before the page closes (5-30)</label>
+   <input type="number" min="5" max="30" style="max-width:120px" value="${(s.farewell || {}).seconds || 10}" onchange="fwSave({seconds:+this.value})">
+   <label class="muted" style="display:block;margin-top:8px;font-size:12px">Your own message (English)</label><input value="${App.esc((s.farewell || {}).message || '')}" maxlength="160" placeholder="Thank you for visiting us. Your next coffee is on the way home!" onchange="fwSave({message:this.value})">
+   <label class="muted" style="display:block;margin-top:8px;font-size:12px">Your own message (Arabic)</label><input dir="rtl" value="${App.esc((s.farewell || {}).message_ar || '')}" maxlength="160" onchange="fwSave({message_ar:this.value})">
+   <label style="display:flex;gap:8px;margin-top:10px;align-items:center"><input type="checkbox" ${(s.farewell || {}).autoClose === false ? '' : 'checked'} onchange="fwSave({autoClose:this.checked})"> Close the page automatically</label>
+   <label style="display:flex;gap:8px;margin-top:6px;align-items:center"><input type="checkbox" ${(s.farewell || {}).fallback === 'blank' ? 'checked' : ''} onchange="fwSave({fallback:this.checked?'blank':'stay'})"> If the phone refuses to close the page, show a blank page (off keeps the thank-you card)</label>`;
   $('#main').appendChild(el);
 }
 

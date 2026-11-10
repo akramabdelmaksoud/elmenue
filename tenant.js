@@ -795,10 +795,10 @@ function handle(c, m) {
         for (const o of s.orders) {
           const i = o.items.findIndex((x) => x.id === m.itemId); if (i < 0) continue;
           const it = o.items[i], q = Math.min(it.qty, Math.max(1, Math.floor(+m.qty) || it.qty));
-          (s.voids ||= []).push({ name: it.name, qty: q, price: it.price, reason: String(m.reason || '').slice(0, 80), waste: !!m.waste, by: c.staffName || '', at: Date.now() });
+          (s.voids ||= []).push({ name: it.name, qty: q, price: it.price, reason: String(m.reason || '').slice(0, 80), waste: !!m.waste, by: c.staffName || '', ap: m.approvedBy || '', at: Date.now() });
           if (!m.waste) putStock(it.itemId, q, 'return', 'voided: ' + String(m.reason || '').slice(0, 40), c.staffName);
           it.qty -= q; if (it.qty <= 0) o.items.splice(i, 1); if (!o.items.length) s.orders = s.orders.filter((x) => x !== o);
-          log(s, 'void', `${q}× ${it.name} voided${m.reason ? ' (' + String(m.reason).slice(0, 80) + ')' : ''}` + (c.staffName ? ' by ' + c.staffName : '')); break;
+          log(s, 'void', `${q}× ${it.name} voided${m.reason ? ' (' + String(m.reason).slice(0, 80) + ')' : ''}` + (c.staffName ? ' by ' + c.staffName : '') + (m.approvedBy ? ', approved by ' + m.approvedBy : '')); break;
         }
         break;
       }
@@ -822,7 +822,7 @@ function handle(c, m) {
         const capSet = db.settings.discountCapPct, cap = c.adm ? 100 : (capSet === undefined || capSet === '' || capSet === null ? 20 : Math.max(0, +capSet));
         const gross = bill(s).gross, pct = type === 'pct' ? v : gross ? v / gross * 100 : 0;
         if (pct > cap) { c.ws.send(JSON.stringify({ t: 'notice', msg: `Discounts above ${cap}% need the owner` })); break; }
-        s.discount = { type, value: v, reason: String(m.reason || '').slice(0, 60), by: c.staffName || '' };
+        s.discount = { type, value: v, reason: String(m.reason || '').slice(0, 60), by: c.staffName || '', ap: m.approvedBy || '' };
         log(s, 'discount', `Discount ${type === 'pct' ? v + '%' : v}${m.reason ? ' (' + String(m.reason).slice(0, 60) + ')' : ''}` + (c.staffName ? ' by ' + c.staffName : '')); break;
       }
       case 'move_table': {

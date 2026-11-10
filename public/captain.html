@@ -143,7 +143,7 @@ function carCard(s) {
 }
 function start() { document.getElementById('who').textContent = App.who() ? '· ' + App.who() : ''; refreshPush(); App.connect({ t: 'join', role: 'captain' }, {
   render(m) { if (m) S = m; render(); },
-  notice(m) { App.toast('⚠ ' + m.msg); },
+  notice(m) { if (m.code === 'approve') return PX.approve(m); App.toast('⚠ ' + m.msg); },
   alert(m) {
     { const num = String(m.tableNumber || ''), car = /^CR-/.test(num), tk = /^(TA|DL)-/.test(num), st = (S && S.config.settings) || {}; if (CARS ? !car : DESK ? !tk : (tk && (st.online || {}).desk) || (car && (st.car || {}).desk)) return; }
     beep(m.kind);

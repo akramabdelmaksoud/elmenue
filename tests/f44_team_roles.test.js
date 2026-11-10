@@ -198,3 +198,59 @@ for (const mode of ['ws', 'rpc']) test(`F44 a floor staff token dies when the pe
   await T.api('DELETE', '/staff/' + st.id);
   assert.equal((await T.rpc('captain', cap, null)).s, 401, 'removed: gone');
 });
+
+for (const mode of ['ws', 'rpc']) test(`F44 manager PIN approval for big voids and discounts [${mode}]`, async (t) => {
+  const S = await start(mode); t.after(() => S.stop());
+  const T = await S.tenant('vip');
+  await T.api('POST', '/settings', { approvals: { voidOver: 1, discountOverPct: 10 } });
+  assert.equal((await T.api('POST', '/me/approval-pin', { pin: '123456' })).s, 400, 'weak approval PIN');
+  assert.equal((await T.api('POST', '/me/approval-pin', { pin: '482915' })).s, 200);
+  assert.equal((await T.api('GET', '/me/perms')).j.approvalPin, true);
+  const cap = await T.staff('captain', 'Wael', '73028461');
+  assert.equal((await T.api('POST', '/me/approval-pin', { pin: '73028461' })).s, 400, 'a staff PIN cannot double as an approval PIN');
+  const cfg = (await T.api('GET', '/config', null, null)).j, item = cfg.items.find((i) => !i.soldOut && i.stock == null), tb = cfg.tables[0];
+  await T.rpc('captain', cap, { t: 'staff_order', tableId: tb.id, items: [{ itemId: item.id, qty: 2 }] });
+  const sess = async () => Object.values(await (async () => (await T.state(cap)).sessions)()).find((x) => x.tableId === tb.id);
+  const line = (await sess()).orders[0].items[0];
+  const send = (m) => T.rpc('captain', cap, m);
+  const lastNotice = async (m) => { const r = await send(m); return (r.j.out || r.j.messages || []).find?.((x) => x.t === 'notice'); };
+  // no PIN: blocked, nothing changes
+  await send({ t: 'discount', tableId: tb.id, type: 'pct', value: 15, reason: 'friend' });
+  assert.ok(!(await sess()).discount, 'blocked without approval');
+  await send({ t: 'void_item', tableId: tb.id, itemId: line.id, qty: 1, reason: 'x', approvalPin: '000000' });
+  assert.equal((await sess()).orders[0].items[0].qty, 2, 'wrong PIN does not void');
+  // a forged approvedBy is ignored
+  await send({ t: 'discount', tableId: tb.id, type: 'pct', value: 15, reason: 'friend', approvedBy: 'Owner' });
+  assert.ok(!(await sess()).discount, 'client cannot approve itself');
+  // right PIN: goes through and is recorded
+  await send({ t: 'discount', tableId: tb.id, type: 'pct', value: 15, reason: 'friend', approvalPin: '482915' });
+  const d = (await sess()).discount; assert.ok(d && d.value === 15 && d.ap, 'approved discount stored with the approver');
+  await send({ t: 'void_item', tableId: tb.id, itemId: line.id, qty: 1, reason: 'mistake', approvalPin: '482915' });
+  assert.equal((await sess()).orders[0].items[0].qty, 1, 'approved void goes through');
+  // small discount below the limit needs nothing
+  await send({ t: 'discount', tableId: tb.id, type: 'pct', value: 5, reason: 'regular' });
+  assert.equal((await sess()).discount.value, 5);
+  // an owner needs no PIN
+  assert.equal((await T.rpc('captain', T.admin, { t: 'discount', tableId: tb.id, type: 'pct', value: 30, reason: 'boss' })).s, 200);
+  assert.equal((await sess()).discount.value, 30);
+  // removing the approval PIN stops approvals
+  await T.api('POST', '/me/approval-pin', { pin: '' });
+  await send({ t: 'discount', tableId: tb.id, type: 'pct', value: 12, reason: 'x', approvalPin: '482915' });
+  assert.equal((await sess()).discount.value, 30, 'removed PIN approves nothing');
+});
+
+for (const mode of ['ws', 'rpc']) test(`F44 owner alerts, win-back list and receiving by the same person [${mode}]`, async (t) => {
+  const S = await start(mode); t.after(() => S.stop());
+  const T = await S.tenant('vip');
+  assert.equal((await T.api('GET', '/me/perms')).j.alerts, 0);
+  const mk = await T.api('POST', '/team', { name: 'Sara', username: 'sara.m', role: 'manager' });
+  for (let i = 0; i < 5; i++) await S.J('POST', T.u('/login'), { role: 'team', username: 'sara.m', password: 'Wrong-Pass-1234x' });
+  const a = await T.api('GET', '/me/alerts'); assert.ok(a.j.alerts.length >= 1, 'a lockout is an alert');
+  assert.ok((await T.api('GET', '/me/perms')).j.alerts >= 1);
+  const mgr = (await S.J('POST', T.u('/login'), { role: 'team', username: 'sara.m', password: mk.j.password }));
+  const tok = mgr.j.token; if (tok) { const me = await S.J('GET', T.u('/me/alerts'), undefined, tok); assert.deepEqual(me.j.alerts || [], [], 'managers see no alerts'); }
+  assert.equal((await T.api('POST', '/me/alerts/seen', {})).s, 200);
+  assert.equal((await T.api('GET', '/me/perms')).j.alerts, 0, 'seen clears the badge');
+  const w = await T.api('GET', '/winback?days=30'); assert.equal(w.s, 200); assert.ok(Array.isArray(w.j.list));
+  assert.equal((await S.J('GET', T.u('/winback'), undefined, null)).s, 401);
+});
