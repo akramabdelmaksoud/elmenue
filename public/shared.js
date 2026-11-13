@@ -363,12 +363,13 @@ const App = {
     };
     // Prefer websockets; if the host cannot do them (e.g. Vercel) fall back to polling automatically.
     let everOpened = false, fellBack = false;
-    const fallback = () => { if (fellBack) return; fellBack = true; App.startPolling(joinMsg, handlers, onMsg); };
+    let noWs = false; try { noWs = Date.now() - (+localStorage.getItem('tt:nows') || 0) < 12 * 3600000; } catch (e) {}   // this host answered "no websockets" recently: start polling straight away
+    const fallback = () => { if (fellBack) return; fellBack = true; if (!everOpened) { try { localStorage.setItem('tt:nows', String(Date.now())); } catch (e) {} } App.startPolling(joinMsg, handlers, onMsg); };
     const open = () => {
-      if (fellBack) return;
+      if (fellBack) return; if (noWs && !everOpened) return fallback();
       let ws, guard;
       try { ws = App.ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'); } catch { return fallback(); }
-      guard = setTimeout(() => { if (!everOpened) { try { ws.close(); } catch {} fallback(); } }, 4000);
+      guard = setTimeout(() => { if (!everOpened) { try { ws.close(); } catch {} fallback(); } }, 2500);
       ws.onopen = () => { everOpened = true; clearTimeout(guard); ws.send(JSON.stringify(joinMsg)); document.body.classList.remove('offline'); };
       ws.onclose = () => { clearTimeout(guard); if (!everOpened) return fallback(); document.body.classList.add('offline'); setTimeout(open, 1500); };
       ws.onmessage = (e) => onMsg(JSON.parse(e.data));

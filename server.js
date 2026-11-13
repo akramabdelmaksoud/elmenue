@@ -401,7 +401,7 @@ function flagProspect(rec, v) {
 async function prospectOf(slug) {
   slug = String(slug || '').toLowerCase(); if (!SLUG.test(slug)) return null;
   let t = STATELESS ? await loadFresh(slug) : tenants.get(slug);
-  if (t && t.rec.prospect && PRESET_SHOWS[slug] && (t.rec.presetV || 0) < PRESET_SHOWS[slug].v) {   // older build of this demo: rebuild it with the current preset
+  if (t && t.rec.prospect && PRESET_SHOWS[slug] && ((t.rec.presetV || 0) < PRESET_SHOWS[slug].v || Date.now() - (t.rec.showSeed || 0) > 6 * 3600000)) {   // older build of this demo, or sample orders older than 6 hours: rebuild it fresh
     if (STATELESS) { await store.remove(t.rec.id); await store.clearHist(t.rec.id); } else { t.clients.forEach((c) => c.ws.close()); tenants.delete(slug); await store.remove(t.rec.id); }
     t = null;
   }
@@ -444,6 +444,18 @@ app.get('/r/:slug/driver', page('driver.html'));
 app.get('/r/:slug/admin', page('admin.html'));
 app.get('/r/:slug/kitchen', page('kitchen.html'));
 app.get('/r/:slug/cashier', page('cashier.html'));
+app.get('/favicon.ico', (req, res) => res.set('Cache-Control', 'public, max-age=86400').type('png').sendFile(path.join(__dirname, 'public', 'icons', 'mark-64.png')));
+// search engines: the marketing site is open, every app, admin and demo host is closed
+app.get('/robots.txt', (req, res) => {
+  const z = zoneOf(req); res.type('text/plain');
+  if (z === 'site') return res.send('User-agent: *\nAllow: /\nDisallow: /r/\nDisallow: /api/\nSitemap: https://www.tabletab-tt.com/sitemap.xml\n');
+  res.send('User-agent: *\nDisallow: /\n');
+});
+app.get('/sitemap.xml', (req, res) => {
+  if (zoneOf(req) !== 'site') return res.status(404).type('text/plain').send('Not found');
+  const base = 'https://www.tabletab-tt.com', urls = ['/', '/build', '/privacy', '/terms'];
+  res.type('application/xml').send('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + urls.map((u) => `<url><loc>${base}${u}</loc></url>`).join('') + '</urlset>');
+});
 app.get('/health', async (req, res) => {
   try { await store.ping(); res.json({ ok: true, version: VERSION, storage: store.mode(), uptime: Math.round(process.uptime()) }); }
   catch (e) { console.error('health check failed:', e.message); res.status(503).json({ ok: false }); }
