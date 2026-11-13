@@ -64,6 +64,21 @@ function createTenant(rec, persist, onAlert) {
       if (!s.orders.length && ((!s.cart.length && now - last > mins * 60000) || now - last > Math.max(mins * 3, 90) * 60000)) { delete db.sessions[s.tableId]; ch = true; }
       else if (s.orders.length && !s.check && !s.idle && now - last > Math.max(mins * 3, 90) * 60000) { s.idle = true; ch = true; }
     });
+    if (escalate()) ch = true;
+    return ch;
+  }
+  // "Call from the table": numbers the owner sells on. One row per day: calls answered, total wait, slowest, how many waited past the limit.
+  const escMin = () => { const v = db.settings.callEscalateMin; return v === undefined || v === '' || v === null ? 3 : Math.max(0, Math.min(30, +v || 0)); };
+  function callStat(ms) {
+    const k = new Date().toISOString().slice(0, 10), d = ((db.callStats ||= {})[k] ||= { n: 0, ms: 0, max: 0, slow: 0 }), lim = escMin() * 60000;
+    d.n++; d.ms += ms; d.max = Math.max(d.max, ms); if (lim && ms > lim) d.slow++;
+    const keys = Object.keys(db.callStats).sort(); while (keys.length > 120) delete db.callStats[keys.shift()];
+  }
+  // a call nobody answered for a few minutes goes out again to every captain as an urgent alert (once)
+  function escalate() {
+    const lim = escMin() * 60000; if (!lim) return false; const now = Date.now(); let ch = false;
+    const L = { waiter: 'Call waiter', water: 'Water', napkins: 'Napkins', cutlery: 'Cutlery & covers', urgent: 'Speed up order', bill: 'The bill' };
+    Object.values(db.sessions).forEach((s) => (s.requests || []).forEach((r) => { if (!r.done && !r.esc && now - r.at > lim) { r.esc = true; ch = true; alertCaptains('urgent', s.tableNumber, `⏱ Table ${s.tableNumber} has waited ${Math.round((now - r.at) / 60000)} min: ${L[r.type] || r.type}`); } }));
     return ch;
   }
   function bump(c, key, add = 1) {
@@ -343,7 +358,9 @@ function snapshotFor(c) {
   Object.values(db.sessions).forEach((s) => (sessions[s.tableId] = view(s)));
   const states = {};
   db.tables.forEach((t) => (states[t.id] = tableState(t)));
-  return { t: 'state', config, sessions, states, simulate };
+  const out = { t: 'state', config, sessions, states, simulate };
+  if (c.role === 'kitchen' || c.role === 'captain') out.kitchenAlerts = (db.kitchenAlerts || []).filter((a) => a.at > Date.now() - 20 * 60000);
+  return out;
 }
 function broadcast() {
   touch(); save();
@@ -754,7 +771,7 @@ function handle(c, m) {
       case 'host_set': { const t = tableOf(m.tableId), s = t && db.sessions[t.id], to = s && s.guests.find((x) => x.id === m.guestId); if (to) { s.host = to.id; log(s, 'host', `${to.avatar} ${to.name} is now the table host (set by staff)`); } break; }
       case 'resolve_request': {
         const s = db.sessions[m.tableId]; const r = s?.requests.find((x) => x.id === m.id);
-        if (r) { own(s, c); r.done = true; log(s, 'handled', `Request ${r.type} handled` + (c.staffName ? ' by ' + c.staffName : '')); bump(c, 'handled'); bump(c, 'respMs', Math.max(0, Date.now() - r.at)); }
+        if (r) { if (!r.done) callStat(Date.now() - r.at); r.doneAt = Date.now(); r.doneBy = c.staffName || ''; own(s, c); r.done = true; log(s, 'handled', `Request ${r.type} handled` + (c.staffName ? ' by ' + c.staffName : '')); bump(c, 'handled'); bump(c, 'respMs', Math.max(0, Date.now() - r.at)); }
         break;
       }
       case 'close_table': { const t = tableOf(m.tableId); if (t) { bump(c, 'closed'); closeSession(t, m.unpaid ? 'unpaid' : m.method, c.staffName, m.pay, c.staffId); } break; }
@@ -797,6 +814,7 @@ function handle(c, m) {
           const it = o.items[i], q = Math.min(it.qty, Math.max(1, Math.floor(+m.qty) || it.qty));
           (s.voids ||= []).push({ name: it.name, qty: q, price: it.price, reason: String(m.reason || '').slice(0, 80), waste: !!m.waste, by: c.staffName || '', ap: m.approvedBy || '', at: Date.now() });
           if (!m.waste) putStock(it.itemId, q, 'return', 'voided: ' + String(m.reason || '').slice(0, 40), c.staffName);
+          if (o.status === 'received' || o.status === 'kitchen') { const tb = db.tables.find((x) => x.id === s.tableId), al = (db.kitchenAlerts ||= []); al.push({ id: id('ka'), at: Date.now(), table: tb ? tb.number : '', name: it.name, qty: q, by: c.staffName || '', cooking: o.status === 'kitchen', station: it.itemId }); while (al.length > 30) al.shift(); }
           it.qty -= q; if (it.qty <= 0) o.items.splice(i, 1); if (!o.items.length) s.orders = s.orders.filter((x) => x !== o);
           log(s, 'void', `${q}× ${it.name} voided${m.reason ? ' (' + String(m.reason).slice(0, 80) + ')' : ''}` + (c.staffName ? ' by ' + c.staffName : '') + (m.approvedBy ? ', approved by ' + m.approvedBy : '')); break;
         }
@@ -819,7 +837,7 @@ function handle(c, m) {
         const s = db.sessions[m.tableId]; if (!s) break;
         const v = Math.max(0, +m.value || 0), type = m.type === 'amt' ? 'amt' : 'pct';
         if (!v) { s.discount = null; log(s, 'discount', 'Discount removed'); break; }
-        const capSet = db.settings.discountCapPct, cap = c.adm ? 100 : (capSet === undefined || capSet === '' || capSet === null ? 20 : Math.max(0, +capSet));
+        const capSet = db.settings.discountCapPct, cap = c.adm ? 100 : m.approvedBy ? 50 : (capSet === undefined || capSet === '' || capSet === null ? 20 : Math.max(0, +capSet));
         const gross = bill(s).gross, pct = type === 'pct' ? v : gross ? v / gross * 100 : 0;
         if (pct > cap) { c.ws.send(JSON.stringify({ t: 'notice', msg: `Discounts above ${cap}% need the owner` })); break; }
         s.discount = { type, value: v, reason: String(m.reason || '').slice(0, 60), by: c.staffName || '', ap: m.approvedBy || '' };
@@ -986,6 +1004,6 @@ function analytics(days = 7) {
     if (r.action) broadcast(); return r;
   }
   const publicConfig = (asAdmin) => ({ settings: settingsFor(asAdmin ? 'admin' : 'guest', true), categories: db.categories, items: db.items, tables: db.tables.map(({ key, ...r }) => r), features: F.featuresOf(rec), plan: F.planOf(rec.plan) });
-  return { placeBooking, bookingStatus, bookingAct, placeOnline, carArrive, onlineStatus, deliveryList, deliveryAct, applyOnline, notify: alertCaptains, rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
+  return { placeBooking, bookingStatus, bookingAct, placeOnline, carArrive, onlineStatus, deliveryList, deliveryAct, applyOnline, notify: alertCaptains, rec, db, clients, importParsed, loyaltyStats, copilotAsk, publicConfig, ensure, sweep, escalate, handle, broadcast, snapshotFor, bill, analytics, seedLive, tick, openSession, setSim: (v) => (simulate = !!v), get simulate() { return simulate; }, liveCount: () => Object.keys(db.sessions).length };
 }
 module.exports = { createTenant, freshData, clone };

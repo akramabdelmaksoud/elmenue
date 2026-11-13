@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Live demo</title><meta name="robots" content="noindex"><meta name="theme-color" content="#173f2e">
+<title>Live demo</title><meta name="robots" content="noindex"><link rel="icon" type="image/png" href="/icons/mark-64.png"><meta name="theme-color" content="#173f2e">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -25,6 +25,7 @@ h1{margin:14px 0 6px;font-size:clamp(26px,5vw,40px);line-height:1.2;color:var(--
 .card p{margin:0;color:var(--muted);font-size:14.5px;flex:1}
 .qr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:8px;width:150px;align-self:center}.qr img{width:100%;display:block}
 .row{display:flex;gap:8px}.row>*{flex:1}
+.callbox{margin-top:26px;background:linear-gradient(135deg,#173f2e,#2e7d4f);color:#fff;border-radius:24px;padding:22px 22px 20px;box-shadow:0 18px 40px -24px rgba(23,63,46,.8)}.callbox b.k{display:inline-block;background:#e8833a;color:#fff;border-radius:99px;padding:3px 14px;font-size:13px;font-weight:800;letter-spacing:.3px}.callbox h2{margin:10px 0 6px;font-size:clamp(21px,4vw,30px);line-height:1.25}.callbox p{margin:0;color:#e9f3e0;font-size:16px}.callbox .fl{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.callbox .fl span{background:rgba(255,255,255,.14);border-radius:99px;padding:7px 14px;font-size:14.5px;font-weight:700}
 .how{margin:34px 0 0;background:var(--g);color:#fff;border-radius:22px;padding:22px}.how h2{margin:0 0 8px;font-size:21px}.how ol{margin:0;padding-inline-start:22px;color:#f3ead9}.how li{margin:4px 0}
 .foot{margin-top:22px;text-align:center;color:var(--muted);font-size:13.5px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--g);color:#fff;padding:10px 20px;border-radius:99px;opacity:0;transition:.3s;pointer-events:none}.toast.on{opacity:1}
@@ -32,6 +33,7 @@ h1{margin:14px 0 6px;font-size:clamp(26px,5vw,40px);line-height:1.2;color:var(--
 <body><div class="wrap">
 <div class="top"><button class="btn" id="lang"></button></div>
 <div class="hero"><img id="logo" alt="" hidden><h1 id="h1">…</h1><p class="lead" id="lead"></p><span class="live"><i></i><span id="livet"></span></span></div>
+<div class="callbox" id="callbox"></div>
 <div class="grid" id="grid"></div>
 <div class="how"><h2 id="hw"></h2><ol id="steps"></ol></div>
 <div class="foot" id="foot"></div>
@@ -41,21 +43,25 @@ const T = {
   ar: { lead: 'ده المكان بتاعك على TableTab: المنيو والأسعار والألوان بتاعتك. افتح كل شاشة على جهاز مختلف وشوف الطلب بيتحرك من الزبون للمطبخ للكاشير لحظة بلحظة.', live: 'تجربة حية · من غير باسورد',
     guest: ['الزبون', 'موبايل · يمسح QR الطاولة', 'بيشوف المنيو بصور الأكل ويطلب من مكانه.'], waiter: ['الويتر', 'آيباد / موبايل · الصالة', 'بيستلم الطلبات ويتابع الطاولات.'], kitchen: ['المطبخ', 'لابتوب / شاشة', 'تيكتات حية مقسمة مطبخ وبار.'], cashier: ['الكاشير', 'كمبيوتر الكاشير', 'الحساب والدفع وإقفال الطاولة.'], owner: ['صاحب الكافيه', 'لابتوب · لوحة التحكم', 'المبيعات والتقارير والمنيو والعاملين.'], order: ['اطلب أونلاين', 'موبايل · استلام وتوصيل', 'نفس المنيو للطلبات الخارجية.'],
     table: 'طاولة', open: 'افتح', copy: 'انسخ الرابط', copied: 'تم نسخ الرابط ✓', hw: 'جرّب بالترتيب ده',
-    s: ['من موبايلك افتح «الزبون» واطلب كام صنف من المنيو.', 'افتح «المطبخ» على لابتوب: هتلاقي الطلب وصل وقسّم مطبخ وبار.', 'افتح «الويتر» و«الكاشير» وكمّل الطلب لحد الحساب.', 'افتح «صاحب الكافيه» وشوف المبيعات والتقارير.'],
+    s: ['من موبايلك افتح «الزبون» واضغط على الجرس 🛎️ «نداء الويتر».', 'افتح «الويتر» على جهاز تاني: النداء ظهر برقم الطاولة وعدّاد، اضغط «تم».', 'ارجع للموبايل: الزبون شايف إن الكابتن اتندهله ومين رد عليه.', 'كمّل: اطلب كام صنف وشوف الطلب في «المطبخ» و«الكاشير» لحد الحساب.', 'افتح «صاحب الكافيه» وشوف أرقام النداءات: متوسط وأطول وقت رد.'],
     foot: 'كل البيانات هنا تجريبية. الأسعار والمنيو من منيو الكافيه الحقيقي.' },
   en: { lead: 'This is your café on TableTab: your menu, prices and colours. Open each screen on a different device and watch an order move from the guest to the kitchen to the cashier, live.', live: 'Live demo · no password',
     guest: ['Guest', 'Phone · scans the table QR', 'Browses the menu with photos and orders from the table.'], waiter: ['Waiter', 'iPad / phone · the floor', 'Receives orders and follows the tables.'], kitchen: ['Kitchen', 'Laptop / TV', 'Live tickets split by kitchen and bar.'], cashier: ['Cashier', 'Counter PC', 'Bills, payment and closing tables.'], owner: ['Owner', 'Laptop · dashboard', 'Sales, reports, menu and staff.'], order: ['Order online', 'Phone · pickup & delivery', 'The same menu for outside orders.'],
     table: 'Table', open: 'Open', copy: 'Copy link', copied: 'Link copied ✓', hw: 'Try it in this order',
-    s: ['On your phone open “Guest” and order a few items.', 'Open “Kitchen” on a laptop: the order arrives split between kitchen and bar.', 'Open “Waiter” and “Cashier” and take the order through to the bill.', 'Open “Owner” and look at the sales and reports.'],
+    s: ['On your phone open “Guest” and tap the bell 🛎️ “Call waiter”.', 'On a second device open “Waiter”: the call is there with the table number and a timer. Tap Done.', 'Back on the phone: the guest sees that the captain was called and who answered.', 'Then order a few items and follow them through “Kitchen” and “Cashier” to the bill.', 'Open “Owner” and look at the call numbers: average and slowest answer time.'],
     foot: 'All data here is demo data. The menu and prices come from the café’s real menu.' } };
 // Gulf wording and a generic "demo venue" text, used by the UAE showrooms (info.dialect === 'gulf')
 const G = {
   ar: { lead: 'هذا مكان تجريبي على TableTab بمنيو وأسعار على مستوى السوق الإماراتي. افتح كل شاشة على جهاز مختلف وشوف الطلب يتحرك من الضيف للمطبخ للكاشير مباشرة.', live: 'تجربة مباشرة · بدون رقم سري',
     guest: ['الضيف', 'جوال · يمسح رمز الطاولة', 'يتصفح المنيو بصور الأكل ويطلب من مكانه.'], waiter: ['الكابتن', 'تابلت / جوال · الصالة', 'يستلم الطلبات ويتابع الطاولات.'], kitchen: ['المطبخ', 'لابتوب / شاشة', 'تذاكر مباشرة مقسّمة بين المطبخ والبار.'], cashier: ['الكاشير', 'جهاز الكاشير', 'الحساب والدفع وإقفال الطاولة.'], owner: ['المالك', 'لابتوب · لوحة التحكم', 'المبيعات والتقارير والمنيو والفريق.'], order: ['اطلب أونلاين', 'جوال · استلام وتوصيل', 'نفس المنيو للطلبات الخارجية.'],
-    hw: 'جرّب بهذا الترتيب', s: ['من جوالك افتح «الضيف» واطلب كم صنف من المنيو.', 'افتح «المطبخ» على لابتوب: بتلقى الطلب وصل ومقسّم بين المطبخ والبار.', 'افتح «الكابتن» و«الكاشير» وكمّل الطلب لين الحساب.', 'افتح «المالك» وشوف المبيعات والتقارير.'],
+    hw: 'جرّب بهذا الترتيب', s: ['من جوالك افتح «الضيف» واضغط على الجرس 🛎️ «نداء الكابتن».', 'افتح «الكابتن» على جهاز ثاني: النداء ظاهر برقم الطاولة وعداد، اضغط «تم».', 'ارجع للجوال: الضيف يشوف إن الكابتن انناده ومين رد عليه.', 'كمّل: اطلب كم صنف وتابعه في «المطبخ» و«الكاشير» لين الحساب.', 'افتح «صاحب المكان» وشوف أرقام النداءات: متوسط وأطول وقت رد.'],
     foot: 'كل البيانات هنا تجريبية، والأسعار تقريبية حسب السوق.' },
   en: { lead: 'This is a demo venue on TableTab with a menu and prices at UAE market levels. Open each screen on a different device and watch an order move from the guest to the kitchen to the cashier, live.', foot: 'All data here is demo data. Prices are typical UAE market levels.' },
 };
+const CALL = {
+  ar: { k: 'ابدأ من هنا', h: 'أهم حاجة تجربها: النداء من الطاولة', p: 'الزبون يضغط مرة واحدة من موبايله، والنداء يظهر على شاشة الكابتن برقم الطاولة وعدّاد مباشر. لو محدش رد، التنبيه بيتكرر لكل الكباتن.', f: ['🛎️ ويتر', '💧 مياه', '🧻 مناديل', '🧾 الحساب', '⚡ استعجل الطلب'] },
+  gar: { k: 'ابدأ من هنا', h: 'أهم شي تجربه: النداء من الطاولة', p: 'الضيف يضغط مرة وحدة من جواله، والنداء يوصل شاشة الكابتن برقم الطاولة وعداد مباشر. إذا ما أحد رد، التنبيه يتكرر لكل الكباتن.', f: ['🛎️ كابتن', '💧 ماي', '🧻 مناديل', '🧾 الحساب', '⚡ استعجل الطلب'] },
+  en: { k: 'START HERE', h: 'The one thing to try first: call from the table', p: 'The guest taps once on their phone, and the call lands on the captain’s screen with the table number and a live timer. If nobody answers, every captain is alerted again.', f: ['🛎️ Waiter', '💧 Water', '🧻 Napkins', '🧾 The bill', '⚡ Speed up my order'] } };
 const slug = (location.pathname.match(/^\/p\/([^/?#]+)/) || [])[1] || '';
 let lang = (() => { try { return localStorage.getItem('plang') === 'en' ? 'en' : 'ar'; } catch { return 'ar'; } })(), info = null, tbl = null;
 const $ = (id) => document.getElementById(id), t = (k) => (info && info.dialect === 'gulf' && G[lang] && G[lang][k]) || T[lang][k];
@@ -67,9 +73,9 @@ function paint() {
   document.documentElement.lang = lang; document.body.dir = lang === 'ar' ? 'rtl' : 'ltr'; $('lang').textContent = lang === 'ar' ? 'English' : 'عربي';
   if (!info) return;
   const nm = lang === 'ar' ? info.name_ar || info.name : info.name; document.title = nm + ' · TableTab'; $('h1').textContent = nm;
-  $('lead').textContent = t('lead'); $('livet').textContent = t('live'); $('hw').textContent = t('hw'); $('foot').textContent = t('foot'); $('steps').innerHTML = t('s').map((x) => `<li>${esc(x)}</li>`).join('');
+  $('lead').textContent = t('lead'); $('livet').textContent = t('live'); $('hw').textContent = t('hw'); $('foot').textContent = t('foot'); { const c = lang === 'en' ? CALL.en : (info.dialect === 'gulf' ? CALL.gar : CALL.ar); $('callbox').innerHTML = `<b class="k">${esc(c.k)}</b><h2>${esc(c.h)}</h2><p>${esc(c.p)}</p><div class="fl">${c.f.map((x) => `<span>${esc(x)}</span>`).join('')}</div>`; } $('steps').innerHTML = t('s').map((x) => `<li>${esc(x)}</li>`).join('');
   if (info.logo) { $('logo').src = info.logo; $('logo').hidden = false; }
-  const roles = [['guest', '👤'], ['kitchen', '👨‍🍳'], ['waiter', '🧑‍✈️'], ['cashier', '💵'], ['owner', '⚙️'], ['order', '🛵']];
+  const roles = [['guest', '👤'], ['waiter', '🧑‍✈️'], ['kitchen', '👨‍🍳'], ['cashier', '💵'], ['owner', '⚙️'], ['order', '🛵']];
   $('grid').innerHTML = roles.map(([k, ic]) => { const [a, b, c] = t(k);
     return `<div class="card"><div class="h"><div class="ic">${ic}</div><div><h3>${esc(a)}</h3><small>${esc(b)}</small></div></div><p>${esc(c)}</p>
     ${k === 'guest' ? `<select onchange="tbl=this.value;paint()" style="font:inherit;padding:8px;border-radius:12px;border:1px solid var(--line)">${(info.freeTables.length ? info.freeTables : info.tables).map((n) => `<option value="${n}" ${n == tbl ? 'selected' : ''}>${t('table')} ${n}</option>`).join('')}</select>` : ''}

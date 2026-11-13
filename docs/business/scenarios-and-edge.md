@@ -20,7 +20,8 @@ Trade sources for the scenarios are linked at the bottom; most are vendor blogs,
 | A manager changes payment details | Money redirected | Payment keys, InstaPay, plan, owner account, branding: owner only. Managers can only save the dashboard refresh choice in settings | Built |
 | A new feature forgets to restrict access | Leak by accident | Routes are closed to managers unless listed on purpose | Built |
 | Who did what | Nothing to show in a dispute | Log of sign-ins, failures, lockouts, account changes and every change a manager makes, with "new device" flags | Built |
-| Operations manager needs a floor view | - | Not part of the role (inventory and billing only) | By design |
+| Operations manager needs a floor view | Read-only Live floor tab, reports, loss controls, attendance; can approve exceptional voids and discounts with a PIN | Built |
+| Owner of several branches wants one view | Branches tab starts with Live now (sales today, open tables, kitchen, late orders, voids, unpaid) for every branch in the group | Built |
 | Sign-in alerts | Owner hears late | Alert badge and list for new-place sign-ins, lockouts, resets and 2-step turned off, with Mark as seen; push/email not yet | Built (in-app) |
 | Approve void above an amount with a manager PIN | Collusion with a swamped manager | Owner sets void value and discount % limits; the captain screen asks for a manager's approval PIN, the approver is saved on the record, wrong PINs are throttled | Built |
 
@@ -47,10 +48,12 @@ Trade sources for the scenarios are linked at the bottom; most are vendor blogs,
 | A guest orders for a friend's table | Table key per table; table host and rekey | Built |
 | Two parties reserve one table | One booking per table | Built |
 | Guests leave and the table stays "open" | Captain closes it; session ends on every phone with a goodbye | Built |
+| A guest waves and nobody notices | One-tap call from the table (waiter, water, napkins, cutlery, bill, speed up) with a live timer on the captain screen; unanswered calls alert every captain again after 3 minutes (setting); the guest sees who answered; the owner sees answer times | Built |
 | Kitchen overloaded | Priority lanes, ready alerts, sold out by itself at zero stock | Built |
+| An item is voided after the kitchen started it | Red banner with sound on the kitchen screen until someone taps Got it | Built |
 | Internet drops | Offline queue on staff screens | Built |
 | Item sold out while guests browse | Items turn sold out automatically when tracked stock hits zero | Built |
-| Allergies | Dietary tags on items | Partly (no allergy confirmation step before sending to the kitchen yet) |
+| Allergies | Allergen tags on items and a guest filter that hides dishes containing the picked allergens | Partly (no allergy confirmation step before sending to the kitchen yet) |
 | Wrong table delivery | Table numbers on every ticket | Partly (no runner scan yet) |
 
 ## 4. Stock and purchasing

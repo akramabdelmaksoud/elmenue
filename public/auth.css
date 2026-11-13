@@ -1,7 +1,7 @@
 @import url('/tt-brand.css');
 /* Luxury auth screens: sign-in (owner / captain PIN / super) and the setup wizard */
 @property --ang { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
-.auth-scene { position: fixed; inset: 0; z-index: 2000; overflow: auto; color: var(--text); font-family: 'Segoe UI', 'Cairo', system-ui, sans-serif;
+.auth-scene { position: fixed; inset: 0; z-index: 2000; overflow-x: hidden; overflow-y: auto; color: var(--text); font-family: 'Segoe UI', 'Cairo', system-ui, sans-serif;
   background: radial-gradient(1100px 700px at 12% 8%, color-mix(in srgb, var(--accent) 34%, transparent), transparent 62%), radial-gradient(900px 620px at 92% 100%, color-mix(in srgb, var(--accent2) 30%, transparent), transparent 62%), var(--bg);
   animation: sceneIn .9s cubic-bezier(.2,.8,.2,1) both; transition: opacity .7s, transform .9s cubic-bezier(.2,.8,.2,1), filter .7s; }
 .auth-scene.leave { opacity: 0; transform: scale(1.06); filter: blur(10px); pointer-events: none; }

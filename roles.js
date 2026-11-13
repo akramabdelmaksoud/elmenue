@@ -1,7 +1,7 @@
 // Who may do what. Three levels above the floor staff:
 //   owner       (token role "admin")  everything, including billing of the plan, payment keys, the owner account and the team itself
 //   manager     (branch manager)      runs ONE branch: menu, floor, staff, stock, billing, reports. Cannot touch payment keys, the plan, the owner account or other branches
-//   opmanager   (operations manager)  inventory and billing only
+//   opmanager   (operations manager)  inventory, billing, reports and loss controls, attendance; approves exceptional voids and discounts with an approval PIN
 // Floor staff (captain, kitchen, cashier, driver) sign in with a PIN and only ever reach their own screen.
 //
 // Every admin route carries a permission. A route that is not listed below needs "owner", so a new route is closed to managers until someone opens it on purpose.
@@ -9,8 +9,8 @@ const crypto = require('crypto');
 
 const TEAM = ['manager', 'opmanager'];
 const PERMS = {
-  manager: new Set(['ui', 'menu', 'tables', 'staff', 'team', 'inventory', 'billing', 'billing_admin', 'reports', 'attendance', 'offers']),
-  opmanager: new Set(['ui', 'inventory', 'billing']),
+  manager: new Set(['ui', 'menu', 'tables', 'staff', 'team', 'inventory', 'billing', 'billing_admin', 'reports', 'attendance', 'offers', 'live']),
+  opmanager: new Set(['ui', 'inventory', 'billing', 'reports', 'attendance', 'live']),
 };
 const can = (role, perm) => role === 'admin' || role === 'super' || (!!PERMS[role] && PERMS[role].has(perm));
 
@@ -30,6 +30,7 @@ const POLICY = [
   [/^\S+ \/team(\/|$)/, 'team'],
   [/^GET \/limits$/, 'ui'],
   [/^GET \/controls$/, 'reports'],
+  [/^GET \/calls$/, 'live'],
   [/^\S+ \/(coupons|offers)(\/|$)/, 'offers'],
   [/^POST \/settings$/, 'ui'],                       // managers may only save the dashboard refresh choice, see teamSettingsOk
   [/^\S+ \/(tables|tables-rekey|layout|qr|carqr)(\/|$)/, 'tables'],

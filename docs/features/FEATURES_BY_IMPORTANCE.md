@@ -7,9 +7,9 @@ The super console lets you move any feature between bundles and lock it per caf√
 
 | Bundle | Monthly price (from - to) | Features |
 |---|---|---|
-| Starter QR Ordering | 600 to 800 EGP | 7 |
-| Full Operations & Staff POS | 1200 to 1500 EGP | 26 |
-| Enterprise VIP & AI | 2000 to 2000 EGP | 35 |
+| Starter QR Ordering | 450 to 600 EGP | 7 |
+| Full Operations & Staff POS | 950 to 1200 EGP | 26 |
+| Enterprise VIP & AI | 1600 to 1600 EGP | 35 |
 
 ## Features by importance
 
@@ -73,6 +73,10 @@ Differentiators for bigger venues and chains.
 | **AI assistant** | Owner dashboard | An AI assistant that answers questions about sales and changes settings by chat. | The "wow" feature for VIP demos. | AI usage cost per message | - | - | yes |
 | **Multi-branch reports** | Owner dashboard | Several branches, combined reports. | Chains and owners with 2 or more locations. | None | - | - | yes |
 
+## Included in every plan (not sold separately)
+
+Team accounts for branch and operations managers, 6-10 digit staff PINs, optional authenticator-app sign-in, manager PIN approval for voids and discounts, audit log and owner security alerts, loss controls, live floor, kitchen void alerts, guest goodbye screen, allergen filter, Egypt / UAE country switch.
+
 ## Ideas not built yet
 
 These came out of the market research and are not in the app. Tell me which ones are worth building.
@@ -82,8 +86,10 @@ These came out of the market research and are not in the app. Tell me which ones
 | Delivery driver assignment and tracking | Assign an order to a rider, guest sees status | Medium |
 | "Order direct" nudge | Tells aggregator customers to order from the caf√© for a discount | Small |
 | WhatsApp order and booking confirmations | Sends confirmations through WhatsApp Business | Medium, needs a WhatsApp account |
-| Table turn-time alerts | Warns when a table stays long while guests are waiting | Small |
-| Supplier purchase orders | Turns low ingredient stock into a shopping list | Medium |
+| Age check on restricted items | Captain confirms ID before the order is sent | Small |
+| UAE municipality fee | Separate fee line next to VAT | Small |
+| Weighted-average cost | Ingredient cost follows the average purchase price | Small |
+| Apple Pay | Needs a UAE payment gateway account | Medium |
 | Printed kitchen tickets for every station | Splits tickets between bar and kitchen printers | Medium |
 | Customer database export | Guest names and phones (with consent) for marketing | Small |
 | Happy-hour automatic pricing | Prices change by time of day | Small |

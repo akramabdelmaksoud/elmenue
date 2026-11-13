@@ -176,7 +176,7 @@ function zonesHTML(cfg) {
   }).join('')}</div></div>`).join('');
 }
 function reqHTML(reqs) {
-  return `<h3>🔔 Requests (${reqs.length})</h3>${reqs.map(({ s, r }) => `<div class="ocard spread"><div><b>T${s.tableNumber}</b> ${reqLabel(s, r)}<div class="muted" style="font-size:12px">${App.ago(r.at)} ago</div></div><button class="primary" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">Done</button></div>`).join('') || '<p class="muted">No pending requests</p>'}`;
+  return `<h3>🔔 Requests (${reqs.length})</h3>${reqs.map(({ s, r }) => `<div class="ocard spread"><div><b>T${s.tableNumber}</b> ${reqLabel(s, r)}<div class="muted" style="font-size:12px;font-weight:700;color:${Date.now() - r.at > 180000 ? '#e5484d' : Date.now() - r.at > 60000 ? '#d9822b' : '#3aa86b'}">⏱ ${App.ago(r.at)} ago${r.esc ? ' · escalated' : ''}</div></div><button class="primary" onclick="App.send({t:'resolve_request',tableId:'${s.tableId}',id:'${r.id}'})">Done</button></div>`).join('') || '<p class="muted">No pending requests</p>'}`;
 }
 function ordHTML(orders) { return `<h3>🍽️ Order stream (${orders.length})</h3>${orders.map(({ s, o }) => orderCard(s, o)).join('') || '<p class="muted">No open orders</p>'}`; }
 function render() {

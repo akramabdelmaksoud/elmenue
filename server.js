@@ -1345,14 +1345,15 @@ function approveGate(t, c, m) {
   } else if (+m.value > 0) {
     const lim = +set.discountOverPct || 0, gross = (s.orders || []).reduce((n, o) => n + o.items.reduce((k, i) => k + i.qty * i.price, 0), 0);
     const pct = m.type === 'amt' ? (gross ? +m.value / gross * 100 : 100) : +m.value;
-    if (lim > 0 && pct >= lim) { need = true; why = `A discount of ${lim}% or more needs a manager PIN`; }
+    const cs = (t.db.settings || {}).discountCapPct, cap = cs === undefined || cs === '' || cs === null ? 20 : Math.max(0, +cs);
+    if (lim > 0 && pct >= lim) { need = true; why = `A discount of ${lim}% or more needs a manager PIN`; } else if (pct > cap) { need = true; why = `Discounts above ${cap}% need a manager PIN`; }
   }
   if (!need) return true;
   const say = (msg) => c.ws.send(JSON.stringify({ t: 'notice', code: 'approve', msg }));
   const key = 'apin:' + t.rec.slug + ':' + (c.staffId || 'x');
   if (!pin) { say(why); return false; }
   if (auth.throttled(key)) { say('Too many wrong PINs. Wait a few minutes.'); return false; }
-  const now = Date.now(), holders = [t.rec.owner, ...(t.rec.team || []).filter((x) => x.role === 'manager' && x.active !== false && (!x.expires || x.expires > now))];
+  const now = Date.now(), holders = [t.rec.owner, ...(t.rec.team || []).filter((x) => ROLES.TEAM.includes(x.role) && x.active !== false && (!x.expires || x.expires > now))];
   const who = holders.find((h) => h && h.apin && auth.check(String(pin), h.apin));
   if (!who) { auth.fail(key); say('That approval PIN is not right'); return false; }
   auth.ok(key); m.approvedBy = who.name || who.username || 'Owner'; return true;
@@ -1370,7 +1371,7 @@ A('get', '/winback', (req, res) => {
   res.json({ days, name, list });
 });
 app.post(`${R}/me/approval-pin`, loginLimit, tenantMw, gateAdmin('ui'), (req, res) => {
-  const c = req.claims; if (c.r === 'opmanager') return res.status(403).json({ error: 'This account cannot approve floor actions' });
+  const c = req.claims;
   const h = totpHolder(req), b = req.body || {}; if (!h) return res.status(400).json({ error: 'no account' });
   if (b.pin === '' || b.pin === null) { delete h.apin; persistRec(req.tenant); return res.json({ ok: 1, on: false }); }
   const p = ROLES.pinProblem(b.pin, true); if (p) return res.status(400).json({ error: p });
@@ -1412,11 +1413,18 @@ app.post(`${R}/me/2fa/disable`, loginLimit, tenantMw, gateAdmin('ui'), (req, res
   const st = ROLES.totpCheck(auth.unseal(h.totp.secret), (req.body || {}).code, h.totp.last || 0); if (!st) return res.status(400).json({ error: 'Enter a current code from your authenticator app' });
   delete h.totp; teamLog(req.tenant.rec, req.claims.n || 'Owner', '2fa-off', h.username || 'owner'); persistRec(req.tenant); res.json({ ok: 1 });
 });
+// "Call from the table" numbers: calls answered, average and slowest wait, per day
+A('get', '/calls', (req, res) => {
+  const days = [7, 14, 30, 90].includes(+req.query.days) ? +req.query.days : 7, cs = req.tenant.db.callStats || {}, cut = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  const list = Object.entries(cs).filter(([k]) => k >= cut).sort().map(([day, v]) => ({ day, n: v.n, avgSec: v.n ? Math.round(v.ms / v.n / 1000) : 0, maxSec: Math.round(v.max / 1000), slow: v.slow }));
+  const tot = list.reduce((a, x) => ({ n: a.n + x.n, ms: a.ms + x.avgSec * x.n, slow: a.slow + x.slow, max: Math.max(a.max, x.maxSec) }), { n: 0, ms: 0, slow: 0, max: 0 }), today = cs[new Date().toISOString().slice(0, 10)];
+  res.json({ days, list, total: { n: tot.n, avgSec: tot.n ? Math.round(tot.ms / tot.n) : 0, maxSec: tot.max, slow: tot.slow }, today: today ? { n: today.n, avgSec: today.n ? Math.round(today.ms / today.n / 1000) : 0, maxSec: Math.round(today.max / 1000), slow: today.slow } : { n: 0, avgSec: 0, maxSec: 0, slow: 0 }, escalateMin: req.tenant.db.settings.callEscalateMin === undefined ? 3 : req.tenant.db.settings.callEscalateMin });
+});
 A('get', '/feedback', (req, res) => res.json({ reviews: req.tenant.rec.reviews || [] }));
 // ---- upsell metrics (non-destructive Clear: only moves resetAt) ----
 function upStats(t, from, to) {
   const u = t.db.upsell || { days: {}, resetAt: 0 }, lo = from, per = {};
-  Object.entries(u.days).forEach(([day, d]) => { const ts = Date.parse(day + 'T12:00:00Z'); if (ts < lo - 86400000 || ts > to) return; ['shown', 'accepted', 'revenue'].forEach((k) => Object.entries(d[k] || {}).forEach(([id, v]) => { (per[id] ||= { shown: 0, accepted: 0, revenue: 0 })[k] += v; })); });
+  Object.entries(u.days).forEach(([day, d]) => { const ds = Date.parse(day + 'T00:00:00Z'); if (ds + 86400000 <= lo || ds > to) return; ['shown', 'accepted', 'revenue'].forEach((k) => Object.entries(d[k] || {}).forEach(([id, v]) => { (per[id] ||= { shown: 0, accepted: 0, revenue: 0 })[k] += v; })); });
   const items = Object.entries(per).map(([id, v]) => { const it = t.db.items.find((x) => x.id === id); return { id, name: it ? it.name : id, ...v, revenue: Math.round(v.revenue * 100) / 100, rate: v.shown ? Math.round(v.accepted / v.shown * 1000) / 10 : 0 }; }).sort((a, b) => b.revenue - a.revenue || b.accepted - a.accepted);
   const shown = items.reduce((n, x) => n + x.shown, 0), accepted = items.reduce((n, x) => n + x.accepted, 0), revenue = Math.round(items.reduce((n, x) => n + x.revenue, 0) * 100) / 100;
   return { shown, accepted, rate: shown ? Math.round(accepted / shown * 1000) / 10 : 0, revenue, items, resetAt: u.resetAt || 0 };
@@ -1620,6 +1628,7 @@ A('post', '/settings', (req, res, next) => (ROLES.TEAM.includes(req.claims.r) &&
   if (b.reserve) { if (!F.has(req.tenant.rec, 'reservations')) return res.status(402).json({ error: 'Reservations need the ' + F.PLANS[F.minPlanFor('reservations')].name + ' plan', upgrade: F.minPlanFor('reservations') }); b.reserve = F.reserveClean(b.reserve); }
   if (b.instapay) { if (!F.has(req.tenant.rec, 'instapay')) return res.status(402).json({ error: 'InstaPay & wallet payment needs the ' + F.PLANS[F.minPlanFor('instapay')].name + ' plan', upgrade: F.minPlanFor('instapay') }); const cur = req.tenant.db.settings.instapay || {}; b.instapay = F.ipClean({ ...b.instapay, qr: cur.qr || '' }); }
   if (b.promo) { if (!F.has(req.tenant.rec, 'coupons')) return res.status(402).json({ error: 'Coupons & offers need the ' + F.PLANS.operations.name + ' plan', upgrade: 'operations' }); b.promo = { enabled: !!b.promo.enabled, stack: !!b.promo.stack }; }
+  if ('callEscalateMin' in b) b.callEscalateMin = Math.min(30, Math.max(0, Math.round(+b.callEscalateMin) || 0));
   if (b.approvals) { const a = b.approvals; b.approvals = { voidOver: Math.min(1e6, Math.max(0, +a.voidOver || 0)), discountOverPct: Math.min(100, Math.max(0, +a.discountOverPct || 0)) }; }
   if (b.farewell) { const f = b.farewell; b.farewell = { seconds: Math.min(30, Math.max(5, Math.round(+f.seconds) || 10)), message: String(f.message || '').slice(0, 160), message_ar: String(f.message_ar || '').slice(0, 160), autoClose: f.autoClose !== false, fallback: f.fallback === 'blank' ? 'blank' : 'stay' }; }
   delete b.logo; delete b.bgImg; delete b.heroImg;   // images only arrive through their upload routes, never as a typed URL
@@ -1959,7 +1968,8 @@ A('get', '/branches', gate('branches'), async (req, res, next) => { try {
     const hist = STATELESS ? await store.getHist(t.rec.id) : t.db.history, live = Object.values(t.db.sessions);
     const ins = INS.analyze({ history: hist, reviews: t.rec.reviews || [], staffLog: {}, staffStats: {}, staffList: [], days, now, onlineEnabled: !!(t.db.settings.online || {}).enabled });
     const att = F.has(t.rec, 'attendance') ? await attFor(t, now - days * 86400000, now).catch(() => null) : null;
-    return { slug: t.rec.slug, name: t.rec.name, hist, ins, att, currency: t.db.settings.currency, live: { tables: live.length, guests: live.reduce((n, s) => n + s.guests.length, 0) } };
+    return { slug: t.rec.slug, name: t.rec.name, hist, ins, att, currency: t.db.settings.currency, live: (() => { const d0 = new Date().setHours(0, 0, 0, 0), td = (hist || []).filter((h) => h.closedAt >= d0), paid = td.filter((h) => !h.unpaid), orders = live.flatMap((s) => s.orders);
+      return { tables: live.length, guests: live.reduce((n, s) => n + s.guests.length, 0), salesToday: Math.round(paid.reduce((n, h) => n + (h.total || 0), 0)), closedToday: paid.length, waiting: orders.filter((o) => o.status === 'received' || o.status === 'kitchen').length, late: orders.filter((o) => (o.status === 'received' || o.status === 'kitchen') && now - o.at > 20 * 60000).length, billAsked: live.filter((s) => s.check).length, voidsToday: td.reduce((n, h) => n + (h.voids || []).length, 0) + live.reduce((n, s) => n + (s.voids || []).length, 0), unpaidToday: td.filter((h) => h.unpaid).length }; })() };
   }));
   const out = CHAIN.build({ days, now, branches });
   res.json({ ...out, group: g || '', current: req.tenant.rec.slug, branches: out.branches.map((x) => ({ ...x, sessions: x.orders, liveTables: x.live.tables, guestsLive: x.live.guests })) });
@@ -2128,7 +2138,7 @@ if (require.main === module && !STATELESS) {
     });
     ws.on('close', () => tenant && tenant.clients.delete(c));
   });
-  setInterval(() => tenants.forEach((t) => t.simulate && t.tick()), 6000);
+  setInterval(() => tenants.forEach((t) => { if (t.simulate) t.tick(); else if (t.escalate()) t.broadcast(); }), 6000);
   // Graceful shutdown (docker stop / deploy): stop accepting, tell clients to reconnect, write every pending save, then exit.
   let closing = false;
   const shutdown = async (sig) => {

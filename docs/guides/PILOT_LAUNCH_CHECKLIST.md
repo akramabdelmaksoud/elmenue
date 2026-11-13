@@ -36,7 +36,7 @@ Written for: the owner. Do these in order. Steps marked **YOU** need your Pro lo
 
 ## 3. First cafe (about 20 minutes with the cafe owner)
 1. Open `https://tabletab-tt.com/super` (multi-cafe) or `/admin` (single) and create the cafe. Plan: **Operations** includes online ordering, reviews and the Insights tab; **VIP** adds the written AI briefing.
-2. Admin → Menu builder: real menu and photos. Admin → Floor plan: real tables. Admin → Staff: one PIN per captain (needed so the captain logs and performance are per person).
+2. Admin → Menu builder: real menu and photos. Admin → Floor plan: real tables. Admin → Staff: one PIN per captain (6 to 10 digits) (needed so the captain logs and performance are per person).
 3. Admin → Table QR codes: print them. The QR carries the secret table key.
 4. Admin → Reports → **Online ordering**: switch on, choose pickup/delivery, minimum order, optional delivery fee item. Share the link `https://tabletab-tt.com/r/<slug>/order` (QR at the door, Instagram, Google profile).
 5. Admin → Reports → **Location, delivery zones & in-cafe ordering**: stand inside the cafe, press **Use my current location**, Save. Then switch on **Guests can only open a table from inside the cafe** (150 m is a good start) and add delivery zones (for example up to 3 km = 20 EGP, up to 8 km = 40 EGP).

@@ -69,5 +69,5 @@ const Opts = (() => {
     (it.options || []).forEach((g) => { let w = sel && sel[g.id]; w = w == null ? [] : Array.isArray(w) ? w : [w]; if (!w.length) { const d = g.choices.find((c) => c.def); if (g.type === 'one' && d) w = [d.id]; } w.forEach((cid) => { const c = g.choices.find((x) => x.id === cid); if (c) { add += c.price; names.push(nm(c)); } }); });
     return { add, label: names.join(' · ') };
   }
-  return { has, open, close, chips, calc };
+  return { has, open, close, chips, calc, AL };
 })();

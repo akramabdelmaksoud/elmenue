@@ -97,13 +97,21 @@ Message in (`handle(c, m)`), state out (`snapshotFor`). Roles: `customer`, `capt
 
 ---
 
+## 6b. Roles, security and the team (added)
+
+See the table and rules in `README.md` (section Team, roles and security). Code map: `roles.js` (permissions, policy table, password / PIN rules, TOTP), `server.js` (`gateAdmin`, `teamAlive`, `staffAlive`, `approveGate`, `/team*`, `/me/*`, `/controls`, `/winback`), `tenant.js` (`settingsFor('manager')`, `kitchenAlerts`), `public/auth.js` (sign-in screens), `public/admin.html` (role-aware tabs). Tests: `tests/f44_team_roles.test.js`.
+
+## 6c. Call from the table (headline feature)
+
+Guest `request` message (`customer.html` `req()`) ➜ `tenant.js` `case 'request'` (45 s per-guest cool-down, one open call per type) ➜ captain screens (`captain.html` request list with live colour timer) ➜ `resolve_request` stores `doneAt` / `doneBy` and `callStat()` adds to `db.callStats[day]` ➜ `escalate()` (called from `sweep()` and a 6 s timer in WebSocket mode) re-alerts every captain once after `settings.callEscalateMin` minutes ➜ `GET /calls` (permission `live`) feeds the owner's Live floor tab. Guest pill: `callPill()` in `customer.html`. Marketing: hero and `#call` section in `public/site.html`, call box on `public/prospect.html`. Tests: `tests/f45_call_from_table.test.js`.
+
 ## 7. Deploying & testing
 
-**Deploy (Vercel, production):** from the project folder: `npx vercel --prod --yes` (project `elmenue`, linked via `.vercel/project.json`). Push to GitHub with `git push` (branch `main`). Free plan = non-commercial use.
+**Deploy (Vercel, production):** from the project folder: `vercel deploy --prod --yes` (project `belya2/tabletab`, production at app.tabletab-tt.com, linked via `.vercel/project.json`). Push to GitHub with `git push` (branch `main`). Free plan = non-commercial use.
 
 **Local run:** `DATA_DIR=<folder> SINGLE_RESTAURANT=1 PORT=3200 node server.js`, then `/r/main/admin`.
 
-**Tests:** puppeteer-core + Edge driving a local server (scripts lived in a scratch folder, not the repo). Useful tips: use a **separate browser context per guest** (localStorage is shared per context), stub `window.confirm`, and expect owner login `owner@cafe.com / secret12` only in that local test data.
+**Tests:** `npm test` runs 158 checks against the real server in both modes (WebSocket and stateless). Screens are checked separately by driving Edge over the DevTools protocol against a local server (scripts live in `_work/tmp/qa`, not the repo). Useful tips: use a **separate browser context per guest** (localStorage is shared per context), stub `window.confirm`, and expect owner login `owner@cafe.com / secret12` only in that local test data.
 
 ---
 
@@ -113,7 +121,7 @@ Message in (`handle(c, m)`), state out (`snapshotFor`). Roles: `customer`, `capt
 - Anything that changes the data shape must tolerate old data (`ensure()` in `tenant.js` initialises missing fields).
 - Vercel mode = polling; avoid adding anything that needs a long-lived connection or in-memory state.
 - Real phone push delivery is untested.
-- Not built yet / ideas: online payments, printer integration beyond browser print, delivery driver tracking, multi-branch reporting.
+- Not built yet / ideas: age check on restricted items, UAE municipality fee, weighted-average cost, Apple Pay, full local-first mode (SQLite plus local router), runner scan, three-way invoice match, push or email security alerts. See `docs/business/scenarios-and-edge.md`.
 
 ## 8c. Time zone
 `env.js` sets `process.env.TZ` to `APP_TZ` (default `Africa/Cairo`). All hour / day / "Today" logic uses the server clock, which is UTC on Vercel; without this every hour would be 2-3 h off for an Egyptian venue.
@@ -123,7 +131,7 @@ See `docs/guides/PRODUCTION.md` (architecture, where each concern lives, how to 
 
 ## 9. Security to-do before real use
 - Rotate the Supabase secret key and any access tokens that were shared in chats.
-- Change the live owner password and the captain PIN; keep secrets only in Vercel env vars.
+- Change the live owner password and every PIN (staff PINs are 6 to 10 digits, old 4-digit PINs still work but are flagged); keep secrets only in Vercel env vars.
 - Live QR links need the table key (`?k=`).
 
 ## Next-release features (branch `release/next`)

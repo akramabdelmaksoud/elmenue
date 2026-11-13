@@ -158,6 +158,7 @@ nav .bdg { position: absolute; top: 2px; inset-inline-start: 56%; min-width: 19p
 .pc.so { opacity: .6; } .pc.so .art { filter: grayscale(1); } .pc.so .addb { background: var(--card2); color: var(--muted); box-shadow: none; pointer-events: none; }
 .ribbon { position: absolute; top: 18px; inset-inline-start: 18px; z-index: 2; background: #e5484d; color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .06em; padding: 3px 10px; border-radius: 99px; }
 .tgs { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 3px 0; } .tg { font-style: normal; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 99px; background: var(--card2); border: 1px solid var(--line); }
+.algbar { margin: 0 0 12px; padding: 10px 12px; border-radius: 14px; border: 1px dashed color-mix(in srgb, #e0a21a 70%, transparent); } .algbar .al-t { font-size: 12.5px; font-weight: 700; display: block; margin-bottom: 6px; } .algbar small { display: block; opacity: .75; margin-top: 4px; font-size: 12px; } .algbar .tagbar { padding-bottom: 0; }
 .tagbar { display: flex; gap: 8px; overflow-x: auto; padding: 0 0 12px; scrollbar-width: none; } .tagbar::-webkit-scrollbar { display: none; } .tagbar button { flex: none; padding: 7px 14px; border-radius: 99px; font-size: 13px; font-weight: 700; background: transparent; border: 1.5px dashed var(--line); } .tagbar button.on { background: color-mix(in srgb, var(--accent) 16%, var(--card)); border: 1.5px solid var(--accent); }
 [hidden] { display: none !important; }
 header { flex-wrap: wrap; row-gap: 0; }
@@ -314,7 +315,7 @@ Object.assign(DICT.en, { themeLbl: 'Light / Dark', geoChecking: 'Checking that y
 Object.assign(DICT.ar, { themeLbl: 'فاتح / غامق', geoChecking: 'جاري التأكد أنك في الكافيه…', geoDeniedTitle: 'نحتاج موقعك', geoDeniedSub: 'للطلب من طاولتك نحتاج التأكد أنك داخل الكافيه. من فضلك اسمح بالوصول للموقع من المتصفح، أو اطلب من الويتر أن يفتح لك الطاولة.', geoFarTitle: 'يبدو أنك بعيد عن الكافيه', geoFarSub: 'الطلب من الطاولة متاح داخل الكافيه فقط. إن كنت هنا، اقترب من النافذة أو اطلب من الويتر أن يفتح لك الطاولة.', geoRetry: 'حاول مرة أخرى', hostTitle: 'مضيف الطاولة', hostYou: 'أنت المضيف. يمكنك تسليم الدور لأي شخص على الطاولة:', hostOther: 'المضيف يتولى الطاولة، ويراه الكابتن.', hostConfirm: 'اجعل المضيف', menuLbl: 'القائمة', cartLbl: 'طلبي', addLbl: 'أضف', dishes: 'أصناف', welcomeTo: 'أهلاً بك في', howTitle: 'كيف تطلب', step1: 'اختر أطباقك', step1s: 'اضغط + أضف على ما يعجبك', step2: 'راجع طلبك', step2s: 'غيّر الكمية أو أضف ملاحظة', step3: 'أرسل للمطبخ', step3s: 'نحضّره ونوصله إلى طاولتك', viewOrder: 'عرض الطلب', itemsN: 'أصناف', sendNow: 'أرسل للمطبخ', soldOut: 'نفد', soldSorry: 'عذرًا، هذا الصنف نفد حاليًا', ready: 'طلبك جاهز!', scanTitle: 'امسح رمز QR الموجود على طاولتك', scanSub: 'حفاظًا على الجميع، يُفتح الطلب فقط من الرمز المطبوع على الطاولة. من فضلك امسحه بكاميرا هاتفك.', rateTitle: 'كيف كانت زيارتك؟', rateSub: 'اضغط على نجمة - تستغرق 5 ثوانٍ', rateNote: 'هل لديك ملاحظة لتحسين خدمتنا؟ (اختياري)', rateSend: 'إرسال', rateQuality: 'جودة الطعام', ratePortions: 'حجم الأطباق', ratePrice: 'السعر مقابل القيمة', rateService: 'الخدمة', rateClean: 'نظافة المكان', rateSkip: 'تخطي', rateThanks: 'شكرًا لك! 💛', rateThanksSub: 'ملاحظاتك تساعدنا على خدمتك بشكل أفضل.', again: 'ابدأ طلبًا جديدًا', dietary: 'نظام غذائي' });
 const TAGI = { vegan: '🌱', vegetarian: '🥬', 'gluten-free': '🌾', gf: '🌾', spicy: '🌶️', nuts: '🥜', dairy: '🥛', halal: '☪️', sugarfree: '🍬', 'sugar-free': '🍬', new: '✨', popular: '🔥' };
 const tagLabel = (t) => `${TAGI[String(t).toLowerCase()] || '🏷️'} ${App.esc(t)}`;
-let tagSel = new Set(), lastHad = false, rated = false, lastVisit = '', over = false; const prevSt = {};
+let avoid = new Set((() => { try { return JSON.parse(localStorage.getItem('avoid:' + (location.pathname.split('/')[2] || '')) || '[]'); } catch (e) { return []; } })()), tagSel = new Set(), lastHad = false, rated = false, lastVisit = '', over = false; const prevSt = {};
 // categories can be limited to hours of the day (e.g. breakfast 07:00-12:00)
 function catOpen(c) { const h = c && c.hours; if (!h || !h.from || !h.to) return true; const d = new Date(), m = d.getHours() * 60 + d.getMinutes(), [a1, a2] = h.from.split(':').map(Number), [b1, b2] = h.to.split(':').map(Number), a = a1 * 60 + a2, b = b1 * 60 + b2; return a <= b ? m >= a && m < b : m >= a || m < b; }
 // online card / wallet payment: the amount is calculated on the server from the live bill; the guest pays on the provider's own page
@@ -614,14 +615,23 @@ function sectionHTML(cfg, s, c, items) {
   const head = `<div class="mhead ${c.img ? 'has' : ''}" style="${c.img ? `background-image:url('${c.img}')` : ''}"><span class="em">${c.emoji}</span><h3 class="serif">${App.esc(App.nm(c))}</h3><small>${items.length} ${App.tr('dishes')}</small></div>`;
   return `<section class="msec" id="sec-${c.id}" data-c="${c.id}">${head}${body}</section>`;
 }
+const algOk = (i) => !avoid.size || !(i.allergens || []).some((a) => avoid.has(a));
+const algTxt = () => (App.lang === 'ar' ? { t: 'تجنّب مسببات الحساسية', n: (n) => `أخفينا ${n} طبق يحتوي على ما اخترت`, w: 'تحقق دائماً من الطاقم، فقد تشترك المطبخ في الأدوات والمكونات.' } : { t: 'Avoid allergens', n: (n) => `Hiding ${n} dish(es) that contain what you picked`, w: 'Always tell your server too: kitchens can share tools and ingredients.' });
+function algBar(cfg) {
+  if (!(cfg.features && cfg.features.itemdetails)) return '';
+  const used = [...new Set(cfg.items.flatMap((i) => i.allergens || []))]; if (!used.length) return '';
+  const T = algTxt(), L = Opts.AL[App.lang === 'ar' ? 'ar' : 'en'], hid = cfg.items.filter((i) => !algOk(i)).length;
+  return `<div class="algbar" id="algbar"><span class="al-t">⚠ ${T.t}</span><div class="tagbar">${used.map((a) => `<button class="${avoid.has(a) ? 'on' : ''}" data-a="${a}" onclick="toggleAvoid(this.dataset.a)">${L[a] || a}</button>`).join('')}</div>${avoid.size ? `<small>${T.n(hid)}. ${T.w}</small>` : ''}</div>`;
+}
+function toggleAvoid(a) { avoid.has(a) ? avoid.delete(a) : avoid.add(a); try { localStorage.setItem('avoid:' + (location.pathname.split('/')[2] || ''), JSON.stringify([...avoid])); } catch (e) {} const b = $('#algbar'); if (b) b.outerHTML = algBar(S.config); refreshGrid(); }
 function gridHTML(cfg, s) {
   const needle = q.trim().toLowerCase();
   const tagOk = (i) => !tagSel.size || [...tagSel].every((t) => (i.tags || []).map((x) => x.toLowerCase()).includes(t));
   if (needle || tagSel.size) {
-    const list = cfg.items.filter((i) => (!needle || (i.name + ' ' + (i.name_ar || '') + ' ' + i.desc).toLowerCase().includes(needle)) && itemOpen(cfg, i) && tagOk(i));
+    const list = cfg.items.filter((i) => (!needle || (i.name + ' ' + (i.name_ar || '') + ' ' + i.desc).toLowerCase().includes(needle)) && itemOpen(cfg, i) && tagOk(i) && algOk(i));
     return list.length ? `<div class="grid">${list.map((i, k) => IT.cards(cfg, s, i, k)).join('')}</div>` : `<div class="empty"><span class="em">🔍</span>${App.tr('nothingFound')}</div>`;
   }
-  const secs = cfg.categories.filter(catOpen).map((c) => [c, cfg.items.filter((i) => i.cat === c.id)]).filter(([, l]) => l.length);
+  const secs = cfg.categories.filter(catOpen).map((c) => [c, cfg.items.filter((i) => i.cat === c.id && algOk(i))]).filter(([, l]) => l.length);
   return secs.map(([c, l]) => sectionHTML(cfg, s, c, l)).join('') || `<div class="empty"><span class="em">🍽️</span>${App.tr('nothingFound')}</div>`;
 }
 // a small, quiet link to our own site: the guest of one venue is the owner of the next one
@@ -636,7 +646,7 @@ function menuTab(cfg, s) {
   <div class="search rise" style="--i:3">${ic('search')}<input id="q" value="${App.esc(q)}" placeholder="${App.tr('search')}" oninput="q=this.value;refreshGrid()"></div>
   <div class="stk rise" style="--i:4"><div class="chips">${cfg.categories.filter(catOpen).map((c) => `<button class="chip rp ${c.id === cat && !q && !tagSel.size ? 'on' : ''}" data-c="${c.id}" onclick="setCat('${c.id}')">${c.emoji} ${App.esc(App.nm(c))}</button>`).join('')}</div>
   ${tags.length ? `<div class="tagbar">${tags.map((t) => `<button class="${tagSel.has(t) ? 'on' : ''}" data-t="${App.esc(t)}" onclick="toggleTag(this.dataset.t)">${tagLabel(t)}</button>`).join('')}</div>` : ''}</div>
-  <div id="grid">${gridHTML(cfg, s)}</div>${pwrHTML()}`;
+  ${algBar(cfg)}<div id="grid">${gridHTML(cfg, s)}</div>${pwrHTML()}`;
 }
 function toggleTag(t) { tagSel.has(t) ? tagSel.delete(t) : tagSel.add(t); document.querySelectorAll('.tagbar button').forEach((b) => b.classList.toggle('on', tagSel.has(b.dataset.t))); refreshGrid(); }
 function refreshGrid() {
@@ -795,6 +805,16 @@ function saveProfile() { me.name = $('#pn').value.trim() || me.name; keepWho(); 
 
 /* ---------------- actions & effects ---------------- */
 function add(id, el) { if (!can('ordering')) return App.toast(App.tr('viewOnly')); const it = S.config.items.find((x) => x.id === id); if (it && it.soldOut) return App.toast(App.tr('soldSorry')); if (it && Opts.has(it)) return Opts.open(it, (sel) => { App.send({ t: 'cart_add', itemId: id, opts: sel }); App.toast(App.tr('addToCart')); fly(el, it.emoji); }); App.send({ t: 'cart_add', itemId: id }); App.toast(App.tr('addToCart')); if (it) fly(el, it.emoji); }
+function callPill() {
+  let p = document.getElementById('callpill'); const ar = App.lang === 'ar';
+  const reqs = ((S && S.session && S.session.requests) || []).filter((r) => r.type !== 'bill'), now = Date.now();
+  const open = reqs.filter((r) => !r.done), last = reqs.filter((r) => r.done && r.doneAt && now - r.doneAt < 25000).sort((a, b) => b.doneAt - a.doneAt)[0];
+  if (!open.length && !last) { if (p) p.remove(); return; }
+  if (!p) { p = document.createElement('div'); p.id = 'callpill'; p.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:88px;z-index:60;max-width:92vw;padding:10px 18px;border-radius:99px;font:600 14px system-ui,sans-serif;color:#fff;box-shadow:0 10px 30px #0008;display:flex;gap:10px;align-items:center;white-space:nowrap'; document.body.appendChild(p); }
+  if (open.length) { const o = open.slice().sort((a, b) => a.at - b.at)[0], sec = Math.max(0, Math.round((now - o.at) / 1000)), m = Math.floor(sec / 60), t = m + ':' + String(sec % 60).padStart(2, '0'); p.style.background = sec > 180 ? '#c62828' : '#9a6b1f'; p.textContent = ar ? `🛎️ تم إبلاغ الكابتن · ${t}` : `🛎️ Your captain has been called · ${t}`; }
+  else { p.style.background = '#1f7a4d'; p.textContent = ar ? `✅ ${last.doneBy ? last.doneBy + ' ' : ''}تم الرد على طلبك` : `✅ ${last.doneBy ? last.doneBy + ' answered' : 'Done'}: your request is handled`; }
+}
+setInterval(callPill, 1000);
 function req(type) { App.send({ t: 'request', type }); App.toast(App.tr('requestSent')); const b = $('#bellb'); b.classList.remove('ring'); void b.offsetWidth; b.classList.add('ring'); closeSheet(); }
 function sendMine(el) { burstAt(el); App.send({ t: 'send_order' }); App.toast(App.tr('orderSent')); }
 function sendAll(el) { burstAt(el); App.send({ t: 'send_order', scope: 'all' }); App.toast(App.tr('orderSent')); }

@@ -34,7 +34,7 @@ test('F44 route policy: closed by default', () => {
   assert.equal(P('POST', '/something-new'), 'owner');
   assert.equal(P('POST', '/logo'), 'owner'); assert.equal(P('POST', '/pay-qr'), 'owner');
   assert.equal(P('POST', '/loyalty/adjust'), 'owner');
-  assert.equal(R.can('opmanager', 'inventory'), true); assert.equal(R.can('opmanager', 'staff'), false); assert.equal(R.can('opmanager', 'menu'), false); assert.equal(R.can('opmanager', 'reports'), false);
+  assert.equal(R.can('opmanager', 'inventory'), true); assert.equal(R.can('opmanager', 'staff'), false); assert.equal(R.can('opmanager', 'menu'), false); assert.equal(R.can('opmanager', 'reports'), true); assert.equal(R.can('opmanager', 'live'), true); assert.equal(R.can('opmanager', 'billing_admin'), false);
   assert.equal(R.can('manager', 'staff'), true); assert.equal(R.can('manager', 'owner'), false); assert.equal(R.can('manager', 'billing_admin'), true); assert.equal(R.can('admin', 'owner'), true);
 });
 
@@ -77,7 +77,7 @@ for (const mode of ['ws', 'rpc']) test(`F44 hierarchy, sign-in, lockout and isol
   let opTok = (await login(T, 'omar.ops', op.j.password)).j.token;
   opTok = (await asTok(T, opTok, 'POST', '/me/password', { current: op.j.password, password: 'Quiet-Harbor-Lamp-5520' })).j.token;
   for (const [m, p] of [['GET', '/ingredients'], ['GET', '/suppliers'], ['GET', '/invoices'], ['GET', '/orders?from=0&to=99999999999999'], ['GET', '/stocktakes']]) assert.equal((await asTok(T, opTok, m, p)).s, 200, 'ops ' + m + ' ' + p);
-  for (const [m, p, b] of [['GET', '/staff'], ['GET', '/team'], ['GET', '/account'], ['GET', '/report?from=0&to=99999999999999'], ['POST', '/items', { name: 'x', price: 1 }], ['PUT', '/items/abc', { price: 1 }], ['POST', '/tables', {}], ['GET', '/pay/config'], ['POST', '/team', { name: 'x', username: 'x.xxx', role: 'opmanager' }], ['POST', '/settings', { refreshMin: 30 }]]) {
+  for (const [m, p, b] of [['GET', '/staff'], ['GET', '/team'], ['GET', '/account'], ['POST', '/items', { name: 'x', price: 1 }], ['PUT', '/items/abc', { price: 1 }], ['POST', '/tables', {}], ['GET', '/pay/config'], ['POST', '/team', { name: 'x', username: 'x.xxx', role: 'opmanager' }], ['POST', '/settings', { refreshMin: 30 }]]) {
     const r = await asTok(T, opTok, m, p, b); assert.equal(r.s, m === 'POST' && p === '/settings' ? 200 : 403, 'ops blocked ' + m + ' ' + p + ' got ' + r.s);
   }
   // a manager sees the operations manager but not the other managers; the owner sees both
@@ -181,7 +181,7 @@ for (const mode of ['ws', 'rpc']) test(`F44 loss controls report [${mode}]`, asy
   const mk = await T.api('POST', '/team', { name: 'Op', username: 'op.one', role: 'opmanager' });
   const op = (await S.J('POST', T.u('/login'), { role: 'team', username: 'op.one', password: mk.j.password })).j.token;
   const tok = (await S.J('POST', T.u('/me/password'), { current: mk.j.password, password: 'Quiet-Harbor-Lamp-5520' }, op)).j.token;
-  assert.equal((await S.J('GET', T.u('/controls'), undefined, tok)).s, 403, 'operations managers do not see staff loss reports');
+  assert.equal((await S.J('GET', T.u('/controls'), undefined, tok)).s, 200, 'operations managers see the loss reports');
   assert.equal((await S.J('GET', T.u('/limits'), undefined, tok)).s, 200);
 });
 
@@ -253,4 +253,33 @@ for (const mode of ['ws', 'rpc']) test(`F44 owner alerts, win-back list and rece
   assert.equal((await T.api('GET', '/me/perms')).j.alerts, 0, 'seen clears the badge');
   const w = await T.api('GET', '/winback?days=30'); assert.equal(w.s, 200); assert.ok(Array.isArray(w.j.list));
   assert.equal((await S.J('GET', T.u('/winback'), undefined, null)).s, 401);
+});
+
+for (const mode of ['ws', 'rpc']) test(`F44 operations manager approves a big discount; kitchen is told when a sent item is voided; chain live data [${mode}]`, async (t) => {
+  const S = await start(mode); t.after(() => S.stop());
+  const T = await S.tenant('vip');
+  const mk = await T.api('POST', '/team', { name: 'Omar Ops', username: 'omar.ops', role: 'opmanager' });
+  const l = (await S.J('POST', T.u('/login'), { role: 'team', username: 'omar.ops', password: mk.j.password })).j.token;
+  const op = (await S.J('POST', T.u('/me/password'), { current: mk.j.password, password: 'Quiet-Harbor-Lamp-5520' }, l)).j.token;
+  assert.equal((await S.J('POST', T.u('/me/approval-pin'), { pin: '615243' }, op)).s, 200, 'ops manager can set an approval PIN');
+  assert.equal((await S.J('GET', T.u('/me/perms'), undefined, op)).j.perms.includes('live'), true);
+  const cap = await T.staff('captain', 'Wael', '73028461');
+  const cfg = (await T.api('GET', '/config', null, null)).j, item = cfg.items.find((i) => !i.soldOut && i.stock == null), tb = cfg.tables[0];
+  await T.rpc('captain', cap, { t: 'staff_order', tableId: tb.id, items: [{ itemId: item.id, qty: 2 }] });
+  const sess = async () => Object.values((await T.state(cap)).sessions).find((x) => x.tableId === tb.id);
+  // 40% is above the captain's 20% cap: refused, then approved by the operations manager's PIN
+  await T.rpc('captain', cap, { t: 'discount', tableId: tb.id, type: 'pct', value: 40, reason: 'service recovery' });
+  assert.ok(!(await sess()).discount, 'above the cap needs approval');
+  await T.rpc('captain', cap, { t: 'discount', tableId: tb.id, type: 'pct', value: 40, reason: 'service recovery', approvalPin: '615243' });
+  const d = (await sess()).discount; assert.ok(d && d.value === 40 && d.ap === 'Omar Ops', 'approved by the operations manager: ' + JSON.stringify(d));
+  // the order is with the kitchen; voiding it tells the kitchen
+  const ses = await sess(), oid = ses.orders[0].id, line = ses.orders[0].items[0];
+  await T.rpc('captain', cap, { t: 'order_status', orderId: oid, status: 'kitchen' });
+  await T.rpc('captain', cap, { t: 'void_item', tableId: tb.id, itemId: line.id, qty: 1, reason: 'guest left', approvalPin: '615243' });
+  const kit = await T.rpc('captain', cap, null);
+  const ka = (await T.state(cap)); const alerts = (await S.J('POST', T.u('/rpc'), { join: { role: 'kitchen', token: cap }, msg: null, since: -1 }, cap)).j.state.kitchenAlerts;
+  assert.ok(Array.isArray(alerts) && alerts.length === 1 && alerts[0].qty === 1 && alerts[0].cooking === true, 'kitchen alert: ' + JSON.stringify(alerts));
+  assert.ok(ka && kit);
+  // the owner's chain view carries live numbers
+  const b = await T.api('GET', '/branches'); if (b.s === 200) assert.ok(b.j.branches[0].live && 'salesToday' in b.j.branches[0].live && 'late' in b.j.branches[0].live);
 });

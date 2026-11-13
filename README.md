@@ -34,6 +34,7 @@ Run this once in Supabase's SQL editor:
     alter table public.tenants enable row level security;
 
 ## What's included
+- **Call from the table (the headline feature).** The guest taps one button on their phone: call the waiter, water, napkins, cutlery, the bill or speed up the order. The call lands on every captain screen with the table number and a live timer that turns amber then red. The guest sees "your captain has been called" with a timer, then who answered. A call nobody answers within `settings.callEscalateMin` minutes (default 3, 0 = off) alerts every captain again. The owner's Live floor tab shows calls answered today, average and slowest answer time and who is waiting (`GET /calls`).
 - **Guests** scan the table QR (it carries a secret table key, so fake orders from a bare web address are rejected), join the table, share a cart, order, split the bill, call the waiter, rate the visit.
 - **Captain** (`/captain`): live floor map (drag-built in Admin → Floor plan), alerts, order stream. On phones the whole café shows as a mini-map. Phone push alerts + installable app (PWA).
 - **Kitchen** (`/kitchen`): ticket screen with timers, Kitchen/Bar stations, one-tap "sold out", "order ready" alert to the captain and guest.
@@ -44,6 +45,29 @@ Run this once in Supabase's SQL editor:
 - **Insights & orders**: Admin → Analytics starts with revenue / orders / average ticket / profit against the previous period, an area chart, category donut, best sellers and low stock; Admin → Orders is the day-by-day ticket history with reprint and CSV export. Captain screen can switch between the floor map and a list grouped by table zone (set zones in the floor-plan editor).
 - **Live demo**: open `/demo` — the whole app runs in your browser on sample data (same engine, nothing saved, tabs share it), so you can show it to a client without a database.
 - Empty tables are freed automatically; tables with orders but no activity are flagged 💤.
+
+## Team, roles and security
+
+Seven kinds of people, each reaching only what they need (`roles.js` holds the rules; the server enforces them, the pages only hide what a role cannot open):
+
+| Who | Signs in with | Reaches |
+|---|---|---|
+| Owner | email + password (+ optional authenticator code) | everything, including plan, payment keys, branding, team |
+| Branch manager | username + password (10+ chars, mixed case, a number; optional authenticator code) | one branch: menu, floor, staff, stock, billing, reports, attendance, offers, live floor |
+| Operations manager | username + password | live floor, inventory, billing, reports and loss controls, attendance |
+| Captain / cashier / kitchen / driver | personal PIN, 6 to 10 digits | their own screen only |
+| Guest | scans the table QR | their own table |
+| Platform owner (you) | `/super` with email + password only | all venues, plans, prices |
+
+- **Closed by default.** A new admin route needs the owner until it is listed in `roles.js` (`POLICY`). Branches are separate venues, a token only works in its own branch.
+- **Accounts.** Owner creates managers, a branch manager may create operations managers. First sign-in forces a new password. 5 wrong passwords lock the username for 15 minutes (unknown names too). Optional end date for temporary staff. Switching a person off ends their open session at once.
+- **Manager PIN approval.** `settings.approvals` = `{ voidOver, discountOverPct }`. A captain or cashier going over those limits (or over their discount cap) is asked for an approval PIN; owner, branch manager and operations manager each set one under Sign-in & security. The server checks it before the order logic, stores the approver on the void or discount, and throttles wrong PINs. A discount approved this way may go up to 50%.
+- **Audit and alerts.** Every sign-in, failure, lockout, account change and manager action is logged (last 400). The owner sees an alert badge for new-place sign-ins, lockouts, resets and two-step turned off, with "Mark as seen".
+- **Loss controls** (`GET /controls`): voids, discounts and tables closed without payment per person, voids after the bill was asked for, and purchase orders created and received by the same person.
+- **Kitchen void alert.** Voiding an item the kitchen already has adds an entry to `db.kitchenAlerts` (20 minutes); the kitchen screen shows a red banner with sound until someone taps "Got it".
+- **Live floor** (admin tab, read only) for owner, branch manager and operations manager. The owner's Branches tab starts with a "Live now" strip for every branch in the group.
+- **Guest extras.** Goodbye screen after rating or table close (`settings.farewell`: seconds 5-30, message en/ar, auto close, fallback), allergen filter bar on the menu (hides dishes that contain the picked allergens, remembered per venue), win-back list of loyalty members not seen for 14-90 days with a WhatsApp link.
+- **Countries.** The site has an Egypt / UAE switch (prices, wording, Gulf Arabic, AED + 5% VAT note). Venues can use `settings.dialect = 'gulf'`.
 
 ## Push notifications
 Generate keys once (`npx web-push generate-vapid-keys`) and set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_CONTACT` (mailto:...).
@@ -58,8 +82,8 @@ On iPhone the staff page must be added to the Home Screen first (iOS 16.4+).
 `SECRET` (token signing key — set a long random value in production), `PUBLIC_URL` (used in QR codes),
 `SUPER_EMAIL` / `SUPER_PASSWORD` (multi-restaurant mode only).
 
-Needs a long-running Node host (WebSockets) — not serverless platforms like Vercel.
+Runs on a long-running Node host with WebSockets, or on Vercel in polling mode (see B2 and C above).
 
 ## Next release (branch `release/next`)
 
-Eight opt-in features, all off by default and tier-gated: upsell, online payments (Paymob), ETA e-receipts (pre-production only), feedback + Google reviews, coupons / offers / gift cards, plan limits, offline queue for staff apps, shifts + Z-report. Run `npm test` (31 checks, both run modes). See `docs/archive/RELEASE_VERIFICATION.md` for what is proven and `docs/guides/NEEDS_FROM_OWNER.md` for what is waiting on you.
+Eight opt-in features, all off by default and tier-gated: upsell, online payments (Paymob), ETA e-receipts (pre-production only), feedback + Google reviews, coupons / offers / gift cards, plan limits, offline queue for staff apps, shifts + Z-report. Run `npm test` (158 checks, both run modes). See `docs/archive/RELEASE_VERIFICATION.md` for what is proven and `docs/guides/NEEDS_FROM_OWNER.md` for what is waiting on you.
