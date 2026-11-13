@@ -1062,7 +1062,7 @@ function liveDraw() {
   const kitchen = orders.filter((x) => x.o.status === 'received' || x.o.status === 'kitchen'), late = kitchen.filter((x) => min(x.o.at) >= 20);
   const bill = rows.filter((x) => x.s.check), calls = rows.reduce((n, x) => n + (x.s.requests || []).filter((r) => !r.done).length, 0);
   const kpi = (l, v, bad) => `<div class="card kpi" style="${bad ? 'border-color:#e5484d' : ''}"><span>${l}</span><b style="${bad ? 'color:#e5484d' : ''}">${v}</b></div>`;
-  if (!window.__calls || now - window.__calls.at > 20000) { window.__calls = { at: now, d: window.__calls ? window.__calls.d : null }; api('GET', '/api/calls?days=7').then((r) => { if (!r.error) { window.__calls.d = r; liveDraw(); } }); }
+  if (!window.__calls || now - window.__calls.at > 20000) { window.__calls = { at: now, d: window.__calls ? window.__calls.d : null }; api('GET', '/api/calls?days=7').then((r) => { if (!r.error) { window.__calls.d = r; liveDraw(); } }).catch(() => {}); }
   const cd = (window.__calls && window.__calls.d) || null, mmss = (sec) => Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
   const waitCalls = rows.flatMap(({ t, s }) => (s.requests || []).filter((r) => !r.done).map((r) => ({ t, r })));
   box.innerHTML = `<div class="spread"><h1>🔴 Live floor</h1><span class="muted">Read only · refreshes by itself</span></div>
