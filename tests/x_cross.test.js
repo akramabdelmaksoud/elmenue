@@ -25,7 +25,8 @@ test('X-01/X-02 old data loads with every new flag off', () => {
 
 // X-03: every new feature is tier-gated (basic tenant gets 402 + upgrade hint) - checked in each feature test; here the table of tiers
 test('X-03 tier table', () => {
-  ['feedback', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline'].forEach((f) => { assert.equal(F.has('basic', f), false, f); assert.equal(F.has('operations', f), true, f); assert.equal(F.has('vip', f), true, f); });
+  assert.equal(F.has('lite', 'feedback'), false); assert.equal(F.has('basic', 'feedback'), true, 'guest reviews start at Starter');
+  ['upsell', 'coupons', 'onlinepay', 'eta', 'offline'].forEach((f) => { assert.equal(F.has('basic', f), false, f); assert.equal(F.has('operations', f), true, f); assert.equal(F.has('vip', f), true, f); });
   assert.equal(F.has('operations', 'giftcards'), false); assert.equal(F.has('vip', 'giftcards'), true);
 });
 

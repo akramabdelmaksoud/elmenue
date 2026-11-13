@@ -786,7 +786,7 @@ function handle(c, m) {
         db.sessions[m.tid] = s; log(s, 'seated', `${m.kind} ticket ${s.tableNumber} opened` + (c.staffName ? ' by ' + c.staffName : '')); break;
       }
       case 'staff_order': {
-        if (!F.has(rec, 'ordering')) break;
+        if (!F.has(rec, 'captainpos') && !F.has(rec, 'ordering')) break;   // the Captain Call bundle has no guest ordering, but the captain still takes orders
         const t = db.tables.find((x) => x.id === m.tableId); let s = db.sessions[m.tableId];
         if (!s && t) s = openSession(t); if (!s) break; s.staffSeated = true; own(s, c);
         const want = [], dropped = [];

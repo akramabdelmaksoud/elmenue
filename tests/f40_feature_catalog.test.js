@@ -21,7 +21,7 @@ for (const mode of ['ws', 'rpc']) test(`F40 feature catalog: prices, add-ons, cu
   assert.equal(await mrr(), base + 800, 'bundle + both add-ons');
 
   // a custom feature can go into a bundle like any other
-  const basic = (await plans()).plans[0];
+  const basic = (await plans()).plans.find((p) => p.id === 'basic');
   assert.equal((await S.J('PUT', '/api/super/plans', { plans: { basic: { features: [...basic.features, 'delivery_app'], price: basic.price } } }, S.sup)).s, 200);
   assert.equal(await mrr(), base + 500, 'no longer an add-on once the bundle includes it');
   assert.ok((await plans()).catalog.some((c) => c.id === 'delivery_app'), 'saving bundles keeps the catalog');

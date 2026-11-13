@@ -471,9 +471,10 @@ app.get('/api/public/demo', (req, res) => res.json(!SINGLE && !PROD && tenants.h
 
 // ----- Platform bundle configuration (editable by the super admin; stored as one aux document) -----
 let platAt = 0, platLoading = null;
+const PLAN_V = 2;   // bundle overrides saved before this version are ignored. Raise this to make every saved bundle override (prices, features) fall back to the built-in bundles once
 async function refreshPlatform(force) {
   if (!force && Date.now() - platAt < 20000) return;
-  if (!platLoading) platLoading = store.getAux('platform').then((d) => { F.configure(d && (d.plans || d.features) ? d : null); platAt = Date.now(); }).catch((e) => { console.error('platform config:', e.message); platAt = Date.now() - 10000; }).finally(() => { platLoading = null; });
+  if (!platLoading) platLoading = store.getAux('platform').then((d) => { F.configure(d && (d.plans || d.features) ? { ...d, plans: d.planV >= PLAN_V ? d.plans : null } : null); platAt = Date.now(); }).catch((e) => { console.error('platform config:', e.message); platAt = Date.now() - 10000; }).finally(() => { platLoading = null; });
   await platLoading;
 }
 app.use('/api', async (req, res, next) => { try { await refreshPlatform(); next(); } catch (e) { next(e); } });
@@ -482,7 +483,7 @@ app.get('/api/public/plans', (req, res) => res.json({ plans: F.ORDER.map((id) =>
 
 // ----- Website settings and add-on prices (edited in the platform console, one aux document) -----
 // An add-on is any catalogue feature the chosen plan does not already contain. Default monthly price by catalogue level; the console overrides per feature.
-const SITE_MULT = { life: 20, svc: 4, yearMonths: 10 };   // lifetime = life x monthly once, then svc x monthly per year; yearly = yearMonths x monthly
+const SITE_MULT = { life: 18, svc: 3, yearMonths: 10 };   // lifetime = life x monthly once, then svc x monthly per year; yearly = yearMonths x monthly
 const ADDON_BY_LEVEL = { 1: 0, 2: 120, 3: 180, 4: 300 };
 let siteAt = 0, siteVal = null;
 async function siteConf(force) {
@@ -591,7 +592,7 @@ app.get('/api/super/plans', needSuper, async (req, res, next) => { try { await r
 app.put('/api/super/plans', needSuper, async (req, res, next) => { try {
   const b = req.body || {}, out = { plans: {} };
   const keep = (await store.getAux('platform')) || {};
-  if (b.reset === true) { await store.putAux('platform', { features: keep.features || null, plans: null, at: Date.now() }); await refreshPlatform(true); return res.json(planView()); }
+  if (b.reset === true) { await store.putAux('platform', { features: keep.features || null, plans: null, planV: PLAN_V, at: Date.now() }); await refreshPlatform(true); return res.json(planView()); }
   for (const id of F.ORDER) {
     const o = (b.plans || {})[id]; if (!o || typeof o !== 'object') continue;
     if (!Array.isArray(o.features) || o.features.some((x) => typeof x !== 'string')) return res.status(400).json({ error: 'features must be a list for ' + id });
@@ -599,7 +600,7 @@ app.put('/api/super/plans', needSuper, async (req, res, next) => { try {
     out.plans[id] = { features: o.features.filter((x) => F.FEATURE_IDS.includes(x)), price, limits: o.limits || {}, name: String(o.name || '').slice(0, 60), name_ar: String(o.name_ar || '').slice(0, 60) };
   }
   if (!Object.keys(out.plans).length) return res.status(400).json({ error: 'nothing to save' });
-  out.at = Date.now(); out.features = keep.features || null; await store.putAux('platform', out); await refreshPlatform(true); res.json(planView());
+  out.at = Date.now(); out.planV = PLAN_V; out.features = keep.features || null; await store.putAux('platform', out); await refreshPlatform(true); res.json(planView());
 } catch (e) { next(e); } });
 // The feature catalog: rename / re-price built-in features, retire or restore them, and add / edit / delete the super admin's own.
 // Body: { features: [{ id, en, ar, desc, area, level, price, retired?, custom? }] } = the whole list (anything left out returns to its built-in values; a custom feature left out is deleted).
@@ -648,7 +649,7 @@ app.get('/api/super/overview', needSuper, async (req, res, next) => { try {
   }));
   const sum = (f) => list.reduce((n, x) => n + f(x), 0);
   res.json({
-    totals: { mrr: sum((x) => x.mrr), plans: ['basic', 'operations', 'vip'].map((p) => ({ plan: p, count: list.filter((x) => x.plan === p && x.status === 'active').length })), restaurants: list.length, active: list.filter((x) => x.status === 'active').length, revenue: sum((x) => x.revenue), sessions: sum((x) => x.sessions), liveTables: sum((x) => x.liveTables), guestsLive: sum((x) => x.guestsLive), online: sum((x) => x.online), liveRevenue: sum((x) => x.liveRevenue) },
+    totals: { mrr: sum((x) => x.mrr), plans: F.ORDER.map((p) => ({ plan: p, count: list.filter((x) => x.plan === p && x.status === 'active').length })), restaurants: list.length, active: list.filter((x) => x.status === 'active').length, revenue: sum((x) => x.revenue), sessions: sum((x) => x.sessions), liveTables: sum((x) => x.liveTables), guestsLive: sum((x) => x.guestsLive), online: sum((x) => x.online), liveRevenue: sum((x) => x.liveRevenue) },
     tenants: list.sort((a, b) => b.revenue - a.revenue), daily, hours,
     topItems: Object.entries(items).sort((a, b) => b[1] - a[1]).slice(0, 8),
   });

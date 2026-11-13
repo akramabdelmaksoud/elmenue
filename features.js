@@ -8,7 +8,7 @@ const PREMIUM_THEMES = ['neon', 'luxury', 'vibrant'].concat(LUX_THEMES, PRO_THEM
 // Every switch a bundle can contain. area: who sees it (guest / staff / admin). level: 1 = core, 2 = important, 3 = growth, 4 = premium.
 const CATALOG = [
   { id: 'menu', area: 'guest', level: 1, en: 'Digital menu', ar: 'المنيو الرقمي' }, { id: 'qr', area: 'guest', level: 1, en: 'Table QR codes', ar: 'أكواد QR للطاولات' },
-  { id: 'admin', area: 'admin', level: 1, en: 'Owner dashboard', ar: 'لوحة المالك' }, { id: 'micro', area: 'guest', level: 1, en: 'Call waiter / requests', ar: 'نداء الويتر' },
+  { id: 'admin', area: 'admin', level: 1, en: 'Owner dashboard', ar: 'لوحة المالك' }, { id: 'micro', area: 'guest', level: 1, en: 'Call waiter / requests', ar: 'نداء الويتر' }, { id: 'captainpos', area: 'staff', level: 1, en: 'Captain takes orders at the table', ar: 'الكابتن يسجّل الطلب من الطاولة' },
   { id: 'ordering', area: 'guest', level: 1, en: 'Ordering from the table', ar: 'الطلب من الطاولة' }, { id: 'options', area: 'guest', level: 1, en: 'Item options (size, extras, milk, sugar)', ar: 'خيارات الصنف' },
   { id: 'itemdetails', area: 'guest', level: 2, en: 'Allergens, calories, badges', ar: 'مسببات الحساسية والسعرات والشارات' },
   { id: 'staff', area: 'staff', level: 2, en: 'Named staff accounts', ar: 'حسابات موظفين بأسمائهم' }, { id: 'kds', area: 'staff', level: 2, en: 'Kitchen display', ar: 'شاشة المطبخ' },
@@ -51,13 +51,14 @@ function configureCatalog(list) {
   FEATURE_IDS.splice(0, FEATURE_IDS.length, ...CATALOG.map((c) => c.id));
 }
 const PLANS = {
-  basic: { id: 'basic', tier: 1, name: 'Starter QR Ordering', name_ar: 'منيو QR الأساسي', price: [450, 600], limits: { branches: 1, tables: 10, staff: 0 }, features: ['menu', 'qr', 'ordering', 'options', 'itemdetails', 'micro', 'admin'] },
-  operations: { id: 'operations', tier: 2, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [950, 1200], limits: { branches: 1, tables: 30, staff: 10 }, features: ['staff', 'attendance', 'invoicing', 'kds', 'cashier', 'lock', 'trilingual', 'feedback', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline', 'online', 'insights', 'geo', 'instapay', 'acctexport', 'reservations'] },
-  vip: { id: 'vip', tier: 3, name: 'Enterprise VIP & AI', name_ar: 'VIP والذكاء الاصطناعي', price: [1600, 1600], limits: { branches: 3, tables: null, staff: null }, features: ['purchasing', 'ownerreport', 'loyalty', 'ocr', 'copilot', 'themes', 'branches', 'giftcards', 'recipes'] },
+  lite: { id: 'lite', tier: 1, name: 'Captain Call', name_ar: 'نداء الكابتن', price: [499, 499], limits: { branches: 1, tables: 8, staff: 3 }, features: ['menu', 'qr', 'admin', 'micro', 'captainpos', 'staff', 'itemdetails'] },
+  basic: { id: 'basic', tier: 2, name: 'Starter QR Ordering', name_ar: 'منيو QR والطلب', price: [999, 999], limits: { branches: 1, tables: 15, staff: 5 }, features: ['ordering', 'options', 'feedback', 'trilingual'] },
+  operations: { id: 'operations', tier: 3, name: 'Full Operations & Staff POS', name_ar: 'التشغيل الكامل ونقطة البيع', price: [1499, 1499], limits: { branches: 1, tables: 30, staff: 10 }, features: ['attendance', 'invoicing', 'kds', 'cashier', 'lock', 'upsell', 'coupons', 'onlinepay', 'eta', 'offline', 'online', 'insights', 'geo', 'instapay', 'acctexport', 'reservations'] },
+  vip: { id: 'vip', tier: 4, name: 'Enterprise VIP & AI', name_ar: 'VIP والذكاء الاصطناعي', price: [2499, 2499], limits: { branches: 3, tables: null, staff: null }, features: ['purchasing', 'ownerreport', 'loyalty', 'ocr', 'copilot', 'themes', 'branches', 'giftcards', 'recipes'] },
 };
 // older plan names keep working: they map onto the new tiers
 const LEGACY = { standard: 'operations', pro: 'vip', enterprise: 'vip', demo: 'vip' };
-const ORDER = ['basic', 'operations', 'vip'];
+const ORDER = ['lite', 'basic', 'operations', 'vip'];
 const planOf = (p) => (PLANS[p] ? p : LEGACY[p] || 'operations');
 // p = plan name OR a café record ({ plan, feat }): the super admin can lock/unlock single features per café (rec.feat = { id: true|false }).
 // The showroom café shows everything the platform can do, add-ons included.

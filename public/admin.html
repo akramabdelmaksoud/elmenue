@@ -72,7 +72,7 @@ const api = (m, u, b) => fetch(u, { method: m, headers: { 'Content-Type': 'appli
 const $ = (s) => document.querySelector(s);
 /* ---------------- premium tiers: loyalty, AI menu scan, branches, copilot, welcome screen ---------------- */
 const FEAT = () => (App.config && App.config.features) || {};
-const PLAN_NAME = { basic: 'Basic', operations: 'Operations', vip: 'VIP' };
+const PLAN_NAME = { lite: 'Captain Call', basic: 'Starter', operations: 'Operations', vip: 'VIP' };
 const lockedCard = (title, feat) => { const need = { staff: 'Operations', insights: 'Operations', invoicing: 'Operations', attendance: 'Operations' }[feat] || 'VIP'; $('#main').innerHTML = `<h1>${title}</h1><div class="card" style="text-align:center;padding:44px 20px"><div style="font-size:54px">🔒</div><h3>${need} plan</h3><p class="muted">This feature is part of the ${need} tier. Add it to your plan, or ask your account manager to upgrade.</p><p id="lkp"></p><a class="primary" style="text-decoration:none;padding:12px 20px;border-radius:14px;font-weight:700;display:inline-block" href="/build?plan=${App.config.plan}&add=${feat}" target="_blank" rel="noopener">➕ See the price and add it</a></div>`; fetch('/api/public/site').then((r) => r.json()).then((d) => { const c = d.catalog.find((x) => x.id === feat), el = document.getElementById('lkp'); if (c && el) el.innerHTML = `<b style="font-size:22px">+${c.price} ${App.esc(App.config.settings.currency || 'EGP')}</b> <span class="muted">/ month as an add-on</span>`; }).catch(() => {}); };
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 async function offersTab() {

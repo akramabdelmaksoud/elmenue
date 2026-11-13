@@ -2,7 +2,7 @@ const test = require('node:test'), assert = require('node:assert/strict');
 const { start } = require('./helper');
 for (const mode of ['ws', 'rpc']) test(`F4 feedback + Google [${mode}]`, async (t) => {
   const S = await start(mode); t.after(() => S.stop());
-  const T = await S.tenant('operations'), B = await S.tenant('basic');
+  const T = await S.tenant('operations'), B = await S.tenant('lite');
   const post = (b, ip) => S.J('POST', T.u('/feedback'), b, null, ip ? { 'X-Forwarded-For': ip } : {});
   // X-02 flag OFF by default: legacy behaviour, no google link, no dedupe fields
   const cfg = (await T.api('GET', '/settings')).j; 

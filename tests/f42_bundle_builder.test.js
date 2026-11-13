@@ -4,7 +4,7 @@ test('F42 add-on prices, the bundle request and the website settings', async (t)
   const S = await start('rpc'); t.after(() => S.stop());
   const sup = (await S.J('POST', '/api/super/login', { email: 'super@test.dev', password: 'SuperPass123!' })).j.token;
   const pub = (await S.J('GET', '/api/public/site')).j;
-  assert.equal(pub.plans.length, 3); assert.ok(pub.catalog.length > 20);
+  assert.equal(pub.plans.length, 4); assert.ok(pub.catalog.length > 20);
   const ops = pub.plans.find((p) => p.id === 'operations'), loy = pub.catalog.find((c) => c.id === 'loyalty'), gift = pub.catalog.find((c) => c.id === 'giftcards');
   assert.ok(!ops.features.includes('loyalty') && loy.price > 0, 'loyalty is an add-on on Operations, and it has a price');
   // the owner prices a feature, and the public list follows

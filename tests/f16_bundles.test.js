@@ -8,28 +8,28 @@ for (const mode of ['ws', 'rpc']) test(`F16 editable bundles and per-cafe locks 
 
   // read: catalogue and the three bundles
   const pl = await S.J('GET', '/api/super/plans', undefined, S.sup); assert.equal(pl.s, 200);
-  assert.ok(pl.j.catalog.length >= 30); assert.deepEqual(pl.j.plans.map((p) => p.id), ['basic', 'operations', 'vip']);
+  assert.ok(pl.j.catalog.length >= 30); assert.deepEqual(pl.j.plans.map((p) => p.id), ['lite', 'basic', 'operations', 'vip']);
   assert.equal((await S.J('GET', '/api/super/plans', undefined, B.admin)).s, 401, 'cafe owners cannot read or edit bundles');
   assert.equal((await put({ plans: {} }, B.admin)).s, 401);
-  const pub = await S.J('GET', '/api/public/plans'); assert.equal(pub.s, 200); assert.equal(pub.j.plans.length, 3);
+  const pub = await S.J('GET', '/api/public/plans'); assert.equal(pub.s, 200); assert.equal(pub.j.plans.length, 4);
 
   // default: basic has ordering + options, no kitchen display
   assert.equal((await feats(B)).ordering, true); assert.equal((await feats(B)).options, true); assert.ok(!(await feats(B)).kds);
 
   // edit the Starter bundle: add insights, drop ordering, new price and table limit
-  const basic = pl.j.plans[0];
+  const basic = pl.j.plans[1];
   const saved = await put({ plans: { basic: { features: [...basic.features.filter((f) => f !== 'ordering'), 'insights'], price: [700, 900], limits: { tables: 12 }, name: 'Starter Plus' } } });
-  assert.equal(saved.s, 200); const nb = saved.j.plans[0];
+  assert.equal(saved.s, 200); const nb = saved.j.plans[1];
   assert.equal(nb.name, 'Starter Plus'); assert.deepEqual(nb.price, [700, 900]); assert.equal(nb.limits.tables, 12);
   assert.ok(!(await feats(B)).ordering, 'ordering locked for every Starter cafe'); assert.equal((await feats(B)).insights, true);
   assert.equal((await B.api('GET', '/insights')).s, 200, 'insights endpoint now open for Starter');
-  assert.equal((await S.J('GET', '/api/public/plans')).j.plans[0].price, 700);
+  assert.equal((await S.J('GET', '/api/public/plans')).j.plans[1].price, 700);
 
   // validation
   assert.equal((await put({ plans: { basic: { features: 'x', price: [1, 2] } } })).s, 400);
   assert.equal((await put({ plans: { basic: { features: [], price: [-5, 2] } } })).s, 400);
   assert.equal((await put({})).s, 400);
-  const junk = await put({ plans: { basic: { features: ['menu', 'nope', '__proto__'], price: [1, 2] } } }); assert.equal(junk.s, 200); assert.deepEqual(junk.j.plans[0].features, ['menu']);
+  const junk = await put({ plans: { basic: { features: ['menu', 'nope', '__proto__'], price: [1, 2] } } }); assert.equal(junk.s, 200); assert.deepEqual(junk.j.plans[1].features, ['menu']);
 
   // per-cafe lock / unlock on top of the bundle
   await put({ plans: { basic: { features: basic.features, price: [600, 800] } } });
@@ -43,5 +43,5 @@ for (const mode of ['ws', 'rpc']) test(`F16 editable bundles and per-cafe locks 
   assert.equal((await S.J('PUT', `/api/super/tenants/${B.slug}`, { feat: {} }, S.sup)).s, 200); assert.equal((await feats(B)).ordering, true);
 
   // restore built-in bundles
-  assert.equal((await put({ reset: true })).s, 200); assert.equal((await S.J('GET', '/api/super/plans', undefined, S.sup)).j.plans[0].name, 'Starter QR Ordering');
+  assert.equal((await put({ reset: true })).s, 200); assert.equal((await S.J('GET', '/api/super/plans', undefined, S.sup)).j.plans[1].name, 'Starter QR Ordering');
 });

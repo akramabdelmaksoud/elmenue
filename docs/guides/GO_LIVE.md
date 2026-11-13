@@ -42,8 +42,8 @@ Also open it from 3–4 real phones on mobile data and Wi-Fi, lock a phone for a
 - [ ] Your subscription contract/invoice terms match the Terms page (prices, cancellation, support).
 
 ## F. Plans and pricing verified end to end
-**(auto)** `tests/plans.test.js` checks through the real API: Basic is capped at 10 tables and has no staff accounts, Operations allows staff/cashier, VIP has no table cap, owner overrides raise one restaurant's limit, a suspended restaurant is locked out. Prices live in `features.js` (`PLANS`, in EGP). Manually: create one restaurant per tier in `/super`, log in as each owner and confirm locked features show an upgrade message.
-(Found and fixed while testing: new Basic restaurants used to start with 18 sample tables, above their limit of 10.)
+**(auto)** `tests/plans.test.js` checks through the real API: Starter is capped at 15 tables and Captain Call at 8 tables and 3 captains, Operations allows staff/cashier, VIP has no table cap, owner overrides raise one restaurant's limit, a suspended restaurant is locked out. Prices live in `features.js` (`PLANS`, in EGP). Manually: create one restaurant per tier in `/super`, log in as each owner and confirm locked features show an upgrade message.
+(Found and fixed while testing: new Starter restaurants used to start with 18 sample tables, above their limit.)
 
 ## G. QR codes — last, never earlier
 - [ ] The final address of each restaurant is agreed (subdomain or own domain), DNS/HTTPS verified (`ops/check-domain.sh` for own domains).

@@ -105,6 +105,12 @@ See the table and rules in `README.md` (section Team, roles and security). Code 
 
 Guest `request` message (`customer.html` `req()`) ➜ `tenant.js` `case 'request'` (45 s per-guest cool-down, one open call per type) ➜ captain screens (`captain.html` request list with live colour timer) ➜ `resolve_request` stores `doneAt` / `doneBy` and `callStat()` adds to `db.callStats[day]` ➜ `escalate()` (called from `sweep()` and a 6 s timer in WebSocket mode) re-alerts every captain once after `settings.callEscalateMin` minutes ➜ `GET /calls` (permission `live`) feeds the owner's Live floor tab. Guest pill: `callPill()` in `customer.html`. Marketing: hero and `#call` section in `public/site.html`, call box on `public/prospect.html`. Tests: `tests/f45_call_from_table.test.js`.
 
+## 6d. Bundles and prices (added)
+Four bundles, cheapest first (`features.js` PLANS, ORDER = lite, basic, operations, vip): **Captain Call 499**, **Starter 999**, **Operations & Staff POS 1,499**, **Enterprise VIP & AI 2,499** EGP per month. UAE site prices in AED (excl. 5% VAT): 149 / 299 / 449 / 749 (site.html `CT.ae.plans`, build.html `AE`). Annual = 10 x monthly; lifetime = 18 x monthly + 3 x monthly per year of service (`SITE_MULT`). Every bundle includes the cheaper ones (flattened at load).
+- **Captain Call** is the entry bundle: no `ordering` for guests (the menu is view only, the call buttons work), but the new feature `captainpos` lets the captain send orders (`staff_order`), serve and close the bill. No kitchen screen, no cashier screen. Limits 8 tables, 3 staff.
+- Moving built-in prices or features: edit PLANS, then raise `PLAN_V` in server.js so any bundle overrides saved earlier in /super (stored in the `platform` aux row) are ignored once. Saving bundles in /super stores the current `planV`.
+- Tests: `tests/f47_captain_call_bundle.test.js`.
+
 ## 7. Deploying & testing
 
 **Deploy (Vercel, production):** from the project folder: `vercel deploy --prod --yes` (project `belya2/tabletab`, production at app.tabletab-tt.com, linked via `.vercel/project.json`). Push to GitHub with `git push` (branch `main`). Free plan = non-commercial use.
