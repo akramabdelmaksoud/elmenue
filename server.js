@@ -677,6 +677,23 @@ app.post('/api/super/tenants/:slug/reset', needSuper, async (req, res, next) => 
   if (!(await saveTenant(t))) return res.status(409).json({ error: 'busy, try again' });
   res.json({ email: t.rec.owner.email, password, pin: t.rec.pin });
 } catch (e) { next(e); } });
+// Give an existing café a branded setup (today: السرايا) without starting over: menu, look, floor and its switches are replaced;
+// the owner login, uploaded logo, staff, past orders and each table's printed QR key are kept. Tables with guests sitting at them are refused.
+app.post('/api/super/tenants/:slug/preset', needSuper, async (req, res, next) => { try {
+  const name = String((req.body || {}).preset || ''); if (name !== 'saraya') return res.status(400).json({ error: 'Unknown setup' });
+  const t = await oneTenant(req.params.slug); if (!t) return res.status(404).json({ error: 'not found' });
+  const d = t.db; if (Object.keys(d.sessions || {}).length) return res.status(409).json({ error: 'Close the open tables first, then apply the setup.' });
+  const P = JSON.parse(JSON.stringify(require('./presets/' + name))), keep = d.settings, up = (v) => typeof v === 'string' && v.startsWith('/api/r/');
+  const keys = Object.fromEntries((d.tables || []).map((x) => [x.number, x.key]));
+  d.settings = { ...keep, ...P.settings, name: keep.name || P.settings.name, ...(up(keep.logo) ? { logo: keep.logo } : {}), requireKey: keep.requireKey };
+  d.categories = P.categories; d.items = P.items.map((i) => ({ ...i, id: 'sy' + i.id }));   // fresh ids, so old sales never count as one of the new items
+  d.tables = P.tables.map((x) => ({ ...x, ...(keys[x.number] ? { key: keys[x.number] } : {}) }));
+  (t.rec.staff || []).forEach((s) => { if (s.role !== 'driver' && !s.access) s.access = defAccess(s.role); });
+  if (t.ensure) t.ensure();
+  if (!(await saveTenant(t))) return res.status(409).json({ error: 'busy, try again' });
+  if (t.broadcast) t.broadcast();
+  res.json({ ok: 1, items: d.items.length, tables: d.tables.length });
+} catch (e) { next(e); } });
 app.post('/api/super/tenants/:slug/impersonate', needSuper, (req, res) => res.json({ token: auth.sign('admin', req.params.slug, 1) }));
 app.delete('/api/super/tenants/:slug', needSuper, async (req, res, next) => { try {
   const t = await oneTenant(req.params.slug); if (!t) return res.status(404).json({});

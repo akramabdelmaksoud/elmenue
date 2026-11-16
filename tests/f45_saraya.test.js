@@ -93,3 +93,25 @@ for (const mode of ['ws', 'rpc']) test(`F45 السرايا demo link [${mode}]`,
   assert.equal((await S.J('GET', '/demo/saraya/logo.svg')).s, 200);
   assert.equal((await S.J('GET', '/captain-floor.js')).s, 200);
 });
+
+// an existing plain café gets the السرايا setup in place: login, staff, history and QR keys are kept
+for (const mode of ['ws', 'rpc']) test(`F45 apply the السرايا setup to an existing café [${mode}]`, async (t) => {
+  const S = await start(mode); t.after(() => S.stop());
+  const T = await S.tenant('vip', { name: 'السرايا' });
+  const cap = await T.staff('captain', 'Ali', '2581');
+  const before = (await S.J('GET', T.u('/config'))).j, key1 = before.tables.find((x) => x.number === 1).key;
+  const g = T.guest(3); await g.join();
+  assert.equal((await S.J('POST', `/api/super/tenants/${T.slug}/preset`, { preset: 'saraya' }, S.sup)).s, 409, 'refused while a table is open');
+  const sid = Object.values((await T.state(cap)).sessions)[0].tableId;
+  await T.rpc('captain', cap, { t: 'close_table', tableId: sid, unpaid: true });
+  assert.equal((await S.J('POST', `/api/super/tenants/${T.slug}/preset`, { preset: 'nope' }, S.sup)).s, 400);
+  assert.equal((await S.J('POST', `/api/super/tenants/${T.slug}/preset`, { preset: 'saraya' })).s, 401, 'super admin only');
+  const r = await S.J('POST', `/api/super/tenants/${T.slug}/preset`, { preset: 'saraya' }, S.sup); assert.equal(r.s, 200, JSON.stringify(r.j));
+  const c = (await S.J('GET', T.u('/config'))).j;
+  assert.ok(c.settings.staffAccess && c.settings.fireBtn && c.settings.nameFont); assert.equal(c.settings.name_ar, 'السرايا'); assert.equal(c.settings.name, 'السرايا');
+  assert.equal(c.tables.length, 16); assert.equal(c.tables.find((x) => x.number === 1).key, key1, 'printed QR codes keep working');
+  assert.ok(c.items.every((i) => i.id.startsWith('sy')) && c.items.some((i) => i.name_ar === 'شيشة تفاحتين'));
+  assert.equal((await T.api('GET', '/floor/can', undefined, cap)).s, 200, 'the captain is still signed in (captain access by role)');
+  const st = (await T.api('GET', '/staff')).j.staff.find((x) => x.name === 'Ali'); assert.deepEqual(st.access, { captain: true, cashier: false, floor: false });
+  assert.equal((await S.J('POST', T.u('/login'), { role: 'admin', email: `${T.slug}@test.dev`, password: 'Owner123!' })).s, 200, 'owner login kept');
+});
