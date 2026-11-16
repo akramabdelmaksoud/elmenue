@@ -2,11 +2,13 @@ const seed = require('./data');
 const F = require('./features');
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
-const PRESETS = ['gizera', 'frio'];   // branded prospect showrooms (presets/<name>.js)
+const PRESETS = ['gizera', 'frio', 'saraya'];   // branded cafés (presets/<name>.js)
 function freshData(demo, preset) {
-  // demo cafés get the photographed showroom menu (showroom.js); real customers start from the plain seed menu
-  const sh = demo && typeof require === 'function' ? (PRESETS.includes(preset) ? require('./presets/' + preset) : require('./showroom')) : null;   // the browser demo has no require: it keeps the plain menu
-  const d = { settings: { ...clone(seed.settings), ...(sh ? clone(sh.settings) : {}) }, categories: clone(sh ? sh.categories : seed.categories), items: clone(sh ? sh.items : seed.items), tables: clone(seed.tables), sessions: {}, history: demo ? seed.buildHistory(sh ? sh.items : undefined) : [] };
+  // demo cafés get the photographed showroom menu (showroom.js); real customers start from the plain seed menu, or from a branded preset when one is named
+  // (a real café made from a preset gets its menu, look and floor, never the sample sales history)
+  const node = typeof require === 'function', named = node && PRESETS.includes(preset);
+  const sh = named ? require('./presets/' + preset) : demo && node ? require('./showroom') : null;   // the browser demo has no require: it keeps the plain menu
+  const d = { settings: { ...clone(seed.settings), ...(sh ? clone(sh.settings) : {}) }, categories: clone(sh ? sh.categories : seed.categories), items: clone(sh ? sh.items : seed.items), tables: clone(sh && sh.tables ? sh.tables : seed.tables), sessions: {}, history: demo ? seed.buildHistory(sh ? sh.items : undefined, sh && sh.tables ? sh.tables : undefined) : [] };
   d.itemDaily = {}; d.history.forEach((h) => { const k = new Date(h.closedAt).toISOString().slice(0, 10), m = (d.itemDaily[k] ||= {}); h.items.forEach((l) => (m[l.itemId] = (m[l.itemId] || 0) + l.qty)); });
   return d;
 }
@@ -683,7 +685,7 @@ function handle(c, m) {
         break;
       }
       case 'request': {
-        const labels = { waiter: 'Call waiter', water: 'Water', napkins: 'Napkins', cutlery: 'Cutlery & covers', urgent: 'Speed up order' };
+        const labels = { waiter: 'Call waiter', water: 'Water', napkins: 'Napkins', cutlery: 'Cutlery & covers', urgent: 'Speed up order', ...(db.settings.fireBtn ? { fire: '🔥 ولعة (fresh coals)' } : {}) };
         if (!labels[m.type] || s.requests.some((r) => r.type === m.type && !r.done)) break;
         const gq = s.guests.find((x) => x.id === c.guestId); if (gq) { gq.cd ||= {}; if (Date.now() - (gq.cd[m.type] || 0) < 45000) break; gq.cd[m.type] = Date.now(); }
         s.requests.push({ id: id('r'), type: m.type, at: Date.now(), done: false, by: c.guestId });

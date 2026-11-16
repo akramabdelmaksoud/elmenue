@@ -70,6 +70,7 @@ h3 { margin:6px 0 10px; }
  <button class="ghost" id="carnew" style="display:none" onclick="PX.newTicket('car')" title="Order for a car outside"><span>🚗</span><b class="lbl">Car</b></button>
  <a href="/cars" class="ghost" id="carlnk" style="text-decoration:none;display:none" title="Car service screen"><span>🚗</span><b class="lbl">Car screen</b></a>
  <button class="ghost" onclick="PX.resDlg()" title="Reservations"><span>📅</span><b class="lbl">Reservations</b></button>
+ <button class="ghost" id="fledit" style="display:none" onclick="CF.open()" title="Edit the floor plan"><span>✏️</span><b class="lbl">Edit floor</b></button>
  <button class="ghost" id="pushb" onclick="togglePush()" aria-label="phone alerts"><span id="pushi">📲</span><b class="lbl" id="pushl">Phone alerts</b></button>
  <a href="/kitchen" class="ghost" style="text-decoration:none;display:none" id="klink"></a>
  <button class="ghost" id="snd" onclick="toggleSound()" aria-label="sound"><span id="sndi">🔕</span><b class="lbl" id="sndl">Sound off</b></button>
@@ -83,13 +84,13 @@ h3 { margin:6px 0 10px; }
 <div class="legend" id="legend"></div>
 <div class="layout"><div class="floorwrap"><div class="fl-stage" id="stage"></div><div class="tickets" id="tickets"></div><div id="chips"></div><div id="inl"></div></div><div class="side" id="side"></div></div>
 <div id="bar"></div><div id="sheet"></div><div id="banners"></div><div id="modal"></div><div id="dlg"></div>
-<script src="/shared.js"></script><script src="/ar-ui.js"></script><script src="/opts.js"></script><script src="/pos.js"></script>
+<script src="/shared.js"></script><script src="/ar-ui.js"></script><script src="/opts.js"></script><script src="/pos.js"></script><script src="/captain-floor.js"></script>
 <script>
 let listView = App.ls('cview') === 'list';
 function toggleView() { listView = !listView; App.ls('cview', listView ? 'list' : 'map'); render(); }
 let S = null, open = null, sound = false, actx = null, sheet = null;
 const NEXT = { received: 'kitchen', kitchen: 'served' };   // after the kitchen says ready the waiter serves the dishes (some or all) instead of just closing
-const RQ = { waiter: '🛎️ Call waiter', water: '💧 Water', napkins: '🧻 Napkins', cutlery: '🍴 Cutlery & covers', urgent: '⚡ Speed up', bill: '🧾 Check' };
+const RQ = { waiter: '🛎️ Call waiter', water: '💧 Water', napkins: '🧻 Napkins', cutlery: '🍴 Cutlery & covers', urgent: '⚡ Speed up', bill: '🧾 Check', fire: '🔥 <b>ولعة</b> · fresh coals' };
 // a check request is either the whole table or ONE guest's own separate check (his dishes only, with his service and tax)
 const sepAmt = (s, gid) => { const b = s.bill.byGuest[gid], c = (s.sepChecks || {})[gid] || {}; return b ? +(b.total + Math.round(b.sub * (c.tipPct || 0) / 100)).toFixed(2) : 0; };
 const reqLabel = (s, r) => { if (r.type === 'bill' && r.sep) { const g = s.guests.find((x) => x.id === r.by); return `🧾 <b>Separate check</b> · ${g ? g.avatar + ' ' + App.esc(g.name) : 'guest'} · <b>${App.money(sepAmt(s, r.by))}</b>`; } return r.type === 'bill' ? '🧾 <b>Full table check</b>' : RQ[r.type]; };
@@ -142,7 +143,7 @@ function carCard(s) {
   return `<button class="tk car ${st === 'rdy' ? 'rdy' : ''} ${c.arrived ? 'here' : ''}" onclick="openT('${s.tableId}')"><b>🚗 ${App.esc(s.tableNumber)} · ${App.esc(s.customer.name || '')}</b><small>${carLabel(c)}</small><small>${c.spot ? '📍 spot ' + App.esc(c.spot) + ' · ' : ''}${c.arrived ? '<b>✅ HERE ' + mins(c.arrived) + '</b>' : 'on the way'}</small><small>${{ rdy: '✅ ready to take out', cook: '🔥 preparing', new: '🆕 new' }[st]} · ${n} items · ${App.money(s.bill.total)} · ${mins(s.startedAt)}</small></button>`;
 }
 function start() { document.getElementById('who').textContent = App.who() ? '· ' + App.who() : ''; refreshPush(); App.connect({ t: 'join', role: 'captain' }, {
-  render(m) { if (m) S = m; render(); },
+  render(m) { if (m) S = m; render(); if (window.CF) CF.sync(); },
   notice(m) { App.toast('⚠ ' + m.msg); },
   alert(m) {
     { const num = String(m.tableNumber || ''), car = /^CR-/.test(num), tk = /^(TA|DL)-/.test(num), st = (S && S.config.settings) || {}; if (CARS ? !car : DESK ? !tk : (tk && (st.online || {}).desk) || (car && (st.car || {}).desk)) return; }
@@ -164,7 +165,7 @@ function stageHTML(cfg) {
   const tables = cfg.tables.map((t) => {
     const st = S.states[t.id], s = S.sessions[t.id], p = App.tpos(t), ds = showState(st, s, t), rv = ds === 'reserved' && resFor(t);
     const lab = { empty: 'Empty', reserved: rv ? '📅 ' + hhmm(rv.at) : 'Reserved', urgent: 'URGENT', check: s && s.check ? `🧾 ${s.check.method === 'card' ? '💳' : '💵'} ${s.check.split}` : '🧾 Receipt' }[ds] || SHOW[ds][0];
-    const bd = s ? [s.requests.some((r) => !r.done && r.type === 'waiter') && '🙋', s.requests.some((r) => !r.done && r.type === 'water') && '💧', s.requests.some((r) => !r.done && r.type === 'napkins') && '🧻', s.requests.some((r) => !r.done && r.type === 'cutlery') && '🍴', s.requests.some((r) => !r.done && r.type === 'urgent') && '⚡', s.check && '🧾', s.idle && '💤'].filter(Boolean).join('') : '';
+    const bd = s ? [s.requests.some((r) => !r.done && r.type === 'fire') && '🔥', s.requests.some((r) => !r.done && r.type === 'waiter') && '🙋', s.requests.some((r) => !r.done && r.type === 'water') && '💧', s.requests.some((r) => !r.done && r.type === 'napkins') && '🧻', s.requests.some((r) => !r.done && r.type === 'cutlery') && '🍴', s.requests.some((r) => !r.done && r.type === 'urgent') && '⚡', s.check && '🧾', s.idle && '💤'].filter(Boolean).join('') : '';
     return `<div class="fl-t ${t.shape} ${ds}" style="left:${p.fx / F.cols * 100}%;top:${p.fy / F.rows * 100}%;width:${p.fw / F.cols * 100}%;height:${p.fh / F.rows * 100}%;--m:${Math.min(p.fw, p.fh)}" onclick="openT('${t.id}')">${App.chairs(t.shape, t.seats)}<span class="bd">${bd}</span><span class="n">${t.number}</span><span class="av" title="${s && hostOf(s) ? 'Host: ' + App.esc(hostOf(s).name) : ''}">${s ? App.esc(guestsOf(s)) : ''}</span><span class="s">${lab}${s && !s.orders.length && Date.now() - (s.lastAt || s.startedAt) > 600000 ? ' 👻' : ''}${s ? ' · ' + mins(s.startedAt) : ' · ' + t.seats + ' seats'}</span><span class="m">${s ? mins(s.startedAt) : ''}</span></div>`;
   }).join('');
   return decor + tables;

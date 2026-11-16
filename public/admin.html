@@ -1012,12 +1012,17 @@ async function attDel(id) { if (!confirm('Delete this shift record?')) return; a
 async function staffTab() {
   const acc = await api('GET', '/api/account'), d = await api('GET', '/api/staff'), roles = { captain: '🧑‍✈️ Captain / floor', kitchen: '👨‍🍳 Kitchen', cashier: '💵 Cashier', driver: '🛵 Delivery driver' };
   const fmt = (x) => x.handled ? Math.round(x.respMs / x.handled / 1000) + 's' : '-';
+  // cafés with per-person access (settings.staffAccess): the owner gives or removes each screen per person
+  const ACC = !!App.config.settings.staffAccess, AK = [['captain', '🧑‍✈️', 'Waiter / Captain'], ['cashier', '💵', 'Cashier'], ['floor', '🪑', 'Edit floor']];
+  const accOf = (x) => x.access || { captain: x.role === 'captain', cashier: x.role === 'cashier', floor: false };
+  const accCell = (x) => (x.role === 'driver' ? '<td class="muted">-</td>' : `<td><div class="row wrap" style="gap:6px">${AK.map(([k, i, l]) => `<label class="pill" style="cursor:pointer;gap:4px;display:inline-flex;align-items:center;${accOf(x)[k] ? 'background:color-mix(in srgb,var(--accent) 18%,transparent);border-color:var(--accent)' : 'opacity:.6'}"><input type="checkbox" style="width:auto;margin:0" ${accOf(x)[k] ? 'checked' : ''} onchange="stfAcc('${x.id}','${k}',this.checked)"> ${i} ${l}</label>`).join('')}<button class="ghost" style="padding:6px 12px" onclick="shareStaff('${x.id}')">🔗 Share link</button></div></td>`);
   $('#main').innerHTML = `${limBar(acc, 'staff')}<h1>👥 Staff</h1><p class="muted" style="margin-top:-8px">Each person gets their own PIN, so every action is logged under their name and you can see who is fast.</p>
+  ${ACC ? `<div class="card" style="margin:0 0 12px;border-color:var(--accent)"><b>🔑 Access</b><p class="muted" style="margin:4px 0 0;font-size:13px">Tick what each person may open: the waiter / captain screen, the cashier screen, and editing the floor plan from the captain screen. Untick to take it away: that person is signed out of that screen straight away.</p></div>` : ''}
   <div class="row2" style="grid-template-columns:minmax(300px,1.2fr) minmax(260px,1fr);align-items:start">
   <div class="card" style="overflow:auto"><h3>Team</h3>
-   <table><tr><th>Name</th><th>Role</th><th>Phone</th><th>New PIN</th><th>Active</th><th></th></tr>
-   ${d.staff.map((x) => `<tr><td><input value="${App.esc(x.name)}" style="min-width:110px" onchange="stf('${x.id}',{name:this.value})"></td><td><select onchange="stf('${x.id}',{role:this.value})"><option value="captain" ${x.role === 'captain' ? 'selected' : ''}>${roles.captain}</option><option value="kitchen" ${x.role === 'kitchen' ? 'selected' : ''}>${roles.kitchen}</option><option value="cashier" ${x.role === 'cashier' ? 'selected' : ''}>${roles.cashier}</option><option value="driver" ${x.role === 'driver' ? 'selected' : ''}>${roles.driver}</option></select></td>
-    <td>${x.role === 'driver' ? `<input type="tel" placeholder="Phone" style="width:130px" value="${App.esc(x.phone || '')}" onchange="stf('${x.id}',{phone:this.value})">` : ''}</td>
+   <table><tr><th>Name</th><th>Role</th>${ACC ? '<th>Access</th>' : ''}<th>Phone</th><th>New PIN</th><th>Active</th><th></th></tr>
+   ${d.staff.map((x) => `<tr><td><input value="${App.esc(x.name)}" style="min-width:110px" onchange="stf('${x.id}',{name:this.value})"></td><td><select onchange="stf('${x.id}',{role:this.value})"><option value="captain" ${x.role === 'captain' ? 'selected' : ''}>${roles.captain}</option><option value="kitchen" ${x.role === 'kitchen' ? 'selected' : ''}>${roles.kitchen}</option><option value="cashier" ${x.role === 'cashier' ? 'selected' : ''}>${roles.cashier}</option><option value="driver" ${x.role === 'driver' ? 'selected' : ''}>${roles.driver}</option></select></td>${ACC ? accCell(x) : ''}
+    <td>${x.role === 'driver' || ACC ? `<input type="tel" placeholder="Phone" style="width:130px" value="${App.esc(x.phone || '')}" onchange="stf('${x.id}',{phone:this.value})">` : ''}</td>
     <td><input placeholder="••••" inputmode="numeric" maxlength="8" style="width:90px" onchange="if(this.value)stf('${x.id}',{pin:this.value}).then(()=>this.value='')"></td><td><input type="checkbox" style="width:22px;height:22px" ${x.active === false ? '' : 'checked'} onchange="stf('${x.id}',{active:this.checked})"></td><td><button class="ghost" onclick="if(confirm('Remove ${App.esc(x.name)}?'))api('DELETE','/api/staff/${x.id}').then(()=>{cfgKey='';render(App.state,true)})">🗑</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">No staff accounts yet - add the first one below.</td></tr>'}</table>
    <h3 style="margin-top:18px">Add a team member</h3><div class="row wrap"><input id="sn" placeholder="Name" style="max-width:170px"><select id="sr" style="max-width:190px"><option value="captain">${roles.captain}</option><option value="kitchen">${roles.kitchen}</option><option value="cashier">${roles.cashier}</option><option value="driver">${roles.driver}</option></select><input id="sph" type="tel" placeholder="Phone (drivers)" style="max-width:140px"><input id="sp" placeholder="PIN (4-8 digits)" inputmode="numeric" maxlength="8" style="max-width:150px"><button class="ghost" onclick="$('#sp').value=String(Math.floor(1000+Math.random()*9000))">🎲</button><button class="primary" onclick="addStaff()">Add</button></div>
    <p class="muted" style="font-size:12.5px;margin-top:12px">Captains sign in at <b>/captain</b>, kitchen staff at <b>/kitchen</b>, cashiers at <b>/cashier</b>, delivery drivers at <b>/driver</b>. <label class="row" style="gap:6px;margin:8px 0"><input type="checkbox" style="width:auto" ${d.legacyOff ? 'checked' : ''} onchange="api('POST','/api/legacy-pin',{off:this.checked}).then(staffTab)"> <b>Turn the old shared PIN off</b> (recommended: with a shared PIN, everyone who uses it is counted as one person in the reports)</label>The old shared PIN (${App.esc(d.legacyPin)}) still works as "Captain" - change it under Theme & settings or stop using it once everyone has their own.</p></div>
@@ -1035,7 +1040,7 @@ async function screensCard(staff) {
    <div class="row wrap" style="margin-top:12px"><select id="scr_r" style="max-width:150px" onchange="scrFill()">${Object.entries(R).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select><select id="scr_s" style="max-width:200px"></select><input id="scr_n" placeholder="Screen name (e.g. Kitchen TV)" maxlength="40" style="max-width:220px"><button class="primary" onclick="scrAdd()">Create link</button></div>`;
   scrFill();
 }
-function scrFill() { const r = $('#scr_r').value; $('#scr_s').innerHTML = '<option value="">Sign in as the screen itself</option>' + SCR.staff.filter((x) => x.active !== false && (r === 'kitchen' || x.role === r)).map((x) => `<option value="${x.id}">${App.esc(x.name)} (${x.role})</option>`).join(''); }
+function scrFill() { const r = $('#scr_r').value; $('#scr_s').innerHTML = '<option value="">Sign in as the screen itself</option>' + SCR.staff.filter((x) => x.active !== false && (r === 'kitchen' || (App.config.settings.staffAccess ? (x.access || { captain: x.role === 'captain', cashier: x.role === 'cashier' })[r] : x.role === r))).map((x) => `<option value="${x.id}">${App.esc(x.name)} (${x.role})</option>`).join(''); }
 async function scrAdd() { const r = await api('POST', '/api/screens', { role: $('#scr_r').value, staffId: $('#scr_s').value, name: $('#scr_n').value }); if (r.error) return App.toast(r.error); App.toast('Link created'); screensCard(); }
 async function shiftsCard() {
   const j = await api('GET', '/api/shifts'); if (j.error || !$('#shifts')) return;
@@ -1043,6 +1048,36 @@ async function shiftsCard() {
   $('#shifts').innerHTML = `<h3>💵 Cashier shifts</h3>${j.cur ? `<div class="card" style="margin:8px 0"><b>🟢 Open now</b> · ${App.esc(j.cur.by)} · since ${t(j.cur.openedAt)}<br>Sales ${m(j.cur.total)} (${j.cur.sales}) · Cash in drawer should be <b>${m(j.cur.expected)}</b></div>` : '<p class="muted">No shift is open.</p>'}<table><tr><th>Shift</th><th>By</th><th>Sales</th><th>Expected</th><th>Counted</th><th>Variance</th></tr>${(j.list || []).map((z) => `<tr><td>${t(z.openedAt)}</td><td>${App.esc(z.by)}</td><td>${m(z.total)}</td><td>${m(z.expected)}</td><td>${m(z.counted)}</td><td style="color:${z.variance ? 'var(--bad)' : 'var(--ok)'};font-weight:700">${z.variance > 0 ? '+' : ''}${m(z.variance)}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Closed shifts and cash variances appear here.</td></tr>'}</table>`;
 }
 async function stf(id, body) { const r = await api('PUT', '/api/staff/' + id, body); App.toast(r.error || 'Saved'); return r; }
+// 🔗 Share a private sign-in link with one person, one link per screen they may open (cafés with per-person access).
+// It reuses the screen links below: opening it once on their phone keeps them signed in as themselves, no PIN. Removing their access stops the link too.
+const SHR = { captain: ['🧑‍✈️', 'Waiter / Captain', 'شاشة الويتر / الكابتن', '/captain'], cashier: ['💵', 'Cashier', 'شاشة الكاشير', '/cashier'], kitchen: ['🍳', 'Kitchen', 'شاشة المطبخ', '/kitchen'] };
+function shrRoles(x) { const a = x.access || { captain: x.role === 'captain', cashier: x.role === 'cashier' }; return [a.captain && 'captain', a.cashier && 'cashier', x.role === 'kitchen' && 'kitchen'].filter(Boolean); }
+async function shareStaff(id) {
+  const x = (SCR.staff || []).find((s) => s.id === id); if (!x) return;
+  const j = await api('GET', '/api/screens'); if (j.error) return App.toast(j.error);
+  const mine = (j.screens || []).filter((s) => s.staffId === id), roles = shrRoles(x);
+  const old = document.getElementById('shrdlg'); if (old) old.remove();
+  const d = document.createElement('div'); d.id = 'shrdlg'; d.style.cssText = 'position:fixed;inset:0;background:#000a;z-index:60;overflow:auto;padding:20px;display:grid;place-items:center';
+  d.onclick = (e) => { if (e.target === d) d.remove(); };
+  d.innerHTML = `<div class="card" style="width:min(520px,94vw);margin:0"><div class="spread"><h3 style="margin:0">🔗 Share a link with ${App.esc(x.name)}</h3><button class="ghost" onclick="document.getElementById('shrdlg').remove()">✕</button></div>
+   <p class="muted" style="font-size:13px">Send it to ${App.esc(x.name)} only. They open it once on their phone and stay signed in as themselves, with no PIN. If you take away their access, the link stops working.</p>
+   ${roles.length ? roles.map((r) => { const s = mine.find((m) => m.role === r), [i, en] = SHR[r]; return `<div class="card" style="margin:8px 0;background:var(--card2)"><div class="spread"><b>${i} ${en}</b><span class="muted" style="font-size:12px">${s ? (s.lastSeen ? 'opened ' + App.ago(s.lastSeen) + ' ago' : 'link made, not opened yet') : 'no link yet'}</span></div>
+     <div class="row wrap" style="gap:6px;margin-top:8px"><button class="primary" onclick="shrSend('${id}','${r}')">📤 Share</button><button class="ghost" onclick="shrSend('${id}','${r}','wa')">🟢 WhatsApp</button><button class="ghost" onclick="shrSend('${id}','${r}','copy')">📋 Copy link</button>${s ? `<button class="ghost" onclick="if(confirm('Stop this link? That phone is signed out.'))api('DELETE','/api/screens/${s.id}').then(()=>{App.toast('Link stopped');shareStaff('${id}');screensCard()})">⛔ Stop link</button>` : ''}</div></div>`; }).join('')
+     : `<p>${App.esc(x.name)} has no screen to open yet. Tick <b>Waiter / Captain</b> or <b>Cashier</b> first.</p>`}</div>`;
+  document.body.appendChild(d);
+}
+async function shrSend(id, role, how) {
+  const x = (SCR.staff || []).find((s) => s.id === id); if (!x) return;
+  const j = await api('GET', '/api/screens'); let s = (j.screens || []).find((m) => m.staffId === id && m.role === role);
+  if (!s) { s = await api('POST', '/api/screens', { role, staffId: id }); if (s.error) return App.toast(s.error); }
+  const cafe = App.config.settings.name_ar || App.config.settings.name, [, , ar] = SHR[role];
+  const text = `أهلاً ${x.name} 👋\nده رابط ${ar} في ${cafe}. افتحه مرة واحدة على موبايلك وهتفضل مسجّل دخول باسمك من غير رقم سري.\nمتبعتوش لحد تاني.\n`;
+  if (how === 'wa') { const ph = String(x.phone || '').replace(/\D/g, ''); window.open('https://wa.me/' + (ph ? ph.replace(/^0/, '20') : '') + '?text=' + encodeURIComponent(text + s.url), '_blank', 'noopener'); }
+  else if (how !== 'copy' && navigator.share) { try { await navigator.share({ title: cafe, text, url: s.url }); } catch {} }
+  else { try { await navigator.clipboard.writeText(text + s.url); App.toast('Link copied ✓'); } catch { prompt('Copy this link', s.url); } }
+  shareStaff(id); screensCard();
+}
+async function stfAcc(id, key, on) { const r = await api('PUT', '/api/staff/' + id, { access: { [key]: on } }); App.toast(r.error || (on ? 'Access given ✓' : 'Access removed')); staffTab(); }
 async function addStaff() { const r = await api('POST', '/api/staff', { name: $('#sn').value, role: $('#sr').value, pin: $('#sp').value, phone: $('#sph') ? $('#sph').value : '' }); if (r.error) return App.toast(r.error); App.toast('Added ' + r.name); cfgKey = ''; render(App.state, true); }
 
 /* ---------------- Reports ---------------- */

@@ -171,6 +171,16 @@ const App = {
   LUX: ['onyx', 'ivory', 'noir', 'champagne', 'emerald', 'bordeaux', 'marble', 'royal'],
   LUXMODE: { onyx: 'dark', ivory: 'light', noir: 'dark', emerald: 'dark', bordeaux: 'dark', marble: 'light', royal: 'dark', bistro: 'light', zen: 'light', trattoria: 'light', steakhouse: 'dark', rooftop: 'dark', aurum: 'dark', ember: 'dark', sunset: 'dark', platinum: 'dark', rosegold: 'dark', sapphire: 'dark', jade: 'dark', amethyst: 'dark' },   // champagne follows the day/night switch
   isDark() { return document.documentElement.dataset.dark === '1'; },
+  // A café can write its name in its own Google font, in gold (settings.nameFont, e.g. السرايا in Aref Ruqaa). Pages put the name in an element with class "brand-name".
+  brandFont(s) {
+    const f = s && s.nameFont, fam = f && ['Aref Ruqaa', 'Reem Kufi', 'Amiri', 'El Messiri', 'Lalezar', 'Marhey', 'Cairo', 'Tajawal'].includes(f.family) ? f.family : '';
+    document.documentElement.classList.toggle('has-brand-font', !!fam);
+    if (!fam || App._brandFam === fam) return; App._brandFam = fam;
+    const w = [400, 700].includes(+f.weight) ? +f.weight : 700, l = document.createElement('link');
+    l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=' + fam.replace(/ /g, '+') + ':wght@' + w + '&display=swap'; document.head.appendChild(l);
+    const st = document.getElementById('brand-font-css') || document.head.appendChild(Object.assign(document.createElement('style'), { id: 'brand-font-css' }));
+    st.textContent = `.has-brand-font .brand-name{font-family:'${fam}',var(--serif,serif)!important;font-weight:${w};letter-spacing:0;line-height:1.25;background:linear-gradient(180deg,#f8e48a 0%,#d4af37 45%,#a07b1a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;text-shadow:none;filter:drop-shadow(0 1px 0 rgba(0,0,0,.18))}`;
+  },
   applyTheme() {
     const s = (App.config && App.config.settings) || { theme: 'bloom', lang: 'en' };
     App.lang = App.ls('lang') || s.lang || 'en';
@@ -188,8 +198,9 @@ const App = {
     let p;
     if (name === 'custom' && s.palette) {
       const b = App.PRESETS.bloom[mode], c = s.palette;
-      p = (mode === 'dark') === (lum(c.bg) < 0.5) ? { ...c } : { ...b, accent: c.accent, accent2: c.accent2 };
+      p = (mode === 'dark') === (lum(c.bg) < 0.5) ? { ...c } : mode === 'dark' && s.paletteDark ? { ...s.paletteDark } : { ...b, accent: c.accent, accent2: c.accent2 };   // a café may bring its own dark palette too
     } else p = { ...(App.PRESETS[name] || App.PRESETS.bloom)[mode] };
+    App.brandFont(s);
     const dark = mode === 'dark';
     const r = document.documentElement, set = (k, v) => r.style.setProperty(k, v);
     if (maison) {   // the Maison skin brings its own tokens (maison.css); drop any inline palette so they apply

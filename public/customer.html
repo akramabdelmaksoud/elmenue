@@ -244,6 +244,12 @@ html[data-view="only"] .addb, html[data-view="only"] .addb2, html[data-view="onl
 .hostc { padding: 14px 16px; margin-top: 12px; border-color: color-mix(in srgb, var(--accent2) 60%, var(--line)); background: color-mix(in srgb, var(--accent2) 8%, var(--card)); }
 .hostc .hl { display: flex; gap: 12px; align-items: center; } .hostc .hc { font-size: 28px; } .hostc b { font-size: 14.5px; display: block; } .hostc small { color: var(--muted); font-size: 12px; }
 .hpick { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; } .hpick button { padding: 8px 14px; border-radius: 99px; background: var(--card); border: 1.5px solid var(--line); font-weight: 700; font-size: 13px; }
+/* cafés like السرايا: the gold name (settings.nameFont) and the ولعة button (settings.fireBtn) */
+.brand-hero { display:flex; flex-direction:column; align-items:center; gap:2px; margin:6px 0 4px; text-align:center; } .brand-hero img { width:74px; height:74px; } .brand-hero h1 { margin:0; font-size:clamp(46px, 15vw, 64px); }
+.firebtn { display:flex; align-items:center; justify-content:center; gap:12px; width:100%; margin:12px 0 0; padding:16px 18px; border:0; border-radius:22px; font-size:20px; font-weight:800; color:#fff; background:linear-gradient(135deg,#ff8a1f,#e2540a); box-shadow:0 14px 30px -12px rgba(226,84,10,.7); text-align:start; }
+.firebtn b { font-size:30px; display:inline-block; animation:flick 1.2s ease-in-out infinite; } .firebtn small { display:block; font-size:12px; font-weight:600; opacity:.88; } .firebtn.sent { background:linear-gradient(135deg,#3a3a3a,#111); box-shadow:none; } .firebtn.sent b { animation:none; }
+@keyframes flick { 0%,100% { transform:scale(1) rotate(-3deg); } 50% { transform:scale(1.15) rotate(4deg); } }
+@media (prefers-reduced-motion: reduce) { .firebtn b { animation:none; } }
 </style></head>
 <body>
 <div class="amb"><i>🌿</i><i>☕</i><i>🍃</i><i>🫘</i></div>
@@ -416,7 +422,7 @@ function joinScreen() {
 /* ---------------- shell (built once, updated in place) ---------------- */
 function build() {
   const cfg = S.config.settings;
-  root.innerHTML = `<div id="shell"><header><div class="logo"><i class="tt-mark"></i><div><span id="bn"></span><small id="bt"></small></div></div>
+  root.innerHTML = `<div id="shell"><header><div class="logo"><i class="tt-mark"></i><div><span id="bn" class="brand-name"></span><small id="bt"></small></div></div>
    <div class="hbtns"><button class="ib rp" id="homeb" aria-label="Home" onclick="go('home')" hidden>${ic('home')}<b class="lbl" id="hl"></b></button><button class="ib langb rp" id="lb" onclick="App.toggleLang(event)"></button>
    <button class="ib rp" aria-label="theme" onclick="App.toggleMode(event)"><span class="ico sun">${ic('sun')}</span><span class="ico moon">${ic('moon')}</span><b class="lbl" id="ml"></b></button>
    <button class="ib bell rp" id="bellb" onclick="openSheet()">${ic('bell')}<i class="dotb" id="bdot" hidden></i></button></div><div class="micro" id="micro"></div></header>
@@ -447,7 +453,7 @@ function draw(force) {
   const openCats = cfg.categories.filter(catOpen);
   if (!cat || !openCats.find((c) => c.id === cat)) cat = openCats[0] && openCats[0].id;
   const st = cfg.settings;
-  $('#bn').textContent = App.lang === 'ar' && st.name_ar ? st.name_ar : st.name;
+  $('#bn').textContent = (App.lang === 'ar' || st.nameFont) && st.name_ar ? st.name_ar : st.name;   // a café with its own name font always shows its Arabic name
   $('#bt').textContent = `${App.tr('table')} ${tableNumber}`;
   $('#lb').innerHTML = `${ic('globe')}${App.langLabel(App.nextLang())}`; $('#lb').hidden = App.langs().length < 2; $('#hl').textContent = App.tr('home'); $('#ml').textContent = App.tr('themeLbl');
   if (!can('ordering') && (tab === 'table' || tab === 'bill')) tab = 'home';
@@ -481,13 +487,19 @@ document.addEventListener('focusout', () => { if (dirty) setTimeout(() => draw(f
 const can = (k) => { const f = (S && S.config && S.config.features) || (App.config && App.config.features); return !f || f[k] !== false; };
 const LANG_NAMES = { en: 'English', ar: 'عامية مصرية', fr: 'Franco' };
 const MICRO = [['water', '💧', 'water'], ['napkins', '🧻', 'napkins'], ['cutlery', '🍴', 'cutlery'], ['waiter', '🛎️', 'callWaiter']];
-const microHTML = (s) => MICRO.map(([t, e, k]) => `<button class="rp ${s.requests.some((r) => !r.done && r.type === t) ? 'sent' : ''}" onclick="req('${t}')"><b>${e}</b>${App.tr(k)}</button>`).join('');
+// the ولعة (fresh coals for the shisha): only in cafés that turn it on (settings.fireBtn)
+const fireOn = () => !!(S && S.config && S.config.settings.fireBtn);
+const fireL = () => (App.lang === 'en' ? 'Fresh fire' : 'ولعة');
+const fireSent = (s) => s.requests.some((r) => !r.done && r.type === 'fire');
+const microHTML = (s) => (fireOn() ? [['fire', '🔥', '']] : []).concat(MICRO).map(([t, e, k]) => `<button class="rp ${s.requests.some((r) => !r.done && r.type === t) ? 'sent' : ''}" onclick="req('${t}')"><b>${e}</b>${t === 'fire' ? fireL() : App.tr(k)}</button>`).join('');
+const fireBig = (s) => (fireOn() ? `<button class="firebtn rp rise ${fireSent(s) ? 'sent' : ''}" style="--i:1" onclick="req('fire')"><b>🔥</b><span>${fireSent(s) ? (App.lang === 'en' ? 'Fire is on its way' : 'الولعة جاية لك') : (App.lang === 'en' ? 'Order a fresh fire' : 'اطلب ولعة')}<small>${App.lang === 'en' ? 'Fresh coals for your shisha' : 'فحم جديد للشيشة'}</small></span></button>` : '');
+const brandHero = (st) => (st.nameFont ? `<div class="brand-hero rise" style="--i:0">${st.logo ? `<img src="${App.esc(st.logo)}" alt="">` : ''}<h1 class="brand-name">${App.esc(st.name_ar || st.name)}</h1></div>` : '');
 function setLang(l, ev) { App.transition(() => { App.ls('lang', l); App.applyTheme(); draw(true); }, ev); }
 function copyWifi() { const p = S.config.settings.wifiPass || ''; try { navigator.clipboard.writeText(p); } catch {} App.toast('📶 ' + App.tr('copied')); }
 function landing(cfg, s) {
   const st = cfg.settings, ar = App.lang === 'ar', promos = (st.promos || []).filter((p) => p.title || p.text), langs = App.langs();
   return `${langs.length > 1 ? `<div class="c li rise" style="--i:0"><div class="eyebrow">${App.tr('pickLang')}</div><div class="seg">${langs.map((l) => `<button class="rp ${App.lang === l ? 'on' : ''}" onclick="setLang('${l}',event)">${LANG_NAMES[l]}</button>`).join('')}</div></div>` : ''}
-  <button class="send rp rise cta" style="--i:1" onclick="go('menu')">${ic('cup')}${App.tr('showMenu')}</button>
+  <button class="send rp rise cta" style="--i:1" onclick="go('menu')">${ic('cup')}${App.tr('showMenu')}</button>${fireBig(s)}
   <div class="c li rise" style="--i:3"><div class="eyebrow">${App.tr('quickAct')}</div><div class="micro" style="margin-top:8px">${microHTML(s)}</div></div>
   ${promos.length ? `<div class="promos rise" style="--i:4">${promos.map((p) => `<div><b>🎁 ${App.esc(ar && p.title_ar ? p.title_ar : p.title)}</b><span>${App.esc(ar && p.text_ar ? p.text_ar : p.text)}</span></div>`).join('')}</div>` : ''}
   ${st.wifi ? `<button class="c wifi rp rise" style="--i:5" onclick="copyWifi()">📶<div><b>${App.esc(st.wifi)}</b><small>${App.tr('wifiPass')}: <code>${App.esc(st.wifiPass || '—')}</code></small></div><span>${App.tr('tapCopy')}</span></button>` : ''}`;
@@ -520,7 +532,7 @@ function homeTab(cfg, s) {
   const dish = feats[0] || its[0], hero = feats[1] || its.find((i) => i !== dish && i.cat !== (dish && dish.cat)) || its[1];
   const pop = cfg.categories.map((c) => its.find((i) => i.cat === c.id)).filter(Boolean).slice(0, 7);
   const lines = tag.replace(/([,،])\s*/, '$1<br><em>') + '</em>';
-  return `<section class="hero rise" style="--i:0"><div><h2>${lines.includes('<em>') ? lines : `<em>${tag}</em>`}</h2><p>${App.esc(sub)}</p></div><div class="mugw">${MUG}</div></section>
+  return `${brandHero(st)}<section class="hero rise" style="--i:0"><div><h2>${lines.includes('<em>') ? lines : `<em>${tag}</em>`}</h2><p>${App.esc(sub)}</p></div><div class="mugw">${MUG}</div></section>
   ${landing(cfg, s)}
   <p class="muted rise" style="--i:1;margin:14px 0 0">${App.tr('hello')}, <b style="color:var(--text)">${App.esc(me.name)}</b> ${me.avatar}</p>
   ${dish ? `<div class="c dish tilt rise" style="--i:2"><div class="t"><div class="eyebrow">${App.tr('dayItem')}</div><h3>${App.esc(App.nm(dish))}</h3><p>${App.esc(dish.desc)}</p><button class="lnk" onclick="add('${dish.id}',this)">${App.tr('viewDetails')} <span class="arr">${ic('arrow').replace('<svg', '<svg width="16" height="16"')}</span></button></div>${artOf(cfg, dish, '', 1)}</div>` : ''}
@@ -744,7 +756,7 @@ function sendMine(el) { burstAt(el); App.send({ t: 'send_order' }); App.toast(Ap
 function sendAll(el) { burstAt(el); App.send({ t: 'send_order', scope: 'all' }); App.toast(App.tr('orderSent')); }
 function openSheet() {
   $('#layer').innerHTML = `<div class="sheetbg" onclick="closeSheet()"></div><div class="sheet"><div class="grab"></div><h3 class="serif" style="font-size:24px">${App.tr('quickAct')}</h3>
-  <div class="acts"><button class="act rp" onclick="req('waiter')">${ic('bell')}${App.tr('callWaiter')}</button><button class="act rp" onclick="req('water')">💧 ${App.tr('water')}</button><button class="act rp" onclick="req('napkins')">🧻 ${App.tr('napkins')}</button><button class="act rp" onclick="req('cutlery')">🍴 ${App.tr('cutlery')}</button>
+  <div class="acts">${fireOn() ? `<button class="act rp" onclick="req('fire')">🔥 ${fireL()}</button>` : ''}<button class="act rp" onclick="req('waiter')">${ic('bell')}${App.tr('callWaiter')}</button><button class="act rp" onclick="req('water')">💧 ${App.tr('water')}</button><button class="act rp" onclick="req('napkins')">🧻 ${App.tr('napkins')}</button><button class="act rp" onclick="req('cutlery')">🍴 ${App.tr('cutlery')}</button>
   <button class="act rp urg" onclick="req('urgent')">${ic('bolt')}${App.tr('urgent')}</button><button class="act rp" onclick="closeSheet();go('bill')">${ic('receipt')}${App.tr('reqBill')}</button></div></div>`;
 }
 function closeSheet() { const l = $('#layer'); const sh = l.querySelector('.sheet'); if (!sh) return; sh.style.transition = 'transform .35s'; sh.style.transform = 'translate(-50%,100%)'; setTimeout(() => (l.innerHTML = ''), 320); }
