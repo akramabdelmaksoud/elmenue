@@ -75,8 +75,8 @@ main{max-width:1180px;margin:auto;padding:26px 16px 140px}
 .sec h2 i{font-style:normal;font-size:1.2em;display:inline-block}.sec h2:hover i{animation:wob 1.2s ease-in-out}
 @keyframes wob{50%{transform:rotate(-12deg) translateY(-4px)}}
 .sec .sub{color:var(--dim);margin-bottom:16px;font-size:15px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
-.it{position:relative;display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:24px;border:1px solid var(--line);background:var(--card);overflow:hidden;
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.it{position:relative;display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:24px;border:1px solid rgba(255,226,192,.17);background:var(--card);box-shadow:0 10px 24px -10px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,226,192,.22);overflow:hidden;
 opacity:0;transform:translateY(-70px) rotate(var(--r,0deg));transition:border-color .3s,background .3s,box-shadow .4s}
 .it.in{animation:drop .9s var(--d,0ms) var(--ease) both}
 @keyframes drop{0%{opacity:0;transform:translateY(-90px) rotate(var(--r))}55%{opacity:1;transform:translateY(8px) rotate(0)}75%{transform:translateY(-6px)}100%{opacity:1;transform:none}}
@@ -96,6 +96,24 @@ opacity:0;transform:translateY(-70px) rotate(var(--r,0deg));transition:border-co
 .chip b{color:var(--c3)}
 .empty{text-align:center;color:var(--dim);padding:60px 0;font-size:18px;display:none}
 
+/* hero stat chips */
+.stats{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:22px;animation:rise 1s .4s var(--soft) both}
+.stats span{display:inline-flex;gap:6px;align-items:baseline;padding:8px 14px;border-radius:99px;background:rgba(255,255,255,.07);border:1px solid rgba(255,226,192,.22);color:var(--muted);font-weight:700;font-size:13.5px}
+.stats b{color:var(--c3);font-weight:900;font-size:15.5px}
+/* featured picks */
+.sec h2.acc:before{content:"";width:5px;height:26px;border-radius:3px;background:var(--g);flex:none}
+.fgrid{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:6px 2px 14px;scrollbar-width:none}.fgrid::-webkit-scrollbar{display:none}
+.fcard{position:relative;flex:0 0 190px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:14px 16px 16px;border-radius:28px;border:1px solid rgba(255,226,192,.3);
+background:linear-gradient(150deg,rgba(255,148,25,.34),rgba(255,79,94,.16));box-shadow:0 18px 34px -16px rgba(255,122,47,.45),inset 0 1px 0 rgba(255,226,192,.35);opacity:0;transform:translateY(-70px) rotate(var(--r,0deg));transition:transform .5s var(--ease),box-shadow .4s}
+.fcard.in{animation:drop .9s var(--d,0ms) var(--ease) both}
+.fcard:hover{transform:translateY(-8px);box-shadow:0 28px 48px -16px rgba(255,122,47,.7),inset 0 1px 0 rgba(255,226,192,.45)}
+.fcard .bd{padding:2px 10px;border-radius:99px;background:#fff4e6;color:var(--ink,#2a0d02);font-weight:900;font-size:11.5px}
+.fcard .big{font-size:64px;line-height:1.15;display:inline-block;transition:transform .6s var(--ease)}.fcard:hover .big{transform:translateY(-8px) rotate(-10deg) scale(1.15)}
+.fcard .fn{font-weight:900;font-size:19px;line-height:1.3}
+.fcard .fb{width:100%;display:flex;align-items:center;justify-content:space-between;margin-top:4px}
+.fcard .pr{font-size:20px}
+.fcard .add{width:40px;height:40px;font-size:24px}
+@media(min-width:900px){.fgrid{display:grid;grid-template-columns:repeat(4,1fr);overflow:visible;padding-bottom:6px}.fcard{flex:none}}
 /* flying item */
 .fly{position:fixed;z-index:200;font-size:34px;pointer-events:none;will-change:transform}
 
@@ -146,7 +164,8 @@ footer b{color:var(--muted)}footer a{color:var(--c3);font-weight:700}
     <span class="tag">📍 مدينة نصر · شارع الورش، بجوار مسجد السلام</span>
     <h1>السرايا كافيه</h1>
     <p>شاي وقهوة وأعشاب وعصائر طازة وحلويات بتفتح النفس. اطلب من موبايلك، ولو احتاجت حاجة نادي الكابتن بضغطة.</p>
-    <div class="cta"><a class="btn p" href="#sec-hot">☕ شوف المنيو</a><button class="btn s" id="more">🥤 أنزل مشروبات تاني</button></div>
+    <div class="cta"><a class="btn p" href="#sec-pick">☕ شوف المنيو</a><button class="btn s" id="more">🥤 أنزل مشروبات تاني</button></div>
+    <div class="stats"><span><b data-n="84">84</b> صنف</span><span><b data-n="5">5</b> أقسام</span><span>الطلب في <b>ثواني</b></span></div>
   </div>
   <div class="steam" aria-hidden="true"><i style="inset-inline-start:8px;animation-delay:0s"></i><i style="inset-inline-start:26px;animation-delay:1.1s"></i><i style="inset-inline-start:44px;animation-delay:2.2s"></i></div>
   <div class="floor"></div>
@@ -215,14 +234,25 @@ MENU.forEach(function (c) {
 menuEl.insertAdjacentHTML('beforeend', '<section class="sec" id="sec-extra"><h2><i>✨</i>الإضافات</h2><p class="sub">أي إضافة على مشروبك بـ 10 جنيه</p><div class="extras">' + EXTRAS.map(function (x, i) { return '<span class="chip" style="--d:' + i * 80 + 'ms">' + x + ' <b>+10</b></span>'; }).join('') + '</div></section>');
 catsEl.insertAdjacentHTML('beforeend', '<button class="cat" data-c="extra"><i>✨</i>الإضافات</button>');
 
+// house picks (first section of the menu)
+var PICKS = [['كابتشينو', '☕'], ['سوبر السرايا', '🍹'], ['أم علي بالقشطة', '🍮'], ['ميلك شيك لوتس', '🥤']];
+(function () {
+  var h = '<section class="sec" id="sec-pick"><h2 class="acc">اختيارات السرايا</h2><p class="sub">اللي بيطلبه ناس كتير عندنا</p><div class="fgrid">';
+  PICKS.forEach(function (p, i) {
+    var a = all.filter(function (x) { return x.n === p[0]; })[0]; if (!a) return;
+    h += '<div class="fcard" data-id="' + a.id + '" data-n="' + esc(a.n) + '" style="--d:' + (i * 90) + 'ms;--r:' + ((i % 2 ? 1 : -1) * (5 + i * 2)) + 'deg"><span class="bd">⭐ اختيارنا</span><span class="big">' + p[1] + '</span><span class="fn">' + esc(a.n) + '</span><div class="fb"><div class="pr">' + a.p + '<small>ج</small></div><button class="add" aria-label="أضف ' + esc(a.n) + '">+</button></div></div>';
+  });
+  menuEl.insertAdjacentHTML('afterbegin', h + '</div></section>');
+})();
 // items drop in when they scroll into view
 var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }); }, { rootMargin: '0px 0px -8% 0px' });
-document.querySelectorAll('.it,.chip').forEach(function (e) { io.observe(e); });
+document.querySelectorAll('.it,.chip,.fcard').forEach(function (e) { io.observe(e); });
 // glow follows the pointer on a card
 var pm = null; if (matchMedia('(hover:hover)').matches) menuEl.addEventListener('pointermove', function (e) { var c = e.target.closest('.it'); if (!c || pm) return; pm = requestAnimationFrame(function () { pm = null; var r = c.getBoundingClientRect(); c.style.setProperty('--mx', (e.clientX - r.left) + 'px'); c.style.setProperty('--my', (e.clientY - r.top) + 'px'); }); });
 
 // category bar: jump, and highlight the section on screen
 catsEl.addEventListener('click', function (e) { var b = e.target.closest('.cat'); if (b) scrollTo({ top: $('#sec-' + b.dataset.c).getBoundingClientRect().top + scrollY - 140, behavior: REDUCE ? 'auto' : 'smooth' }); });
+catsEl.insertAdjacentHTML('afterbegin', '<button class="cat" data-c="pick"><i>⭐</i>اختيارات</button>');
 var secs = [].slice.call(document.querySelectorAll('.sec')), catBtns = [].slice.call(catsEl.querySelectorAll('.cat')), curSec = null, tick = false;
 function spy() {
   tick = false; var y = 170, cur = secs[0];
@@ -236,7 +266,7 @@ addEventListener('scroll', function () { if (!tick) { tick = true; requestAnimat
 $('#q').addEventListener('input', function () {
   var v = this.value.trim(), n = 0;
   document.querySelectorAll('.it').forEach(function (e) { var ok = !v || e.dataset.n.indexOf(v) > -1; e.style.display = ok ? '' : 'none'; if (ok) { n++; e.classList.add('in'); } });
-  document.querySelectorAll('.sec').forEach(function (s) { var g = s.querySelector('.grid'); if (g) s.style.display = g.querySelector('.it:not([style*="display: none"])') ? '' : 'none'; });
+  document.querySelectorAll('.sec').forEach(function (s) { if (s.id === 'sec-pick') { s.style.display = v ? 'none' : ''; return; } var g = s.querySelector('.grid'); if (g) s.style.display = g.querySelector('.it:not([style*="display: none"])') ? '' : 'none'; });
   $('#empty').style.display = n ? 'none' : 'block';
 });
 
@@ -264,7 +294,7 @@ function fly(from, emoji) {
 function bumpCart() { var b = $('#cartBtn'); b.classList.remove('bump'); void b.offsetWidth; b.classList.add('bump'); }
 menuEl.addEventListener('click', function (e) {
   var b = e.target.closest('.add'); if (!b) return;
-  var card = b.closest('.it'), id = card.dataset.id; cart[id] = (cart[id] || 0) + 1; paint(); fly(b, byId[id].e);
+  var card = b.closest('[data-id]'), id = card.dataset.id; cart[id] = (cart[id] || 0) + 1; paint(); fly(b, byId[id].e);
 });
 $('#lines').addEventListener('click', function (e) { var m = e.target.closest('[data-m]'), p = e.target.closest('[data-p]');
   if (p) cart[p.dataset.p]++; if (m) { var k = m.dataset.m; if (--cart[k] <= 0) delete cart[k]; } paint(); });
@@ -308,6 +338,7 @@ setTimeout(function () { rain(5); }, 300);
 hero.addEventListener('pointerdown', function (e) { if (e.target.closest('a,button')) return; var r = hero.getBoundingClientRect(); rain(4, e.clientX - r.left - 20); });
 $('#more').onclick = function () { rain(8); };
 // the cup in the hero leans toward the pointer
+document.querySelectorAll('.stats b[data-n]').forEach(function (b) { var to = +b.dataset.n, t0 = performance.now(); if (REDUCE) return; (function f(t) { var k = Math.min(1, (t - t0) / 1400); b.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(f); })(t0); });
 paint();
 </script>
 </body>
