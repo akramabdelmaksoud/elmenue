@@ -707,6 +707,18 @@ function handle(c, m) {
         }
         break;
       }
+      // ---- table game room: one per table, host-authoritative. The host's phone runs the game and posts snapshots; the others send small intents. ----
+      case 'room_open': case 'room_join': {
+        const CAP = { xo: 2, ludo: 4 }, R = s.room, live = !!R && Date.now() - R.at < 25 * 60000, game = m.t === 'room_join' ? (live ? R.game : '') : String(m.game || '');
+        if (!CAP[game]) break;
+        if (live && R.game === game) { if (!R.snap && R.seats.length < CAP[game] && !R.seats.includes(c.guestId)) { R.seats.push(c.guestId); R.at = Date.now(); } break; }
+        if (m.t === 'room_open' && (!live || R.host === c.guestId)) s.room = { id: id('g'), game, host: c.guestId, seats: [c.guestId], snap: null, rev: 0, seq: 0, intents: [], at: Date.now() };
+        break;
+      }
+      case 'room_leave': { const R = s.room; if (!R) break; R.seats = R.seats.filter((x) => x !== c.guestId); if (R.host === c.guestId || !R.seats.length) s.room = null; else R.at = Date.now(); break; }
+      case 'room_snap': { const R = s.room; if (!R || R.host !== c.guestId || typeof m.snap !== 'string' || !m.snap || m.snap.length > 3000) break; R.snap = m.snap; R.rev++; R.at = Date.now(); break; }
+      case 'room_intent': { const R = s.room, i = R ? R.seats.indexOf(c.guestId) : -1; if (!R || i < 0 || R.host === c.guestId || !R.snap) break; R.intents.push({ n: ++R.seq, seat: i, a: String(m.a || '').slice(0, 2), p: Math.max(0, Math.min(9, Math.floor(+m.p) || 0)) }); R.intents = R.intents.slice(-20); R.at = Date.now(); break; }
+      case 'room_ack': { const R = s.room; if (R && R.host === c.guestId) R.intents = R.intents.filter((x) => x.n > (+m.n || 0)); break; }
       case 'request': {
         const labels = { waiter: 'Call waiter', water: 'Water', napkins: 'Napkins', cutlery: 'Cutlery & covers', urgent: 'Speed up order', coal: 'Shisha coal' };
         if (!labels[m.type] || (m.type === 'coal' && !db.settings.shisha) || s.requests.some((r) => r.type === m.type && !r.done)) break;

@@ -33,6 +33,14 @@ button{font:inherit;color:inherit;cursor:pointer;border:0}
 .cd{position:absolute;inset-inline:0;top:0;aspect-ratio:5/7;border-radius:8px;background:#fff;color:#111;font-weight:800;font-size:clamp(11px,3.4vw,17px);padding:3px 4px;box-shadow:0 1px 3px #0008;transition:transform .2s;line-height:1.1}
 .cd.r{color:#d3213d}.cd.dn{background:repeating-linear-gradient(45deg,#8a3b12 0 6px,#a8481a 6px 12px);color:transparent;border:2px solid #fff}.cd.sel{outline:3px solid var(--acc2);transform:translateY(-4px);z-index:5}
 .cd b{display:block;font-size:1.5em}.col{position:relative;aspect-ratio:5/7}.col .cd{position:absolute}
+
+/* xo + words + lobby */
+.xob{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:360px;margin:10px auto}.xob button{aspect-ratio:1;border-radius:18px;background:var(--card);border:2px solid var(--line);font-size:clamp(40px,16vw,72px);font-weight:900;line-height:1}.xob button.x{color:#ff7a2f}.xob button.o{color:#6ec6ff}.xob button.w{background:#ffbe5c33;border-color:var(--acc2);animation:pop .5s}@keyframes pop{50%{transform:scale(1.1)}}
+.xov{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px}.xov div{flex:1;padding:10px;border-radius:16px;background:var(--card);border:2px solid var(--line);text-align:center;font-weight:800}.xov div.on{border-color:var(--acc);background:#ff7a2f22}
+.lob{display:grid;gap:10px;margin-top:10px}.seat{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:16px;background:var(--card);border:1px solid var(--line);font-weight:700}.seat.e{color:var(--muted);border-style:dashed}
+.join{background:#1f7a4d;color:#fff;border-radius:16px;padding:12px 14px;font-weight:800;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:8px}.join button{background:#fff;color:#1f7a4d;border-radius:99px;padding:8px 16px;font-weight:900}
+.clue{padding:14px;border-radius:18px;background:var(--card);border:1px solid var(--line);text-align:center;font-size:18px;font-weight:700;margin:8px 0}.clue small{display:block;color:var(--muted);font-weight:600;margin-bottom:4px}
+.wslots,.wtiles{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0;direction:rtl}.wslots button,.wtiles button{width:48px;height:56px;border-radius:14px;font-size:28px;font-weight:900;background:var(--card);border:2px solid var(--line)}.wslots button{border-color:var(--acc);background:#ff7a2f14}.wslots button.ok{background:#1f7a4d;border-color:#2ecc71;color:#fff;animation:pop .5s}.wslots.bad{animation:shake .4s}.wtiles button{background:var(--acc);color:#2a0d02;border:0;box-shadow:0 4px 0 #b34d10}.wtiles button:disabled{opacity:.25;box-shadow:none}.wr{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
 </style></head><body>
 <div class="top"><h1 id="ttl"></h1><div style="display:flex;gap:8px"><button class="btn g" id="home" hidden></button><button class="btn" id="again" hidden></button></div></div>
 <div id="v"></div>
@@ -42,16 +50,132 @@ button{font:inherit;color:inherit;cursor:pointer;border:0}
   if (AR) { document.documentElement.lang = 'ar'; document.documentElement.dir = 'rtl'; }
   var T = AR ? { games: 'ألعاب', pick: 'اختار لعبة', ludo: 'لودو', ludoD: 'ضد 3 لاعبين من الكمبيوتر', sudoku: 'سودوكو', sudokuD: 'ملّي الأرقام من 1 إلى 9', sol: 'سوليتير', solD: 'رتّب الكروت على الأساسات', back: 'القائمة', again: 'لعبة جديدة', roll: 'ارمي النرد', you: 'إنت', yourTurn: 'دورك', wins: 'كسب!', youWin: 'مبروك! كسبت 🎉', easy: 'سهل', med: 'متوسط', hard: 'صعب', check: 'تحقق', erase: 'مسح', ok: 'ممتاز! الحل صح 🎉', bad: 'فيه أرقام متكررة', hint: 'تلميح', draw: 'اسحب', auto: 'تلقائي', solved: 'مبروك! خلّصت اللعبة 🎉', p: ['أحمر', 'أخضر', 'أصفر', 'أزرق'], pickPiece: 'اختار القطعة', noMove: 'مفيش حركة', six: 'ستة! ارمي تاني' }
     : { games: 'Games', pick: 'Pick a game', ludo: 'Ludo', ludoD: 'You against 3 computer players', sudoku: 'Sudoku', sudokuD: 'Fill the grid with 1 to 9', sol: 'Solitaire', solD: 'Build the four suits up from the ace', back: 'Menu', again: 'New game', roll: 'Roll dice', you: 'You', yourTurn: 'Your turn', wins: 'wins!', youWin: 'You win! 🎉', easy: 'Easy', med: 'Medium', hard: 'Hard', check: 'Check', erase: 'Erase', ok: 'Perfect, solved 🎉', bad: 'Some numbers clash', hint: 'Hint', draw: 'Draw', auto: 'Auto', solved: 'You finished it! 🎉', p: ['Red', 'Green', 'Yellow', 'Blue'], pickPiece: 'Pick a piece', noMove: 'No move', six: 'Six! Roll again' };
+  var X = AR ? { xo: 'إكس أو', xoD: 'العب ضد الكمبيوتر أو ضد صاحبك على الطاولة', words: 'كلمات متقطعة', wordsD: 'رتّب الحروف وطلّع الكلمة، وكل مرة كلمة جديدة', ludoD2: 'ضد الكمبيوتر أو مع اللي قاعدين معاك', withTable: 'العب مع الطاولة', vsPc: 'ضد الكمبيوتر', joinG: 'ادخل اللعبة', startG: 'ابدأ اللعبة', leave: 'اطلع', waitP: 'مستني لاعبين…', seat: 'مكان فاضي', open: 'فتح', joinIt: 'انضم', needTwo: 'محتاج لاعب تاني على الأقل', hostLeft: 'اللي فتح اللعبة خرج', rematch: 'جولة تانية', draw: 'تعادل!', turnOf: 'دور', won: 'كسب 🎉', random: 'كلمة جديدة', hintB: 'تلميح', clr: 'امسح', skip: 'تخطي', right: 'برافو! الكلمة صح 🎉', wrong: 'لسه مش مظبوطة، جرّب تاني', score: 'كلمات صح', busy: 'فيه لعبة تانية شغالة على الطاولة', youX: 'إنت', bot: 'الكمبيوتر', host: 'صاحب اللعبة', spec: 'اللعبة شغالة بالفعل' }
+    : { xo: 'Tic-Tac-Toe', xoD: 'Against the computer or a friend at your table', words: 'Scrambled words', wordsD: 'Put the letters in order, a new Egyptian word every time', ludoD2: 'Against the computer or the people at your table', withTable: 'Play with the table', vsPc: 'Against the computer', joinG: 'Join the game', startG: 'Start game', leave: 'Leave', waitP: 'Waiting for players…', seat: 'Open seat', open: 'opened', joinIt: 'Join', needTwo: 'Needs at least one more player', hostLeft: 'The host left', rematch: 'Play again', draw: 'Draw!', turnOf: 'Turn:', won: 'wins 🎉', random: 'New word', hintB: 'Hint', clr: 'Clear', skip: 'Skip', right: 'Correct! 🎉', wrong: 'Not yet, try again', score: 'Solved', busy: 'Another game is running at your table', youX: 'You', bot: 'Computer', host: 'Host', spec: 'Game already running' };
+  var WORDS = [["كشري", "أكلة مصرية شعبية مكرونة وعدس وأرز", "🍲"], ["فول", "فطار الغلابة بالزيت والليمون", "🍲"], ["طعمية", "الشوام بيسموها فلافل", "🍲"], ["ملوخية", "خضرة بتتقطع ناعم وبتتاكل مع الفراخ", "🍲"], ["محشي", "ورق عنب وكرنب وكوسة", "🍲"], ["فتة", "أكلة العيد باللحمة والأرز والخل", "🍲"], ["حواوشي", "عيش محشي لحمة مفرومة", "🍲"], ["كبدة", "بتتاكل في سندوتش اسكندراني", "🍲"], ["مكرونة", "بالصلصة أو بالبشاميل", "🍲"], ["بطاطس", "مقلية أو مسلوقة", "🍲"], ["فراخ", "طيور بتتاكل مشوي أو محمر", "🍲"], ["سمك", "بيتقلي أو بيتشوي", "🍲"], ["لحمة", "كيلوها بقى غالي", "🍲"], ["جبنة", "بتتاكل على الفطار مع العيش", "🍲"], ["عيش", "مفيش مصري يستغنى عنه", "🍲"], ["بيض", "مع الفول الصبح", "🍲"], ["لبن", "بيجي من البقرة", "🍲"], ["سكر", "حلو ومعاه الشاي", "🍲"], ["ملح", "لازم في الأكل بس بحساب", "🍲"], ["طماطم", "بتتحط في السلطة والصلصة", "🍲"], ["خيار", "أخضر ومنعش في السلطة", "🍲"], ["جزر", "برتقالي وبيقوي النظر", "🍲"], ["كوسة", "بتتحشي أو بتتسلق", "🍲"], ["باذنجان", "لونه بنفسجي وبيتقلي ويتخلل", "🍲"], ["ثوم", "ريحته قوية جدا", "🍲"], ["بصل", "بيبكيك وانت بتقطعه", "🍲"], ["بسبوسة", "حلوى سميد وشربات", "🍰"], ["كنافة", "حلوى بالقشطة أو المكسرات", "🍰"], ["قطايف", "حلوى رمضان المحشية", "🍰"], ["مهلبية", "حلوى بالنشا واللبن", "🍰"], ["شاي", "المشروب المصري الأصلي بعد الغدا", "☕"], ["قهوة", "بتصحصحك الصبح", "☕"], ["عصير", "بيتعمل من الفاكهة", "☕"], ["سحلب", "مشروب شتوي سخن بالمكسرات", "☕"], ["ينسون", "مشروب بيهدي المعدة", "☕"], ["كركديه", "مشروب أحمر ساقع في رمضان", "☕"], ["قرفة", "مشروب سخن ريحته حلوة وبتتحط على الأرز باللبن", "☕"], ["ليمون", "فاكهة حامضة مشهورة", "🍋"], ["مانجو", "ملكة الفاكهة في الصيف", "🥭"], ["جوافة", "فاكهة ريحتها قوية", "🍈"], ["برتقال", "فاكهة وعصيرها فيه فيتامين سي", "🍊"], ["بطيخ", "فاكهة الصيف الكبيرة الحمرا", "🍉"], ["فراولة", "فاكهة حمرا صغيرة بتتحط على الكيك", "🍓"], ["موز", "فاكهة صفرا والقرد بيحبها", "🍌"], ["تمر", "بنفطر بيه في رمضان", "🍎"], ["رمان", "فاكهة حباتها حمرا كتير", "🍎"], ["جرسون", "اللي بيجيبلك الطلبات في الكافيه", "🍽️"], ["منيو", "بتختار منها الأكل", "🍽️"], ["حساب", "بتطلبه لما تخلص", "🍽️"], ["طاولة", "بتقعد حواليها في الكافيه", "🍽️"], ["كرسي", "بتقعد عليه", "🍽️"], ["شيشة", "بتتشرب بالفحم والمعسل", "🍽️"], ["فحم", "بيولع الشيشة", "🍽️"], ["معسل", "طعم الشيشة", "🍽️"], ["كباية", "بتشرب فيها الشاي", "🍽️"], ["فنجان", "بتشرب فيه القهوة", "🍽️"], ["طبق", "بتاكل فيه", "🍽️"], ["معلقة", "بتقلب بيها الشاي", "🍽️"], ["شوكة", "بتاكل بيها المكرونة", "🍽️"], ["سكينة", "بتقطع بيها اللحمة", "🍽️"], ["ثلج", "بيبرد العصير", "🍽️"], ["مناديل", "بتمسح بيها إيدك", "🍽️"], ["أهرام", "في الجيزة وعمرها آلاف السنين", "📍"], ["النيل", "أطول نهر في العالم", "📍"], ["القاهرة", "عاصمة مصر", "📍"], ["إسكندرية", "عروس البحر المتوسط", "📍"], ["الأقصر", "مدينة فيها معابد وآثار كتير", "📍"], ["أسوان", "فيها النوبة والسد العالي", "📍"], ["مترو", "بتركبه تحت الأرض", "🚇"], ["توكتوك", "مركوب بتلات عجلات", "🚇"], ["ميكروباص", "بتقول فيه على جنب يا أسطى", "🚇"], ["عربية", "بتسوقها وليها أربع عجلات", "🚇"], ["أسطى", "معلم الصنعة", "💬"], ["إزيك", "بتقولها لما تسلم على حد", "💬"], ["يلا", "يعني هيا أو تعالى", "💬"], ["خلاص", "يعني انتهى", "💬"], ["دلوقتي", "يعني في الوقت ده", "💬"], ["كمان", "يعني زيادة", "💬"], ["معلش", "بتقولها لما حد يزعل", "💬"], ["ماشي", "يعني موافق", "💬"], ["حبيبي", "بتقولها لصاحبك", "💬"], ["صاحبي", "الصديق", "💬"], ["فلوس", "بنشتغل عشانها", "💰"], ["جنيه", "عملة مصر", "💰"], ["قرش", "جزء من مية من الجنيه", "💰"], ["موبايل", "بتتكلم فيه وتتفرج عليه", "📱"], ["شاحن", "بتشحن بيه الموبايل", "📱"], ["مروحة", "بتهوي في الصيف", "🏠"], ["تكييف", "بيبرد الأوضة", "🏠"], ["تلاجة", "بتحط فيها الأكل عشان ميبوظش", "🏠"], ["غسالة", "بتغسل الهدوم", "🏠"], ["بوتاجاز", "بتطبخ عليه", "🏠"], ["سرير", "بتنام عليه", "🏠"], ["شباك", "بتبص منه على الشارع", "🏠"], ["شنطة", "بتحط فيها حاجتك", "🏠"], ["نضارة", "بتتحط على العين", "🏠"], ["ساعة", "بتعرف منها الوقت", "🏠"], ["كورة", "اللعبة الأشهر في مصر", "⚽"], ["أهلي", "نادي أحمر مشهور", "⚽"], ["زمالك", "نادي أبيض مشهور", "⚽"], ["صلاح", "لاعب مصري عالمي", "⚽"], ["فرحة", "لما تكون مبسوط", "🎉"], ["عيد", "إجازة وفرحة وعيدية", "🎉"], ["رمضان", "شهر الصيام", "🌙"], ["عيدية", "فلوس العيد", "🌙"], ["فانوس", "بيتعلق في رمضان", "🌙"], ["مدفع", "بيضرب وقت الإفطار", "🌙"], ["مسحراتي", "بيصحيك على السحور", "🌙"], ["سحور", "وجبة قبل الفجر", "🌙"], ["إفطار", "وجبة المغرب في رمضان", "🌙"], ["صيف", "فصل الحر", "🌤️"], ["شتا", "فصل البرد", "🌤️"], ["مطر", "بينزل من السما", "🌤️"], ["شمس", "بتطلع الصبح", "🌤️"], ["قمر", "بيطلع بالليل", "🌤️"], ["نجمة", "بتلمع في السما", "🌤️"], ["بحر", "مياه مالحة كبيرة", "🏖️"], ["رمل", "على الشاطئ", "🏖️"], ["شاطئ", "بتتفسح عليه في الصيف", "🏖️"]];
+  // bridge to the guest app (the parent page owns the table connection)
+  var Room = { on: window.parent !== window, st: null, me: null, guests: [], sub: null, inRoom: false };
+  Room.send = function (m) { if (Room.on) parent.postMessage({ tt: 'room', m: m }, '*'); };
+  Room.name = function (gid) { var g = Room.guests.filter(function (x) { return x.id === gid; })[0]; return g ? (g.avatar || '') + ' ' + g.name : '?'; };
+  Room.seated = function (game) { return !!(Room.st && Room.st.game === game && Room.st.seats.indexOf(Room.me) >= 0); };
+  addEventListener('message', function (e) { var d = e.data; if (!d || d.tt !== 'state' || e.source !== parent) return; Room.st = d.room || null; Room.me = d.me; Room.guests = d.guests || []; Room.ready = true; if (Room.sub) Room.sub(); });
+  if (Room.on) parent.postMessage({ tt: 'hello' }, '*');
+  var againFn = null, curMode;
   var $ = function (s) { return document.querySelector(s); }, V = $('#v'), cur = null, timers = [];
   function later(fn, ms) { var t = setTimeout(fn, ms); timers.push(t); return t; }
-  function stop() { timers.forEach(clearTimeout); timers = []; }
+  function stop() { timers.forEach(clearTimeout); timers = []; Room.sub = null; againFn = null; }
+  function leaveRoom() { if (Room.inRoom) { Room.send({ t: 'room_leave' }); Room.inRoom = false; } }
   function menu() {
-    stop(); cur = null; $('#ttl').textContent = '🎮 ' + T.games; $('#home').hidden = true; $('#again').hidden = true;
-    V.innerHTML = '<p class="msg" style="color:var(--muted)">' + T.pick + '</p><div class="menu"><button class="gm" data-g="ludo"><i>🎲</i><span><b>' + T.ludo + '</b><small>' + T.ludoD + '</small></span></button><button class="gm" data-g="sudoku"><i>🔢</i><span><b>' + T.sudoku + '</b><small>' + T.sudokuD + '</small></span></button><button class="gm" data-g="solitaire"><i>🃏</i><span><b>' + T.sol + '</b><small>' + T.solD + '</small></span></button></div>';
-    V.querySelectorAll('.gm').forEach(function (b) { b.onclick = function () { start(b.dataset.g); }; });
+    stop(); leaveRoom(); cur = null; $('#ttl').textContent = '🎮 ' + T.games; $('#home').hidden = true; $('#again').hidden = true;
+    var R = Room.st, can = R && !R.snap && R.seats.indexOf(Room.me) < 0, ban = can ? '<div class="join"><span>👥 ' + Room.name(R.host) + ' · ' + (R.game === 'xo' ? X.xo : T.ludo) + '</span><button data-g="' + R.game + '">' + X.joinIt + '</button></div>' : '', key = can ? R.id : '';
+    Room.sub = function () { var R2 = Room.st, k2 = R2 && !R2.snap && R2.seats.indexOf(Room.me) < 0 ? R2.id : ''; if (!cur && k2 !== key) menu(); };
+    V.innerHTML = '<p class="msg" style="color:var(--muted)">' + T.pick + '</p>' + ban + '<div class="menu"><button class="gm" data-g="ludo"><i>🎲</i><span><b>' + T.ludo + '</b><small>' + (Room.on ? X.ludoD2 : T.ludoD) + '</small></span></button><button class="gm" data-g="xo"><i>❌⭕</i><span><b>' + X.xo + '</b><small>' + X.xoD + '</small></span></button><button class="gm" data-g="words"><i>🔤</i><span><b>' + X.words + '</b><small>' + X.wordsD + '</small></span></button><button class="gm" data-g="sudoku"><i>🔢</i><span><b>' + T.sudoku + '</b><small>' + T.sudokuD + '</small></span></button><button class="gm" data-g="solitaire"><i>🃏</i><span><b>' + T.sol + '</b><small>' + T.solD + '</small></span></button></div>';
+    V.querySelectorAll('[data-g]').forEach(function (b) { b.onclick = function () { start(b.dataset.g); }; });
   }
-  function start(g) { stop(); cur = g; $('#home').hidden = false; $('#home').textContent = '← ' + T.back; $('#again').hidden = false; $('#again').textContent = T.again; ({ ludo: ludo, sudoku: sudoku, solitaire: solitaire })[g](); }
-  $('#home').onclick = menu; $('#again').onclick = function () { if (cur) start(cur); };
+  function start(g, mode) {
+    stop(); cur = g; curMode = mode; $('#home').hidden = false; $('#home').textContent = '← ' + T.back; $('#again').hidden = false; $('#again').textContent = T.again;
+    if ((g === 'ludo' || g === 'xo') && !mode && Room.on && Room.guests.length > 1) return lobby(g);
+    ({ ludo: ludo, xo: xo, words: words, sudoku: sudoku, solitaire: solitaire })[g](mode);
+    if (mode === 'guest') $('#again').hidden = true;
+  }
+  $('#home').onclick = function () { if (cur && Room.inRoom) { leaveRoom(); } menu(); }; $('#again').onclick = function () { if (againFn) againFn(); else if (cur) start(cur, curMode); };
+
+  /* ================= LOBBY (play with the people at your table) ================= */
+  function lobby(g) {
+    $('#ttl').textContent = (g === 'xo' ? '❌⭕ ' + X.xo : '🎲 ' + T.ludo); var cap = g === 'xo' ? 2 : 4, entered = false;
+    function paint() {
+      var R = Room.st, mine = R && R.game === g, other = R && R.game !== g, h = '<div class="lob">';
+      if (!R) h += '<button class="btn" id="lo">👥 ' + X.withTable + '</button><button class="btn g" id="lp">🤖 ' + X.vsPc + '</button>';
+      else if (other) h += '<div class="msg">' + X.busy + '</div><button class="btn g" id="lp">🤖 ' + X.vsPc + '</button>';
+      else {
+        for (var i = 0; i < cap; i++) h += '<div class="seat ' + (R.seats[i] ? '' : 'e') + '">' + (R.seats[i] ? '✅ ' + Room.name(R.seats[i]) + (i === 0 ? ' · ' + X.host : '') : '⬜ ' + X.seat) + '</div>';
+        var me = R.seats.indexOf(Room.me) >= 0;
+        if (R.snap && !me) h += '<div class="msg">' + X.spec + '</div>';
+        else if (!me) h += '<button class="btn" id="lj">' + X.joinG + '</button>';
+        else if (R.host === Room.me) h += '<div class="msg">' + (R.seats.length < 2 ? X.needTwo : X.waitP) + '</div><button class="btn" id="ls" ' + (R.seats.length < 2 ? 'disabled style="opacity:.5"' : '') + '>' + X.startG + '</button>';
+        else h += '<div class="msg">' + X.waitP + '</div>';
+        h += '<button class="btn g" id="lp">🤖 ' + X.vsPc + '</button>';
+      }
+      V.innerHTML = h + '</div>';
+      var q = function (id, f) { var e = $(id); if (e) e.onclick = f; };
+      q('#lo', function () { Room.inRoom = true; Room.send({ t: 'room_open', game: g }); });
+      q('#lj', function () { Room.inRoom = true; Room.send({ t: 'room_join' }); });
+      q('#ls', function () { entered = true; stop(); start(g, 'host'); });
+      q('#lp', function () { leaveRoom(); entered = true; stop(); start(g, 'solo'); });
+    }
+    Room.sub = function () {
+      var R = Room.st; if (entered) return;
+      if (R && R.game === g && R.snap && R.seats.indexOf(Room.me) >= 0 && R.host !== Room.me) { entered = true; Room.inRoom = true; stop(); return start(g, 'guest'); }
+      if (R && R.game === g && R.seats.indexOf(Room.me) >= 0) Room.inRoom = true;
+      paint();
+    };
+    paint();
+  }
+
+  /* ================= WORDS (Egyptian scrambled words) ================= */
+  function words() {
+    $('#ttl').textContent = '🔤 ' + X.words; againFn = function () { next(); };
+    var deck = [], W, slots, tiles, solved = 0, hints = 0, msgT = '', done = false;
+    function nextWord() { if (!deck.length) { deck = WORDS.slice().sort(function () { return Math.random() - .5; }); } return deck.pop(); }
+    function scramble(w) { var a = w.split(''), t = 0; do { a.sort(function () { return Math.random() - .5; }); } while (a.join('') === w && ++t < 12); return a; }
+    function next() { W = nextWord(); slots = W[0].split('').map(function () { return -1; }); tiles = scramble(W[0]); msgT = ''; done = false; draw(); }
+    function used() { return slots.filter(function (x) { return x >= 0; }); }
+    function draw() {
+      var w = W[0], h = '<div class="clue"><small>' + W[2] + ' ' + (AR ? 'التلميح' : 'Clue') + '</small>' + W[1] + '</div><div class="wslots" id="ws">';
+      slots.forEach(function (ti, i) { h += '<button data-s="' + i + '" class="' + (done ? 'ok' : '') + '">' + (ti >= 0 ? tiles[ti] : '') + '</button>'; });
+      h += '</div><div class="wtiles">'; tiles.forEach(function (c, i) { h += '<button data-t="' + i + '" ' + (slots.indexOf(i) >= 0 ? 'disabled' : '') + '>' + c + '</button>'; });
+      h += '</div><div class="msg">' + msgT + '</div><div class="wr"><button class="btn" id="wn">🎲 ' + X.random + '</button><button class="btn g" id="wh">💡 ' + X.hintB + '</button><button class="btn g" id="wc">↺ ' + X.clr + '</button></div><p class="msg" style="color:var(--muted)">' + X.score + ': ' + solved + '</p>';
+      V.innerHTML = h;
+      V.querySelectorAll('[data-t]').forEach(function (b) { b.onclick = function () { put(+b.dataset.t); }; });
+      V.querySelectorAll('[data-s]').forEach(function (b) { b.onclick = function () { if (done) return; slots[+b.dataset.s] = -1; msgT = ''; draw(); }; });
+      $('#wn').onclick = next; $('#wc').onclick = function () { if (done) return; slots = slots.map(function () { return -1; }); msgT = ''; draw(); };
+      $('#wh').onclick = function () { if (done) return; var w2 = W[0].split(''); for (var i = 0; i < w2.length; i++) { var ok = slots[i] >= 0 && tiles[slots[i]] === w2[i]; if (!ok) { slots[i] = -1; var t = -1; for (var j = 0; j < tiles.length; j++) if (tiles[j] === w2[i] && slots.indexOf(j) < 0) { t = j; break; } if (t >= 0) { slots[i] = t; } hints++; break; } } check(); draw(); };
+    }
+    function put(ti) { if (done || slots.indexOf(ti) >= 0) return; var i = slots.indexOf(-1); if (i < 0) return; slots[i] = ti; msgT = ''; check(); draw(); }
+    function check() { if (slots.indexOf(-1) >= 0) return; var w = slots.map(function (t) { return tiles[t]; }).join(''); if (w === W[0]) { done = true; solved++; msgT = X.right; } else { msgT = X.wrong; setTimeout(function () { var e = $('#ws'); if (e) e.classList.add('bad'); }, 20); } }
+    next();
+  }
+
+  /* ================= XO ================= */
+  function xo(mode) {
+    $('#ttl').textContent = '❌⭕ ' + X.xo;
+    var room = mode === 'host' || mode === 'guest', isHost = mode !== 'guest', seat = room ? Room.st.seats.indexOf(Room.me) : 0, st = null, lastN = 0, acked = 0, sc = [0, 0, 0];
+    var LN = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]], names = ['❌ ' + X.youX, '⭕ ' + X.bot];
+    if (room) { Room.inRoom = true; names = ['❌ ' + Room.name(Room.st.seats[0]), '⭕ ' + Room.name(Room.st.seats[1])]; }
+    function fresh() { st = { b: ['', '', '', '', '', '', '', '', ''], t: 0, w: -1, ln: null, sc: sc }; }
+    function win(b) { for (var i = 0; i < 8; i++) { var l = LN[i]; if (b[l[0]] && b[l[0]] === b[l[1]] && b[l[0]] === b[l[2]]) return { m: b[l[0]], ln: l }; } return null; }
+    function play(i, p) { if (st.w >= 0 || st.t !== p || st.b[i]) return false; st.b[i] = p ? 'O' : 'X'; var w = win(st.b); if (w) { st.w = w.m === 'X' ? 0 : 1; st.ln = w.ln; st.sc[st.w]++; } else if (st.b.every(Boolean)) { st.w = 2; st.sc[2]++; } else st.t ^= 1; return true; }
+    function best(b) { // minimax for O, with a small chance of a human-like slip so it can be beaten
+      var empty = []; b.forEach(function (c, i) { if (!c) empty.push(i); }); if (Math.random() < .22) return empty[(Math.random() * empty.length) | 0];
+      function mm(bb, p, d) { var w = win(bb); if (w) return w.m === 'O' ? 10 - d : d - 10; if (bb.every(Boolean)) return 0; var bs = p ? -99 : 99; for (var i = 0; i < 9; i++) if (!bb[i]) { bb[i] = p ? 'O' : 'X'; var v = mm(bb, p ^ 1, d + 1); bb[i] = ''; bs = p ? Math.max(bs, v) : Math.min(bs, v); } return bs; }
+      var bi = empty[0], bv = -99; empty.forEach(function (i) { b[i] = 'O'; var v = mm(b, 0, 1); b[i] = ''; if (v > bv) { bv = v; bi = i; } }); return bi;
+    }
+    function pub() { if (room && isHost) Room.send({ t: 'room_snap', snap: JSON.stringify(st) }); }
+    function draw() {
+      var h = '<div class="xov"><div class="' + (st.w < 0 && st.t === 0 ? 'on' : '') + '">' + names[0] + '<br>' + st.sc[0] + '</div><div class="' + (st.w < 0 && st.t === 1 ? 'on' : '') + '">' + names[1] + '<br>' + st.sc[1] + '</div></div><div class="xob">';
+      for (var i = 0; i < 9; i++) h += '<button data-i="' + i + '" class="' + (st.b[i] === 'X' ? 'x ' : st.b[i] === 'O' ? 'o ' : '') + (st.ln && st.ln.indexOf(i) >= 0 ? 'w' : '') + '">' + (st.b[i] === 'X' ? '✕' : st.b[i] === 'O' ? '◯' : '') + '</button>';
+      var m = st.w === 2 ? X.draw : st.w >= 0 ? names[st.w] + ' ' + X.won : X.turnOf + ' ' + names[st.t];
+      V.innerHTML = h + '</div><div class="msg">' + m + '</div>' + (st.w >= 0 ? '<div class="wr"><button class="btn" id="xr">' + X.rematch + '</button></div>' : '');
+      V.querySelectorAll('[data-i]').forEach(function (b) { b.onclick = function () { tap(+b.dataset.i); }; });
+      var r = $('#xr'); if (r) r.onclick = again;
+    }
+    function tap(i) {
+      if (!room) { if (play(i, 0)) { draw(); if (st.w < 0) later(function () { play(best(st.b.slice()), 1); draw(); }, 450); } return; }
+      if (isHost) { if (play(i, seat)) { pub(); draw(); } } else if (st.t === seat && st.w < 0 && !st.b[i]) Room.send({ t: 'room_intent', a: 'm', p: i });
+    }
+    function again() { if (!room) { fresh(); return draw(); } if (isHost) { var t = st.sc; fresh(); st.sc = t; sc = t; st.t = (st.sc[0] + st.sc[1] + st.sc[2]) % 2; pub(); draw(); } else Room.send({ t: 'room_intent', a: 'r', p: 0 }); }
+    againFn = again;
+    fresh(); sc = st.sc;
+    if (room) Room.sub = function () {
+      var R = Room.st; if (!R) { V.innerHTML = '<div class="msg">' + X.hostLeft + '</div>'; return; }
+      if (isHost) {
+        (R.intents || []).forEach(function (it) { if (it.n <= lastN) return; lastN = it.n; if (it.a === 'm' && it.seat === 1) play(it.p, 1); else if (it.a === 'r' && st.w >= 0) { var t = st.sc; fresh(); st.sc = t; sc = t; st.t = (t[0] + t[1] + t[2]) % 2; } });
+        if (lastN > acked) { acked = lastN; Room.send({ t: 'room_ack', n: lastN }); pub(); draw(); }
+      } else if (R.snap) { try { st = JSON.parse(R.snap); draw(); } catch (e) {} }
+    };
+    if (isHost) { pub(); draw(); } else { try { st = JSON.parse(Room.st.snap); } catch (e) {} draw(); }
+  }
+
 
   /* ================= SUDOKU ================= */
   function sudoku() {
@@ -127,14 +251,21 @@ button{font:inherit;color:inherit;cursor:pointer;border:0}
   }
 
   /* ================= LUDO ================= */
-  function ludo() {
-    $('#ttl').textContent = '🎲 ' + T.ludo;
+  function ludo(mode) {
+    $('#ttl').textContent = '🎲 ' + T.ludo; if (mode === 'host') againFn = function () { start('ludo', 'host'); };
+    var room = mode === 'host' || mode === 'guest', isHost = mode !== 'guest', OWN = ['me', 'bot', 'bot', 'bot'], ME = room ? Room.me : 'me', lastN = 0, acked = 0, lastSig = '', lastMsg = '';
+    var isHum = function (c) { return !!OWN[c] && OWN[c] !== 'bot'; }, mine = function (c) { return OWN[c] === ME; };
     var COL = ['#e5393b', '#25a244', '#f2b705', '#2f6fe4'], START = [1, 14, 27, 40], SAFE = [1, 9, 14, 22, 27, 35, 40, 48];
     var RING = [[6, 0], [6, 1], [6, 2], [6, 3], [6, 4], [6, 5], [5, 6], [4, 6], [3, 6], [2, 6], [1, 6], [0, 6], [0, 7], [0, 8], [1, 8], [2, 8], [3, 8], [4, 8], [5, 8], [6, 9], [6, 10], [6, 11], [6, 12], [6, 13], [6, 14], [7, 14], [8, 14], [8, 13], [8, 12], [8, 11], [8, 10], [8, 9], [9, 8], [10, 8], [11, 8], [12, 8], [13, 8], [14, 8], [14, 7], [14, 6], [13, 6], [12, 6], [11, 6], [10, 6], [9, 6], [8, 5], [8, 4], [8, 3], [8, 2], [8, 1], [8, 0], [7, 0]];
     var HOME = [[[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]], [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]], [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]], [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]]];
     var YARD = [[[2, 2], [2, 3], [3, 2], [3, 3]], [[2, 11], [2, 12], [3, 11], [3, 12]], [[11, 11], [11, 12], [12, 11], [12, 12]], [[11, 2], [11, 3], [12, 2], [12, 3]]];
     var P, turn, dice, rolled, movable, over, busy;
-    function init() { P = [0, 1, 2, 3].map(function () { return [0, 0, 0, 0]; }); turn = 0; dice = 0; rolled = false; movable = []; over = -1; busy = false; }
+    function init() {
+      P = [0, 1, 2, 3].map(function () { return [0, 0, 0, 0]; }); turn = 0; dice = 0; rolled = false; movable = []; over = -1; busy = false;
+      if (room && isHost) { var cols = ({ 2: [0, 2], 3: [0, 1, 2], 4: [0, 1, 2, 3] })[Room.st.seats.length] || [0]; OWN = ['bot', 'bot', 'bot', 'bot']; cols.forEach(function (c, i) { OWN[c] = Room.st.seats[i]; }); }
+    }
+    function who(c) { return OWN[c] === ME ? T.you : isHum(c) ? Room.name(OWN[c]) : T.p[c]; }
+    function pub() { if (!(room && isHost)) return; var sn = JSON.stringify({ P: P, turn: turn, dice: dice, rolled: rolled, movable: movable, over: over, own: OWN, m: lastMsg }); if (sn === lastSig) return; lastSig = sn; Room.send({ t: 'room_snap', snap: sn }); }
     function xy(p, k) { var v = P[p][k]; if (v === 0) return YARD[p][k]; if (v <= 51) return RING[(START[p] + v - 1) % 52]; return HOME[p][v - 52]; }
     function ringIdx(p, v) { return v >= 1 && v <= 51 ? (START[p] + v - 1) % 52 : -1; }
     function moves(p, d) { var r = []; for (var k = 0; k < 4; k++) { var v = P[p][k]; if (v === 0) { if (d === 6) r.push(k); } else if (v + d <= 57) r.push(k); } return r; }
@@ -153,11 +284,13 @@ button{font:inherit;color:inherit;cursor:pointer;border:0}
     }
     function place() {
       var seen = {};
-      for (var p = 0; p < 4; p++) for (var k = 0; k < 4; k++) { var x = xy(p, k), el = $('#pc' + p + k), key = x[0] + ',' + x[1], n = seen[key] = (seen[key] || 0) + 1; el.style.left = (x[1] * 6.6667 + (n - 1) * 1.1) + '%'; el.style.top = (x[0] * 6.6667 - (n - 1) * 1.1) + '%'; el.style.zIndex = 3 + n; el.classList.toggle('can', turn === 0 && rolled && movable.indexOf(k) >= 0 && p === 0); el.onclick = (p === 0 && turn === 0 && rolled && movable.indexOf(k) >= 0) ? function () { var kk = +this.id.slice(3); human(kk); } : null; }
-      $('#who').innerHTML = '<i style="background:' + COL[turn] + '"></i>' + (turn === 0 ? T.you + ' · ' + T.yourTurn : T.p[turn]);
-      $('#rl').disabled = !(turn === 0 && !rolled && over < 0 && !busy);
+      for (var p = 0; p < 4; p++) for (var k = 0; k < 4; k++) { var x = xy(p, k), el = $('#pc' + p + k), key = x[0] + ',' + x[1], n = seen[key] = (seen[key] || 0) + 1; el.style.left = (x[1] * 6.6667 + (n - 1) * 1.1) + '%'; el.style.top = (x[0] * 6.6667 - (n - 1) * 1.1) + '%'; el.style.zIndex = 3 + n; var can = mine(turn) && rolled && over < 0 && p === turn && movable.indexOf(k) >= 0; el.classList.toggle('can', can); el.onclick = can ? function () { var kk = +this.id.slice(3); pickPiece(kk); } : null; }
+      $('#who').innerHTML = '<i style="background:' + COL[turn] + '"></i>' + (mine(turn) ? T.you + ' · ' + T.yourTurn : who(turn)); $('#dice').textContent = dice || '🎲';
+      $('#rl').disabled = !(mine(turn) && !rolled && over < 0 && !busy); pub();
     }
-    function msg(t) { $('#lm').textContent = t || ''; }
+    function msg(t) { lastMsg = t || ''; $('#lm').textContent = lastMsg; }
+    function pickPiece(k) { if (isHost) human(k); else Room.send({ t: 'room_intent', a: 'p', p: k }); }
+    function rollClick() { if (isHost) roll(); else Room.send({ t: 'room_intent', a: 'r', p: 0 }); }
     function roll() {
       if (busy || over >= 0) return; busy = true; var dv = $('#dice'); dv.classList.remove('roll'); void dv.offsetWidth; dv.classList.add('roll');
       var t0 = 0, iv = setInterval(function () { dv.textContent = 1 + ((Math.random() * 6) | 0); if (++t0 > 6) { clearInterval(iv); dice = 1 + ((Math.random() * 6) | 0); dv.textContent = dice; busy = false; afterRoll(); } }, 60);
@@ -165,19 +298,29 @@ button{font:inherit;color:inherit;cursor:pointer;border:0}
     function afterRoll() {
       rolled = true; movable = moves(turn, dice);
       if (!movable.length) { msg(T.noMove); rolled = false; place(); return later(next, 900); }
-      if (turn === 0) { msg(movable.length > 1 ? T.pickPiece : ''); place(); if (movable.length === 1) later(function () { human(movable[0]); }, 350); }
+      if (isHum(turn)) { msg(movable.length > 1 ? T.pickPiece : ''); place(); if (movable.length === 1) later(function () { human(movable[0]); }, 350); }
       else { place(); later(function () { do_(turn, bot(turn, dice, movable)); }, 650); }
     }
-    function human(k) { if (turn === 0 && rolled && movable.indexOf(k) >= 0) do_(0, k); }
+    function human(k) { if (isHum(turn) && rolled && over < 0 && movable.indexOf(k) >= 0) do_(turn, k); }
     function do_(p, k) {
       var win = apply(p, k, dice); rolled = false; movable = []; msg(''); place();
-      if (win) { over = p; msg((p === 0 ? T.youWin : T.p[p] + ' ' + T.wins)); return place(); }
-      if (dice === 6) { msg(T.six); later(function () { if (turn === 0) place(); else roll(); }, 700); } else later(next, 650);
+      if (win) { over = p; msg(mine(p) ? T.youWin : who(p) + ' ' + T.wins); return place(); }
+      if (dice === 6) { msg(T.six); later(function () { if (isHum(turn)) place(); else roll(); }, 700); } else later(next, 650);
     }
-    function next() { turn = (turn + 1) % 4; msg(''); place(); if (turn !== 0) later(roll, 600); }
-    init(); V.innerHTML = board(); $('#rl').onclick = roll; place();
+    function next() { turn = (turn + 1) % 4; msg(''); place(); if (!isHum(turn)) later(roll, 600); }
+    if (room) Room.inRoom = true;
+    if (isHost) init(); else { init(); try { var s0 = JSON.parse(Room.st.snap); P = s0.P; OWN = s0.own; } catch (e) {} }
+    V.innerHTML = board(); $('#rl').onclick = rollClick; place();
+    if (room) Room.sub = function () {
+      var R = Room.st; if (!R) { msg(X.hostLeft); return; }
+      if (isHost) {
+        (R.intents || []).forEach(function (it) { if (it.n <= lastN) return; lastN = it.n; if (over >= 0 || OWN[turn] !== R.seats[it.seat]) return; if (it.a === 'r') { if (!rolled && !busy) roll(); } else if (it.a === 'p') human(it.p); });
+        if (lastN > acked) { acked = lastN; Room.send({ t: 'room_ack', n: lastN }); }
+      } else if (R.snap) { try { var q = JSON.parse(R.snap); P = q.P; turn = q.turn; dice = q.dice; rolled = q.rolled; movable = q.movable || []; over = q.over; OWN = q.own; busy = false; $('#lm').textContent = q.m || ''; place(); } catch (e) {} }
+    };
   }
 
-  var g = Q.get('g'); if (g && ({ ludo: 1, sudoku: 1, solitaire: 1 })[g]) start(g); else menu();
+  var g = Q.get('g'), ok = g && ({ ludo: 1, xo: 1, words: 1, sudoku: 1, solitaire: 1 })[g];
+  if (ok && Room.on && (g === 'ludo' || g === 'xo')) { var go = function () { Room.sub = null; start(g); }; Room.sub = go; setTimeout(function () { if (Room.sub === go) go(); }, 700); } else if (ok) start(g); else menu();
 })();
 </script></body></html>

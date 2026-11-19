@@ -166,6 +166,7 @@ header .logo { flex: 1 1 0; min-width: 0; } header .logo > div { min-width: 0; o
 header .hbtns { flex: none; gap: 6px; } header .ib { width: 36px; height: 36px; } header .ib svg { width: 18px; height: 18px; } header .langb { width: auto; padding: 0 11px; font-size: 12px; }
 .micro { order: 3; flex: 0 0 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(50px, 1fr)); gap: 6px; margin-top: 8px; }
 .coalb.cd { opacity: .55; }
+.coalbig{display:flex;align-items:center;gap:14px;width:100%;min-height:68px;padding:12px 18px;border-radius:22px;border:2px solid #ffbe5c;background:linear-gradient(135deg,#ff7a2f,#e5481b);color:#2a0d02;font-weight:800;margin:12px 0;box-shadow:0 8px 24px #ff7a2f55;animation:coalpulse 2.4s infinite;cursor:pointer;text-align:start}.coalbig .fi{font-size:40px}.coalbig .tx{flex:1}.coalbig .tx b{display:block;font-size:19px}.coalbig .tx small{font-size:14px;font-weight:700;opacity:.85}.coalbig .go{background:#2a0d02;color:#ffbe5c;padding:10px 20px;border-radius:99px;font-size:16px}.coalbig.cd{animation:none;background:var(--card2);color:var(--muted);border-color:var(--line);box-shadow:none;opacity:1}.coalbig.cd .go{background:var(--line);color:var(--muted)}@keyframes coalpulse{50%{box-shadow:0 8px 36px #ff7a2fbb}}
 .micro button { padding: 5px 2px 5px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 11px; font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.2; color: var(--text); }
 .micro button b { font-size: 17px; line-height: 1.15; } .micro button { font-size: 10.5px; }
 .micro button.sent { background: color-mix(in srgb, #1f9d55 18%, var(--card)); border-color: #1f9d55; }
@@ -396,7 +397,7 @@ async function start() {
   let geo; if (geoNeeded()) { root.innerHTML = `<div class="join"><div class="c" style="text-align:center"><div style="font-size:54px;animation:bob 3s infinite">📍</div><p class="muted">${App.tr('geoChecking')}</p></div></div>`; geo = await getGeo(); }
   App.connect({ t: 'join', role: 'customer', tableNumber, guestId: me.id, resume: !!me.id, name: me.name, avatar: me.avatar, key: tableKey, geo }, {
     you(m) { me.id = m.guestId; App.ls(IDK, m.guestId); keepWho(); },
-    render(m) { if (m) S = m; if (over && m) return; draw(false); },
+    render(m) { if (m) S = m; roomPost(); if (over && m) return; draw(false); },
     error(m) { if (m.msg === 'newsession') { forgetMe(); me = { id: null, name: '', avatar: '' }; return joinScreen(); } if (m.msg === 'scan') return scanScreen(); if (m.msg === 'geo') return geoScreen(!geo); root.innerHTML = `<div class="join"><div class="c">${App.esc(m.msg)}</div></div>`; },
   });
 }
@@ -553,6 +554,7 @@ const COAL_MS = 90000, coalKey = () => 'coalUntil_' + (App.slug || '') + '_' + (
 const coalLeft = () => { let u = 0; try { u = +localStorage.getItem(coalKey()) || 0; } catch {} return Math.max(0, Math.ceil((u - Date.now()) / 1000)); };
 const coalTxt = () => { const l = coalLeft(); return l ? '⏳ ' + l + ' ' + (App.lang === 'ar' ? 'ث' : 's') : App.tr('coal'); };
 setInterval(() => { document.querySelectorAll('.coalb').forEach((b) => { const l = coalLeft(); b.disabled = !!l; b.classList.toggle('cd', !!l); const t = b.querySelector('.cl'); if (t) t.textContent = coalTxt(); }); }, 1000);
+const coalBig = () => shishaOn() ? `<button class="coalbig rp coalb ${coalLeft() ? 'cd' : ''}" ${coalLeft() ? 'disabled' : ''} onclick="req('coal')"><span class="fi">🔥</span><span class="tx"><b>${App.lang === 'ar' ? 'محتاج فحم للشيشة؟' : 'Need shisha coal?'}</b><small class="cl">${coalTxt()}</small></span><span class="go">${App.lang === 'ar' ? 'اضغط' : 'Tap'}</span></button>` : '';
 const microHTML = (s) => MICRO.map(([t, e, k]) => `<button class="rp ${s.requests.some((r) => !r.done && r.type === t) ? 'sent' : ''}" onclick="req('${t}')"><b>${e}</b>${App.tr(k)}</button>`).join('') + (shishaOn() ? `<button class="rp coalb ${coalLeft() ? 'cd' : ''}" ${coalLeft() ? 'disabled' : ''} onclick="req('coal')"><b>🔥</b><span class="cl">${coalTxt()}</span></button>` : '');
 function setLang(l, ev) { App.transition(() => { App.ls('lang', l); App.applyTheme(); draw(true); }, ev); }
 function copyWifi() { const p = S.config.settings.wifiPass || ''; try { navigator.clipboard.writeText(p); } catch {} App.toast('📶 ' + App.tr('copied')); }
@@ -594,6 +596,7 @@ function homeTab(cfg, s) {
   const lines = tag.replace(/([,،])\s*/, '$1<br><em>') + '</em>';
   return `<section class="hero rise" style="--i:0"><div><h2>${lines.includes('<em>') ? lines : `<em>${tag}</em>`}</h2><p>${App.esc(sub)}</p></div><div class="mugw">${MUG}</div></section>
   ${landing(cfg, s)}
+  ${coalBig()}
   <p class="muted rise" style="--i:1;margin:14px 0 0">${App.tr('hello')}, <b style="color:var(--text)">${App.esc(me.name)}</b> ${me.avatar}</p>
   ${dish ? `<div class="c dish tilt rise" style="--i:2"><div class="t"><div class="eyebrow">${App.tr('dayItem')}</div><h3>${App.esc(App.nm(dish))}</h3><p>${App.esc(dish.desc)}</p><button class="lnk" onclick="add('${dish.id}',this)">${App.tr('viewDetails')} <span class="arr">${ic('arrow').replace('<svg', '<svg width="16" height="16"')}</span></button></div>${artOf(cfg, dish, '', 1)}</div>` : ''}
   <div class="tiles rise" style="--i:3">
@@ -660,6 +663,7 @@ function menuTab(cfg, s) {
   const nm = App.lang === 'ar' && st.name_ar ? st.name_ar : st.name, tag = (App.lang === 'ar' ? st.tagline_ar : st.tagline) || App.tr('tagline');
   const how = App.ls(`how:${SLUG}`) ? '' : `<div class="how rise" style="--i:2"><button class="x" aria-label="close" onclick="App.ls('how:${SLUG}','1');draw(true)">✕</button><div class="ht">${App.tr('howTitle')}</div><div class="hs">${[1, 2, 3].map((n) => `<div><i>${n}</i><b>${App.tr('step' + n)}</b><small>${App.tr('step' + n + 's')}</small></div>`).join('')}</div></div>`;
   return `<section class="cover rise ${st.heroImg ? 'has' : ''}" style="${st.heroImg ? `background-image:url('${st.heroImg}')` : ''}"><div class="cin"><span class="eyebrow">${App.tr('welcomeTo')}</span><h2 class="serif">${App.esc(nm)}</h2><p>${App.esc(tag)}</p><span class="chipx">${App.tr('table')} ${tableNumber} · ${App.esc(me.name)} ${me.avatar}</span></div></section>
+  ${coalBig()}
   ${how}
   <div class="search rise" style="--i:3">${ic('search')}<input id="q" value="${App.esc(q)}" placeholder="${App.tr('search')}" oninput="q=this.value;refreshGrid()"></div>
   <div class="stk rise" style="--i:4"><div class="chips">${cfg.categories.filter(catOpen).map((c) => `<button class="chip rp ${c.id === cat && !q && !tagSel.size ? 'on' : ''}" data-c="${c.id}" onclick="setCat('${c.id}')">${c.emoji} ${App.esc(App.nm(c))}</button>`).join('')}</div>
@@ -808,13 +812,24 @@ function digitalBox(ip, s, due) {
    ${claim && claim.by === me.id ? `<div style="margin-top:8px;color:var(--ok)">✅ ${L.sent}</div>` : `<p class="muted" style="font-size:13px;margin:8px 0">${L.how}</p><input id="dgref" maxlength="40" placeholder="${L.ref}" style="border-radius:14px;text-align:center"><button class="send rp" style="margin-top:8px" onclick="App.send({t:'pay_claim',method:pay.method,ref:document.getElementById('dgref').value,amount:${+due.toFixed(2)}});App.toast('${L.sent}')">${L.paid}</button>`}</div>`;
 }
 function splitEq(total) { const n = S.session.guests.length; S.session.guests.forEach((g) => (pay.custom[g.id] = Math.round(total / n))); draw(true); }
-function gamesTab() {
-  const ar = App.lang === 'ar', G = [['ludo', '🎲', ar ? 'لودو' : 'Ludo', ar ? 'ضد 3 لاعبين من الكمبيوتر' : 'You against 3 computer players'], ['sudoku', '🔢', ar ? 'سودوكو' : 'Sudoku', ar ? 'ملّي الأرقام من 1 إلى 9' : 'Fill the grid with 1 to 9'], ['solitaire', '🃏', ar ? 'سوليتير' : 'Solitaire', ar ? 'رتّب الكروت على الأساسات' : 'Build the four suits from the ace']];
-  return `<div class="c li rise" style="--i:0"><div class="eyebrow">🎮 ${ar ? 'العب وإنت مستني' : 'Play while you wait'}</div></div>${G.map((g, i) => `<button class="c li rise rp" style="--i:${i + 1};width:100%;display:flex;gap:14px;align-items:center;text-align:start;cursor:pointer" onclick="playGame('${g[0]}')"><span style="font-size:42px">${g[1]}</span><span><b style="font-size:19px;display:block">${g[2]}</b><small class="muted">${g[3]}</small></span></button>`).join('')}`;
+function gamesTab(cfg, s) {
+  const ar = App.lang === 'ar', many = s.guests.length > 1, R = s.room, join = R && !R.snap && !R.seats.includes(me.id) ? `<button class="c li rise rp" style="--i:0;width:100%;display:flex;gap:12px;align-items:center;text-align:start;cursor:pointer;background:#1f7a4d;color:#fff;border:0" onclick="playGame('${R.game}')"><span style="font-size:34px">👥</span><span><b style="font-size:17px;display:block">${App.esc((s.guests.find((x) => x.id === R.host) || {}).name || '')} ${ar ? 'فتح' : 'opened'} ${R.game === 'xo' ? 'XO' : (ar ? 'لودو' : 'Ludo')}</b><small>${ar ? 'اضغط وانضم' : 'Tap to join'}</small></span></button>` : '', G = [['ludo', '🎲', ar ? 'لودو' : 'Ludo', many ? (ar ? 'العب مع اللي على الطاولة أو ضد الكمبيوتر' : 'Play with your table or the computer') : (ar ? 'ضد 3 لاعبين من الكمبيوتر' : 'You against 3 computer players')], ['xo', '❌⭕', ar ? 'إكس أو' : 'Tic-Tac-Toe', many ? (ar ? 'العب ضد صاحبك على الطاولة' : 'Challenge someone at your table') : (ar ? 'ضد الكمبيوتر' : 'Against the computer')], ['words', '🔤', ar ? 'كلمات متقطعة' : 'Scrambled words', ar ? 'رتّب الحروف وطلّع الكلمة بالمصري' : 'Order the letters, Egyptian words'], ['sudoku', '🔢', ar ? 'سودوكو' : 'Sudoku', ar ? 'ملّي الأرقام من 1 إلى 9' : 'Fill the grid with 1 to 9'], ['solitaire', '🃏', ar ? 'سوليتير' : 'Solitaire', ar ? 'رتّب الكروت على الأساسات' : 'Build the four suits from the ace']];
+  return `<div class="c li rise" style="--i:0"><div class="eyebrow">🎮 ${ar ? 'العب وإنت مستني' : 'Play while you wait'}</div></div>${join}${G.map((g, i) => `<button class="c li rise rp" style="--i:${i + 1};width:100%;display:flex;gap:14px;align-items:center;text-align:start;cursor:pointer" onclick="playGame('${g[0]}')"><span style="font-size:42px">${g[1]}</span><span><b style="font-size:19px;display:block">${g[2]}</b><small class="muted">${g[3]}</small></span></button>`).join('')}`;
 }
+function closeGame() { const f = document.querySelector('#gameov iframe'); if (f && S && S.session && S.session.room && S.session.room.seats.includes(me.id)) App.send({ t: 'room_leave' }); document.getElementById('gameov').remove(); }
+function roomPost() {
+  const f = document.querySelector('#gameov iframe'); if (!f || !f.contentWindow || !S || !S.session) return;
+  f.contentWindow.postMessage({ tt: 'state', room: S.session.room || null, me: me.id, guests: S.session.guests.map((g) => ({ id: g.id, name: g.name, avatar: g.avatar })) }, '*');
+  if (S.session.room && App.poll) App.poll.lastChange = Date.now();
+}
+addEventListener('message', (e) => {
+  const f = document.querySelector('#gameov iframe'), d = e.data; if (!f || e.source !== f.contentWindow || !d) return;
+  if (d.tt === 'hello') roomPost();
+  else if (d.tt === 'room' && d.m && /^room_(open|join|leave|snap|intent|ack)$/.test(d.m.t)) { App.send(d.m); if (App.poll) App.poll.lastChange = Date.now(); }
+});
 function playGame(g) {
   const d = document.createElement('div'); d.id = 'gameov'; d.style.cssText = 'position:fixed;inset:0;z-index:120;background:#000b;display:flex;flex-direction:column';
-  d.innerHTML = `<button class="rp" style="align-self:flex-end;margin:10px;padding:8px 16px;border-radius:99px;background:var(--card);color:var(--text);border:1px solid var(--line);font-weight:800;cursor:pointer" onclick="document.getElementById('gameov').remove()">✕ ${App.lang === 'ar' ? 'إغلاق' : 'Close'}</button><iframe src="/games.html?g=${g}&lang=${App.lang}" style="flex:1;border:0;width:100%;max-width:560px;margin:0 auto;background:#1a0f0a;border-radius:18px 18px 0 0" title="game"></iframe>`;
+  d.innerHTML = `<button class="rp" style="align-self:flex-end;margin:10px;padding:8px 16px;border-radius:99px;background:var(--card);color:var(--text);border:1px solid var(--line);font-weight:800;cursor:pointer" onclick="closeGame()">✕ ${App.lang === 'ar' ? 'إغلاق' : 'Close'}</button><iframe src="/games.html?g=${g}&lang=${App.lang}" style="flex:1;border:0;width:100%;max-width:560px;margin:0 auto;background:#1a0f0a;border-radius:18px 18px 0 0" title="game"></iframe>`;
   document.body.appendChild(d);
 }
 function profileTab(cfg, s) {
@@ -843,11 +858,13 @@ function callPill() {
 }
 setInterval(callPill, 1000);
 function req(type) { if (type === 'coal') { if (coalLeft()) return App.toast(App.tr('coalWait') + ' ' + coalLeft() + (App.lang === 'ar' ? ' ث' : 's')); try { localStorage.setItem(coalKey(), String(Date.now() + COAL_MS)); } catch {} } App.send({ t: 'request', type }); App.toast(App.tr('requestSent')); const b = $('#bellb'); b.classList.remove('ring'); void b.offsetWidth; b.classList.add('ring'); closeSheet(); }
+function firstOrder() { const k = 'firstord_' + (App.slug || '') + '_' + tableNumber; if (App.ls(k)) return false; App.ls(k, '1'); return true; }
 function okCard() {
   const old = document.getElementById('okcard'); if (old) old.remove();
   const d = document.createElement('div'); d.id = 'okcard'; d.className = 'okcard'; d.setAttribute('role', 'status');
-  d.innerHTML = `<b style="font-size:17px">✓ ${App.tr('okTitle')}</b><div class="muted" style="font-size:14px;margin-top:2px">${App.tr('okSub')}</div><div class="row"><button class="send rp" onclick="this.closest('.okcard').remove();go('table')">${App.tr('okTrack')}</button><button class="ghost rp" style="border:1px solid var(--line)" onclick="this.closest('.okcard').remove();go('menu')">${App.tr('okMore')}</button></div>`;
-  document.body.appendChild(d); setTimeout(() => d.isConnected && d.remove(), 9000);
+  const gm = (S && S.config && S.config.settings || {}).games, ar = App.lang === 'ar', first = gm && firstOrder();
+  d.innerHTML = `<b style="font-size:17px">✓ ${App.tr('okTitle')}</b><div class="muted" style="font-size:14px;margin-top:2px">${App.tr('okSub')}</div>${first ? `<div style="margin-top:10px;padding:10px 12px;border-radius:14px;background:var(--card2)"><b>🎮 ${ar ? 'لحد ما طلبك يجهز تحب تلعب؟' : 'Want to play while you wait?'}</b><div class="muted" style="font-size:13px;margin:2px 0 8px">${ar ? 'لودو، إكس أو، كلمات متقطعة، سودوكو وسوليتير، ولو معاك حد على الطاولة العبوا سوا.' : 'Ludo, Tic-Tac-Toe, scrambled words, Sudoku and Solitaire. Play together with your table.'}</div><button class="send rp" style="width:100%" onclick="this.closest('.okcard').remove();go('games')">🎮 ${ar ? 'افتح الألعاب' : 'Open games'}</button></div>` : ''}<div class="row"><button class="send rp" onclick="this.closest('.okcard').remove();go('table')">${App.tr('okTrack')}</button><button class="ghost rp" style="border:1px solid var(--line)" onclick="this.closest('.okcard').remove();go('menu')">${App.tr('okMore')}</button></div>`;
+  document.body.appendChild(d); setTimeout(() => d.isConnected && d.remove(), first ? 20000 : 9000);
 }
 function sendMine(el) { burstAt(el); App.send({ t: 'send_order' }); App.toast(App.tr('orderSent')); okCard(); }
 function sendAll(el) { burstAt(el); App.send({ t: 'send_order', scope: 'all' }); App.toast(App.tr('orderSent')); okCard(); }

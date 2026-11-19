@@ -76,3 +76,24 @@ for (const mode of ['ws', 'rpc']) test(`F37 merge items into types [${mode}]`, a
   const pick = card.options[0].choices.find((x) => x.name.startsWith(c.name)); await g.call({ t: 'cart_add', itemId: a.id, opts: { type: pick.id } });
   const l = await cart(); assert.equal(l.length, 1); assert.equal(l[0].price, c.price, 'guest pays the real price of the chosen type');
 });
+
+// ---- table game room: shared by the guests of one table, host runs the game ----
+for (const mode of ['ws', 'rpc']) test(`F37 table game room [${mode}]`, async (t) => {
+  const S = await start(mode); t.after(() => S.stop());
+  const T = await S.tenant('operations', { demo: true });
+  const tbl = ((await T.api('GET', '/config', null, null)).j).tables[0].number, a = T.guest(tbl), b = T.guest(tbl), c = T.guest(tbl + 1);
+  const ja = (await a.join()).j.state, jb = (await b.join()).j.state; await c.join();
+  const room = async (g) => ((await g.join()).j.state.session.room || null);
+  await a.call({ t: 'room_open', game: 'chess' }); assert.equal(await room(a), null, 'unknown game is refused');
+  await a.call({ t: 'room_open', game: 'xo' }); let r = await room(b); assert.equal(r.game, 'xo'); assert.equal(r.seats.length, 1);
+  await b.call({ t: 'room_join' }); r = await room(a); assert.equal(r.seats.length, 2);
+  await b.call({ t: 'room_snap', snap: '{"x":1}' }); assert.equal((await room(a)).snap, null, 'only the host can publish the game state');
+  await a.call({ t: 'room_snap', snap: '{"b":[]}' }); r = await room(b); assert.equal(r.snap, '{"b":[]}'); assert.equal(r.rev, 1);
+  await a.call({ t: 'room_intent', a: 'm', p: 3 }); assert.equal((await room(a)).intents.length, 0, 'the host does not send intents');
+  await b.call({ t: 'room_intent', a: 'm', p: 3 }); r = await room(a); assert.equal(r.intents.length, 1); assert.equal(r.intents[0].seat, 1);
+  await a.call({ t: 'room_ack', n: r.intents[0].n }); assert.equal((await room(a)).intents.length, 0);
+  await a.call({ t: 'room_snap', snap: 'x'.repeat(4000) }); assert.equal((await room(a)).rev, 1, 'oversized snapshots are refused');
+  assert.equal(await room(c), null, 'another table never sees it');
+  await b.call({ t: 'room_leave' }); assert.equal((await room(a)).seats.length, 1);
+  await a.call({ t: 'room_leave' }); assert.equal(await room(a), null, 'the room closes when the host leaves');
+});
