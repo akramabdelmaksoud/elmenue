@@ -123,10 +123,13 @@ function optClean(list) {
       let cid = idSafe(c.id, 'c' + (ci + 1)); while (cs.has(cid)) cid += 'x'; cs.add(cid);
       choices.push({ id: cid, name: cn, name_ar: String(c.name_ar || '').trim().slice(0, 40), price: money(c.price), ...(c.def ? { def: 1 } : {}) });
     });
-    if (!choices.length) return;
+    // optional exact counter / slider (e.g. spoons of sugar): { max, unit, unit_ar, price per unit }
+    let count = null;
+    if (g.count && typeof g.count === 'object') { const mx = Math.min(20, Math.max(1, Math.floor(+g.count.max) || 6)); count = { max: mx, unit: String(g.count.unit || '').trim().slice(0, 16), unit_ar: String(g.count.unit_ar || '').trim().slice(0, 16), price: money(g.count.price) }; }
+    if (!choices.length && !count) return;
     const type = g.type === 'many' ? 'many' : 'one';
     if (type === 'one') { let d = false; choices.forEach((c) => { if (c.def && d) delete c.def; if (c.def) d = true; }); }
-    out.push({ id: gid, name, name_ar: String(g.name_ar || '').trim().slice(0, 40), type, required: !!g.required, max: type === 'many' ? Math.min(choices.length, Math.max(1, Math.floor(+g.max) || choices.length)) : 1, choices });
+    out.push({ id: gid, name, name_ar: String(g.name_ar || '').trim().slice(0, 40), type, required: !!g.required, max: type === 'many' ? Math.min(choices.length || 1, Math.max(1, Math.floor(+g.max) || choices.length || 1)) : 1, choices, ...(count ? { count } : {}) });
   });
   return out;
 }
@@ -142,8 +145,11 @@ function optResolve(it, sel) {
     const picked = want.map((cid) => g.choices.find((c) => c.id === cid));
     if (picked.some((c) => !c)) return { ok: false, group: g.id };
     if (picked.length > (g.type === 'many' ? g.max : 1)) return { ok: false, group: g.id };
-    if (g.required && !picked.length) return { ok: false, group: g.id };
+    let n = 0;
+    if (g.count) { const raw = sel[g.id + '~n']; n = raw === undefined || raw === null || raw === '' ? 0 : Number(raw); if (!Number.isInteger(n) || n < 0 || n > g.count.max) return { ok: false, group: g.id }; }
+    if (g.required && !picked.length && !n) return { ok: false, group: g.id };
     picked.forEach((c) => { add += c.price; en.push(c.name); ar.push(c.name_ar || c.name); key.push(g.id + ':' + c.id); });
+    if (n) { add += n * g.count.price; en.push(n + (g.count.unit ? ' ' + g.count.unit : ' ×')); ar.push(n + ' ' + (g.count.unit_ar || g.count.unit || '×')); key.push(g.id + '~n:' + n); }
   }
   return { ok: true, add: Math.round(add * 100) / 100, text: en.join(' · '), text_ar: ar.join(' · '), key: key.sort().join('|') };
 }

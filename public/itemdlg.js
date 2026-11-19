@@ -8,11 +8,13 @@ const ItemDlg = (() => {
     sugar: { name: 'Sugar', name_ar: 'السكر', type: 'one', required: false, choices: [{ name: 'No sugar', name_ar: 'بدون سكر', price: 0 }, { name: 'Light', name_ar: 'خفيف', price: 0 }, { name: 'Medium', name_ar: 'مظبوط', price: 0, def: true }, { name: 'Sweet', name_ar: 'زيادة', price: 0 }] },
     extras: { name: 'Extras', name_ar: 'إضافات', type: 'many', required: false, max: 3, choices: [{ name: 'Extra shot', name_ar: 'شوت إضافي', price: 15 }, { name: 'Syrup', name_ar: 'سيرب', price: 8 }, { name: 'Whipped cream', name_ar: 'كريمة', price: 8 }] },
   };
+  PRESETS.sugarcount = { name: 'Sugar', name_ar: 'السكر', type: 'one', required: false, choices: [{ name: 'Sada', name_ar: 'سادة', price: 0 }, { name: 'Mazboot', name_ar: 'مظبوط', price: 0, def: true }, { name: 'Zeyada', name_ar: 'زيادة', price: 0 }], count: { max: 6, unit: 'spoon', unit_ar: 'معلقة', price: 0 } };
+  PRESETS.mint = { name: 'Add-ons', name_ar: 'إضافات', type: 'many', required: false, max: 3, choices: [{ name: 'Mint', name_ar: 'نعناع', price: 5 }, { name: 'Lemon', name_ar: 'ليمون', price: 5 }, { name: 'Honey', name_ar: 'عسل', price: 10 }] };
   let st = null;
   const clone = (x) => JSON.parse(JSON.stringify(x));
   function open(id) {
     const it = App.config.items.find((x) => x.id === id); if (!it) return;
-    st = { id, name: it.name, opts: clone(it.options || []), allergens: (it.allergens || []).slice(), cal: it.cal || '', badge: it.badge || '' };
+    st = { id, name: it.name, steps: !!it.steps, opts: clone(it.options || []), allergens: (it.allergens || []).slice(), cal: it.cal || '', badge: it.badge || '' };
     const d = document.createElement('div'); d.id = 'itemdlg'; d.className = 'ov';
     d.style.cssText = 'position:fixed;inset:0;background:#000a;z-index:60;overflow:auto;padding:20px;display:grid;place-items:start center';
     d.addEventListener('mousedown', (e) => { if (e.target === d) close(); });
@@ -37,13 +39,15 @@ const ItemDlg = (() => {
       <div>${field('Pick', `<select onchange="ItemDlg.g(${gi},'type',this.value);ItemDlg.redraw()"><option value="one" ${g.type !== 'many' ? 'selected' : ''}>One</option><option value="many" ${g.type === 'many' ? 'selected' : ''}>Several</option></select>`)}</div>
       ${g.type === 'many' ? `<div>${field('Max picks', `<input type="number" min="1" max="16" value="${g.max || g.choices.length}" oninput="ItemDlg.g(${gi},'max',this.value)">`)}</div>` : ''}
       <label class="row" style="gap:5px"><input type="checkbox" style="width:auto" ${g.required ? 'checked' : ''} onchange="ItemDlg.g(${gi},'required',this.checked)"> Required</label><button class="ghost" onclick="ItemDlg.delGroup(${gi})">🗑 Group</button></div>
+      <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px;align-items:end"><label class="row" style="gap:5px"><input type="checkbox" style="width:auto" ${g.count ? 'checked' : ''} onchange="ItemDlg.cnt(${gi},this.checked)"> Exact counter / slider</label>${g.count ? `${field('Max', `<input type="number" min="1" max="20" style="width:70px" value="${g.count.max}" oninput="ItemDlg.cf(${gi},'max',this.value)">`)}${field('Unit', `<input style="width:90px" placeholder="spoon" value="${E(g.count.unit || '')}" oninput="ItemDlg.cf(${gi},'unit',this.value)">`)}${field('الوحدة', `<input dir="rtl" style="width:90px" value="${E(g.count.unit_ar || '')}" oninput="ItemDlg.cf(${gi},'unit_ar',this.value)">`)}${field('Price / unit', `<input type="number" min="0" style="width:80px" value="${g.count.price || 0}" oninput="ItemDlg.cf(${gi},'price',this.value)">`)}` : ''}</div>
       ${g.choices.map((c, ci) => `<div style="display:grid;grid-template-columns:2fr 2fr 1fr auto auto;gap:6px;margin-top:6px;align-items:center"><input placeholder="Choice" value="${E(c.name)}" oninput="ItemDlg.c(${gi},${ci},'name',this.value)"><input dir="rtl" placeholder="الاسم" value="${E(c.name_ar || '')}" oninput="ItemDlg.c(${gi},${ci},'name_ar',this.value)"><input type="number" min="0" step="0.5" placeholder="+EGP" value="${c.price || 0}" oninput="ItemDlg.c(${gi},${ci},'price',this.value)">
         <label class="row" style="gap:4px" title="Selected by default"><input type="checkbox" style="width:auto" ${c.def ? 'checked' : ''} onchange="ItemDlg.def(${gi},${ci},this.checked)">default</label><button class="ghost" onclick="ItemDlg.delChoice(${gi},${ci})">✕</button></div>`).join('')}
       <button class="ghost" style="margin-top:8px" onclick="ItemDlg.addChoice(${gi})">+ Choice</button></div>`).join('') || '<p class="muted">No options yet.</p>'}
+    ${st.opts.length > 1 ? `<label class="row" style="gap:6px;margin-top:8px"><input type="checkbox" style="width:auto" ${st.steps ? 'checked' : ''} onchange="ItemDlg.set('steps',this.checked)"> <b>Step-by-step builder</b> <span class="muted" style="font-size:12px">(guest answers one group at a time, then sees a summary. Good for milkshakes: base, flavour, toppings)</span></label>` : ''}
     <div class="row" style="margin-top:14px"><button class="primary" onclick="ItemDlg.save()">Save</button><span id="idmsg" class="muted"></span></div></div>`;
   }
   async function save() {
-    const body = { options: st.opts, allergens: st.allergens, cal: st.cal, badge: st.badge };
+    const body = { steps: !!st.steps && st.opts.length > 1, options: st.opts, allergens: st.allergens, cal: st.cal, badge: st.badge };
     try { await api('PUT', `/api/items/${st.id}`, body); document.getElementById('idmsg').textContent = 'Saved ✓'; setTimeout(close, 500); } catch (e) { document.getElementById('idmsg').textContent = e.message || 'Could not save'; }
   }
   return {
@@ -53,6 +57,8 @@ const ItemDlg = (() => {
     g(gi, k, v) { st.opts[gi][k] = k === 'max' ? Math.max(1, Math.floor(+v) || 1) : v; },
     c(gi, ci, k, v) { st.opts[gi].choices[ci][k] = k === 'price' ? Math.max(0, +v || 0) : v; },
     def(gi, ci, on) { const g = st.opts[gi]; if (g.type !== 'many' && on) g.choices.forEach((c, i) => { if (i !== ci) delete c.def; }); if (on) g.choices[ci].def = 1; else delete g.choices[ci].def; paint(); },
+    cnt(gi, on) { const g = st.opts[gi]; if (on) g.count = { max: 6, unit: '', unit_ar: '', price: 0 }; else delete g.count; paint(); },
+    cf(gi, k, v) { const c = st.opts[gi].count; c[k] = k === 'max' || k === 'price' ? Math.max(0, +v || 0) : v; },
     preset(k) { st.opts.push(clone(PRESETS[k])); paint(); },
     addGroup() { st.opts.push({ name: '', name_ar: '', type: 'one', required: false, choices: [{ name: '', name_ar: '', price: 0 }] }); paint(); },
     delGroup(gi) { st.opts.splice(gi, 1); paint(); },

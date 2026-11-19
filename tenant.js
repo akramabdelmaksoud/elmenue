@@ -77,7 +77,7 @@ function createTenant(rec, persist, onAlert) {
   // a call nobody answered for a few minutes goes out again to every captain as an urgent alert (once)
   function escalate() {
     const lim = escMin() * 60000; if (!lim) return false; const now = Date.now(); let ch = false;
-    const L = { waiter: 'Call waiter', water: 'Water', napkins: 'Napkins', cutlery: 'Cutlery & covers', urgent: 'Speed up order', bill: 'The bill' };
+    const L = { waiter: 'Call waiter', water: 'Water', napkins: 'Napkins', cutlery: 'Cutlery & covers', urgent: 'Speed up order', coal: 'Shisha coal', bill: 'The bill' };
     Object.values(db.sessions).forEach((s) => (s.requests || []).forEach((r) => { if (!r.done && !r.esc && now - r.at > lim) { r.esc = true; ch = true; alertCaptains('urgent', s.tableNumber, `⏱ Table ${s.tableNumber} has waited ${Math.round((now - r.at) / 60000)} min: ${L[r.type] || r.type}`); } }));
     return ch;
   }
@@ -701,12 +701,12 @@ function handle(c, m) {
         break;
       }
       case 'request': {
-        const labels = { waiter: 'Call waiter', water: 'Water', napkins: 'Napkins', cutlery: 'Cutlery & covers', urgent: 'Speed up order' };
-        if (!labels[m.type] || s.requests.some((r) => r.type === m.type && !r.done)) break;
-        const gq = s.guests.find((x) => x.id === c.guestId); if (gq) { gq.cd ||= {}; if (Date.now() - (gq.cd[m.type] || 0) < 45000) break; gq.cd[m.type] = Date.now(); }
+        const labels = { waiter: 'Call waiter', water: 'Water', napkins: 'Napkins', cutlery: 'Cutlery & covers', urgent: 'Speed up order', coal: 'Shisha coal' };
+        if (!labels[m.type] || (m.type === 'coal' && !db.settings.shisha) || s.requests.some((r) => r.type === m.type && !r.done)) break;
+        const gq = s.guests.find((x) => x.id === c.guestId); if (gq) { gq.cd ||= {}; if (Date.now() - (gq.cd[m.type] || 0) < (m.type === 'coal' ? 90000 : 45000)) break; gq.cd[m.type] = Date.now(); }
         s.requests.push({ id: id('r'), type: m.type, at: Date.now(), done: false, by: c.guestId });
         log(s, 'request', labels[m.type]);
-        alertCaptains(m.type === 'urgent' || m.type === 'waiter' ? 'urgent' : 'request', t.number, `Table ${t.number}: ${labels[m.type]}`);
+        alertCaptains(m.type === 'urgent' || m.type === 'waiter' || m.type === 'coal' ? 'urgent' : 'request', t.number, `${m.type === 'coal' ? '🔥 ' : ''}Table ${t.number}: ${labels[m.type]}`);
         break;
       }
       case 'pay_claim': {   // the guest says they sent the money (InstaPay / wallet); the cashier still confirms before the table closes

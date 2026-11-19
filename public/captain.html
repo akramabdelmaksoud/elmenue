@@ -89,7 +89,7 @@ let listView = App.ls('cview') === 'list';
 function toggleView() { listView = !listView; App.ls('cview', listView ? 'list' : 'map'); render(); }
 let S = null, open = null, sound = false, actx = null, sheet = null;
 const NEXT = { received: 'kitchen', kitchen: 'served' };   // after the kitchen says ready the waiter serves the dishes (some or all) instead of just closing
-const RQ = { waiter: '🛎️ Call waiter', water: '💧 Water', napkins: '🧻 Napkins', cutlery: '🍴 Cutlery & covers', urgent: '⚡ Speed up', bill: '🧾 Check' };
+const RQ = { waiter: '🛎️ Call waiter', water: '💧 Water', napkins: '🧻 Napkins', cutlery: '🍴 Cutlery & covers', urgent: '⚡ Speed up', coal: '🔥 Shisha coal', bill: '🧾 Check' };
 // a check request is either the whole table or ONE guest's own separate check (his dishes only, with his service and tax)
 const sepAmt = (s, gid) => { const b = s.bill.byGuest[gid], c = (s.sepChecks || {})[gid] || {}; return b ? +(b.total + Math.round(b.sub * (c.tipPct || 0) / 100)).toFixed(2) : 0; };
 const reqLabel = (s, r) => { if (r.type === 'bill' && r.sep) { const g = s.guests.find((x) => x.id === r.by); return `🧾 <b>Separate check</b> · ${g ? g.avatar + ' ' + App.esc(g.name) : 'guest'} · <b>${App.money(sepAmt(s, r.by))}</b>`; } return r.type === 'bill' ? '🧾 <b>Full table check</b>' : RQ[r.type]; };
@@ -164,7 +164,7 @@ function stageHTML(cfg) {
   const tables = cfg.tables.map((t) => {
     const st = S.states[t.id], s = S.sessions[t.id], p = App.tpos(t), ds = showState(st, s, t), rv = ds === 'reserved' && resFor(t);
     const lab = { empty: 'Empty', reserved: rv ? '📅 ' + hhmm(rv.at) : 'Reserved', urgent: 'URGENT', check: s && s.check ? `🧾 ${s.check.method === 'card' ? '💳' : '💵'} ${s.check.split}` : '🧾 Receipt' }[ds] || SHOW[ds][0];
-    const bd = s ? [s.requests.some((r) => !r.done && r.type === 'waiter') && '🙋', s.requests.some((r) => !r.done && r.type === 'water') && '💧', s.requests.some((r) => !r.done && r.type === 'napkins') && '🧻', s.requests.some((r) => !r.done && r.type === 'cutlery') && '🍴', s.requests.some((r) => !r.done && r.type === 'urgent') && '⚡', s.check && '🧾', s.idle && '💤'].filter(Boolean).join('') : '';
+    const bd = s ? [s.requests.some((r) => !r.done && r.type === 'waiter') && '🙋', s.requests.some((r) => !r.done && r.type === 'coal') && '🔥', s.requests.some((r) => !r.done && r.type === 'water') && '💧', s.requests.some((r) => !r.done && r.type === 'napkins') && '🧻', s.requests.some((r) => !r.done && r.type === 'cutlery') && '🍴', s.requests.some((r) => !r.done && r.type === 'urgent') && '⚡', s.check && '🧾', s.idle && '💤'].filter(Boolean).join('') : '';
     return `<div class="fl-t ${t.shape} ${ds}" style="left:${p.fx / F.cols * 100}%;top:${p.fy / F.rows * 100}%;width:${p.fw / F.cols * 100}%;height:${p.fh / F.rows * 100}%;--m:${Math.min(p.fw, p.fh)}" onclick="openT('${t.id}')">${App.chairs(t.shape, t.seats)}<span class="bd">${bd}</span><span class="n">${t.number}</span><span class="av" title="${s && hostOf(s) ? 'Host: ' + App.esc(hostOf(s).name) : ''}">${s ? App.esc(guestsOf(s)) : ''}</span><span class="s">${lab}${s && !s.orders.length && Date.now() - (s.lastAt || s.startedAt) > 600000 ? ' 👻' : ''}${s ? ' · ' + mins(s.startedAt) : ' · ' + t.seats + ' seats'}</span><span class="m">${s ? mins(s.startedAt) : ''}</span></div>`;
   }).join('');
   return decor + tables;

@@ -164,7 +164,8 @@ nav .bdg { position: absolute; top: 2px; inset-inline-start: 56%; min-width: 19p
 header { flex-wrap: wrap; row-gap: 0; }
 header .logo { flex: 1 1 0; min-width: 0; } header .logo > div { min-width: 0; overflow: hidden; } header .logo span#bn { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 header .hbtns { flex: none; gap: 6px; } header .ib { width: 36px; height: 36px; } header .ib svg { width: 18px; height: 18px; } header .langb { width: auto; padding: 0 11px; font-size: 12px; }
-.micro { order: 3; flex: 0 0 100%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+.micro { order: 3; flex: 0 0 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(66px, 1fr)); gap: 6px; margin-top: 8px; }
+.coalb.cd { opacity: .55; }
 .micro button { padding: 5px 2px 5px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 11px; font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.2; color: var(--text); }
 .micro button b { font-size: 17px; line-height: 1.15; } .micro button { font-size: 10.5px; }
 .micro button.sent { background: color-mix(in srgb, #1f9d55 18%, var(--card)); border-color: #1f9d55; }
@@ -269,12 +270,13 @@ const tableNumber = +location.pathname.split('/').pop();
 const SLUG = App.slug;
 const AV = ['😎','🧑‍🎤','🦊','🐼','🎮','👩‍🎨','🧔','🐱','🦁','🐯','🧑‍🚀','🎧','🐧','🦄','🤖','👽','🌸','🍕'];
 const HUES = [28, 150, 42, 12, 335, 200, 95, 265];
-const TABS = ['home', 'menu', 'table', 'bill', 'profile'];
+const TABS = ['home', 'menu', 'table', 'bill', 'games', 'profile'];
 const P = { // icons
   home: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   cup: '<path d="M4 9h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 10h2a2 2 0 0 1 0 4h-2"/><path d="M8 3v3M12 3v3"/>',
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14.5a5 5 0 0 1 4.5 5"/>',
   receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  games: '<rect x="2" y="7" width="20" height="11" rx="4"/><path d="M7 10v5M4.5 12.5h5"/><circle cx="16" cy="11.5" r="1"/><circle cx="18.5" cy="14" r="1"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   bell: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
@@ -476,11 +478,11 @@ function build() {
    <button class="ib bell rp" id="bellb" onclick="openSheet()">${ic('bell')}<i class="dotb" id="bdot" hidden></i></button></div><div class="micro" id="micro"></div></header>
    <main id="page-wrap"><div id="page"></div></main></div>
    <div id="cartbar" hidden></div>
-   <nav id="nav"><i id="ind"></i>${TABS.map((t) => `<button class="rp" data-t="${t}" onclick="go('${t}')">${ic({ home: 'home', menu: 'cup', table: 'users', bill: 'receipt', profile: 'user' }[t])}<span class="lb"></span></button>`).join('')}</nav>`;
+   <nav id="nav"><i id="ind"></i>${TABS.map((t) => `<button class="rp" data-t="${t}" onclick="go('${t}')">${ic({ home: 'home', menu: 'cup', table: 'users', bill: 'receipt', profile: 'user', games: 'games' }[t])}<span class="lb"></span></button>`).join('')}</nav>`;
   App.foldHeader('header .hbtns', '#bellb', 'ib rp');   // the bell (call the waiter) stays in sight
   built = true;
 }
-const LBL = { home: 'home', menu: 'menuLbl', table: 'cartLbl', bill: 'bill', profile: 'profile' };
+const LBL = { home: 'home', menu: 'menuLbl', table: 'cartLbl', bill: 'bill', profile: 'profile', games: 'games' };
 function go(t) { if (t === tab) return; prevTab = tab; tab = t; animate = true; draw(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 function setInd() {
   const b = $(`#nav [data-t=${tab}]`), ind = $('#ind'), nav = $('#nav'); if (!b || !ind) return;
@@ -505,12 +507,13 @@ function draw(force) {
   $('#bt').textContent = `${App.tr('table')} ${tableNumber}`;
   $('#lb').innerHTML = `${ic('globe')}${App.langLabel(App.nextLang())}`; $('#lb').hidden = App.langs().length < 2; $('#hl').textContent = App.tr('home'); $('#ml').textContent = App.tr('themeLbl');
   if (!can('ordering') && (tab === 'table' || tab === 'bill')) tab = 'home';
+  if (tab === 'games' && !st.games) tab = 'home';
   document.documentElement.dataset.view = can('ordering') ? '' : 'only';
   $('#homeb').hidden = tab === 'home'; $('#micro').innerHTML = microHTML(s); $('#micro').hidden = tab === 'home';
   $('#bdot').hidden = !(s.requests.some((r) => !r.done) || s.check);
   const n = s.cart.reduce((a, l) => a + l.qty, 0);
   document.querySelectorAll('#nav button').forEach((b) => {
-    b.hidden = (b.dataset.t === 'table' || b.dataset.t === 'bill') && !can('ordering');
+    b.hidden = ((b.dataset.t === 'table' || b.dataset.t === 'bill') && !can('ordering')) || (b.dataset.t === 'games' && !st.games);
     b.classList.toggle('on', b.dataset.t === tab); b.querySelector('.lb').textContent = App.tr(LBL[b.dataset.t]);
     const old = b.querySelector('.bdg'); if (old) old.remove();
     if (b.dataset.t === 'table' && n) b.insertAdjacentHTML('beforeend', `<span class="bdg">${n}</span>`);
@@ -521,7 +524,7 @@ function draw(force) {
   page.style.setProperty('--dx', dirx * 34 + 'px');
   page.className = 'page' + (animate ? '' : ' still');
   if (animate) { page.style.animation = 'none'; void page.offsetWidth; page.style.animation = ''; }
-  page.innerHTML = ({ home: homeTab, menu: menuTab, table: tableTab, bill: billTab, profile: profileTab })[tab](cfg, s);
+  page.innerHTML = ({ home: homeTab, menu: menuTab, table: tableTab, bill: billTab, profile: profileTab, games: gamesTab })[tab](cfg, s);
   if (!animate) page.classList.add('still'); else page.classList.remove('still');
   animate = false;
   window.scrollTo(0, sc);
@@ -535,7 +538,12 @@ document.addEventListener('focusout', () => { if (dirty) setTimeout(() => draw(f
 const can = (k) => { const f = (S && S.config && S.config.features) || (App.config && App.config.features); return !f || f[k] !== false; };
 const LANG_NAMES = { en: 'English', get ar() { return App.config && App.config.settings.dialect === 'gulf' ? 'العربية' : 'عامية مصرية'; }, fr: 'Franco' };
 const MICRO = [['water', '💧', 'water'], ['napkins', '🧻', 'napkins'], ['cutlery', '🍴', 'cutlery'], ['waiter', '🛎️', 'callWaiter']];
-const microHTML = (s) => MICRO.map(([t, e, k]) => `<button class="rp ${s.requests.some((r) => !r.done && r.type === t) ? 'sent' : ''}" onclick="req('${t}')"><b>${e}</b>${App.tr(k)}</button>`).join('');
+const shishaOn = () => !!((S && S.config && S.config.settings) || (App.config && App.config.settings) || {}).shisha && can('ordering') !== null;
+const COAL_MS = 90000, coalKey = () => 'coalUntil_' + (App.slug || '') + '_' + (typeof tableNumber !== 'undefined' ? tableNumber : '');
+const coalLeft = () => { let u = 0; try { u = +localStorage.getItem(coalKey()) || 0; } catch {} return Math.max(0, Math.ceil((u - Date.now()) / 1000)); };
+const coalTxt = () => { const l = coalLeft(); return l ? '⏳ ' + l + ' ' + (App.lang === 'ar' ? 'ث' : 's') : App.tr('coal'); };
+setInterval(() => { document.querySelectorAll('.coalb').forEach((b) => { const l = coalLeft(); b.disabled = !!l; b.classList.toggle('cd', !!l); const t = b.querySelector('.cl'); if (t) t.textContent = coalTxt(); }); }, 1000);
+const microHTML = (s) => MICRO.map(([t, e, k]) => `<button class="rp ${s.requests.some((r) => !r.done && r.type === t) ? 'sent' : ''}" onclick="req('${t}')"><b>${e}</b>${App.tr(k)}</button>`).join('') + (shishaOn() ? `<button class="rp coalb ${coalLeft() ? 'cd' : ''}" ${coalLeft() ? 'disabled' : ''} onclick="req('coal')"><b>🔥</b><span class="cl">${coalTxt()}</span></button>` : '');
 function setLang(l, ev) { App.transition(() => { App.ls('lang', l); App.applyTheme(); draw(true); }, ev); }
 function copyWifi() { const p = S.config.settings.wifiPass || ''; try { navigator.clipboard.writeText(p); } catch {} App.toast('📶 ' + App.tr('copied')); }
 function landing(cfg, s) {
@@ -790,6 +798,15 @@ function digitalBox(ip, s, due) {
    ${claim && claim.by === me.id ? `<div style="margin-top:8px;color:var(--ok)">✅ ${L.sent}</div>` : `<p class="muted" style="font-size:13px;margin:8px 0">${L.how}</p><input id="dgref" maxlength="40" placeholder="${L.ref}" style="border-radius:14px;text-align:center"><button class="send rp" style="margin-top:8px" onclick="App.send({t:'pay_claim',method:pay.method,ref:document.getElementById('dgref').value,amount:${+due.toFixed(2)}});App.toast('${L.sent}')">${L.paid}</button>`}</div>`;
 }
 function splitEq(total) { const n = S.session.guests.length; S.session.guests.forEach((g) => (pay.custom[g.id] = Math.round(total / n))); draw(true); }
+function gamesTab() {
+  const ar = App.lang === 'ar', G = [['ludo', '🎲', ar ? 'لودو' : 'Ludo', ar ? 'ضد 3 لاعبين من الكمبيوتر' : 'You against 3 computer players'], ['sudoku', '🔢', ar ? 'سودوكو' : 'Sudoku', ar ? 'ملّي الأرقام من 1 إلى 9' : 'Fill the grid with 1 to 9'], ['solitaire', '🃏', ar ? 'سوليتير' : 'Solitaire', ar ? 'رتّب الكروت على الأساسات' : 'Build the four suits from the ace']];
+  return `<div class="c li rise" style="--i:0"><div class="eyebrow">🎮 ${ar ? 'العب وإنت مستني' : 'Play while you wait'}</div></div>${G.map((g, i) => `<button class="c li rise rp" style="--i:${i + 1};width:100%;display:flex;gap:14px;align-items:center;text-align:start;cursor:pointer" onclick="playGame('${g[0]}')"><span style="font-size:42px">${g[1]}</span><span><b style="font-size:19px;display:block">${g[2]}</b><small class="muted">${g[3]}</small></span></button>`).join('')}`;
+}
+function playGame(g) {
+  const d = document.createElement('div'); d.id = 'gameov'; d.style.cssText = 'position:fixed;inset:0;z-index:120;background:#000b;display:flex;flex-direction:column';
+  d.innerHTML = `<button class="rp" style="align-self:flex-end;margin:10px;padding:8px 16px;border-radius:99px;background:var(--card);color:var(--text);border:1px solid var(--line);font-weight:800;cursor:pointer" onclick="document.getElementById('gameov').remove()">✕ ${App.lang === 'ar' ? 'إغلاق' : 'Close'}</button><iframe src="/games.html?g=${g}&lang=${App.lang}" style="flex:1;border:0;width:100%;max-width:560px;margin:0 auto;background:#1a0f0a;border-radius:18px 18px 0 0" title="game"></iframe>`;
+  document.body.appendChild(d);
+}
 function profileTab(cfg, s) {
   return `<div class="rise"><div class="me-av" id="mav">${me.avatar}</div><h2 class="ptitle" style="text-align:center;margin:0">${App.esc(me.name)}</h2><p class="psub" style="text-align:center">${App.tr('table')} ${tableNumber} · ${s.guests.length} ${App.tr('guests')}</p></div>
   <div class="c li rise" style="--i:1"><input id="pn" value="${App.esc(me.name)}" maxlength="20" style="border-radius:16px;padding:14px" placeholder="${App.tr('pickName')}">
@@ -815,12 +832,12 @@ function callPill() {
   else { p.style.background = '#1f7a4d'; p.textContent = ar ? `✅ ${last.doneBy ? last.doneBy + ' ' : ''}تم الرد على طلبك` : `✅ ${last.doneBy ? last.doneBy + ' answered' : 'Done'}: your request is handled`; }
 }
 setInterval(callPill, 1000);
-function req(type) { App.send({ t: 'request', type }); App.toast(App.tr('requestSent')); const b = $('#bellb'); b.classList.remove('ring'); void b.offsetWidth; b.classList.add('ring'); closeSheet(); }
+function req(type) { if (type === 'coal') { if (coalLeft()) return App.toast(App.tr('coalWait') + ' ' + coalLeft() + (App.lang === 'ar' ? ' ث' : 's')); try { localStorage.setItem(coalKey(), String(Date.now() + COAL_MS)); } catch {} } App.send({ t: 'request', type }); App.toast(App.tr('requestSent')); const b = $('#bellb'); b.classList.remove('ring'); void b.offsetWidth; b.classList.add('ring'); closeSheet(); }
 function sendMine(el) { burstAt(el); App.send({ t: 'send_order' }); App.toast(App.tr('orderSent')); }
 function sendAll(el) { burstAt(el); App.send({ t: 'send_order', scope: 'all' }); App.toast(App.tr('orderSent')); }
 function openSheet() {
   $('#layer').innerHTML = `<div class="sheetbg" onclick="closeSheet()"></div><div class="sheet"><div class="grab"></div><h3 class="serif" style="font-size:24px">${App.tr('quickAct')}</h3>
-  <div class="acts"><button class="act rp" onclick="req('waiter')">${ic('bell')}${App.tr('callWaiter')}</button><button class="act rp" onclick="req('water')">💧 ${App.tr('water')}</button><button class="act rp" onclick="req('napkins')">🧻 ${App.tr('napkins')}</button><button class="act rp" onclick="req('cutlery')">🍴 ${App.tr('cutlery')}</button>
+  <div class="acts"><button class="act rp" onclick="req('waiter')">${ic('bell')}${App.tr('callWaiter')}</button><button class="act rp" onclick="req('water')">💧 ${App.tr('water')}</button><button class="act rp" onclick="req('napkins')">🧻 ${App.tr('napkins')}</button><button class="act rp" onclick="req('cutlery')">🍴 ${App.tr('cutlery')}</button>${shishaOn() ? `<button class="act rp coalb ${coalLeft() ? 'cd' : ''}" ${coalLeft() ? 'disabled' : ''} onclick="req('coal')">🔥 <span class="cl">${coalTxt()}</span></button>` : ''}
   <button class="act rp urg" onclick="req('urgent')">${ic('bolt')}${App.tr('urgent')}</button><button class="act rp" onclick="closeSheet();go('bill')">${ic('receipt')}${App.tr('reqBill')}</button></div></div>`;
 }
 function closeSheet() { const l = $('#layer'); const sh = l.querySelector('.sheet'); if (!sh) return; sh.style.transition = 'transform .35s'; sh.style.transform = 'translate(-50%,100%)'; setTimeout(() => (l.innerHTML = ''), 320); }

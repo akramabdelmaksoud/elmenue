@@ -107,7 +107,7 @@ const settings = {
   logo: IMG + 'logo.jpeg', theme: 'custom', palette: { accent: '#ff7a2f', accent2: '#ffbe5c', bg: '#1a0f0a', card: '#2a170e', text: '#fff4e6' },
   demoBrand: { g: '#ff7a2f', bg: '#1a0f0a', text: '#fff4e6', muted: '#c9ab92', line: '#4a2d1c' },
   currency: 'EGP', tax: 0, service: 0, lang: 'ar', langs: ['ar', 'en'], dialect: 'egypt',
-  menuLayout: 'cards', heroImg: '', kitchenStations: 1, wifi: 'Saraya_Guest', wifiPass: 'saraya2026', requireKey: false, drops: true,
+  menuLayout: 'cards', heroImg: '', kitchenStations: 1, games: true, wifi: 'Saraya_Guest', wifiPass: 'saraya2026', requireKey: false, drops: true,
   online: F.onlineCfg({ online: { enabled: true, pickup: true, delivery: false } }),
   promos: [
     { title: 'Saraya Super', title_ar: 'سوبر السرايا', text: 'Mango with vanilla ice cream, our house favourite.', text_ar: 'مانجو بأيس كريم فانيليا، المشروب المميز عندنا.' },
