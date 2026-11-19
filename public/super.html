@@ -51,7 +51,7 @@ function draw() {
    <td><select onchange="act('${x.slug}',{plan:this.value})">${TIERS.map(([v, l]) => `<option value="${v}" ${v === x.plan ? 'selected' : ''}>${l.split(' · ').slice(0, 2).join(' · ')}</option>`).join('')}</select><br><small class="muted" title="bundle + add-ons">${money(x.mrr, 'EGP')} / month${(x.addons || []).length ? ` · incl. ${x.addons.length} add-on${x.addons.length > 1 ? 's' : ''}` : ''}</small></td>
    <td><input style="min-width:110px" placeholder="group" value="${App.esc(x.group || '')}" onchange="act('${x.slug}',{group:this.value})"><br><input style="min-width:110px;margin-top:4px" placeholder="domain" value="${App.esc(x.domain || '')}" onchange="act('${x.slug}',{domain:this.value})"></td>
    <td>${money(x.revenue, x.currency)}</td><td>${x.sessions}</td><td>${money(x.avgTicket, x.currency)}</td><td><span class="dot ${x.online ? '' : 'off'}"></span>${x.liveTables} tables · ${x.guestsLive} guests</td><td>${x.items} / ${x.tables}<br><small class="muted" title="tables · staff vs plan limit">${x.tables}/${x.limits.tables === null ? '∞' : x.limits.tables} T · ${x.staffCount}/${x.limits.staff === null ? '∞' : x.limits.staff} S</small><br><input style="width:62px;margin-top:3px" placeholder="T max" title="override: max tables (blank = plan)" value="${x.limitOverride && x.limitOverride.tables != null ? x.limitOverride.tables : ''}" onchange="act('${x.slug}',{limits:{...(${JSON.stringify(x.limitOverride || {})}),tables:this.value===''?undefined:+this.value}})"></td><td>${ago(x.lastActive)}</td>
-   <td><button class="ghost" onclick="openAdmin('${x.slug}')">Open admin</button> <button class="ghost" onclick="openFeatures('${x.slug}')">Features</button> <button class="ghost" onclick="openAdvice('${x.slug}')">Advice</button> <button class="ghost" onclick="act('${x.slug}',{status:'${x.status === 'active' ? 'suspended' : 'active'}'})">${x.status === 'active' ? 'Suspend' : 'Activate'}</button> <button class="ghost" onclick="reset('${x.slug}')">Reset login</button> <button class="ghost" onclick="del('${x.slug}')">🗑</button></td></tr>`).join('')}</table></div></main>`;
+   <td><button class="ghost" onclick="openAdmin('${x.slug}')">Open admin</button> <button class="ghost" onclick="openFeatures('${x.slug}')">Features</button> <button class="ghost" onclick="openAdvice('${x.slug}')">Advice</button> <button class="ghost" onclick="openIntegration('${x.slug}')" title="Connect this café's own POS or database">🔌 POS</button> <button class="ghost" onclick="act('${x.slug}',{status:'${x.status === 'active' ? 'suspended' : 'active'}'})">${x.status === 'active' ? 'Suspend' : 'Activate'}</button> <button class="ghost" onclick="reset('${x.slug}')">Reset login</button> <button class="ghost" onclick="del('${x.slug}')">🗑</button></td></tr>`).join('')}</table></div></main>`;
   $('#create').onsubmit = async (e) => { e.preventDefault(); const b = Object.fromEntries(new FormData(e.target)); b.demo = !!b.demo; try { newCred = await api('POST', '/api/super/tenants', b); load(); } catch (er) { alert(er.message); } };
   charts.forEach(c => c.destroy()); charts = [];
   const cs = getComputedStyle(document.documentElement), ac = cs.getPropertyValue('--accent').trim(), ac2 = cs.getPropertyValue('--accent2').trim();
@@ -187,6 +187,88 @@ async function saveAdvice(slug) { try { await api('PUT', '/api/super/tenants/' +
 async function saveFeatures(slug) {
   const o = {}; document.querySelectorAll('#ov select[data-f]').forEach((i) => { if (i.value === 'on') o[i.dataset.f] = true; else if (i.value === 'off') o[i.dataset.f] = false; });
   try { await api('PUT', '/api/super/tenants/' + slug, { feat: o }); document.getElementById('bmsg').textContent = 'Saved ✓'; load(); } catch (e) { document.getElementById('bmsg').textContent = e.message; }
+}
+// ===== Integration Hub: connect a café's own POS / database (no code per customer) =====
+let HUB = null;   // { slug, cfg, fields, test, httpAllowed }
+const HUB_LABELS = { id: 'Item ID (unique)', name: 'Name *', name_ar: 'Arabic name', price: 'Price *', category: 'Category', category_ar: 'Arabic category', desc: 'Description', emoji: 'Emoji', available: 'In stock / active' };
+async function openIntegration(slug) {
+  const r = await api('GET', `/api/super/tenants/${slug}/integration`), x = O.tenants.find((t) => t.slug === slug);
+  const d = r.config || { enabled: false, protocol: 'rest', menuUrl: '', orderUrl: '', syncEveryMin: 0, soldOutMissing: true, auth: { type: 'none', header: '', user: '', secret: '' }, mapping: { listPath: '', priceDivisor: 1, fields: {} }, pending: 0, failed: [], webhookSecret: '' };
+  HUB = { slug, name: x ? x.name : slug, cfg: d, fields: r.fields, test: null, httpAllowed: r.httpAllowed };
+  drawHub();
+}
+function hubRead() {   // form -> HUB.cfg (what the next save / test sends)
+  const g = (id) => { const e = document.getElementById(id); return e ? (e.type === 'checkbox' ? e.checked : e.value) : undefined; }, c = HUB.cfg;
+  c.enabled = g('hb_on'); c.protocol = g('hb_proto'); c.menuUrl = g('hb_menu').trim(); c.orderUrl = g('hb_order').trim(); c.syncEveryMin = +g('hb_every') || 0; c.soldOutMissing = g('hb_missing');
+  c.auth = { type: g('hb_auth'), header: (g('hb_hdr') || '').trim(), user: (g('hb_user') || '').trim(), secret: (g('hb_secret') || '').trim() };
+  c.mapping = c.mapping || { fields: {} }; c.mapping.listPath = (g('hb_list') || '').trim(); c.mapping.priceDivisor = +g('hb_div') || 1;
+  c.mapping.fields = {}; HUB.fields.forEach((f) => { const v = (g('hm_' + f) || '').trim(); if (v) c.mapping.fields[f] = v; });
+}
+function hubAgo(t) { return t ? App.ago(t) + ' ago' : 'never'; }
+function drawHub(msg) {
+  const E = App.esc, c = HUB.cfg, t = HUB.test, A = c.auth || { type: 'none' }, keys = (t && t.keys) || [], F = c.mapping.fields || {};
+  const dl = '<datalist id="hb_keys">' + keys.map((k) => '<option value="' + E(k.path) + '">' + E(k.sample) + '</option>').join('') + '</datalist>';
+  const opt = (v, l, cur) => '<option value="' + v + '" ' + (cur === v ? 'selected' : '') + '>' + l + '</option>';
+  const ls = c.lastSync, lp = c.lastPush;
+  const statusBox = '<div class="grid" style="margin:10px 0;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">'
+    + '<div class="card" style="background:var(--card2)"><b>Menu sync</b><br>' + (ls ? (ls.ok ? '<span style="color:#2ecc71">✔ ' + hubAgo(ls.at) + '</span><br><small class="muted">' + ls.total + ' items · ' + ls.created + ' new · ' + ls.updated + ' changed · ' + ls.hidden + ' hidden' + (ls.skipped ? ' · ' + ls.skipped + ' skipped' : '') + '</small>' : '<span style="color:#e74c3c">✖ ' + E(ls.error) + '</span><br><small class="muted">' + hubAgo(ls.at) + '</small>') : '<span class="muted">never run</span>') + '</div>'
+    + '<div class="card" style="background:var(--card2)"><b>Order push</b><br>' + (lp ? (lp.ok ? '<span style="color:#2ecc71">✔ delivered ' + hubAgo(lp.at) + '</span>' : '<span style="color:#e74c3c">✖ ' + E(lp.error || '') + '</span><br><small class="muted">' + hubAgo(lp.at) + '</small>') : '<span class="muted">nothing sent yet</span>') + '<br><small class="muted">' + c.pending + ' waiting to be sent' + ((c.failed || []).length ? ' · ' + c.failed.length + ' given up' : '') + '</small></div></div>'
+    + ((c.failed || []).length ? '<details style="margin-bottom:8px"><summary class="muted">Orders that could not be delivered</summary>' + c.failed.map((f) => '<div class="muted" style="font-size:13px">' + hubAgo(f.at) + ' · table ' + E(String(f.table)) + ' · ' + E(f.error) + '</div>').join('') + '</details>' : '');
+  const testBox = t ? (t.ok ? '<div class="card" style="background:var(--card2);margin-top:10px"><b style="color:#2ecc71">✔ Connected</b> <span class="muted">HTTP ' + t.status + ' · ' + t.ms + ' ms · ' + (t.count ? t.count + ' items found' + (t.listPath ? ' at <code>' + E(t.listPath) + '</code>' : ' at the top level') : 'no list of items found') + '</span>'
+      + '<details style="margin-top:6px"><summary class="muted">Sample response</summary><pre style="max-height:220px;overflow:auto;font-size:12px">' + E(t.raw || '') + '</pre></details>' + (t.preview && t.preview.length ? '<p class="muted" style="margin:8px 0 4px">After mapping, TableTab would import:</p><table class="mx"><tr><th>ID</th><th>Name</th><th>Price</th><th>Category</th><th>In stock</th></tr>' + t.preview.map((p) => '<tr><td>' + E(p.ext) + '</td><td>' + E(p.name) + '</td><td>' + p.price + '</td><td>' + E(p.category) + '</td><td>' + (p.available ? 'yes' : 'no') + '</td></tr>').join('') + '</table>' : (t.count ? '<p class="muted">Map the name and price below to see a preview.</p>' : '')) + '</div>'
+    : t.orderTest ? '<div class="card" style="background:var(--card2);margin-top:10px"><b>' + (t.orderOk ? '<span style="color:#2ecc71">✔ The POS accepted the test</span>' : '<span style="color:#e74c3c">✖ ' + E(t.error || 'The POS rejected the test') + '</span>') + '</b> <span class="muted">' + (t.status ? 'HTTP ' + t.status + ' · ' + t.ms + ' ms' : '') + '</span>' + (t.response ? '<pre style="max-height:140px;overflow:auto;font-size:12px">' + E(t.response) + '</pre>' : '') + '</div>'
+    : '<div class="card" style="background:var(--card2);margin-top:10px"><b style="color:#e74c3c">✖ ' + E(t.error || 'Could not connect') + '</b>' + (t.status ? ' <span class="muted">HTTP ' + t.status + '</span>' : '') + (t.body ? '<pre style="max-height:140px;overflow:auto;font-size:12px">' + E(t.body) + '</pre>' : '') + '</div>') : '';
+  const mapper = '<h3 style="margin:18px 0 4px">Field mapper</h3><p class="muted" style="margin:0 0 8px;font-size:13px">Tell TableTab which key in the POS answer holds each value. Use the dot path for nested keys (e.g. <code>pricing.amount</code>). Press <b>Test menu connection</b> first and the keys appear in the drop-downs.</p>'
+    + '<div class="row" style="flex-wrap:wrap;gap:10px;align-items:end"><label class="muted" style="font-size:12px">List path<br><input id="hb_list" style="width:170px" placeholder="auto (e.g. data.items)" value="' + E(c.mapping.listPath || '') + '"></label>'
+    + '<label class="muted" style="font-size:12px">Divide price by<br><input id="hb_div" type="number" min="0.0001" step="any" style="width:110px" value="' + (c.mapping.priceDivisor || 1) + '" title="100 if the POS sends prices in piasters/cents"></label>'
+    + '<button class="ghost" onclick="hubAuto()" ' + (t && t.guess ? '' : 'disabled') + '>✨ Auto-detect from sample</button></div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 14px;margin-top:10px">' + HUB.fields.map((f) => '<label class="muted" style="font-size:12px">' + E(HUB_LABELS[f] || f) + ' ← POS key<br><input id="hm_' + f + '" list="hb_keys" placeholder="' + (f === 'name' || f === 'price' ? 'required' : 'optional') + '" value="' + E(F[f] || '') + '"></label>').join('') + '</div>';
+  ovShow('<div class="spread"><h2>🔌 Connect external POS · ' + E(HUB.name) + '</h2><button class="ghost" onclick="closeOv()">Close</button></div>'
+    + '<p class="muted" style="margin-top:0">For a café that already has its own POS or database. TableTab pulls the menu and prices in, and sends every new order out. Nothing to install on their side. API keys and passwords are stored encrypted and never shown again.</p>'
+    + statusBox
+    + '<label class="row" style="gap:8px;margin:6px 0"><input id="hb_on" type="checkbox" style="width:auto" ' + (c.enabled ? 'checked' : '') + '> <b>Integration is on</b> <span class="muted">(off keeps your settings but stops syncing and sending)</span></label>'
+    + '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-top:6px">'
+    + '<label class="muted" style="font-size:12px">Connection protocol<br><select id="hb_proto" onchange="hubRead();drawHub()">' + opt('rest', 'REST API (pull menu, push orders)', c.protocol) + opt('webhook', 'Webhook (push orders only, menu optional)', c.protocol) + '</select></label>'
+    + '<label class="muted" style="font-size:12px">Menu sync every<br><select id="hb_every">' + [[0, 'Manual only'], [5, '5 minutes'], [15, '15 minutes'], [30, '30 minutes'], [60, 'Every hour'], [360, 'Every 6 hours'], [1440, 'Once a day']].map(([v, l]) => opt(String(v), l, String(c.syncEveryMin))).join('') + '</select></label></div>'
+    + '<label class="muted" style="font-size:12px;display:block;margin-top:8px">Menu Sync URL ' + (c.protocol === 'webhook' ? '(optional)' : '') + ' <small>(GET, returns JSON)</small><input id="hb_menu" placeholder="https://pos.example.com/api/menu" value="' + E(c.menuUrl || '') + '"></label>'
+    + '<label class="muted" style="font-size:12px;display:block;margin-top:8px">Order Push URL <small>(POST, TableTab sends each new order as JSON)</small><input id="hb_order" placeholder="https://pos.example.com/api/orders" value="' + E(c.orderUrl || '') + '"></label>'
+    + '<h3 style="margin:16px 0 4px">Login to the POS</h3><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">'
+    + '<label class="muted" style="font-size:12px">Method<br><select id="hb_auth" onchange="hubRead();drawHub()">' + opt('none', 'None', A.type) + opt('apikey', 'API key (header)', A.type) + opt('bearer', 'Bearer token', A.type) + opt('basic', 'Basic (username + password)', A.type) + '</select></label>'
+    + (A.type === 'apikey' ? '<label class="muted" style="font-size:12px">Header name<br><input id="hb_hdr" placeholder="X-API-Key" value="' + E(A.header || '') + '"></label>' : '')
+    + (A.type === 'basic' ? '<label class="muted" style="font-size:12px">Username<br><input id="hb_user" autocomplete="off" value="' + E(A.user || '') + '"></label>' : '')
+    + (A.type !== 'none' ? '<label class="muted" style="font-size:12px">' + (A.type === 'basic' ? 'Password' : A.type === 'bearer' ? 'Token' : 'API key') + '<br><input id="hb_secret" type="password" autocomplete="new-password" placeholder="' + (A.secret ? 'saved, leave to keep' : 'paste it here') + '" value="' + E(A.secret || '') + '"></label>' : '') + '</div>'
+    + '<label class="row" style="gap:8px;margin-top:10px"><input id="hb_missing" type="checkbox" style="width:auto" ' + (c.soldOutMissing !== false ? 'checked' : '') + '> <span class="muted">Items that disappear from the POS menu are marked sold out (never deleted)</span></label>'
+    + '<div class="row" style="flex-wrap:wrap;gap:8px;margin-top:12px"><button class="ghost" onclick="hubTest(\'menu\')">🔌 Test menu connection</button><button class="ghost" onclick="hubTest(\'order\')">📤 Test order endpoint</button></div>'
+    + testBox + dl + mapper
+    + '<h3 style="margin:18px 0 4px">What TableTab sends for each order</h3><pre style="font-size:12px">POST ' + E(c.orderUrl || '<Order Push URL>') + '\nX-TableTab-Event: order.created\nX-TableTab-Delivery: &lt;unique id, safe to use for de-duplication&gt;\nX-TableTab-Signature: sha256=HMAC_SHA256(body, signing secret)\n\n{ "event": "order.created", "restaurant": "' + E(HUB.slug) + '",\n  "order": { "id", "table", "type", "source", "created_at",\n    "items": [ { "ext_id": "&lt;your POS item id&gt;", "name", "qty", "unit_price", "options", "note" } ], "total" } }</pre>'
+    + '<p class="muted" style="font-size:12px">Signing secret (to verify the signature on the POS side): <b>' + E(c.webhookSecret || 'created on first save') + '</b> <button class="ghost" style="padding:2px 8px" onclick="hubReveal()">Show</button> <button class="ghost" style="padding:2px 8px" onclick="hubReveal(true)">Regenerate</button> <span id="hb_sec"></span><br>Delivery is retried with growing pauses for up to 8 attempts; a 4xx answer (other than 408/429) is treated as a final rejection.</p>'
+    + '<div class="row" style="margin-top:14px;flex-wrap:wrap;gap:8px"><button class="primary" onclick="hubSave()">Save</button><button class="ghost" onclick="hubSync()">⟳ Sync menu now</button><button class="ghost" onclick="hubDrain()" ' + (c.pending ? '' : 'disabled') + '>⇢ Send ' + c.pending + ' queued order' + (c.pending === 1 ? '' : 's') + ' now</button><span id="hb_msg" class="muted">' + E(msg || '') + '</span></div>');
+}
+const hubMsg = (m, bad) => { const e = document.getElementById('hb_msg'); if (e) { e.textContent = m; e.style.color = bad ? '#e74c3c' : '#2ecc71'; } };
+async function hubTest(which) {
+  hubRead(); hubMsg('Testing…');
+  try {
+    const r = await api('POST', `/api/super/tenants/${HUB.slug}/integration/test`, { which, config: HUB.cfg });
+    HUB.test = which === 'order' ? { orderTest: true, orderOk: r.ok, status: r.status, ms: r.ms, response: r.response, error: r.error } : r;
+    if (which === 'menu' && r.ok && r.fallback) { HUB.cfg.mapping.listPath = r.listPath; HUB.cfg.mapping.fields = { ...(r.guess || {}) }; }
+    if (which === 'menu' && r.ok && r.listPath && !HUB.cfg.mapping.listPath) HUB.cfg.mapping.listPath = r.listPath;
+    if (which === 'menu' && r.ok && r.guess && !Object.keys(HUB.cfg.mapping.fields || {}).length) HUB.cfg.mapping.fields = { ...r.guess };
+    drawHub();
+  } catch (e) { hubMsg(e.message, true); }
+}
+function hubAuto() { const g = HUB.test && HUB.test.guess; if (!g) return; hubRead(); HUB.cfg.mapping.fields = { ...g }; if (HUB.test.listPath !== undefined) HUB.cfg.mapping.listPath = HUB.test.listPath; drawHub('Mapped from the sample. Check each field, then Save.'); }
+async function hubSave() {
+  hubRead(); hubMsg('Saving…');
+  try { const r = await api('PUT', `/api/super/tenants/${HUB.slug}/integration`, HUB.cfg); HUB.cfg = r.config; drawHub('Saved ✓'); } catch (e) { hubMsg(e.message, true); }
+}
+async function hubSync() {
+  hubRead(); hubMsg('Saving and syncing…');
+  try { const s = await api('PUT', `/api/super/tenants/${HUB.slug}/integration`, HUB.cfg); HUB.cfg = s.config; const r = await api('POST', `/api/super/tenants/${HUB.slug}/integration/sync`); const g = await api('GET', `/api/super/tenants/${HUB.slug}/integration`); HUB.cfg = g.config; drawHub(r.ok ? 'Synced ✓ ' + r.created + ' new, ' + r.updated + ' changed' : ''); if (!r.ok) hubMsg(r.error, true); load(); } catch (e) { hubMsg(e.message, true); }
+}
+async function hubDrain() { hubMsg('Sending…'); try { const r = await api('POST', `/api/super/tenants/${HUB.slug}/integration/drain`); HUB.cfg = r.config; drawHub(r.config.pending ? 'Still ' + r.config.pending + ' waiting: ' + ((r.config.lastPush || {}).error || '') : 'All sent ✓'); } catch (e) { hubMsg(e.message, true); } }
+async function hubReveal(rotate) {
+  if (rotate && !confirm('Create a new signing secret? The POS must be updated with it, or it will reject our orders.')) return;
+  try { const r = await api('POST', `/api/super/tenants/${HUB.slug}/integration/secret`, { rotate: !!rotate }); const e = document.getElementById('hb_sec'); if (e) e.innerHTML = '<code style="user-select:all">' + App.esc(r.secret) + '</code>'; } catch (e) { hubMsg(e.message, true); }
 }
 App.handlers = { render: () => O && draw() };
 load(); setInterval(() => App.tok('super') && load(), 8000);

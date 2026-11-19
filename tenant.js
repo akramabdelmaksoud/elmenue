@@ -141,6 +141,13 @@ function createTenant(rec, persist, onAlert) {
   }
 
 // ---------- Billing ----------
+// Integration Hub: a café with its own POS gets every new order queued here (saved together with the order, delivered by the server).
+function forward(s, o) {
+  const c = rec.integration; if (!c || !c.enabled || !c.orderUrl) return;
+  const items = o.items.map((l) => { const it = db.items.find((x) => x.id === l.itemId) || {}; return { ext_id: it.ext || null, item_id: l.itemId, name: l.name, qty: l.qty, unit_price: l.price, options: l.opt || '', note: l.note || '' }; });
+  const q = (c.outbox ||= []); if (q.length >= 200) q.shift();
+  q.push({ id: id('f'), at: Date.now(), tries: 0, next: 0, payload: { event: 'order.created', restaurant: rec.slug, order: { id: o.id, table: s.tableNumber, type: s.kind || 'table', source: o.by === 'online' ? 'online' : o.by === 'staff' ? 'staff' : 'guest', created_at: new Date(o.at).toISOString(), items, total: Math.round(items.reduce((n, i) => n + i.unit_price * i.qty, 0) * 100) / 100 } } });
+}
 // one place that turns (item, qty, chosen options) into an order line, so tables, online and staff orders all price options the same way
 function mkLine(it, q, guestId, sel, note) {
     let add = 0, extra = {};
@@ -479,7 +486,7 @@ function placeOnline(p) {
   db.ticketSeq = (db.ticketSeq || 0) + 1;
   const s = { id: id('s'), tableId: p.tid, tableNumber: (kind === 'car' ? 'CR-' : kind === 'delivery' ? 'DL-' : 'TA-') + db.ticketSeq, kind, source: isCar ? 'car' : 'online', startedAt: Date.now(), lastAt: Date.now(), guests: [{ id: 'cust', name, avatar: kind === 'car' ? '🚗' : kind === 'delivery' ? '🛵' : '🛍️' }], cart: [], orders: [], requests: [], check: null, log: [], customer: { name, phone, ...(phone2.replace(/\D/g, '').length >= 7 ? { phone2 } : {}), address, ...(car ? { car } : {}), note: String(p.note || '').trim().slice(0, 200), ...(F.geoPoint(p.geo) ? { map: 'https://www.google.com/maps?q=' + F.geoPoint(p.geo).lat + ',' + F.geoPoint(p.geo).lng, geo: F.geoPoint(p.geo), km: zone ? zone.km : undefined } : {}), ...(p.acct ? { accountId: String(p.acct).slice(0, 24) } : {}) },
     ...(kind === 'delivery' ? { delivery: { status: 'new', areaId: area ? area.id : '', areaName: area ? area.name : '', areaName_ar: area ? area.name_ar : '', etaMin: area ? area.etaMin : 0, history: [{ at: Date.now(), s: 'new' }] } } : {}) };
-  s.orders.push(stampEta({ id: id('o'), at: Date.now(), status: 'received', items: lines, by: 'online' }));
+  s.orders.push(stampEta({ id: id('o'), at: Date.now(), status: 'received', items: lines, by: 'online' })); forward(s, s.orders[s.orders.length - 1]);
   db.sessions[p.tid] = s; log(s, 'ordered', `Online ${kind} order from ${name} (${lines.reduce((n, l) => n + l.qty, 0)} item(s))`);
   alertCaptains('order', s.tableNumber, isCar ? `🚗 Car ${s.tableNumber}: ${name} · ${car.color} ${car.type}${car.spot ? ' · spot ' + car.spot : ''}` : `🌐 Online ${kind === 'delivery' ? 'delivery' : 'pickup'} ${s.tableNumber}: ${name}`);
   save(); broadcast();
@@ -685,7 +692,7 @@ function handle(c, m) {
         s.cart = s.cart.filter((l) => !want.includes(l));
         const mine = takeStock(want);
         if (!mine.length) break;
-        s.orders.push(stampEta({ id: id('o'), at: Date.now(), status: 'received', items: mine, by: c.guestId }));
+        s.orders.push(stampEta({ id: id('o'), at: Date.now(), status: 'received', items: mine, by: c.guestId })); forward(s, s.orders[s.orders.length - 1]);
         s.check = null; s.requests = s.requests.filter((r) => r.type !== 'bill' || r.done);
         const g = s.guests.find((x) => x.id === c.guestId);
         log(s, 'ordered', `${g ? g.avatar + ' ' + g.name : 'Guest'} added ${mine.reduce((n, l) => n + l.qty, 0)} item(s)` + (first ? ' (first order)' : ''));
@@ -803,7 +810,7 @@ function handle(c, m) {
         if (!g) { g = { id: 'staff', name: 'Staff', avatar: '🧑‍🍳' }; s.guests.push(g); }
         const lines = takeStock(want, c.staffName); if (!lines.length) break;
         lines.forEach((l) => (l.guestId = g.id));
-        s.orders.push(stampEta({ id: id('o'), at: Date.now(), status: 'received', items: lines, by: 'staff', staff: c.staffName || '' }));
+        s.orders.push(stampEta({ id: id('o'), at: Date.now(), status: 'received', items: lines, by: 'staff', staff: c.staffName || '' })); forward(s, s.orders[s.orders.length - 1]);
         s.check = null; s.requests = s.requests.filter((r) => r.type !== 'bill' || r.done); s.lastAt = Date.now(); s.idle = false;
         log(s, 'ordered', `${c.staffName || 'Staff'} took an order (${lines.reduce((n, l) => n + l.qty, 0)} item(s))`); bump(c, 'taken'); break;
       }

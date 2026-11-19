@@ -58,6 +58,8 @@ const tenants = new Map(); // slug -> tenant
 let uid = Date.now() * 1000 + Math.floor(Math.random() * 1000000);
 const newId = (p) => p + (uid++).toString(36);
 const SLUG = /^[a-z0-9][a-z0-9-]{1,29}$/;
+const INTEG = require('./integrations');
+
 
 // ---------- Super admin credentials ----------
 let SUPER = { email: process.env.SUPER_EMAIL, hash: process.env.SUPER_PASSWORD ? auth.hash(process.env.SUPER_PASSWORD) : null };
@@ -171,7 +173,7 @@ function flushBeforeReply(req, res, t) {
     const orig = res[m].bind(res);
     res[m] = (...a) => {
       if (!t.dirty) return orig(...a);
-      commit(t).then((ok) => (ok || req.method === 'GET' ? orig(...a) : res.status(409).json({ error: 'busy', retry: true }))).catch((e) => (req.method === 'GET' ? orig(...a) : res.status(500).json({ error: e.message })));
+      commit(t).then(async (ok) => { if (ok) await drainSoon(t); return ok; }).then((ok) => (ok || req.method === 'GET' ? orig(...a) : res.status(409).json({ error: 'busy', retry: true }))).catch((e) => (req.method === 'GET' ? orig(...a) : res.status(500).json({ error: e.message })));
       return res;
     };
   }
@@ -701,6 +703,99 @@ app.post('/api/super/tenants/:slug/reset', needSuper, async (req, res, next) => 
   const password = auth.randomPassword(); t.rec.owner.hash = auth.hash(password); t.rec.pin = auth.pin();
   if (!(await saveTenant(t))) return res.status(409).json({ error: 'busy, try again' });
   res.json({ email: t.rec.owner.email, password, pin: t.rec.pin });
+} catch (e) { next(e); } });
+// ===== Integration Hub (super admin): connect a café's own POS / database without touching code =====
+// Config lives on the café record (rec.integration), secrets sealed. Menu sync pulls items in; the outbox pushes every order out.
+const integOpts = { allowHttp: !PROD, allowLocal: envOn(process.env.INTEGRATION_ALLOW_LOCAL) };
+const integLimit = rateLimit({ windowMs: 60000, max: 40, message: 'Too many tests, wait a minute' });
+const integTenant = async (req, res) => { const t = await oneTenant(req.params.slug); if (!t) { res.status(404).json({ error: 'Restaurant not found' }); return null; } return t; };
+// send what is due; saves if the queue changed. Never throws.
+async function drainOutbox(t) { try { const ch = await INTEG.drain(t.rec, integOpts); if (ch) { if (STATELESS) { t.dirty = true; await commit(t); } else store.save(t.rec); } return ch; } catch { return false; } }
+// after an order is saved: try to deliver it at once, but never make the guest wait more than 3 seconds
+async function drainSoon(t) {
+  const c = t.rec.integration; if (!c || !c.enabled || !(c.outbox || []).some((e) => e.next <= Date.now())) return;
+  await Promise.race([drainOutbox(t), new Promise((r) => setTimeout(r, 3000))]);
+}
+async function syncMenu(t) {
+  const c = t.rec.integration, at = Date.now();
+  try {
+    const { json } = await INTEG.fetchMenu(c, integOpts);
+    const map = c.mapping || {}, rows = map.listPath ? INTEG.getPath(json, map.listPath) : (INTEG.findList(json) || {}).list;
+    if (!Array.isArray(rows)) throw new Error('Could not find the list of items. Set the "List path" in the mapper.');
+    if (!(map.fields || {}).name || !(map.fields || {}).price) throw new Error('Map at least the name and the price');
+    const m = INTEG.mapRows(rows, map);
+    if (!m.items.length) throw new Error('No usable items in the response (' + m.skipped + ' skipped). Check the field mapping.');
+    const r = INTEG.applySync(t.db, m.items, { soldOutMissing: c.soldOutMissing !== false }, newId);
+    c.lastSync = { at, ok: true, ...r, total: m.items.length, skipped: m.skipped };
+  } catch (e) { c.lastSync = { at, ok: false, error: String(e.message).slice(0, 200) }; }
+  if (STATELESS) { t.dirty = true; await commit(t); } else store.save(t.rec);
+  if (c.lastSync.ok && t.broadcast) t.broadcast();
+  return c.lastSync;
+}
+// run every café's due work: menu sync on its own schedule, order delivery retries
+async function integrationsTick() {
+  const out = { checked: 0, synced: 0, pushed: 0 };
+  for (const t of await allTenants()) {
+    const c = t.rec.integration; if (!c || !c.enabled) continue; out.checked++;
+    const due = c.menuUrl && c.syncEveryMin > 0 && (!c.lastSync || Date.now() - c.lastSync.at >= c.syncEveryMin * 60000);
+    if (due) { await syncMenu(t); out.synced++; }
+    if ((c.outbox || []).length && await drainOutbox(t)) out.pushed++;
+  }
+  return out;
+}
+if (!STATELESS) setInterval(() => integrationsTick().catch(() => {}), 4000).unref();   // orders reach the POS within seconds; menu sync is gated by each café's own interval
+// Vercel cron (or any pinger) calls this; protected by CRON_SECRET ("Authorization: Bearer <secret>")
+app.get('/api/cron/integrations', async (req, res, next) => { try {
+  const sec = process.env.CRON_SECRET; if (!sec || !safeEq(String(req.headers.authorization || ''), 'Bearer ' + sec)) return res.status(401).json({ error: 'auth' });
+  res.json(await integrationsTick());
+} catch (e) { next(e); } });
+app.get('/api/super/tenants/:slug/integration', needSuper, async (req, res, next) => { try { const t = await integTenant(req, res); if (t) res.json({ config: INTEG.viewConfig(t.rec.integration), fields: INTEG.MAP_FIELDS, httpAllowed: integOpts.allowHttp }); } catch (e) { next(e); } });
+app.put('/api/super/tenants/:slug/integration', needSuper, async (req, res, next) => { try {
+  const t = await integTenant(req, res); if (!t) return;
+  const cfg = INTEG.cleanConfig(req.body, t.rec.integration);
+  for (const [k, label] of [['menuUrl', 'Menu Sync URL'], ['orderUrl', 'Order Push URL']]) if (cfg[k]) { const c = INTEG.checkUrl(cfg[k], integOpts); if (c.error) return res.status(400).json({ error: label + ': ' + c.error }); }
+  if (cfg.enabled && !cfg.menuUrl && !cfg.orderUrl) return res.status(400).json({ error: 'Enter at least one URL (menu sync or order push) before switching it on' });
+  if (cfg.enabled && cfg.menuUrl && !(cfg.mapping.fields.name && cfg.mapping.fields.price)) return res.status(400).json({ error: 'Map at least the name and the price before switching on menu sync' });
+  t.rec.integration = cfg; await saveTenant(t); res.json({ config: INTEG.viewConfig(cfg) });
+} catch (e) { next(e); } });
+// try the form's current values (saved or not) without saving; returns the status, a sample and the keys for the mapper
+app.post('/api/super/tenants/:slug/integration/test', needSuper, integLimit, async (req, res, next) => { try {
+  const t = await integTenant(req, res); if (!t) return;
+  const b = req.body || {}, cfg = INTEG.cleanConfig(b.config, t.rec.integration);
+  if (b.which === 'order') {
+    if (!cfg.orderUrl) return res.status(400).json({ error: 'Enter the Order Push URL first' });
+    const body = JSON.stringify({ event: 'test.ping', restaurant: t.rec.slug, sent_at: new Date().toISOString(), note: 'TableTab connection test. No real order.' });
+    try {
+      const r = await INTEG.safeRequest(cfg.orderUrl, { method: 'POST', body, headers: { ...INTEG.authHeaders(cfg), 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'X-TableTab-Event': 'test.ping', 'X-TableTab-Signature': INTEG.signBody(cfg, body) }, ...integOpts, timeout: 6000 });
+      return res.json({ ok: r.status >= 200 && r.status < 300, status: r.status, ms: r.ms, response: r.text.slice(0, 1200) });
+    } catch (e) { return res.json({ ok: false, error: e.message }); }
+  }
+  if (!cfg.menuUrl) return res.status(400).json({ error: 'Enter the Menu Sync URL first' });
+  try {
+    const { json, ms, status } = await INTEG.fetchMenu(cfg, integOpts);
+    let forced = cfg.mapping.listPath ? { path: cfg.mapping.listPath, list: INTEG.getPath(json, cfg.mapping.listPath) } : INTEG.findList(json), fallback = false;
+    if (!(forced && Array.isArray(forced.list))) { const f = INTEG.findList(json); if (f) { forced = f; fallback = !!cfg.mapping.listPath; } }   // the saved path no longer matches: look again
+    const list = forced && Array.isArray(forced.list) ? forced.list : null;
+    res.json({ ok: true, fallback, status, ms, raw: JSON.stringify(json, null, 2).slice(0, 2500), listPath: forced ? forced.path : '', count: list ? list.length : 0, sample: list ? list.slice(0, 3) : [], keys: list && list[0] ? INTEG.sampleKeys(list[0]) : [], guess: list && list[0] ? INTEG.guessMapping(list[0]) : {},
+      preview: list ? INTEG.mapRows(list.slice(0, 5), cfg.mapping).items : [] });
+  } catch (e) { res.json({ ok: false, error: e.message, status: e.status || 0, body: e.body || '' }); }
+} catch (e) { next(e); } });
+app.post('/api/super/tenants/:slug/integration/sync', needSuper, integLimit, async (req, res, next) => { try {
+  const t = await integTenant(req, res); if (!t) return;
+  if (!t.rec.integration || !t.rec.integration.menuUrl) return res.status(400).json({ error: 'Save the Menu Sync URL first' });
+  res.json(await syncMenu(t));
+} catch (e) { next(e); } });
+// the signing secret the POS uses to verify our signature: shown to the super admin on request, can be rotated
+app.post('/api/super/tenants/:slug/integration/secret', needSuper, integLimit, async (req, res, next) => { try {
+  const t = await integTenant(req, res); if (!t) return;
+  const c = t.rec.integration; if (!c) return res.status(400).json({ error: 'Save the connection first' });
+  if ((req.body || {}).rotate) { c.webhookSecret = auth.seal(require('crypto').randomBytes(24).toString('hex')); await saveTenant(t); }
+  res.json({ secret: auth.unseal(c.webhookSecret) });
+} catch (e) { next(e); } });
+app.post('/api/super/tenants/:slug/integration/drain', needSuper, integLimit, async (req, res, next) => { try {
+  const t = await integTenant(req, res); if (!t) return;
+  const c = t.rec.integration; if (c) c.outbox.forEach((e) => (e.next = 0));
+  await drainOutbox(t); res.json({ config: INTEG.viewConfig(t.rec.integration) });
 } catch (e) { next(e); } });
 app.post('/api/super/tenants/:slug/impersonate', needSuper, (req, res) => res.json({ token: auth.sign('admin', req.params.slug, 1) }));
 app.delete('/api/super/tenants/:slug', needSuper, async (req, res, next) => { try {
