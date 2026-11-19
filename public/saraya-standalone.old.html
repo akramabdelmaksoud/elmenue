@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>السرايا كافيه · مدينة نصر</title>
+<meta name="description" content="منيو السرايا كافيه التفاعلي في مدينة نصر: مشروبات ساخنة وأعشاب وعصائر وحلويات، مع نداء الكابتن من الطاولة.">
+<meta name="theme-color" content="#1a0f0a">
+<link rel="icon" href="/saraya-logo.jpeg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1a0f0a;--bg2:#241510;--card:rgba(255,255,255,.055);--line:rgba(255,214,170,.16);--text:#fff4e6;--muted:#d9bfa3;--dim:#a68b72;
+--c1:#ff9419;--c2:#ff5e3a;--c3:#ffd166;--ok:#7dffb8;--g:linear-gradient(120deg,#ffb347,#ff7a2f 55%,#ff4f5e);
+--ease:cubic-bezier(.2,.9,.25,1.15);--soft:cubic-bezier(.22,1,.36,1)}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html{scroll-padding-top:150px}
+body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;min-height:100vh;
+background-image:radial-gradient(900px 500px at 85% -5%,rgba(255,122,47,.22),transparent 60%),radial-gradient(700px 500px at -5% 35%,rgba(255,209,102,.1),transparent 60%)}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+a{color:inherit;text-decoration:none}
+
+/* ---------- top bar ---------- */
+.top{position:sticky;top:0;z-index:50;background:#1a0f0a;border-bottom:1px solid var(--line)}
+.top .in{max-width:1180px;margin:auto;display:flex;align-items:center;gap:12px;padding:10px 16px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:19px;white-space:nowrap}
+.brand img{width:42px;height:42px;border-radius:50%;box-shadow:0 0 0 2px var(--c1),0 6px 20px -6px var(--c1)}
+.srch{flex:1;max-width:340px;margin-inline-start:auto;position:relative}
+.srch input{width:100%;padding:11px 40px 11px 14px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--text);font:600 15px Cairo;outline:0;transition:border-color .3s,box-shadow .3s}
+.srch input:focus{border-color:var(--c1);box-shadow:0 0 0 4px rgba(255,148,25,.18)}
+.srch:after{content:"🔍";position:absolute;inset-inline-end:14px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none}
+.cartbtn{position:relative;width:48px;height:48px;border-radius:50%;background:var(--g);display:grid;place-items:center;font-size:22px;box-shadow:0 10px 28px -8px rgba(255,122,47,.7);transition:transform .35s var(--ease)}
+.cartbtn:hover{transform:scale(1.1) rotate(-6deg)}.cartbtn.bump{animation:bump .5s var(--ease)}
+@keyframes bump{30%{transform:scale(1.35) rotate(10deg)}100%{transform:scale(1)}}
+.cartbtn b{position:absolute;top:-4px;inset-inline-start:-4px;min-width:22px;height:22px;border-radius:99px;background:#fff;color:#a8320a;font:900 12px Cairo;display:grid;place-items:center;padding:0 5px;transform:scale(0);transition:transform .35s var(--ease)}
+.cartbtn.has b{transform:scale(1)}
+
+/* ---------- hero ---------- */
+.hero{position:relative;min-height:min(86vh,720px);display:grid;place-items:center;text-align:center;overflow:hidden;padding:60px 18px 120px;isolation:isolate}
+.hero .glow{position:absolute;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(255,148,25,.38),transparent 65%);z-index:-1;animation:breathe 6s ease-in-out infinite}
+@keyframes breathe{50%{transform:scale(1.18);opacity:.7}}
+.hero .tag{display:inline-flex;gap:8px;align-items:center;padding:7px 16px;border-radius:99px;border:1px solid var(--line);background:var(--card);font-weight:700;font-size:14px;color:var(--c3);animation:rise .9s var(--soft) both}
+.hero h1{font-weight:900;font-size:clamp(44px,9vw,104px);line-height:1.05;margin:16px 0 10px;background:var(--g);-webkit-background-clip:text;background-clip:text;color:transparent;animation:rise 1s .1s var(--soft) both;filter:drop-shadow(0 12px 30px rgba(255,100,40,.3))}
+.hero p{font-size:clamp(16px,2.4vw,22px);color:var(--muted);max-width:640px;margin:0 auto;animation:rise 1s .2s var(--soft) both}
+.hero .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:28px;animation:rise 1s .3s var(--soft) both}
+@keyframes rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:15px 28px;border-radius:99px;font-weight:800;font-size:17px;transition:transform .35s var(--ease),box-shadow .35s;position:relative;overflow:hidden}
+.btn.p{background:var(--g);color:#2a0d02;box-shadow:0 16px 40px -12px rgba(255,122,47,.8)}
+.btn.s{border:1px solid var(--line);background:var(--card)}
+.btn:hover{transform:translateY(-4px) scale(1.04)}.btn:active{transform:scale(.95)}
+.btn.p:after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.55) 50%,transparent 70%);transform:translateX(-120%);transition:transform .8s}
+.btn.p:hover:after{transform:translateX(120%)}
+/* the table the drinks land on */
+.floor{position:absolute;inset-inline:0;bottom:0;height:90px;background:linear-gradient(to top,#3a2012,rgba(58,32,18,.0));z-index:-1}
+.floor:before{content:"";position:absolute;inset-inline:6%;bottom:30px;height:3px;border-radius:3px;background:linear-gradient(90deg,transparent,rgba(255,200,140,.5),transparent)}
+.drop{position:absolute;top:0;font-size:var(--s,44px);pointer-events:none;will-change:transform,opacity;z-index:-1}
+.splash{position:absolute;width:10px;height:10px;border-radius:50%;border:3px solid rgba(255,190,120,.8);pointer-events:none;z-index:-1}
+.steam{position:absolute;bottom:62px;inset-inline-start:50%;width:60px;height:80px;pointer-events:none;opacity:.55}
+.steam i{position:absolute;bottom:0;width:8px;height:40px;border-radius:50%;background:linear-gradient(to top,rgba(255,255,255,.4),transparent);animation:steam 3.4s ease-in-out infinite}
+@keyframes steam{0%{transform:translateY(0) scaleX(1);opacity:0}30%{opacity:.8}100%{transform:translateY(-70px) scaleX(2.2);opacity:0}}
+.hint{position:absolute;bottom:14px;inset-inline:0;color:var(--dim);font-size:13.5px}
+
+/* ---------- category bar ---------- */
+.cats{position:sticky;top:67px;z-index:40;background:#1a0f0a;border-bottom:1px solid var(--line)}
+.cats .in{max-width:1180px;margin:auto;display:flex;gap:8px;overflow-x:auto;padding:10px 16px;scrollbar-width:none}.cats .in::-webkit-scrollbar{display:none}
+.cat{flex:none;display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:99px;border:1px solid var(--line);background:var(--card);font-weight:800;font-size:15.5px;white-space:nowrap;transition:transform .35s var(--ease),background .3s,border-color .3s,color .3s}
+.cat i{font-style:normal;font-size:20px;transition:transform .5s var(--ease)}
+.cat:hover{transform:translateY(-3px)}.cat:hover i{transform:rotate(-14deg) scale(1.25)}
+.cat.on{background:var(--g);color:#2a0d02;border-color:transparent;box-shadow:0 10px 26px -10px rgba(255,122,47,.9)}
+
+/* ---------- menu ---------- */
+main{max-width:1180px;margin:auto;padding:26px 16px 140px}
+.sec{margin-top:34px}
+.sec h2{display:flex;align-items:center;gap:12px;font-size:clamp(26px,4vw,38px);font-weight:900;margin-bottom:6px}
+.sec h2 i{font-style:normal;font-size:1.2em;display:inline-block}.sec h2:hover i{animation:wob 1.2s ease-in-out}
+@keyframes wob{50%{transform:rotate(-12deg) translateY(-4px)}}
+.sec .sub{color:var(--dim);margin-bottom:16px;font-size:15px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.it{position:relative;display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:24px;border:1px solid rgba(255,226,192,.17);background:var(--card);box-shadow:0 10px 24px -10px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,226,192,.22);overflow:hidden;
+opacity:0;transform:translateY(-70px) rotate(var(--r,0deg));transition:border-color .3s,background .3s,box-shadow .4s}
+.it.in{animation:drop .9s var(--d,0ms) var(--ease) both}
+@keyframes drop{0%{opacity:0;transform:translateY(-90px) rotate(var(--r))}55%{opacity:1;transform:translateY(8px) rotate(0)}75%{transform:translateY(-6px)}100%{opacity:1;transform:none}}
+.it:hover{border-color:rgba(255,148,25,.6);background:rgba(255,148,25,.09);box-shadow:0 22px 50px -26px rgba(255,122,47,.9)}
+.it:before{content:"";position:absolute;inset:0;background:radial-gradient(260px 120px at var(--mx,80%) var(--my,0%),rgba(255,180,90,.2),transparent 70%);opacity:0;transition:opacity .3s}.it:hover:before{opacity:1}
+.em{flex:none;width:62px;height:62px;border-radius:20px;display:grid;place-items:center;font-size:34px;background:linear-gradient(145deg,rgba(255,170,80,.25),rgba(255,90,60,.12));transition:transform .55s var(--ease)}
+.it:hover .em{transform:translateY(-6px) rotate(-10deg) scale(1.18)}
+.it .nm{flex:1;min-width:0;font-weight:800;font-size:17px;line-height:1.35}
+.it .nm small{display:block;font-weight:600;font-size:12.5px;color:var(--dim)}
+.pr{font-weight:900;font-size:19px;color:var(--c3);white-space:nowrap;display:flex;align-items:baseline;gap:3px}.pr small{font-size:11.5px;color:var(--dim);font-weight:700}
+.add{flex:none;min-width:78px;height:40px;padding:0 16px;border-radius:99px;background:var(--g);color:#2a0d02;font-size:15px;font-weight:900;line-height:1;display:inline-flex;gap:6px;align-items:center;justify-content:center;white-space:nowrap;box-shadow:0 8px 18px -8px rgba(255,122,47,.8);transition:transform .3s var(--ease),background .3s;position:relative;z-index:1}
+.add b{font-size:20px;font-weight:900;line-height:1}
+.add:hover{transform:translateY(-2px)}.add:active{transform:scale(.93)}
+.add.on{background:#fff4e6}
+.extras{display:flex;flex-wrap:wrap;gap:10px}
+.chip{padding:10px 18px;border-radius:99px;background:var(--card);border:1px solid rgba(255,190,120,.3);font-weight:700;display:flex;gap:8px;align-items:center;opacity:0;transform:scale(.6)}
+.chip.in{animation:pop .6s var(--d,0ms) var(--ease) both}
+@keyframes pop{to{opacity:1;transform:none}}
+.chip b{color:var(--c3)}
+.empty{text-align:center;color:var(--dim);padding:60px 0;font-size:18px;display:none}
+
+/* hero stat chips */
+.stats{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:22px;animation:rise 1s .4s var(--soft) both}
+.stats span{display:inline-flex;gap:6px;align-items:baseline;padding:8px 14px;border-radius:99px;background:rgba(255,255,255,.07);border:1px solid rgba(255,226,192,.22);color:var(--muted);font-weight:700;font-size:13.5px}
+.stats b{color:var(--c3);font-weight:900;font-size:15.5px}
+/* featured picks */
+.sec h2.acc:before{content:"";width:5px;height:26px;border-radius:3px;background:var(--g);flex:none}
+.fgrid{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:6px 2px 14px;scrollbar-width:none}.fgrid::-webkit-scrollbar{display:none}
+.fcard{position:relative;flex:0 0 190px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:14px 16px 16px;border-radius:28px;border:1px solid rgba(255,226,192,.3);
+background:linear-gradient(150deg,rgba(255,148,25,.34),rgba(255,79,94,.16));box-shadow:0 18px 34px -16px rgba(255,122,47,.45),inset 0 1px 0 rgba(255,226,192,.35);opacity:0;transform:translateY(-70px) rotate(var(--r,0deg));transition:transform .5s var(--ease),box-shadow .4s}
+.fcard.in{animation:drop .9s var(--d,0ms) var(--ease) both}
+.fcard:hover{transform:translateY(-8px);box-shadow:0 28px 48px -16px rgba(255,122,47,.7),inset 0 1px 0 rgba(255,226,192,.45)}
+.fcard .bd{padding:2px 10px;border-radius:99px;background:#fff4e6;color:var(--ink,#2a0d02);font-weight:900;font-size:11.5px}
+.fcard .big{font-size:64px;line-height:1.15;display:inline-block;transition:transform .6s var(--ease)}.fcard:hover .big{transform:translateY(-8px) rotate(-10deg) scale(1.15)}
+.fcard .fn{font-weight:900;font-size:19px;line-height:1.3}
+.fcard .fb{width:100%;display:flex;align-items:center;justify-content:space-between;margin-top:4px}
+.fcard .pr{font-size:20px}
+.fcard .add{height:38px;min-width:72px}
+@media(min-width:900px){.fgrid{display:grid;grid-template-columns:repeat(4,1fr);overflow:visible;padding-bottom:6px}.fcard{flex:none}}
+/* flying item */
+.fly{position:fixed;z-index:200;font-size:34px;pointer-events:none;will-change:transform}
+
+/* captain call (inside cart) */
+.call{width:100%;margin-top:10px;display:flex;justify-content:center;align-items:center;gap:8px;padding:13px;border-radius:99px;border:1px solid rgba(255,226,192,.3);background:rgba(255,255,255,.06);font-weight:800;font-size:15px;color:var(--muted);transition:background .3s}
+.call:hover{background:rgba(255,255,255,.12)}.call[disabled]{opacity:.55;pointer-events:none}
+
+/* go-to-order bar */
+.gobar{position:fixed;inset-inline:0;bottom:14px;margin:auto;width:min(480px,calc(100% - 28px));z-index:70;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px 10px 20px;border-radius:99px;background:var(--g);color:#2a0d02;font-weight:900;font-size:16px;box-shadow:0 18px 40px -10px rgba(255,122,47,.75),0 0 0 1px rgba(255,255,255,.25) inset;transform:translateY(140%);opacity:0;pointer-events:none;transition:transform .5s var(--ease),opacity .3s}
+.gobar.on{transform:none;opacity:1;pointer-events:auto}.gobar.bump{animation:gb .4s var(--ease)}
+@keyframes gb{40%{transform:scale(1.05)}}
+.gobar .gi{display:flex;flex-direction:column;align-items:flex-start;line-height:1.25;font-size:13px;font-weight:800}.gobar .gi b{font-size:18px}
+.gobar .gt{padding:11px 20px;border-radius:99px;background:#2a0d02;color:#fff4e6;font-size:15px}
+/* toast */
+.toast{position:fixed;inset-inline:0;bottom:92px;margin:auto;width:max-content;max-width:90vw;z-index:300;padding:14px 22px;border-radius:20px;background:#2a170e;border:1px solid rgba(255,190,120,.4);font-weight:700;box-shadow:0 20px 60px -10px #000;transform:translateY(30px) scale(.9);opacity:0;pointer-events:none;transition:transform .5s var(--ease),opacity .3s}
+.toast.on{transform:none;opacity:1}
+
+/* cart drawer */
+.veil{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100;opacity:0;pointer-events:none;transition:opacity .35s}.veil.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;z-index:110;bottom:0;inset-inline:0;margin:auto;width:min(520px,100%);max-height:84vh;background:var(--bg2);border:1px solid var(--line);border-radius:30px 30px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .6s var(--soft);display:flex;flex-direction:column}
+.sheet.on{transform:none}
+.sheet h3{font-size:24px;font-weight:900;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.sheet h3 button{width:38px;height:38px;border-radius:50%;background:var(--card);font-size:18px}
+.lines{overflow:auto;display:flex;flex-direction:column;gap:8px;margin:6px 0 14px}
+.ln{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:18px;background:var(--card);animation:pop .4s var(--ease) both}
+.ln .e{font-size:28px}.ln .n{flex:1;font-weight:700}.ln .q{display:flex;align-items:center;gap:8px}
+.ln .q button{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.1);font-size:18px;font-weight:900;transition:transform .25s var(--ease)}.ln .q button:active{transform:scale(.8)}
+.ln .t{min-width:62px;text-align:end;font-weight:900;color:var(--c3)}
+.tot{display:flex;justify-content:space-between;font-weight:900;font-size:22px;margin-bottom:14px}
+.none{text-align:center;color:var(--dim);padding:26px 0}
+.send{width:100%;justify-content:center}.send[disabled]{opacity:.45;pointer-events:none}
+
+footer{max-width:1180px;margin:0 auto;padding:30px 16px 120px;color:var(--dim);font-size:14px;text-align:center;border-top:1px solid var(--line)}
+footer b{color:var(--muted)}footer a{color:var(--c3);font-weight:700}
+
+@media(max-width:640px){.brand span{display:none}.srch{max-width:none}.hero{padding-bottom:100px}.grid{grid-template-columns:1fr}.cats{top:67px}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.it,.chip{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<header class="top"><div class="in">
+  <a class="brand" href="#top"><img src="/saraya-logo.jpeg" alt=""><span>السرايا كافيه</span></a>
+  <label class="srch"><input id="q" type="search" placeholder="دوّر على مشروبك..." autocomplete="off" aria-label="بحث"></label>
+  <button class="cartbtn" id="cartBtn" aria-label="الطلب">🛒<b id="cnt">0</b></button>
+</div></header>
+
+<section class="hero" id="top">
+  <div class="glow"></div>
+  <div>
+    <span class="tag">📍 مدينة نصر · شارع الورش، بجوار مسجد السلام</span>
+    <h1>السرايا كافيه</h1>
+    <p>شاي وقهوة وأعشاب وعصائر طازة وحلويات بتفتح النفس. اطلب من موبايلك، ولو احتاجت حاجة نادي الكابتن بضغطة.</p>
+    <div class="cta"><a class="btn p" href="#sec-pick">☕ شوف المنيو</a><button class="btn s" id="more">🥤 أنزل مشروبات تاني</button></div>
+    <div class="stats"><span><b data-n="84">84</b> صنف</span><span><b data-n="5">5</b> أقسام</span><span>الطلب في <b>ثواني</b></span></div>
+  </div>
+  <div class="steam" aria-hidden="true"><i style="inset-inline-start:8px;animation-delay:0s"></i><i style="inset-inline-start:26px;animation-delay:1.1s"></i><i style="inset-inline-start:44px;animation-delay:2.2s"></i></div>
+  <div class="floor"></div>
+  <div class="hint">اضغط في أي مكان فوق عشان تنزل مشروبات 🎉</div>
+</section>
+
+<nav class="cats"><div class="in" id="cats"></div></nav>
+<main id="menu"></main>
+<p class="empty" id="empty">مفيش حاجة بالاسم ده 🙈 جرّب كلمة تانية</p>
+
+<button class="gobar" id="gobar" aria-label="افتح الطلب"><span class="gi"><span id="gcnt">0 صنف</span><b id="gtot">0 ج</b></span><span class="gt">🧾 اطلب دلوقتي ←</span></button>
+<div class="toast" id="toast"></div>
+<div class="veil" id="veil"></div>
+<div class="sheet" id="sheet" role="dialog" aria-label="طلبك">
+  <h3>طلبك 🧾 <button id="close" aria-label="إغلاق">✕</button></h3>
+  <div class="lines" id="lines"></div>
+  <div class="tot"><span>الإجمالي</span><span id="total">0 ج</span></div>
+  <button class="btn p send" id="send">🚀 ابعت الطلب للكابتن</button>
+  <button class="call" id="call">🛎️ محتاج الكابتن؟ نادي عليه</button>
+</div>
+
+<footer><b>السرايا كافيه</b> · مدينة نصر · شارع الورش، متفرع من حسن المأمون، أمام شركة الكهرباء<br>
+📞 <a href="tel:0224717737">0224717737</a> · <a href="tel:01040001208">01040001208</a> · <a href="tel:01040001209">01040001209</a><br>
+<small>صفحة عرض تجريبية. الأسعار بالجنيه المصري. مدعومة بـ TableTab.</small></footer>
+
+<script>
+// ---------- the menu (read from the cafe's printed menu) ----------
+var MENU = [
+ { id: 'hot', t: 'السخن', e: '☕', s: 'شاي وقهوة وكل اللي بيصحصح', items: [
+  ['شاي',20],['شاي أخضر',25],['شاي بحليب',45],['شاي براد سنجل',30],['براد سنجل بالقرنفل',40],['براد شاي 4 أفراد',90],['شاي براد دبل',50],
+  ['قهوة تركي',30],['قهوة تركي دبل',50],['قهوة فرنساوي',40],['قهوة فرنساوي دبل',75],['كوفي ميكس سادة',35],['كوفي ميكس بحليب',50],
+  ['قهوة بندق',50],['قهوة بندق دبل',85],['نسكافيه بلاك',35],['نسكافيه بحليب',55],['كابتشينو',55]] },
+ { id: 'herb', t: 'الأعشاب', e: '🌿', s: 'مشروبات دافية وسحلب وحمص الشام', items: [
+  ['حلبة',25],['حلبة بحليب',50],['جنزبيل',40],['جنزبيل بحليب',55],['قرفة',40],['قرفة بحليب',55],['ينسون',25],['كركديه',25],['ليمون سخن',30],
+  ['كوكتيل أعشاب',45],['هوت سيدر',60],['حمص الشام',55],['سحلب مكسرات',60],['سحلب شوكولاتة',65],['سحلب أوريو',70],['سحلب فواكة',75],['كاكاو',55]] },
+ { id: 'juice', t: 'العصائر', e: '🍹', s: 'فريش، ميلك شيك، زبادي وكوكتيلات', items: [
+  ['عناب',35],['ليمون',35],['ليمون بحليب أو نعناع',40],['مانجو',60],['فراولة',60],['جوافة',60],['برتقال',60],['موز بحليب',65],['بلح بحليب',70],
+  ['كنتالوب بحليب',65],['أفوكادو',85],['أفوكادو مكسرات',90],['رمان',60],['ميلك شيك',65],['ميلك شيك لوتس',80],['أوريو',75],['تويكس أو هوهو',75],
+  ['كوكتيل عصير',75],['كوكتيل قطع بالأيس',85],['سوبر السرايا','75','مانجو وأيس كريم فانيليا'],['مانجو خوخ',70],['كيوي',75],['كيوي مانجو',75],['كيوي حليب',70],
+  ['زبادي',70],['زبادي خوخ',75],['زبادي فواكة',80],['زبادي فواكة قطع',95],['زبادي بلو بيري',70],['زبادي فواكة أيس',100],['برتقال بالجزر أو بالأناناس',70],['مشروب طاقة',90]] },
+ { id: 'sweet', t: 'الحلو', e: '🍨', s: 'أيس كريم وأم علي وفروت سلات', items: [
+  ['2 بولة أيس',40],['3 بولة أيس',55],['فروت سلات',90],['فروت سلات أيس',100],['فروت سلات قنبلة',120],['بليلة بالحليب',60],
+  ['أم علي سادة',60],['أم علي بالقشطة',70],['أم علي أيس كريم',70],['أم علي أيس وفواكة',90],['أرز باللبن',50],['أرز باللبن أيس',60],['أرز باللبن بالقشطة',60],['أرز باللبن أيس وفواكة',80]] },
+ { id: 'can', t: 'كانز', e: '🥤', s: 'ساقعة ومياه', items: [['مياه معدنية صغيرة',12],['كانز',35],['ريد بول',70]] }
+];
+var EXTRAS = ['عسل نحل','صوص','مكسرات','مناديل','قرنفل','موز','بلح'];   // each +10
+var ICON = [[/شاي/,'🍵'],[/كابتشينو|نسكافيه|كوفي|قهوة/,'☕'],[/سحلب|حمص|كاكاو|هوت سيدر/,'🥛'],[/حلبة|جنزبيل|قرفة|ينسون|كركديه|أعشاب|ليمون سخن/,'🌿'],
+ [/أم علي/,'🍮'],[/أرز|بليلة/,'🍚'],[/فروت سلات/,'🍓'],[/بولة/,'🍨'],[/ميلك شيك|أوريو|تويكس/,'🥤'],[/زبادي/,'🍧'],[/أفوكادو/,'🥑'],[/مانجو/,'🥭'],
+ [/فراولة/,'🍓'],[/برتقال/,'🍊'],[/جوافة/,'🍈'],[/موز/,'🍌'],[/رمان/,'🍎'],[/كيوي/,'🥝'],[/ليمون/,'🍋'],[/عناب|بلح|كنتالوب/,'🍹'],[/طاقة|ريد بول/,'⚡'],
+ [/مياه/,'💧'],[/كانز/,'🥫'],[/كوكتيل|سوبر/,'🍹']];
+function icon(n, cat) { for (var i = 0; i < ICON.length; i++) if (ICON[i][0].test(n)) return ICON[i][1]; return cat.e; }
+function $(s, r) { return (r || document).querySelector(s); }
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+var REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- render ----------
+var menuEl = $('#menu'), catsEl = $('#cats'), all = [];
+MENU.forEach(function (c) {
+  catsEl.insertAdjacentHTML('beforeend', '<button class="cat" data-c="' + c.id + '"><i>' + c.e + '</i>' + c.t + '</button>');
+  var h = '<section class="sec" id="sec-' + c.id + '"><h2><i>' + c.e + '</i>' + c.t + '</h2><p class="sub">' + c.s + '</p><div class="grid">';
+  c.items.forEach(function (x, i) {
+    var id = c.id + i; all.push({ id: id, n: x[0], p: +x[1], e: icon(x[0], c) });
+    h += '<div class="it" data-id="' + id + '" data-n="' + esc(x[0]) + '" style="--d:' + ((i % 6) * 70) + 'ms;--r:' + ((i % 2 ? 1 : -1) * (4 + (i % 4) * 3)) + 'deg"><div class="em">' + icon(x[0], c) + '</div><div class="nm">' + esc(x[0]) + (x[2] ? '<small>' + esc(x[2]) + '</small>' : '') + '</div><div class="pr">' + x[1] + '<small>ج</small></div><button class="add" aria-label="أضف ' + esc(x[0]) + '"><b>+</b> أضف</button></div>';
+  });
+  menuEl.insertAdjacentHTML('beforeend', h + '</div></section>');
+});
+menuEl.insertAdjacentHTML('beforeend', '<section class="sec" id="sec-extra"><h2><i>✨</i>الإضافات</h2><p class="sub">أي إضافة على مشروبك بـ 10 جنيه</p><div class="extras">' + EXTRAS.map(function (x, i) { return '<span class="chip" style="--d:' + i * 80 + 'ms">' + x + ' <b>+10</b></span>'; }).join('') + '</div></section>');
+catsEl.insertAdjacentHTML('beforeend', '<button class="cat" data-c="extra"><i>✨</i>الإضافات</button>');
+
+// house picks (first section of the menu)
+var PICKS = [['كابتشينو', '☕'], ['سوبر السرايا', '🍹'], ['أم علي بالقشطة', '🍮'], ['ميلك شيك لوتس', '🥤']];
+(function () {
+  var h = '<section class="sec" id="sec-pick"><h2 class="acc">اختيارات السرايا</h2><p class="sub">اللي بيطلبه ناس كتير عندنا</p><div class="fgrid">';
+  PICKS.forEach(function (p, i) {
+    var a = all.filter(function (x) { return x.n === p[0]; })[0]; if (!a) return;
+    h += '<div class="fcard" data-id="' + a.id + '" data-n="' + esc(a.n) + '" style="--d:' + (i * 90) + 'ms;--r:' + ((i % 2 ? 1 : -1) * (5 + i * 2)) + 'deg"><span class="bd">⭐ اختيارنا</span><span class="big">' + p[1] + '</span><span class="fn">' + esc(a.n) + '</span><div class="fb"><div class="pr">' + a.p + '<small>ج</small></div><button class="add" aria-label="أضف ' + esc(a.n) + '"><b>+</b> أضف</button></div></div>';
+  });
+  menuEl.insertAdjacentHTML('afterbegin', h + '</div></section>');
+})();
+// items drop in when they scroll into view
+var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }); }, { rootMargin: '0px 0px -8% 0px' });
+document.querySelectorAll('.it,.chip,.fcard').forEach(function (e) { io.observe(e); });
+// glow follows the pointer on a card
+var pm = null; if (matchMedia('(hover:hover)').matches) menuEl.addEventListener('pointermove', function (e) { var c = e.target.closest('.it'); if (!c || pm) return; pm = requestAnimationFrame(function () { pm = null; var r = c.getBoundingClientRect(); c.style.setProperty('--mx', (e.clientX - r.left) + 'px'); c.style.setProperty('--my', (e.clientY - r.top) + 'px'); }); });
+
+// category bar: jump, and highlight the section on screen
+catsEl.addEventListener('click', function (e) { var b = e.target.closest('.cat'); if (b) scrollTo({ top: $('#sec-' + b.dataset.c).getBoundingClientRect().top + scrollY - 140, behavior: REDUCE ? 'auto' : 'smooth' }); });
+catsEl.insertAdjacentHTML('afterbegin', '<button class="cat" data-c="pick"><i>⭐</i>اختيارات</button>');
+var secs = [].slice.call(document.querySelectorAll('.sec')), catBtns = [].slice.call(catsEl.querySelectorAll('.cat')), curSec = null, tick = false;
+function spy() {
+  tick = false; var y = 170, cur = secs[0];
+  for (var i = 0; i < secs.length; i++) { if (secs[i].getBoundingClientRect().top <= y) cur = secs[i]; else break; }
+  if (cur === curSec) return; curSec = cur;
+  catBtns.forEach(function (b) { var on = 'sec-' + b.dataset.c === cur.id; b.classList.toggle('on', on); if (on) catsEl.scrollTo({ left: b.offsetLeft - catsEl.clientWidth / 2 + b.offsetWidth / 2, behavior: 'smooth' }); });
+}
+addEventListener('scroll', function () { if (!tick) { tick = true; requestAnimationFrame(spy); } }, { passive: true }); spy();
+
+// search
+$('#q').addEventListener('input', function () {
+  var v = this.value.trim(), n = 0;
+  document.querySelectorAll('.it').forEach(function (e) { var ok = !v || e.dataset.n.indexOf(v) > -1; e.style.display = ok ? '' : 'none'; if (ok) { n++; e.classList.add('in'); } });
+  document.querySelectorAll('.sec').forEach(function (s) { if (s.id === 'sec-pick') { s.style.display = v ? 'none' : ''; return; } var g = s.querySelector('.grid'); if (g) s.style.display = g.querySelector('.it:not([style*="display: none"])') ? '' : 'none'; });
+  $('#empty').style.display = n ? 'none' : 'block';
+});
+
+// ---------- the order ----------
+var cart = {}, byId = {}; all.forEach(function (a) { byId[a.id] = a; });
+function count() { return Object.keys(cart).reduce(function (s, k) { return s + cart[k]; }, 0); }
+function sum() { return Object.keys(cart).reduce(function (s, k) { return s + cart[k] * byId[k].p; }, 0); }
+function toast(m) { var t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(function () { t.classList.remove('on'); }, 2600); }
+function paint() {
+  var n = count(), b = $('#cartBtn'); $('#cnt').textContent = n; b.classList.toggle('has', n > 0);
+  $('#total').textContent = sum() + ' ج';
+  var ks = Object.keys(cart);
+  $('#lines').innerHTML = ks.length ? ks.map(function (k) { var a = byId[k]; return '<div class="ln"><span class="e">' + a.e + '</span><span class="n">' + esc(a.n) + '</span><span class="q"><button data-m="' + k + '">−</button><b>' + cart[k] + '</b><button data-p="' + k + '">+</button></span><span class="t">' + cart[k] * a.p + '</span></div>'; }).join('') : '<div class="none">لسه ماطلبتش حاجة. اختار من المنيو 😋</div>';
+  $('#send').disabled = !ks.length;
+  var g = $('#gobar'); $('#gcnt').textContent = n + ' صنف'; $('#gtot').textContent = sum() + ' ج'; g.classList.toggle('on', n > 0 && !$('#sheet').classList.contains('on')); if (n) { g.classList.remove('bump'); void g.offsetWidth; g.classList.add('bump'); }
+  document.querySelectorAll('.add').forEach(function (a) { var id = a.closest('[data-id]').dataset.id, q = cart[id]; a.classList.toggle('on', !!q); a.innerHTML = q ? '✓ ×' + q : '<b>+</b> أضف'; });
+}
+function fly(from, emoji) {
+  var to = $('#cartBtn').getBoundingClientRect(), a = from.getBoundingClientRect();
+  if (REDUCE) return bumpCart();
+  var f = document.createElement('div'); f.className = 'fly'; f.textContent = emoji; document.body.appendChild(f);
+  var x0 = a.left + a.width / 2 - 17, y0 = a.top + a.height / 2 - 17, x1 = to.left + to.width / 2 - 17, y1 = to.top + to.height / 2 - 17;
+  f.style.left = '0'; f.style.top = '0';
+  var an = f.animate([{ transform: 'translate(' + x0 + 'px,' + y0 + 'px) scale(1) rotate(0)', opacity: 1 }, { transform: 'translate(' + (x0 + (x1 - x0) * .5) + 'px,' + (Math.min(y0, y1) - 90) + 'px) scale(1.6) rotate(180deg)', opacity: 1, offset: .45 }, { transform: 'translate(' + x1 + 'px,' + y1 + 'px) scale(.3) rotate(360deg)', opacity: .2 }], { duration: 800, easing: 'cubic-bezier(.4,0,.3,1)' });
+  an.onfinish = function () { f.remove(); bumpCart(); };
+}
+function bumpCart() { var b = $('#cartBtn'); b.classList.remove('bump'); void b.offsetWidth; b.classList.add('bump'); }
+menuEl.addEventListener('click', function (e) {
+  var b = e.target.closest('.add'); if (!b) return;
+  var card = b.closest('[data-id]'), id = card.dataset.id; cart[id] = (cart[id] || 0) + 1; paint(); fly(b, byId[id].e);
+});
+$('#lines').addEventListener('click', function (e) { var m = e.target.closest('[data-m]'), p = e.target.closest('[data-p]');
+  if (p) cart[p.dataset.p]++; if (m) { var k = m.dataset.m; if (--cart[k] <= 0) delete cart[k]; } paint(); });
+function open(v) { $('#sheet').classList.toggle('on', v); $('#veil').classList.toggle('on', v); $('#gobar').classList.toggle('on', !v && count() > 0); }
+$('#gobar').onclick = function () { open(true); };
+$('#cartBtn').onclick = function () { open(true); }; $('#veil').onclick = $('#close').onclick = function () { open(false); };
+addEventListener('keydown', function (e) { if (e.key === 'Escape') open(false); });
+$('#send').onclick = function () { var n = count(), t = sum(); cart = {}; paint(); open(false); burst(); toast('✓ الكابتن استلم طلبك (' + n + ' صنف · ' + t + ' ج) وجاي لك دلوقتي'); };
+var callT = 0;
+$('#call').onclick = function () {
+  var b = this; if (b.disabled) return; b.disabled = true; var left = 60; toast('🛎️ اتنادى على الكابتن. جاي لك في أقل من دقيقة');
+  (function tk() { if (left <= 0) { b.disabled = false; b.textContent = '🛎️ محتاج الكابتن؟ نادي عليه'; return; } b.textContent = '✓ الكابتن اتنادى · تقدر تنادي تاني بعد ' + left + ' ث'; left--; callT = setTimeout(tk, 1000); })();
+};
+
+// ---------- drinks that drop onto the table ----------
+var hero = $('.hero'), FALL = ['🍵','☕','🥤','🍹','🍧','🍨','🧋','🍋','🍓','🥭','🍊','🥛','🍮','🥝','🍌'];
+var live = 0;
+function rain(n, x) {
+  if (REDUCE || document.hidden || hero.getBoundingClientRect().bottom <= 0) return;
+  for (var i = 0; i < n; i++) setTimeout(function () { drop(x); }, i * 110);
+}
+function drop(x) {
+  if (live > 10) return; live++;
+  var W = hero.clientWidth, H = hero.clientHeight, e = document.createElement('div'); e.className = 'drop';
+  var size = 30 + Math.random() * 42, left = x != null ? Math.max(0, Math.min(W - 60, x + (Math.random() - .5) * 120)) : Math.random() * (W - 60);
+  e.textContent = FALL[Math.floor(Math.random() * FALL.length)]; e.style.setProperty('--s', size + 'px'); e.style.left = left + 'px'; hero.appendChild(e);
+  var floorY = H - 96 - size * .6, rot = (Math.random() - .5) * 90, dx = (Math.random() - .5) * 60;
+  var a = e.animate([
+    { transform: 'translate(0,-100px) rotate(0)', offset: 0, easing: 'cubic-bezier(.55,0,1,.6)' },
+    { transform: 'translate(' + dx * .5 + 'px,' + floorY + 'px) rotate(' + rot + 'deg)', offset: .55, easing: 'cubic-bezier(0,.5,.5,1)' },
+    { transform: 'translate(' + dx * .7 + 'px,' + (floorY - 70) + 'px) rotate(' + rot * 1.3 + 'deg)', offset: .72, easing: 'cubic-bezier(.55,0,1,.6)' },
+    { transform: 'translate(' + dx * .85 + 'px,' + floorY + 'px) rotate(' + rot * 1.5 + 'deg)', offset: .86 },
+    { transform: 'translate(' + dx + 'px,' + (floorY + 4) + 'px) rotate(' + rot * 1.5 + 'deg) scale(1,.9)', opacity: 1, offset: .93 },
+    { transform: 'translate(' + dx + 'px,' + (floorY + 4) + 'px) rotate(' + rot * 1.5 + 'deg) scale(1,.9)', opacity: 0, offset: 1 }
+  ], { duration: 3600 + Math.random() * 1200, fill: 'forwards' });
+  setTimeout(function () { splash(left + dx * .5 + size / 2, floorY + size * .9); }, 3600 * .55 * .95);
+  a.onfinish = function () { e.remove(); live--; };
+}
+function splash(x, y) {
+  var s = document.createElement('div'); s.className = 'splash'; s.style.left = (x - 5) + 'px'; s.style.top = y + 'px'; hero.appendChild(s);
+  s.animate([{ transform: 'scale(.4,.2)', opacity: 1 }, { transform: 'scale(7,2)', opacity: 0 }], { duration: 700, easing: 'ease-out' }).onfinish = function () { s.remove(); };
+}
+function burst() { rain(8); }
+setInterval(function () { rain(1); }, 1200);
+setTimeout(function () { rain(5); }, 300);
+hero.addEventListener('pointerdown', function (e) { if (e.target.closest('a,button')) return; var r = hero.getBoundingClientRect(); rain(4, e.clientX - r.left - 20); });
+$('#more').onclick = function () { rain(8); };
+// the cup in the hero leans toward the pointer
+document.querySelectorAll('.stats b[data-n]').forEach(function (b) { var to = +b.dataset.n, t0 = performance.now(); if (REDUCE) return; (function f(t) { var k = Math.min(1, (t - t0) / 1400); b.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(f); })(t0); });
+paint();
+</script>
+</body>
+</html>
