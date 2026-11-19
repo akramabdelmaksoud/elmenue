@@ -165,3 +165,12 @@ Openly licensed images found through Openverse (CC BY / CC BY-SA / CC0 / public 
 | basbousa.jpg | basbousa with flowers | kinseikun | [by 2.0](https://creativecommons.org/licenses/by/2.0/) | https://www.flickr.com/photos/162338887@N06/51660580369 |
 | laban.jpg | Istanbul :: Ayran | tomislavmedak | [by 2.0](https://creativecommons.org/licenses/by/2.0/) | https://www.flickr.com/photos/11932978@N00/4986050208 |
 | mocktail.jpg | Mint lemonade slushie | joyosity | [by 2.0](https://creativecommons.org/licenses/by/2.0/) | https://www.flickr.com/photos/33993074@N00/9318580149 |
+
+## Saraya additions (Openverse, commercial-use licenses)
+- hazelnut.jpg: "O'Cup Italian Hazelnut Milk Tea" by elsie.hui, by 2.0, https://www.flickr.com/photos/91188380@N05/9071191361
+- ginger.jpg: "Saenggang cha, Korean tea" by KOREA.NET - Official page of the Republic of Korea, by-sa 2.0, https://www.flickr.com/photos/42438955@N05/4384541378
+- cinnamon.jpg: "Tea for two" by naama, by-sa 2.0, https://www.flickr.com/photos/83676844@N00/24497360
+- anise.jpg: "' اللهم إني أعوذ بك من زوال نعمتك ،وتحول عافيتك ، وفُجأة نقمتك ، وجميع سخطك ' #افطارا شهيا ☕️❤️" by mirymah, by 2.0, https://www.flickr.com/photos/44031208@N00/14689951713
+- jujube.jpg: "An even healthier version of my favorite herbal tea concoction: goji berries, dates, jujubes, hawthorn and bitter gourd. 我最喜欢的花草茶药汁一个更健康的版本：枸杞，红枣，大枣，山楂和苦瓜。" by Gauravonomics, by 2.0, https://www.flickr.com/photos/78601704@N00/13283530754
+- icecream.jpg: "We all scream for ice cream" by St0rmz, by-sa 2.0, https://www.flickr.com/photos/80742119@N00/1401832787
+- yogurt.jpg: "Yogurt freak" by Dan4th, by 2.0, https://www.flickr.com/photos/43264265@N00/177097044

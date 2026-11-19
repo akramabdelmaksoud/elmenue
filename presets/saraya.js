@@ -127,6 +127,19 @@ R.forEach((r) => {
   const type = { id: 'type', name: 'Type', name_ar: 'النوع', type: 'one', required: true, max: 1, choices: rows.map((x, k) => ({ id: 'v' + (k + 1), name: x[1] + ' · ' + x[2] + ' EGP', name_ar: x[1] + ' · ' + x[2] + ' ج', price: x[2] - min })) };
   items.push({ id: 'i' + (items.length + 1), cat: r[0], name: fam[2], name_ar: fam[1], price: min, cost: Math.round(min * 0.3), emoji: fam[3], desc: 'Pick the type: starts from ' + min + ' EGP', desc_ar: 'اختار النوع · يبدأ من ' + min + ' ج', prep: 4, featured: rows.some((x) => PICKS.includes(x[1])), options: withExtra ? [type, extra] : [type] });
 });
+// Real photos (openly licensed, credits in /demo/photos/CREDITS.md). First matching rule wins; some are the closest available look, not the exact dish.
+const { pick } = require('./photos');
+const PHOTO = [
+  [/^شاي أخضر/, 'greentea'], [/^شاي/, 'tea'], [/قهوة تركي/, 'turkish'], [/فرنساوي/, 'frenchcoffee'], [/كوفي ميكس|نسكافيه/, 'nescafe'], [/بندق/, 'hazelnut'], [/كابتشينو/, 'cappuccino'],
+  [/حلبة/, 'herbal'], [/جنزبيل/, 'ginger'], [/قرفة/, 'cinnamon'], [/ينسون/, 'anise'], [/كركديه/, 'hibiscus'], [/ليمون سخن/, 'lemonmint'], [/كوكتيل أعشاب/, 'herbal'],
+  [/هوت سيدر/, 'cider'], [/حمص الشام/, 'cinnmilk'], [/سحلب/, 'sahlab'], [/كاكاو/, 'hotchoc'], [/عناب/, 'jujube'],
+  [/ليمون بحليب|ليمون/, 'lemonade'], [/مانجو خوخ/, 'peach'], [/كيوي/, 'kiwi'], [/مانجو/, 'mango'], [/فراولة/, 'strawberry'], [/جوافة/, 'guava'], [/برتقال بالجزر/, 'carrotjuice'], [/برتقال/, 'orange'],
+  [/موز/, 'strawmilk'], [/بلح/, 'datelatte'], [/كنتالوب/, 'peach'], [/أفوكادو/, 'avocado'], [/رمان/, 'pomegranate'],
+  [/أوريو/, 'shakeoreo'], [/لوتس|تويكس/, 'shakechoc'], [/ميلك شيك/, 'shakevanilla'], [/كوكتيل/, 'mocktail'], [/سوبر السرايا/, 'cocomango'], [/طاقة/, 'redbull'],
+  [/زبادي/, 'yogurt'], [/بولة/, 'icecream'], [/فروت سلات/, 'fruitsalad'], [/بليلة|أرز/, 'muhallabia'], [/أم علي/, 'ummali'],
+  [/ريد بول/, 'redbull'], [/مياه/, 'water'], [/كانز/, 'softdrink'],
+];
+items.forEach((i) => { i.img = pick(PHOTO, i.name_ar || i.name, ''); });
 const settings = {
   name: 'Saraya Cafe', name_ar: 'السرايا كافيه', tagline: 'Tea, coffee and fresh juices in Nasr City', tagline_ar: 'شاي وقهوة وعصائر طازة في مدينة نصر',
   tagline_sub: 'Order from your phone and call the captain with one tap.', tagline_sub_ar: 'اطلب من موبايلك ونادي الكابتن بضغطة واحدة.',
