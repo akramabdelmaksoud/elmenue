@@ -43,6 +43,9 @@ const ItemDlg = (() => {
       ${g.choices.map((c, ci) => `<div style="display:grid;grid-template-columns:2fr 2fr 1fr auto auto;gap:6px;margin-top:6px;align-items:center"><input placeholder="Choice" value="${E(c.name)}" oninput="ItemDlg.c(${gi},${ci},'name',this.value)"><input dir="rtl" placeholder="الاسم" value="${E(c.name_ar || '')}" oninput="ItemDlg.c(${gi},${ci},'name_ar',this.value)"><input type="number" min="0" step="0.5" placeholder="+EGP" value="${c.price || 0}" oninput="ItemDlg.c(${gi},${ci},'price',this.value)">
         <label class="row" style="gap:4px" title="Selected by default"><input type="checkbox" style="width:auto" ${c.def ? 'checked' : ''} onchange="ItemDlg.def(${gi},${ci},this.checked)">default</label><button class="ghost" onclick="ItemDlg.delChoice(${gi},${ci})">✕</button></div>`).join('')}
       <button class="ghost" style="margin-top:8px" onclick="ItemDlg.addChoice(${gi})">+ Choice</button></div>`).join('') || '<p class="muted">No options yet.</p>'}
+    <h3 style="margin:18px 0 4px">Merge items into types</h3><p class="muted" style="margin:0 0 6px;font-size:13px">Tick the other items that are really kinds of this one (green tea, tea with milk...). They become one card with a required "Type" choice; the cheapest price is the card price and each type adds the difference.</p>
+    <div style="max-height:170px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:8px">${App.config.items.filter((x) => x.id !== st.id && x.cat === (App.config.items.find((y) => y.id === st.id) || {}).cat).map((x) => `<label class="row" style="gap:6px"><input type="checkbox" style="width:auto" data-mg="${E(x.id)}"> ${E(x.name)} <span class="muted">${x.price}</span></label>`).join('') || '<span class="muted">No other items in this category.</span>'}</div>
+    <div class="row" style="margin-top:8px;gap:8px"><button class="ghost" onclick="ItemDlg.merge()">⇉ Merge ticked items into “${E(st.name)}”</button><span id="mgmsg" class="muted"></span></div>
     ${st.opts.length > 1 ? `<label class="row" style="gap:6px;margin-top:8px"><input type="checkbox" style="width:auto" ${st.steps ? 'checked' : ''} onchange="ItemDlg.set('steps',this.checked)"> <b>Step-by-step builder</b> <span class="muted" style="font-size:12px">(guest answers one group at a time, then sees a summary. Good for milkshakes: base, flavour, toppings)</span></label>` : ''}
     <div class="row" style="margin-top:14px"><button class="primary" onclick="ItemDlg.save()">Save</button><span id="idmsg" class="muted"></span></div></div>`;
   }
@@ -59,6 +62,12 @@ const ItemDlg = (() => {
     def(gi, ci, on) { const g = st.opts[gi]; if (g.type !== 'many' && on) g.choices.forEach((c, i) => { if (i !== ci) delete c.def; }); if (on) g.choices[ci].def = 1; else delete g.choices[ci].def; paint(); },
     cnt(gi, on) { const g = st.opts[gi]; if (on) g.count = { max: 6, unit: '', unit_ar: '', price: 0 }; else delete g.count; paint(); },
     cf(gi, k, v) { const c = st.opts[gi].count; c[k] = k === 'max' || k === 'price' ? Math.max(0, +v || 0) : v; },
+    async merge() {
+      const ids = [...document.querySelectorAll('#itemdlg [data-mg]:checked')].map((e) => e.dataset.mg), m = document.getElementById('mgmsg');
+      if (!ids.length) { m.textContent = 'Tick at least one item'; return; }
+      if (!confirm('Merge ' + ids.length + ' item(s) into "' + st.name + '"? The ticked items are removed and become choices of this one.')) return;
+      const r = await api('POST', `/api/items/${st.id}/merge`, { ids }); if (r.error) { m.textContent = r.error; return; } close();
+    },
     preset(k) { st.opts.push(clone(PRESETS[k])); paint(); },
     addGroup() { st.opts.push({ name: '', name_ar: '', type: 'one', required: false, choices: [{ name: '', name_ar: '', price: 0 }] }); paint(); },
     delGroup(gi) { st.opts.splice(gi, 1); paint(); },

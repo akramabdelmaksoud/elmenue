@@ -394,7 +394,7 @@ app.get('/api/demo/qr.png', async (req, res, next) => { try {
 // Branded prospect demo (rec.prospect): a café built for one owner to try, opened without passwords from /p/<slug>. Only flagged cafés; fake data; same denials as the showroom.
 const PROSPECT_NAMES = { captain: 'Captain', kitchen: 'Kitchen', cashier: 'Cashier' };
 // Built-in branded showrooms: created on the first visit (no console login needed), like the main showroom. Add a preset in presets/ and list it here.
-const PRESET_SHOWS = { gizera: { name: 'Gizera Cafe', v: 3 }, frio: { name: 'FRÍO', v: 3 }, dune: { name: 'Dune Coffee House', v: 1 }, sufra: { name: 'Sufra Restaurant', v: 1 }, 'saraya-cafe': { name: 'Saraya Cafe', v: 1, preset: 'saraya' } };   // bump v after changing a preset: the live demo café is rebuilt once on the next visit
+const PRESET_SHOWS = { gizera: { name: 'Gizera Cafe', v: 3 }, frio: { name: 'FRÍO', v: 3 }, dune: { name: 'Dune Coffee House', v: 1 }, sufra: { name: 'Sufra Restaurant', v: 1 }, 'saraya-cafe': { name: 'Saraya Cafe', v: 2, preset: 'saraya' } };   // bump v after changing a preset: the live demo café is rebuilt once on the next visit
 function flagProspect(rec, v) {
   rec.prospect = true; rec.presetV = v || 0; rec.showSeed = Date.now(); rec.feat = { carservice: true };
   rec.staff = [['Captain', 'captain'], ['Kitchen', 'kitchen'], ['Cashier', 'cashier']].map(([name, role]) => ({ id: newId('u'), name, role, hash: auth.hash(SHOW_PINS[role]), active: true, createdAt: Date.now() }));
@@ -1766,6 +1766,19 @@ function itemBody(b) {
 }
 A('post', '/items', (req, res) => { const d = req.tenant.db; const b = req.body; const i = { id: newId('i'), cat: b.cat, name: b.name || 'New item', name_ar: b.name_ar || '', price: +b.price || 0, cost: +b.cost || 0, emoji: b.emoji || '🍽️', desc: b.desc || '', img: '' }; { const x = itemBody(b); ['name', 'name_ar', 'desc', 'emoji', 'cat'].forEach((k) => { if (x[k] !== undefined && x[k] !== '') i[k] = x[k]; }); if (x.options) i.options = x.options; ['allergens', 'cal', 'badge'].forEach((k) => { if (x[k] !== undefined) i[k] = x[k]; }); i.price = Math.min(100000, Math.max(0, i.price)); i.cost = Math.min(100000, Math.max(0, i.cost)); } if (b.stock !== undefined && b.stock !== null && b.stock !== '') i.stock = Math.max(0, Math.floor(+b.stock) || 0); d.items.push(i); bc(req); res.json(i); });
 A('put', '/items/:id', (req, res) => { const i = req.tenant.db.items.find((x) => x.id === req.params.id); if (i) { Object.assign(i, itemBody(req.body), { id: i.id }); i.price = Math.min(100000, Math.max(0, +i.price || 0)); i.cost = Math.min(100000, Math.max(0, +i.cost || 0)); const b = req.body || {}; if ('pairs' in b) i.pairs = (Array.isArray(b.pairs) ? b.pairs : []).filter((p, k, a) => a.indexOf(p) === k && p !== i.id && req.tenant.db.items.some((x) => x.id === p)).slice(0, 6); if ('stock' in b) i.stock = b.stock === null || b.stock === '' ? null : Math.max(0, Math.floor(+b.stock) || 0); if ('lowAt' in b) i.lowAt = Math.max(0, Math.floor(+b.lowAt) || 0); } bc(req); res.json(i); });
+// Merge several items into ONE card with a required "Type" choice (Tea + Green tea + Tea with milk -> Tea, type: ...).
+// The cheapest becomes the card price, each type adds the difference. The other items are removed; the first item's own options are kept.
+A('post', '/items/:id/merge', (req, res) => {
+  const d = req.tenant.db, base = d.items.find((x) => x.id === req.params.id), b = req.body || {};
+  const ids = [...new Set((Array.isArray(b.ids) ? b.ids : []).map(String))].filter((x) => x !== req.params.id).slice(0, 15);
+  const others = ids.map((x) => d.items.find((i) => i.id === x)).filter(Boolean);
+  if (!base || !others.length) return res.status(400).json({ error: 'Pick at least one other item to merge into this one' });
+  const all = [base, ...others], min = Math.min(...all.map((i) => +i.price || 0)), cur = d.settings.currency || 'EGP';
+  const group = { id: 'type', name: String(b.group || 'Type').slice(0, 40), name_ar: String(b.group_ar || 'النوع').slice(0, 40), type: 'one', required: true, choices: all.map((i, k) => ({ id: 'v' + (k + 1), name: i.name + ' · ' + i.price + ' ' + cur, name_ar: (i.name_ar || i.name) + ' · ' + i.price, price: Math.round(((+i.price || 0) - min) * 100) / 100 })) };
+  base.options = F.optClean([group, ...(base.options || []).filter((g) => g.id !== 'type')]);
+  base.price = min; base.cost = Math.min(...all.map((i) => +i.cost || 0)); base.desc = base.desc || 'Pick the type'; base.merged = all.map((i) => i.id);
+  const gone = new Set(others.map((i) => i.id)); d.items = d.items.filter((i) => !gone.has(i.id)); bc(req); res.json({ ok: 1, removed: gone.size, item: base });
+});
 A('delete', '/items/:id', (req, res) => { const d = req.tenant.db; d.items = d.items.filter((x) => x.id !== req.params.id); bc(req); res.json({ ok: 1 }); });
 A('post', '/items/:id/image', upLimit, upload.single('image'), async (req, res) => {
   const i = req.tenant.db.items.find((x) => x.id === req.params.id);

@@ -9,7 +9,7 @@ const categories = [
   { id: "can", name: "كانز", name_ar: "كانز", emoji: "🥤", station: 'bar' },
 ];
 const extra = { id: 'extra', name: 'Extras', name_ar: 'إضافات', type: 'many', max: 3, choices: ['عسل نحل', 'صوص', 'مكسرات', 'مناديل', 'قرنفل', 'موز', 'بلح'].map((n, i) => ({ id: 'x' + i, name: n, name_ar: n, price: 10 })) };
-const PICKS = ['كابتشينو', 'سوبر السرايا', 'أم علي بالقشطة', 'ميلك شيك لوتس'];
+const PICKS = ['كابتشينو', 'سوبر السرايا', 'أم علي بالقشطة', 'ميلك شيك لوتس'];   // a family counts as featured when one of its types is listed here
 // [cat, name, price, emoji, note]
 const R = [
   ["hot", "شاي", 20, "🍵", ""],
@@ -97,10 +97,36 @@ const R = [
   ["can", "كانز", 35, "🥫", ""],
   ["can", "ريد بول", 70, "⚡", ""],
 ];
-const items = R.map((r, i) => ({
-  id: 'i' + (i + 1), cat: r[0], name: r[1], name_ar: r[1], price: r[2], cost: Math.round(r[2] * 0.3), emoji: r[3], desc: r[4], prep: r[0] === 'can' ? 1 : 4, featured: PICKS.includes(r[1]),
-  ...(['hot', 'herb', 'juice'].includes(r[0]) ? { options: [extra] } : {}),
-}));
+// One card per drink family ("Tea"), the variants (green tea, tea with milk, ...) become a REQUIRED "Type" choice with their own prices.
+// Card price = the cheapest variant; each choice adds the difference, so the sheet total is always the real menu price.
+const FAMILIES = [
+  ['hot', 'شاي', 'Tea', '🍵', ['شاي', 'شاي أخضر', 'شاي بحليب', 'شاي براد سنجل', 'براد سنجل بالقرنفل', 'شاي براد دبل', 'براد شاي 4 أفراد']],
+  ['hot', 'قهوة تركي', 'Turkish coffee', '☕', ['قهوة تركي', 'قهوة تركي دبل']],
+  ['hot', 'قهوة فرنساوي', 'French coffee', '☕', ['قهوة فرنساوي', 'قهوة فرنساوي دبل']],
+  ['hot', 'كوفي ميكس', 'Coffee mix', '☕', ['كوفي ميكس سادة', 'كوفي ميكس بحليب']],
+  ['hot', 'قهوة بندق', 'Hazelnut coffee', '☕', ['قهوة بندق', 'قهوة بندق دبل']],
+  ['hot', 'نسكافيه', 'Nescafe', '☕', ['نسكافيه بلاك', 'نسكافيه بحليب']],
+  ['herb', 'حلبة', 'Fenugreek', '🌿', ['حلبة', 'حلبة بحليب']],
+  ['herb', 'جنزبيل', 'Ginger', '🌿', ['جنزبيل', 'جنزبيل بحليب']],
+  ['herb', 'قرفة', 'Cinnamon', '🌿', ['قرفة', 'قرفة بحليب']],
+  ['herb', 'سحلب', 'Sahlab', '🥛', ['سحلب مكسرات', 'سحلب شوكولاتة', 'سحلب أوريو', 'سحلب فواكة']],
+  ['juice', 'أفوكادو', 'Avocado', '🥑', ['أفوكادو', 'أفوكادو مكسرات']],
+  ['juice', 'زبادي', 'Yogurt', '🍧', ['زبادي فواكة', 'زبادي فواكة قطع', 'زبادي بلو بيري', 'زبادي فواكة أيس']],
+  ['sweet', 'أم علي', 'Umm Ali', '🍮', ['أم علي سادة', 'أم علي بالقشطة', 'أم علي أيس كريم', 'أم علي أيس وفواكة']],
+  ['sweet', 'أرز باللبن', 'Rice pudding', '🍚', ['أرز باللبن', 'أرز باللبن أيس', 'أرز باللبن بالقشطة', 'أرز باللبن أيس وفواكة']],
+  ['sweet', 'فروت سلات', 'Fruit salad', '🍓', ['فروت سلات', 'فروت سلات أيس', 'فروت سلات قنبلة']],
+  ['sweet', 'بولة أيس كريم', 'Ice cream scoops', '🍨', ['2 بولة أيس', '3 بولة أيس']],
+];
+const items = []; const doneFam = new Set();
+R.forEach((r) => {
+  const fam = FAMILIES.find((f) => f[0] === r[0] && f[4].includes(r[1]));
+  const withExtra = ['hot', 'herb', 'juice'].includes(r[0]);
+  if (!fam) { items.push({ id: 'i' + (items.length + 1), cat: r[0], name: r[1], name_ar: r[1], price: r[2], cost: Math.round(r[2] * 0.3), emoji: r[3], desc: r[4], prep: r[0] === 'can' ? 1 : 4, featured: PICKS.includes(r[1]), ...(withExtra ? { options: [extra] } : {}) }); return; }
+  if (doneFam.has(fam)) return; doneFam.add(fam);
+  const rows = fam[4].map((n) => R.find((x) => x[0] === r[0] && x[1] === n)).filter(Boolean), min = Math.min(...rows.map((x) => x[2]));
+  const type = { id: 'type', name: 'Type', name_ar: 'النوع', type: 'one', required: true, max: 1, choices: rows.map((x, k) => ({ id: 'v' + (k + 1), name: x[1] + ' · ' + x[2] + ' EGP', name_ar: x[1] + ' · ' + x[2] + ' ج', price: x[2] - min })) };
+  items.push({ id: 'i' + (items.length + 1), cat: r[0], name: fam[2], name_ar: fam[1], price: min, cost: Math.round(min * 0.3), emoji: fam[3], desc: 'Pick the type: starts from ' + min + ' EGP', desc_ar: 'اختار النوع · يبدأ من ' + min + ' ج', prep: 4, featured: rows.some((x) => PICKS.includes(x[1])), options: withExtra ? [type, extra] : [type] });
+});
 const settings = {
   name: 'Saraya Cafe', name_ar: 'السرايا كافيه', tagline: 'Tea, coffee and fresh juices in Nasr City', tagline_ar: 'شاي وقهوة وعصائر طازة في مدينة نصر',
   tagline_sub: 'Order from your phone and call the captain with one tap.', tagline_sub_ar: 'اطلب من موبايلك ونادي الكابتن بضغطة واحدة.',

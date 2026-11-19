@@ -59,3 +59,20 @@ test('F37 integration: private addresses blocked, secrets sealed, field mapping'
   assert.equal(db.items[0].img, '/keep/photo.jpg', 'sync never touches photos'); assert.equal(db.items[0].options.length, 1, 'or options');
   assert.equal(I.applySync(db, [], {}, nid).hidden, 1); assert.equal(db.items[0].soldOut, true, 'items missing from the POS are hidden, not deleted');
 });
+
+// ---- merge items into one card with a required Type choice ----
+for (const mode of ['ws', 'rpc']) test(`F37 merge items into types [${mode}]`, async (t) => {
+  const S = await start(mode); t.after(() => S.stop());
+  const T = await S.tenant('operations', { demo: true });
+  const cfg = async () => (await T.api('GET', '/config', null, null)).j;
+  const its = (await cfg()).items.filter((i) => i.price > 0 && !i.options?.length).slice(0, 3); assert.equal(its.length, 3);
+  const [a, b, c] = its, min = Math.min(a.price, b.price, c.price);
+  assert.equal((await T.api('POST', `/items/${a.id}/merge`, { ids: [] })).s, 400);
+  const r = await T.api('POST', `/items/${a.id}/merge`, { ids: [b.id, c.id, 'nope'] }); assert.equal(r.s, 200); assert.equal(r.j.removed, 2);
+  const m = (await cfg()).items; assert.ok(!m.find((i) => i.id === b.id) && !m.find((i) => i.id === c.id), 'merged items are gone');
+  const card = m.find((i) => i.id === a.id); assert.equal(card.price, min); assert.equal(card.options[0].required, true); assert.equal(card.options[0].choices.length, 3);
+  const g = T.guest((await cfg()).tables[0].number); await g.join(); const cart = async () => (await g.join()).j.state.session.cart || [];
+  await g.call({ t: 'cart_add', itemId: a.id }); assert.equal((await cart()).length, 0, 'the type is required');
+  const pick = card.options[0].choices.find((x) => x.name.startsWith(c.name)); await g.call({ t: 'cart_add', itemId: a.id, opts: { type: pick.id } });
+  const l = await cart(); assert.equal(l.length, 1); assert.equal(l[0].price, c.price, 'guest pays the real price of the chosen type');
+});
