@@ -1681,6 +1681,43 @@ A('post', '/items/:id/image', upLimit, upload.single('image'), async (req, res) 
   await store.putBlob(key, `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`);
   i.img = `/api/r/${req.params.slug}/img/${key}`; bc(req); res.json({ ok: 1 });
 });
+// ---- Photo search for the item form: Pexels (PEXELS_API_KEY) or Unsplash (UNSPLASH_ACCESS_KEY). The key stays on the server; the browser only sees thumbnails. ----
+const IMG_HOSTS = new Set(['images.pexels.com', 'images.unsplash.com']);
+const imgSearchLimit = rateLimit({ windowMs: 60000, max: 30, message: 'Too many searches, wait a minute' });
+A('get', '/image-search', imgSearchLimit, async (req, res) => {
+  const q = String(req.query.q || '').trim().slice(0, 80); if (q.length < 2) return res.status(400).json({ error: 'Type at least 2 letters' });
+  const pk = process.env.PEXELS_API_KEY, uk = process.env.UNSPLASH_ACCESS_KEY;
+  if (!pk && !uk) return res.status(501).json({ error: 'Photo search is not set up yet. Add PEXELS_API_KEY (free at pexels.com/api) or UNSPLASH_ACCESS_KEY in the server settings.', code: 'nokey' });
+  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 8000);
+  try {
+    if (pk) {
+      const r = await fetch('https://api.pexels.com/v1/search?per_page=15&orientation=square&query=' + encodeURIComponent(q), { headers: { Authorization: pk }, signal: ctl.signal });
+      if (!r.ok) return res.status(502).json({ error: 'Photo service said ' + r.status });
+      const j = await r.json();
+      return res.json({ source: 'Pexels', results: (j.photos || []).map((p) => ({ id: 'p' + p.id, thumb: p.src.small, url: p.src.large, by: p.photographer, page: p.url })) });
+    }
+    const r = await fetch('https://api.unsplash.com/search/photos?per_page=15&orientation=squarish&query=' + encodeURIComponent(q), { headers: { Authorization: 'Client-ID ' + uk }, signal: ctl.signal });
+    if (!r.ok) return res.status(502).json({ error: 'Photo service said ' + r.status });
+    const j = await r.json();
+    res.json({ source: 'Unsplash', results: (j.results || []).map((p) => ({ id: 'u' + p.id, thumb: p.urls.small, url: p.urls.raw + (String(p.urls.raw).includes('?') ? '&' : '?') + 'w=800&q=70&fm=jpg&fit=max', by: p.user && p.user.name, page: p.links && p.links.html })) });
+  } catch (e) { res.status(502).json({ error: 'Photo search timed out, try again' }); } finally { clearTimeout(tm); }
+});
+A('post', '/items/:id/image-url', upLimit, async (req, res) => {
+  const i = req.tenant.db.items.find((x) => x.id === req.params.id); if (!i) return res.status(404).json({ error: 'not found' });
+  let u; try { u = new URL(String((req.body || {}).url || '')); } catch { return res.status(400).json({ error: 'bad url' }); }
+  if (u.protocol !== 'https:' || !IMG_HOSTS.has(u.hostname) || u.username || u.password) return res.status(400).json({ error: 'Only Pexels and Unsplash photos can be used here' });
+  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 10000);
+  try {
+    const r = await fetch(u.href, { signal: ctl.signal, redirect: 'error' });
+    const type = String(r.headers.get('content-type') || '').split(';')[0];
+    if (!r.ok || !['image/jpeg', 'image/png', 'image/webp'].includes(type)) return res.status(502).json({ error: 'Could not fetch that photo' });
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.length > 700 * 1024) return res.status(400).json({ error: 'That photo is too large, pick another' });
+    const key = `${req.tenant.rec.id}-${i.id}-${Date.now().toString(36)}`;
+    await store.putBlob(key, `data:${type};base64,${buf.toString('base64')}`);
+    i.img = `/api/r/${req.params.slug}/img/${key}`; i.imgCredit = String((req.body || {}).by || '').slice(0, 80); bc(req); res.json({ ok: 1, img: i.img });
+  } catch (e) { res.status(502).json({ error: 'Could not fetch that photo' }); } finally { clearTimeout(tm); }
+});
 A('delete', '/items/:id/image', (req, res) => { const i = req.tenant.db.items.find((x) => x.id === req.params.id); if (i) i.img = ''; bc(req); res.json({ ok: 1 }); });
 const putImage = async (req, res, label) => {
   if (!req.file) return res.status(400).json({ error: 'bad request' });
