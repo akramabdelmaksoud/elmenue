@@ -123,6 +123,12 @@ background:linear-gradient(150deg,rgba(255,148,25,.34),rgba(255,79,94,.16));box-
 .call{width:100%;margin-top:10px;display:flex;justify-content:center;align-items:center;gap:8px;padding:13px;border-radius:99px;border:1px solid rgba(255,226,192,.3);background:rgba(255,255,255,.06);font-weight:800;font-size:15px;color:var(--muted);transition:background .3s}
 .call:hover{background:rgba(255,255,255,.12)}.call[disabled]{opacity:.55;pointer-events:none}
 
+/* go-to-order bar */
+.gobar{position:fixed;inset-inline:0;bottom:14px;margin:auto;width:min(480px,calc(100% - 28px));z-index:70;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px 10px 20px;border-radius:99px;background:var(--g);color:#2a0d02;font-weight:900;font-size:16px;box-shadow:0 18px 40px -10px rgba(255,122,47,.75),0 0 0 1px rgba(255,255,255,.25) inset;transform:translateY(140%);opacity:0;pointer-events:none;transition:transform .5s var(--ease),opacity .3s}
+.gobar.on{transform:none;opacity:1;pointer-events:auto}.gobar.bump{animation:gb .4s var(--ease)}
+@keyframes gb{40%{transform:scale(1.05)}}
+.gobar .gi{display:flex;flex-direction:column;align-items:flex-start;line-height:1.25;font-size:13px;font-weight:800}.gobar .gi b{font-size:18px}
+.gobar .gt{padding:11px 20px;border-radius:99px;background:#2a0d02;color:#fff4e6;font-size:15px}
 /* toast */
 .toast{position:fixed;inset-inline:0;bottom:92px;margin:auto;width:max-content;max-width:90vw;z-index:300;padding:14px 22px;border-radius:20px;background:#2a170e;border:1px solid rgba(255,190,120,.4);font-weight:700;box-shadow:0 20px 60px -10px #000;transform:translateY(30px) scale(.9);opacity:0;pointer-events:none;transition:transform .5s var(--ease),opacity .3s}
 .toast.on{transform:none;opacity:1}
@@ -175,6 +181,7 @@ footer b{color:var(--muted)}footer a{color:var(--c3);font-weight:700}
 <main id="menu"></main>
 <p class="empty" id="empty">مفيش حاجة بالاسم ده 🙈 جرّب كلمة تانية</p>
 
+<button class="gobar" id="gobar" aria-label="افتح الطلب"><span class="gi"><span id="gcnt">0 صنف</span><b id="gtot">0 ج</b></span><span class="gt">🧾 اطلب دلوقتي ←</span></button>
 <div class="toast" id="toast"></div>
 <div class="veil" id="veil"></div>
 <div class="sheet" id="sheet" role="dialog" aria-label="طلبك">
@@ -280,6 +287,7 @@ function paint() {
   var ks = Object.keys(cart);
   $('#lines').innerHTML = ks.length ? ks.map(function (k) { var a = byId[k]; return '<div class="ln"><span class="e">' + a.e + '</span><span class="n">' + esc(a.n) + '</span><span class="q"><button data-m="' + k + '">−</button><b>' + cart[k] + '</b><button data-p="' + k + '">+</button></span><span class="t">' + cart[k] * a.p + '</span></div>'; }).join('') : '<div class="none">لسه ماطلبتش حاجة. اختار من المنيو 😋</div>';
   $('#send').disabled = !ks.length;
+  var g = $('#gobar'); $('#gcnt').textContent = n + ' صنف'; $('#gtot').textContent = sum() + ' ج'; g.classList.toggle('on', n > 0 && !$('#sheet').classList.contains('on')); if (n) { g.classList.remove('bump'); void g.offsetWidth; g.classList.add('bump'); }
   document.querySelectorAll('.add').forEach(function (a) { var id = a.closest('[data-id]').dataset.id, q = cart[id]; a.classList.toggle('on', !!q); a.innerHTML = q ? '✓ ×' + q : '<b>+</b> أضف'; });
 }
 function fly(from, emoji) {
@@ -298,7 +306,8 @@ menuEl.addEventListener('click', function (e) {
 });
 $('#lines').addEventListener('click', function (e) { var m = e.target.closest('[data-m]'), p = e.target.closest('[data-p]');
   if (p) cart[p.dataset.p]++; if (m) { var k = m.dataset.m; if (--cart[k] <= 0) delete cart[k]; } paint(); });
-function open(v) { $('#sheet').classList.toggle('on', v); $('#veil').classList.toggle('on', v); }
+function open(v) { $('#sheet').classList.toggle('on', v); $('#veil').classList.toggle('on', v); $('#gobar').classList.toggle('on', !v && count() > 0); }
+$('#gobar').onclick = function () { open(true); };
 $('#cartBtn').onclick = function () { open(true); }; $('#veil').onclick = $('#close').onclick = function () { open(false); };
 addEventListener('keydown', function (e) { if (e.key === 'Escape') open(false); });
 $('#send').onclick = function () { var n = count(), t = sum(); cart = {}; paint(); open(false); burst(); toast('✓ الكابتن استلم طلبك (' + n + ' صنف · ' + t + ' ج) وجاي لك دلوقتي'); };
