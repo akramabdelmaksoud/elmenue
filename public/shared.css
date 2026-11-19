@@ -5,7 +5,7 @@
 html, body { margin:0; background:var(--bg); color:var(--text); font-family:'Segoe UI', 'Cairo', system-ui, -apple-system, 'Tahoma', sans-serif; transition:background .4s, color .4s; }
 #oqbar { position:fixed; left:0; right:0; bottom:0; z-index:998; background:#7a3b00; color:#fff; text-align:center; padding:8px 12px; font-size:14px; display:none }
 #oqbar.on { display:block }
-body.offline::before { content:'Reconnecting…'; position:fixed; top:0; left:0; right:0; background:var(--bad); color:#fff; text-align:center; padding:4px; z-index:999; font-size:13px; }
+body.offline::before { content:var(--net-msg,'Reconnecting…'); position:fixed; top:0; left:0; right:0; background:var(--bad); color:#fff; text-align:center; padding:4px; z-index:999; font-size:13px; }
 button { font:inherit; color:inherit; cursor:pointer; border:0; background:var(--card2); padding:10px 16px; border-radius:12px; transition:transform .15s, background .2s, box-shadow .2s; }
 button:hover { transform:translateY(-1px); }
 button:active { transform:scale(.96); }
