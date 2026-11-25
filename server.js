@@ -206,7 +206,7 @@ const rpcLimit = rateLimit({ windowMs: 60000, max: 2400, key: (req) => req.ip + 
 const upLimit = rateLimit({ windowMs: 60000, max: 30, message: 'Too many uploads, wait a minute' });
 app.use('/api', rateLimit({ windowMs: 60000, max: 3000 }));
 app.use('/api', (req, res, next) => (req.method === 'GET' || req.method === 'HEAD' ? next() : writeLimit(req, res, next)));
-app.use(express.json({ limit: '2mb', verify: (req, res, buf) => { if (req.url === '/api/mail/inbound') req.rawBody = buf.toString('utf8'); } }));   // the webhook signature needs the untouched body
+app.use(express.json({ limit: '2mb', verify: (req, res, buf) => { if (req.url === '/api/mail/inbound' || req.url === '/api/hooks/sellbird') req.rawBody = buf.toString('utf8'); } }));   // the webhook signature needs the untouched body
 const SINGLE = envOn(process.env.SINGLE_RESTAURANT), MAIN = 'main';
 
 // ---------- Host-based tenants: <slug>.BASE_DOMAIN and custom domains serve the restaurant's pages (rewrite, not redirect) ----------
@@ -588,6 +588,21 @@ app.post('/api/mail/inbound', async (req, res, next) => { try {
   seen.ids = (seen.ids || []).concat(ev.data.email_id).slice(-300); await store.putAux('mailseen', seen);
   res.json({ ok: true });
 } catch (e) { console.error('inbound mail:', e.message); res.status(502).json({ error: 'forward failed' }); } });
+// ---- Sellbird (outreach agent) <-> TableTab. See sellbirdhub.js and docs/sellbird.md ----
+const SB = require('./sellbirdhub'), sbLimit = rateLimit({ windowMs: 60000, max: 120, message: 'Too many requests' });
+app.post('/api/hooks/sellbird', sbLimit, async (req, res, next) => { try {
+  const r = await SB.receive({ store, secret: process.env.SELLBIRD_WEBHOOK_SECRET, raw: req.rawBody, headers: req.headers, notify: (sub, text) => mailOut(process.env.CONTACT_TO, sub, text) });
+  res.status(r.code).json(r.body);
+} catch (e) { next(e); } });
+app.get('/api/hooks/sellbird/leads', sbLimit, async (req, res, next) => { try {
+  const tok = process.env.SELLBIRD_FEED_TOKEN, got = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!tok || tok.length < 24 || !SB.eq(got, tok)) return res.status(401).json({ error: 'auth' });
+  res.json({ leads: SB.feed(((await store.getAux('contacts')) || { rows: [] }).rows, req.query.since) });
+} catch (e) { next(e); } });
+app.get('/api/super/sellbird', needSuper, async (req, res, next) => { try {
+  const d = (await store.getAux('sellbird')) || { events: [], counts: {} };
+  res.json({ events: d.events || [], counts: d.counts || {}, lastAt: d.lastAt || 0, secretSet: !!process.env.SELLBIRD_WEBHOOK_SECRET, feedSet: (process.env.SELLBIRD_FEED_TOKEN || '').length >= 24, webhook: '/api/hooks/sellbird', feed: '/api/hooks/sellbird/leads' });
+} catch (e) { next(e); } });
 app.get('/api/super/contacts', needSuper, async (req, res, next) => { try { res.json(((await store.getAux('contacts')) || { rows: [] }).rows || []); } catch (e) { next(e); } });
 app.delete('/api/super/contacts/:id', needSuper, async (req, res, next) => { try { const cur = (await store.getAux('contacts')) || { rows: [] }; cur.rows = (cur.rows || []).filter((x) => x.id !== req.params.id); await store.putAux('contacts', cur); res.json({ ok: true }); } catch (e) { next(e); } });
 app.get('/api/super/plans', needSuper, async (req, res, next) => { try { await refreshPlatform(true); res.json(planView()); } catch (e) { next(e); } });

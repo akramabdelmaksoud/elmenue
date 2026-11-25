@@ -35,7 +35,7 @@ async function load() {
 function draw() {
   const t = O.totals;
   const k = (l, v) => `<div class="card kpi"><span>${l}</span><b>${v}</b></div>`;
-  $('#app').innerHTML = `<main><div class="spread"><h1>👑 Platform control</h1><div class="row"><button class="ghost" onclick="openCatalog()">🧩 Features &amp; prices</button><button class="ghost" onclick="openBundles()">⚙ Bundles</button><button class="ghost" onclick="openSite()">🌐 Website &amp; prices</button><button class="ghost" onclick="openMsgs()">✉ Messages</button><button class="ghost" onclick="App.toggleMode()">◐</button><button class="ghost" onclick="App.ls('tok:_:super','');location.reload()">Sign out</button></div></div>
+  $('#app').innerHTML = `<main><div class="spread"><h1>👑 Platform control</h1><div class="row"><button class="ghost" onclick="openCatalog()">🧩 Features &amp; prices</button><button class="ghost" onclick="openSellbird()">🐦 Sellbird</button><button class="ghost" onclick="openBundles()">⚙ Bundles</button><button class="ghost" onclick="openSite()">🌐 Website &amp; prices</button><button class="ghost" onclick="openMsgs()">✉ Messages</button><button class="ghost" onclick="App.toggleMode()">◐</button><button class="ghost" onclick="App.ls('tok:_:super','');location.reload()">Sign out</button></div></div>
   <div class="grid">${k('Restaurants', `${t.active} / ${t.restaurants}`)}${k('Revenue (30d, all)', money(t.revenue))}${k('Table sessions (30d)', t.sessions.toLocaleString())}${k('Live tables now', t.liveTables)}${k('Guests seated now', t.guestsLive)}${k('Connected devices', t.online)}${k('Live open bills', money(t.liveRevenue))}${k('Subscription revenue / month', money(t.mrr, 'EGP'))}${(t.plans || []).map(p => k((TIERS.find(x => x[0] === p.plan) || [p.plan, p.plan])[1].split(' · ')[1] + ' cafés', p.count)).join('')}</div>
   <div class="row2"><div class="card"><h3>Platform revenue per day</h3><canvas id="c1"></canvas></div><div class="card"><h3>Revenue by restaurant (30d)</h3><canvas id="c2"></canvas></div>
   <div class="card"><h3>Rush hours across platform</h3><canvas id="c3"></canvas></div><div class="card"><h3>Top items platform-wide</h3><canvas id="c4"></canvas></div></div>
@@ -120,6 +120,17 @@ async function saveSite() {
 async function openMsgs() {
   const rows = (await api('GET', '/api/super/contacts')) || [];
   ovShow('<div class="spread"><h2>Messages from the website</h2><button class="ghost" onclick="closeOv()">Close</button></div>' + (rows.length ? rows.map((m) => '<div class="card" style="margin-bottom:10px"><div class="spread"><b>' + App.esc(m.name) + '</b><span class="muted">' + new Date(m.at).toLocaleString() + '</span></div><div class="muted"><a href="mailto:' + App.esc(m.email) + '">' + App.esc(m.email) + '</a>' + (m.phone ? ' · ' + App.esc(m.phone) : '') + (m.place ? ' · ' + App.esc(m.place) : '') + '</div><p style="white-space:pre-wrap;margin:8px 0">' + App.esc(m.message) + '</p><button class="ghost" onclick="delMsg(\'' + m.id + '\')">Delete</button></div>').join('') : '<p class="muted">No messages yet.</p>'));
+}
+async function openSellbird() {
+  const d = (await api('GET', '/api/super/sellbird')) || {}, E = App.esc, tag = { 'lead.created': '🆕', 'reply.received': '💬', 'meeting.booked': '📅', 'stage.changed': '➡️', 'test.ping': '🔔' };
+  const c = d.counts || {}, ok = (v) => (v ? '<span style="color:#2ecc71">✔ set</span>' : '<span style="color:#e5484d">✖ not set</span>');
+  ovShow('<div class="spread"><h2>🐦 Sellbird (outreach agent)</h2><button class="ghost" onclick="closeOv()">Close</button></div>'
+    + '<div class="card" style="margin-bottom:10px"><p class="muted" style="margin:0 0 6px">Sellbird finds cafés, writes and sends the emails, and reports back here. Webhook address to give Sellbird:<br><b>' + E(location.origin + d.webhook) + '</b></p>'
+    + '<p style="margin:4px 0">Webhook secret (SELLBIRD_WEBHOOK_SECRET): ' + ok(d.secretSet) + ' &nbsp; Leads feed token (SELLBIRD_FEED_TOKEN): ' + ok(d.feedSet) + '</p>'
+    + '<p class="muted" style="margin:4px 0">Heard so far: ' + (Object.keys(c).length ? Object.keys(c).map((k) => (tag[k] || '') + ' ' + c[k]).join(' · ') : 'nothing yet') + (d.lastAt ? ' · last ' + App.ago(d.lastAt) + ' ago' : '') + '</p></div>'
+    + ((d.events || []).length ? d.events.slice(0, 40).map((e) => '<div class="card" style="margin-bottom:8px"><div class="spread"><b>' + (tag[e.type] || '') + ' ' + E(e.type) + '</b><span class="muted">' + App.ago(e.at) + ' ago</span></div>'
+      + '<div>' + E(e.person.name || e.person.email) + (e.person.company ? ' · ' + E(e.person.company) : '') + (e.person.stage ? ' · <span class="muted">' + E(e.person.stage) + '</span>' : '') + '</div>'
+      + (e.note ? '<div class="muted" style="white-space:pre-wrap">' + E(e.note) + '</div>' : '') + '</div>').join('') : '<p class="muted">No events yet. In Sellbird press Set up &rarr; Events and webhooks &rarr; Send a test event.</p>'));
 }
 async function delMsg(id) { await api('DELETE', '/api/super/contacts/' + id); openMsgs(); }
 async function saveBundles() {
