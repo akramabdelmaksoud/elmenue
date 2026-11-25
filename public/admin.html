@@ -14,7 +14,7 @@ main { padding:24px; overflow:auto; max-width:1200px; } h1 { margin-top:0; }
 .cat input { padding:6px 8px; } .sortable-ghost { opacity:.35; }
 table { width:100%; border-collapse:collapse; } td, th { padding:6px; text-align:start; border-bottom:1px solid var(--line); font-size:14px; vertical-align:middle; } td input { padding:6px 8px; min-width:60px; }
 .thumb { width:46px; height:46px; border-radius:10px; background:var(--card2) center/cover; display:grid; place-items:center; font-size:26px; cursor:pointer; }
-.qr { text-align:center; break-inside:avoid; } .qr img { width:100%; max-width:220px; border-radius:12px; background:#fff; } .qr h3 { margin:8px 0 2px; font-size:28px; }
+.qr { text-align:center; break-inside:avoid; } .qr img { width:100%; max-width:220px; border-radius:12px; background:#fff; } .qr h3 { margin:8px 0 2px; font-size:28px; } .qr.qrd img { max-width:280px; border-radius:6px; }
 .heat { display:grid; grid-template-columns:40px repeat(24,1fr); gap:2px; font-size:10px; } .heat i { aspect-ratio:1; border-radius:3px; display:grid; place-items:center; font-style:normal; color:#fff; font-size:9px; }
 .sw { width:44px; height:44px; padding:0; border:0; background:none; } .row2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; margin-top:14px; }
 @media (max-width:800px) { main { padding:14px; } aside button { white-space:nowrap; } .row2 { grid-template-columns:1fr !important; } .card { overflow-x:auto; } h1 { font-size:24px; } input[type=checkbox] { width:22px; height:22px; } }
@@ -1155,12 +1155,17 @@ async function changePw() {
 async function staffTab() {
   const acc = await api('GET', '/api/limits'), d = await api('GET', '/api/staff'), roles = { captain: '🧑‍✈️ Captain / floor', kitchen: '👨‍🍳 Kitchen', cashier: '💵 Cashier', driver: '🛵 Delivery driver' };
   const fmt = (x) => x.handled ? Math.round(x.respMs / x.handled / 1000) + 's' : '-';
+  // cafés with per-person access (settings.staffAccess): the owner gives or removes each screen per person
+  const ACC = !!App.config.settings.staffAccess, AK = [['captain', '🧑‍✈️', 'Waiter / Captain'], ['cashier', '💵', 'Cashier'], ['floor', '🪑', 'Edit floor']];
+  const accOf = (x) => x.access || { captain: x.role === 'captain', cashier: x.role === 'cashier', floor: false };
+  const accCell = (x) => (x.role === 'driver' ? '<td class="muted">-</td>' : `<td><div class="row wrap" style="gap:6px">${AK.map(([k, i, l]) => `<label class="pill" style="cursor:pointer;gap:4px;display:inline-flex;align-items:center;${accOf(x)[k] ? 'background:color-mix(in srgb,var(--accent) 18%,transparent);border-color:var(--accent)' : 'opacity:.6'}"><input type="checkbox" style="width:auto;margin:0" ${accOf(x)[k] ? 'checked' : ''} onchange="stfAcc('${x.id}','${k}',this.checked)"> ${i} ${l}</label>`).join('')}<button class="ghost" style="padding:6px 12px" onclick="shareStaff('${x.id}')">🔗 Share link</button></div></td>`);
   $('#main').innerHTML = `${limBar(acc, 'staff')}<h1>👥 Staff</h1><p class="muted" style="margin-top:-8px">Each person gets their own PIN, so every action is logged under their name and you can see who is fast.</p>
+  ${ACC ? `<div class="card" style="margin:0 0 12px;border-color:var(--accent)"><b>🔑 Access</b><p class="muted" style="margin:4px 0 0;font-size:13px">Tick what each person may open: the waiter / captain screen, the cashier screen, and editing the floor plan from the captain screen. Untick to take it away: that person is signed out of that screen straight away.</p></div>` : ''}
   <div class="row2" style="grid-template-columns:minmax(300px,1.2fr) minmax(260px,1fr);align-items:start">
   <div class="card" style="overflow:auto"><h3>Team</h3>
-   <table><tr><th>Name</th><th>Role</th><th>Phone</th><th>New PIN</th><th>Active</th><th></th></tr>
-   ${d.staff.map((x) => `<tr><td><input value="${App.esc(x.name)}" style="min-width:110px" onchange="stf('${x.id}',{name:this.value})"></td><td><select onchange="stf('${x.id}',{role:this.value})"><option value="captain" ${x.role === 'captain' ? 'selected' : ''}>${roles.captain}</option><option value="kitchen" ${x.role === 'kitchen' ? 'selected' : ''}>${roles.kitchen}</option><option value="cashier" ${x.role === 'cashier' ? 'selected' : ''}>${roles.cashier}</option><option value="driver" ${x.role === 'driver' ? 'selected' : ''}>${roles.driver}</option></select></td>
-    <td>${x.role === 'driver' ? `<input type="tel" placeholder="Phone" style="width:130px" value="${App.esc(x.phone || '')}" onchange="stf('${x.id}',{phone:this.value})">` : ''}</td>
+   <table><tr><th>Name</th><th>Role</th>${ACC ? '<th>Access</th>' : ''}<th>Phone</th><th>New PIN</th><th>Active</th><th></th></tr>
+   ${d.staff.map((x) => `<tr><td><input value="${App.esc(x.name)}" style="min-width:110px" onchange="stf('${x.id}',{name:this.value})"></td><td><select onchange="stf('${x.id}',{role:this.value})"><option value="captain" ${x.role === 'captain' ? 'selected' : ''}>${roles.captain}</option><option value="kitchen" ${x.role === 'kitchen' ? 'selected' : ''}>${roles.kitchen}</option><option value="cashier" ${x.role === 'cashier' ? 'selected' : ''}>${roles.cashier}</option><option value="driver" ${x.role === 'driver' ? 'selected' : ''}>${roles.driver}</option></select></td>${ACC ? accCell(x) : ''}
+    <td>${x.role === 'driver' || ACC ? `<input type="tel" placeholder="Phone" style="width:130px" value="${App.esc(x.phone || '')}" onchange="stf('${x.id}',{phone:this.value})">` : ''}</td>
     <td><input placeholder="••••••" inputmode="numeric" maxlength="10" style="width:110px" onchange="if(this.value)stf('${x.id}',{pin:this.value}).then(()=>this.value='')">${!x.pl || x.pl < 6 ? '<div title="PINs are now 6 to 10 digits. Set a new one." style="color:#d9822b;font-size:11.5px;margin-top:3px">⚠ short PIN, reset it</div>' : ''}</td><td><input type="checkbox" style="width:22px;height:22px" ${x.active === false ? '' : 'checked'} onchange="stf('${x.id}',{active:this.checked})"></td><td><button class="ghost" onclick="if(confirm('Remove ${App.esc(x.name)}?'))api('DELETE','/api/staff/${x.id}').then(()=>{cfgKey='';render(App.state,true)})">🗑</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">No staff accounts yet - add the first one below.</td></tr>'}</table>
    <h3 style="margin-top:18px">Add a team member</h3><div class="row wrap"><input id="sn" placeholder="Name" style="max-width:170px"><select id="sr" style="max-width:190px"><option value="captain">${roles.captain}</option><option value="kitchen">${roles.kitchen}</option><option value="cashier">${roles.cashier}</option><option value="driver">${roles.driver}</option></select><input id="sph" type="tel" placeholder="Phone (drivers)" style="max-width:140px"><input id="sp" placeholder="PIN (6-10 digits)" inputmode="numeric" maxlength="10" style="max-width:150px"><button class="ghost" onclick="$('#sp').value=String(Math.floor(100000+Math.random()*900000))">🎲</button><button class="primary" onclick="addStaff()">Add</button></div>
    <p class="muted" style="font-size:12.5px;margin-top:12px">Captains sign in at <b>/captain</b>, kitchen staff at <b>/kitchen</b>, cashiers at <b>/cashier</b>, delivery drivers at <b>/driver</b>. <label class="row" style="gap:6px;margin:8px 0"><input type="checkbox" style="width:auto" ${d.legacyOff ? 'checked' : ''} onchange="api('POST','/api/legacy-pin',{off:this.checked}).then(staffTab)"> <b>Turn the old shared PIN off</b> (recommended: with a shared PIN, everyone who uses it is counted as one person in the reports)</label>The old shared PIN (${App.esc(d.legacyPin)}) still works as "Captain" - change it under Theme & settings or stop using it once everyone has their own.</p></div>
@@ -1178,7 +1183,7 @@ async function screensCard(staff) {
    <div class="row wrap" style="margin-top:12px"><select id="scr_r" style="max-width:150px" onchange="scrFill()">${Object.entries(R).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select><select id="scr_s" style="max-width:200px"></select><input id="scr_n" placeholder="Screen name (e.g. Kitchen TV)" maxlength="40" style="max-width:220px"><button class="primary" onclick="scrAdd()">Create link</button></div>`;
   scrFill();
 }
-function scrFill() { const r = $('#scr_r').value; $('#scr_s').innerHTML = '<option value="">Sign in as the screen itself</option>' + SCR.staff.filter((x) => x.active !== false && (r === 'kitchen' || x.role === r)).map((x) => `<option value="${x.id}">${App.esc(x.name)} (${x.role})</option>`).join(''); }
+function scrFill() { const r = $('#scr_r').value; $('#scr_s').innerHTML = '<option value="">Sign in as the screen itself</option>' + SCR.staff.filter((x) => x.active !== false && (r === 'kitchen' || (App.config.settings.staffAccess ? (x.access || { captain: x.role === 'captain', cashier: x.role === 'cashier' })[r] : x.role === r))).map((x) => `<option value="${x.id}">${App.esc(x.name)} (${x.role})</option>`).join(''); }
 async function scrAdd() { const r = await api('POST', '/api/screens', { role: $('#scr_r').value, staffId: $('#scr_s').value, name: $('#scr_n').value }); if (r.error) return App.toast(r.error); App.toast('Link created'); screensCard(); }
 async function shiftsCard() {
   const j = await api('GET', '/api/shifts'); if (j.error || !$('#shifts')) return;
@@ -1186,6 +1191,36 @@ async function shiftsCard() {
   $('#shifts').innerHTML = `<h3>💵 Cashier shifts</h3>${j.cur ? `<div class="card" style="margin:8px 0"><b>🟢 Open now</b> · ${App.esc(j.cur.by)} · since ${t(j.cur.openedAt)}<br>Sales ${m(j.cur.total)} (${j.cur.sales}) · Cash in drawer should be <b>${m(j.cur.expected)}</b></div>` : '<p class="muted">No shift is open.</p>'}<table><tr><th>Shift</th><th>By</th><th>Sales</th><th>Expected</th><th>Counted</th><th>Variance</th></tr>${(j.list || []).map((z) => `<tr><td>${t(z.openedAt)}</td><td>${App.esc(z.by)}</td><td>${m(z.total)}</td><td>${m(z.expected)}</td><td>${m(z.counted)}</td><td style="color:${z.variance ? 'var(--bad)' : 'var(--ok)'};font-weight:700">${z.variance > 0 ? '+' : ''}${m(z.variance)}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Closed shifts and cash variances appear here.</td></tr>'}</table>`;
 }
 async function stf(id, body) { const r = await api('PUT', '/api/staff/' + id, body); App.toast(r.error || 'Saved'); return r; }
+// 🔗 Share a private sign-in link with one person, one link per screen they may open (cafés with per-person access).
+// It reuses the screen links below: opening it once on their phone keeps them signed in as themselves, no PIN. Removing their access stops the link too.
+const SHR = { captain: ['🧑‍✈️', 'Waiter / Captain', 'شاشة الويتر / الكابتن', '/captain'], cashier: ['💵', 'Cashier', 'شاشة الكاشير', '/cashier'], kitchen: ['🍳', 'Kitchen', 'شاشة المطبخ', '/kitchen'] };
+function shrRoles(x) { const a = x.access || { captain: x.role === 'captain', cashier: x.role === 'cashier' }; return [a.captain && 'captain', a.cashier && 'cashier', x.role === 'kitchen' && 'kitchen'].filter(Boolean); }
+async function shareStaff(id) {
+  const x = (SCR.staff || []).find((s) => s.id === id); if (!x) return;
+  const j = await api('GET', '/api/screens'); if (j.error) return App.toast(j.error);
+  const mine = (j.screens || []).filter((s) => s.staffId === id), roles = shrRoles(x);
+  const old = document.getElementById('shrdlg'); if (old) old.remove();
+  const d = document.createElement('div'); d.id = 'shrdlg'; d.style.cssText = 'position:fixed;inset:0;background:#000a;z-index:60;overflow:auto;padding:20px;display:grid;place-items:center';
+  d.onclick = (e) => { if (e.target === d) d.remove(); };
+  d.innerHTML = `<div class="card" style="width:min(520px,94vw);margin:0"><div class="spread"><h3 style="margin:0">🔗 Share a link with ${App.esc(x.name)}</h3><button class="ghost" onclick="document.getElementById('shrdlg').remove()">✕</button></div>
+   <p class="muted" style="font-size:13px">Send it to ${App.esc(x.name)} only. They open it once on their phone and stay signed in as themselves, with no PIN. If you take away their access, the link stops working.</p>
+   ${roles.length ? roles.map((r) => { const s = mine.find((m) => m.role === r), [i, en] = SHR[r]; return `<div class="card" style="margin:8px 0;background:var(--card2)"><div class="spread"><b>${i} ${en}</b><span class="muted" style="font-size:12px">${s ? (s.lastSeen ? 'opened ' + App.ago(s.lastSeen) + ' ago' : 'link made, not opened yet') : 'no link yet'}</span></div>
+     <div class="row wrap" style="gap:6px;margin-top:8px"><button class="primary" onclick="shrSend('${id}','${r}')">📤 Share</button><button class="ghost" onclick="shrSend('${id}','${r}','wa')">🟢 WhatsApp</button><button class="ghost" onclick="shrSend('${id}','${r}','copy')">📋 Copy link</button>${s ? `<button class="ghost" onclick="if(confirm('Stop this link? That phone is signed out.'))api('DELETE','/api/screens/${s.id}').then(()=>{App.toast('Link stopped');shareStaff('${id}');screensCard()})">⛔ Stop link</button>` : ''}</div></div>`; }).join('')
+     : `<p>${App.esc(x.name)} has no screen to open yet. Tick <b>Waiter / Captain</b> or <b>Cashier</b> first.</p>`}</div>`;
+  document.body.appendChild(d);
+}
+async function shrSend(id, role, how) {
+  const x = (SCR.staff || []).find((s) => s.id === id); if (!x) return;
+  const j = await api('GET', '/api/screens'); let s = (j.screens || []).find((m) => m.staffId === id && m.role === role);
+  if (!s) { s = await api('POST', '/api/screens', { role, staffId: id }); if (s.error) return App.toast(s.error); }
+  const cafe = App.config.settings.name_ar || App.config.settings.name, [, , ar] = SHR[role];
+  const text = `أهلاً ${x.name} 👋\nده رابط ${ar} في ${cafe}. افتحه مرة واحدة على موبايلك وهتفضل مسجّل دخول باسمك من غير رقم سري.\nمتبعتوش لحد تاني.\n`;
+  if (how === 'wa') { const ph = String(x.phone || '').replace(/\D/g, ''); window.open('https://wa.me/' + (ph ? ph.replace(/^0/, '20') : '') + '?text=' + encodeURIComponent(text + s.url), '_blank', 'noopener'); }
+  else if (how !== 'copy' && navigator.share) { try { await navigator.share({ title: cafe, text, url: s.url }); } catch {} }
+  else { try { await navigator.clipboard.writeText(text + s.url); App.toast('Link copied ✓'); } catch { prompt('Copy this link', s.url); } }
+  shareStaff(id); screensCard();
+}
+async function stfAcc(id, key, on) { const r = await api('PUT', '/api/staff/' + id, { access: { [key]: on } }); App.toast(r.error || (on ? 'Access given ✓' : 'Access removed')); staffTab(); }
 async function addStaff() { const r = await api('POST', '/api/staff', { name: $('#sn').value, role: $('#sr').value, pin: $('#sp').value, phone: $('#sph') ? $('#sph').value : '' }); if (r.error) return App.toast(r.error); App.toast('Added ' + r.name); cfgKey = ''; render(App.state, true); }
 
 /* ---------------- Reports ---------------- */
@@ -1518,14 +1553,29 @@ async function saveAcc(b) { const r = await api('POST', '/api/account', b); App.
 function setPal(k, v) { const p = { ...App.config.settings.palette, [k]: v }; api('POST', '/api/settings', { palette: p, theme: 'custom' }); }
 
 /* ---------------- QR codes ---------------- */
+// Two looks: "designed" (glass corners, table badge, captions - drawn by the server as SVG) and the plain classic square
 async function qr() {
   const info = await api('GET', '/api/info'), acc = await api('GET', '/api/account');
-  const base = App.ls('qrbase') || info.base;
-  const T = App.config.tables;
-  $('#main').innerHTML = `${limBar(acc, 'tables')}<h1>🔳 Table QR codes</h1><div class="card noprint spread wrap" style="margin-bottom:14px"><div style="flex:1;min-width:260px"><label class="muted">Public base URL (use your LAN IP so phones can reach it, or your deployed domain)</label><input id="qrbase" value="${App.esc(base)}"></div>
-  <div class="row"><button class="primary" onclick="App.ls('qrbase',$('#qrbase').value);cfgKey='';render(App.state,true)">Apply</button><button class="primary" onclick="window.print()">🖨 Print / Save as PDF</button><button class="ghost" onclick="api('POST','/api/tables')">+ Table</button><button class="ghost" title="Old printed QR codes stop working" onclick="if(confirm('Create brand-new keys for ALL tables? Every printed QR code must then be reprinted.'))api('POST','/api/tables-rekey').then(()=>App.toast('New keys created - reprint your QR codes'))">🔑 New keys</button></div></div>
-  <div class="grid">${T.map(t => `<div class="card qr"><img src="/api/r/${App.slug}/qr/${t.number}.png?base=${encodeURIComponent(base)}&token=${App.tok('admin')}" alt="QR ${t.number}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'muted',style:'padding:30px 10px;text-align:center',textContent:'QR codes are generated by the live server - open /demo for the live showroom'}))"><h3>${App.tr('table')} ${t.number}</h3><div style="font-weight:700">Scan to order · امسح للطلب</div><div class="muted" style="font-size:12px">${App.esc(App.config.settings.name)}</div>
-   <div class="row noprint" style="justify-content:center;margin-top:8px"><a href="/api/r/${App.slug}/qr/${t.number}.png?base=${encodeURIComponent(base)}&token=${App.tok('admin')}" download="table-${t.number}-qr.png"><button class="ghost">⬇ PNG</button></a><a href="/r/${App.slug}/t/${t.number}?k=${t.key || ''}" target="_blank"><button class="ghost">Open</button></a><button class="ghost" onclick="if(confirm('Remove table ${t.number}?'))api('DELETE','/api/tables/${t.id}')">🗑</button></div></div>`).join('')}</div>`;
+  const base = App.ls('qrbase') || info.base, E = App.esc;
+  const style = App.ls('qrstyle') || 'designed', top = App.ls('qrtop') ?? 'SCAN TO ORDER', bottom = App.ls('qrbottom') ?? 'TABLE {n} · VIEW MENU';
+  const T = App.config.tables, q = 'base=' + encodeURIComponent(base) + '&token=' + App.tok('admin');
+  const src = (t) => style === 'designed' ? '/api/r/' + App.slug + '/qr/' + t.number + '.svg?' + q + '&top=' + encodeURIComponent(top) + '&bottom=' + encodeURIComponent(bottom) : '/api/r/' + App.slug + '/qr/' + t.number + '.png?' + q;
+  $('#main').innerHTML = `${limBar(acc, 'tables')}<h1>🔳 Table QR codes</h1><div class="card noprint spread wrap" style="margin-bottom:14px"><div style="flex:1;min-width:260px"><label class="muted">Public base URL (use your LAN IP so phones can reach it, or your deployed domain)</label><input id="qrbase" value="${E(base)}"></div>
+  <div class="row"><button class="primary" onclick="App.ls('qrbase',$('#qrbase').value);cfgKey='';render(App.state,true)">Apply</button><button class="primary" onclick="window.print()">🖨 Print / Save as PDF</button><button class="ghost" onclick="api('POST','/api/tables')">+ Table</button><button class="ghost" title="Old printed QR codes stop working" onclick="if(confirm('Create brand-new keys for ALL tables? Every printed QR code must then be reprinted.'))api('POST','/api/tables-rekey').then(()=>App.toast('New keys created - reprint your QR codes'))">🔑 New keys</button></div>
+  <div class="row wrap" style="gap:10px;width:100%;margin-top:10px;align-items:flex-end"><div><label class="muted">QR design</label><select id="qrstyle" onchange="App.ls('qrstyle',this.value);qr()"><option value="designed" ${style === 'designed' ? 'selected' : ''}>🍽️ Restaurant design</option><option value="classic" ${style === 'classic' ? 'selected' : ''}>▪ Classic square</option></select></div>
+  ${style === 'designed' ? `<div style="flex:1;min-width:180px"><label class="muted">Text above</label><input id="qrtop" maxlength="40" value="${E(top)}"></div><div style="flex:1;min-width:180px"><label class="muted">Text below ({n} = table number)</label><input id="qrbottom" maxlength="40" value="${E(bottom)}"></div><button class="ghost" onclick="App.ls('qrtop',$('#qrtop').value);App.ls('qrbottom',$('#qrbottom').value);qr()">Update text</button>` : ''}</div></div>
+  <div class="grid">${T.map(t => `<div class="card qr${style === 'designed' ? ' qrd' : ''}"><img src="${src(t)}" alt="QR ${t.number}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'muted',style:'padding:30px 10px;text-align:center',textContent:'QR codes are generated by the live server - open /demo for the live showroom'}))"><h3>${App.tr('table')} ${t.number}</h3>${style === 'designed' ? '' : '<div style="font-weight:700">Scan to order · امسح للطلب</div>'}<div class="muted" style="font-size:12px">${E(App.config.settings.name)}</div>
+   <div class="row noprint" style="justify-content:center;margin-top:8px">${style === 'designed' ? `<button class="ghost" onclick="qrPng(this.closest('.qr').querySelector('img').src,${t.number})">⬇ PNG</button><a href="${src(t)}" download="table-${t.number}-qr.svg"><button class="ghost">⬇ SVG</button></a>` : `<a href="${src(t)}" download="table-${t.number}-qr.png"><button class="ghost">⬇ PNG</button></a>`}<a href="/r/${App.slug}/t/${t.number}?k=${t.key || ''}" target="_blank"><button class="ghost">Open</button></a><button class="ghost" onclick="if(confirm('Remove table ${t.number}?'))api('DELETE','/api/tables/${t.id}')">🗑</button></div></div>`).join('')}</div>`;
+}
+// designed QR is SVG: draw it on a canvas at print size and save as PNG
+async function qrPng(url, n) {
+  try {
+    const svg = await (await fetch(url)).text(), img = new Image(), blobUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+    await new Promise((ok, no) => { img.onload = ok; img.onerror = no; img.src = blobUrl; });
+    const w = 1600, h = Math.round(w * img.naturalHeight / img.naturalWidth), c = Object.assign(document.createElement('canvas'), { width: w, height: h }), x = c.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(img, 0, 0, w, h); URL.revokeObjectURL(blobUrl);
+    Object.assign(document.createElement('a'), { href: c.toDataURL('image/png'), download: 'table-' + n + '-qr.png' }).click();
+  } catch (e) { App.toast('Could not make the PNG - try the SVG download'); }
 }
 
 /* ---------------- Analytics ---------------- */

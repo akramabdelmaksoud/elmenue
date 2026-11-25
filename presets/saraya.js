@@ -1,159 +1,122 @@
-// Showroom for Egypt: "Saraya Cafe" (السرايا كافيه), Nasr City, Cairo. Menu read from the café's printed menu; EGP, Egyptian Arabic. Used by /p/saraya.
+// السرايا (El Saraya): an Egyptian ahwa (قهوة بلدي). Tea, Turkish coffee, herbs, juices, shisha and snacks.
+// Its own look: white / black / orange, the name in gold Ruqaa calligraphy, and a "ولعة" (fresh coals for the shisha) button for guests.
+// Three switches below are only set by this preset, so no other café changes:
+//   staffAccess - the owner turns each person's access to the waiter/captain screen, the cashier screen and floor-plan editing on or off
+//   fireBtn     - guests can ask for a ولعة from the table; the captain sees it as a 🔥 request
+//   nameFont    - the café name is written in a Google font, in gold
 const F = require('../features');
-const IMG = '/demo/saraya/';
-const categories = [
-  { id: "hot", name: "السخن", name_ar: "السخن", emoji: "☕", station: 'bar' },
-  { id: "herb", name: "الأعشاب", name_ar: "الأعشاب", emoji: "🌿", station: 'bar' },
-  { id: "juice", name: "العصائر", name_ar: "العصائر", emoji: "🍹", station: 'bar' },
-  { id: "sweet", name: "الحلو", name_ar: "الحلو", emoji: "🍨", station: 'bar' },
-  { id: "can", name: "كانز", name_ar: "كانز", emoji: "🥤", station: 'bar' },
-];
-const extra = { id: 'extra', name: 'Extras', name_ar: 'إضافات', type: 'many', max: 3, choices: ['عسل نحل', 'صوص', 'مكسرات', 'مناديل', 'قرنفل', 'موز', 'بلح'].map((n, i) => ({ id: 'x' + i, name: n, name_ar: n, price: 10 })) };
-const PICKS = ['كابتشينو', 'سوبر السرايا', 'أم علي بالقشطة', 'ميلك شيك لوتس'];   // a family counts as featured when one of its types is listed here
-// [cat, name, price, emoji, note]
-const R = [
-  ["hot", "شاي", 20, "🍵", ""],
-  ["hot", "شاي أخضر", 25, "🍵", ""],
-  ["hot", "شاي بحليب", 45, "🍵", ""],
-  ["hot", "شاي براد سنجل", 30, "🍵", ""],
-  ["hot", "براد سنجل بالقرنفل", 40, "☕", ""],
-  ["hot", "براد شاي 4 أفراد", 90, "🍵", ""],
-  ["hot", "شاي براد دبل", 50, "🍵", ""],
-  ["hot", "قهوة تركي", 30, "☕", ""],
-  ["hot", "قهوة تركي دبل", 50, "☕", ""],
-  ["hot", "قهوة فرنساوي", 40, "☕", ""],
-  ["hot", "قهوة فرنساوي دبل", 75, "☕", ""],
-  ["hot", "كوفي ميكس سادة", 35, "☕", ""],
-  ["hot", "كوفي ميكس بحليب", 50, "☕", ""],
-  ["hot", "قهوة بندق", 50, "☕", ""],
-  ["hot", "قهوة بندق دبل", 85, "☕", ""],
-  ["hot", "نسكافيه بلاك", 35, "☕", ""],
-  ["hot", "نسكافيه بحليب", 55, "☕", ""],
-  ["hot", "كابتشينو", 55, "☕", ""],
-  ["herb", "حلبة", 25, "🌿", ""],
-  ["herb", "حلبة بحليب", 50, "🌿", ""],
-  ["herb", "جنزبيل", 40, "🌿", ""],
-  ["herb", "جنزبيل بحليب", 55, "🌿", ""],
-  ["herb", "قرفة", 40, "🌿", ""],
-  ["herb", "قرفة بحليب", 55, "🌿", ""],
-  ["herb", "ينسون", 25, "🌿", ""],
-  ["herb", "كركديه", 25, "🌿", ""],
-  ["herb", "ليمون سخن", 30, "🌿", ""],
-  ["herb", "كوكتيل أعشاب", 45, "🌿", ""],
-  ["herb", "هوت سيدر", 60, "🥛", ""],
-  ["herb", "حمص الشام", 55, "🥛", ""],
-  ["herb", "سحلب مكسرات", 60, "🥛", ""],
-  ["herb", "سحلب شوكولاتة", 65, "🥛", ""],
-  ["herb", "سحلب أوريو", 70, "🥛", ""],
-  ["herb", "سحلب فواكة", 75, "🥛", ""],
-  ["herb", "كاكاو", 55, "🥛", ""],
-  ["juice", "عناب", 35, "🍹", ""],
-  ["juice", "ليمون", 35, "🍋", ""],
-  ["juice", "ليمون بحليب أو نعناع", 40, "🍋", ""],
-  ["juice", "مانجو", 60, "🥭", ""],
-  ["juice", "فراولة", 60, "🍓", ""],
-  ["juice", "جوافة", 60, "🍈", ""],
-  ["juice", "برتقال", 60, "🍊", ""],
-  ["juice", "موز بحليب", 65, "🍌", ""],
-  ["juice", "بلح بحليب", 70, "🍹", ""],
-  ["juice", "كنتالوب بحليب", 65, "🍹", ""],
-  ["juice", "أفوكادو", 85, "🥑", ""],
-  ["juice", "أفوكادو مكسرات", 90, "🥑", ""],
-  ["juice", "رمان", 60, "🍎", ""],
-  ["juice", "ميلك شيك", 65, "🥤", ""],
-  ["juice", "ميلك شيك لوتس", 80, "🥤", ""],
-  ["juice", "أوريو", 75, "🥤", ""],
-  ["juice", "تويكس أو هوهو", 75, "🥤", ""],
-  ["juice", "كوكتيل عصير", 75, "🍹", ""],
-  ["juice", "كوكتيل قطع بالأيس", 85, "🍹", ""],
-  ["juice", "سوبر السرايا", 75, "🍹", "مانجو وأيس كريم فانيليا"],
-  ["juice", "مانجو خوخ", 70, "🥭", ""],
-  ["juice", "كيوي", 75, "🥝", ""],
-  ["juice", "كيوي مانجو", 75, "🥭", ""],
-  ["juice", "كيوي حليب", 70, "🥝", ""],
-  ["juice", "زبادي", 70, "🍧", ""],
-  ["juice", "زبادي خوخ", 75, "🍧", ""],
-  ["juice", "زبادي فواكة", 80, "🍧", ""],
-  ["juice", "زبادي فواكة قطع", 95, "🍧", ""],
-  ["juice", "زبادي بلو بيري", 70, "🍧", ""],
-  ["juice", "زبادي فواكة أيس", 100, "🍧", ""],
-  ["juice", "برتقال بالجزر أو بالأناناس", 70, "🍊", ""],
-  ["juice", "مشروب طاقة", 90, "⚡", ""],
-  ["sweet", "2 بولة أيس", 40, "🍨", ""],
-  ["sweet", "3 بولة أيس", 55, "🍨", ""],
-  ["sweet", "فروت سلات", 90, "🍓", ""],
-  ["sweet", "فروت سلات أيس", 100, "🍓", ""],
-  ["sweet", "فروت سلات قنبلة", 120, "🍓", ""],
-  ["sweet", "بليلة بالحليب", 60, "🍚", ""],
-  ["sweet", "أم علي سادة", 60, "🍮", ""],
-  ["sweet", "أم علي بالقشطة", 70, "🍮", ""],
-  ["sweet", "أم علي أيس كريم", 70, "🍮", ""],
-  ["sweet", "أم علي أيس وفواكة", 90, "🍮", ""],
-  ["sweet", "أرز باللبن", 50, "🍚", ""],
-  ["sweet", "أرز باللبن أيس", 60, "🍚", ""],
-  ["sweet", "أرز باللبن بالقشطة", 60, "🍚", ""],
-  ["sweet", "أرز باللبن أيس وفواكة", 80, "🍚", ""],
-  ["can", "مياه معدنية صغيرة", 12, "💧", ""],
-  ["can", "كانز", 35, "🥫", ""],
-  ["can", "ريد بول", 70, "⚡", ""],
-];
-// One card per drink family ("Tea"), the variants (green tea, tea with milk, ...) become a REQUIRED "Type" choice with their own prices.
-// Card price = the cheapest variant; each choice adds the difference, so the sheet total is always the real menu price.
-const FAMILIES = [
-  ['hot', 'شاي', 'Tea', '🍵', ['شاي', 'شاي أخضر', 'شاي بحليب', 'شاي براد سنجل', 'براد سنجل بالقرنفل', 'شاي براد دبل', 'براد شاي 4 أفراد']],
-  ['hot', 'قهوة تركي', 'Turkish coffee', '☕', ['قهوة تركي', 'قهوة تركي دبل']],
-  ['hot', 'قهوة فرنساوي', 'French coffee', '☕', ['قهوة فرنساوي', 'قهوة فرنساوي دبل']],
-  ['hot', 'كوفي ميكس', 'Coffee mix', '☕', ['كوفي ميكس سادة', 'كوفي ميكس بحليب']],
-  ['hot', 'قهوة بندق', 'Hazelnut coffee', '☕', ['قهوة بندق', 'قهوة بندق دبل']],
-  ['hot', 'نسكافيه', 'Nescafe', '☕', ['نسكافيه بلاك', 'نسكافيه بحليب']],
-  ['herb', 'حلبة', 'Fenugreek', '🌿', ['حلبة', 'حلبة بحليب']],
-  ['herb', 'جنزبيل', 'Ginger', '🌿', ['جنزبيل', 'جنزبيل بحليب']],
-  ['herb', 'قرفة', 'Cinnamon', '🌿', ['قرفة', 'قرفة بحليب']],
-  ['herb', 'سحلب', 'Sahlab', '🥛', ['سحلب مكسرات', 'سحلب شوكولاتة', 'سحلب أوريو', 'سحلب فواكة']],
-  ['juice', 'أفوكادو', 'Avocado', '🥑', ['أفوكادو', 'أفوكادو مكسرات']],
-  ['juice', 'زبادي', 'Yogurt', '🍧', ['زبادي فواكة', 'زبادي فواكة قطع', 'زبادي بلو بيري', 'زبادي فواكة أيس']],
-  ['sweet', 'أم علي', 'Umm Ali', '🍮', ['أم علي سادة', 'أم علي بالقشطة', 'أم علي أيس كريم', 'أم علي أيس وفواكة']],
-  ['sweet', 'أرز باللبن', 'Rice pudding', '🍚', ['أرز باللبن', 'أرز باللبن أيس', 'أرز باللبن بالقشطة', 'أرز باللبن أيس وفواكة']],
-  ['sweet', 'فروت سلات', 'Fruit salad', '🍓', ['فروت سلات', 'فروت سلات أيس', 'فروت سلات قنبلة']],
-  ['sweet', 'بولة أيس كريم', 'Ice cream scoops', '🍨', ['2 بولة أيس', '3 بولة أيس']],
-];
-const items = []; const doneFam = new Set();
-R.forEach((r) => {
-  const fam = FAMILIES.find((f) => f[0] === r[0] && f[4].includes(r[1]));
-  const withExtra = ['hot', 'herb', 'juice'].includes(r[0]);
-  if (!fam) { items.push({ id: 'i' + (items.length + 1), cat: r[0], name: r[1], name_ar: r[1], price: r[2], cost: Math.round(r[2] * 0.3), emoji: r[3], desc: r[4], prep: r[0] === 'can' ? 1 : 4, featured: PICKS.includes(r[1]), ...(withExtra ? { options: [extra] } : {}) }); return; }
-  if (doneFam.has(fam)) return; doneFam.add(fam);
-  const rows = fam[4].map((n) => R.find((x) => x[0] === r[0] && x[1] === n)).filter(Boolean), min = Math.min(...rows.map((x) => x[2]));
-  const type = { id: 'type', name: 'Type', name_ar: 'النوع', type: 'one', required: true, max: 1, choices: rows.map((x, k) => ({ id: 'v' + (k + 1), name: x[1] + ' · ' + x[2] + ' EGP', name_ar: x[1] + ' · ' + x[2] + ' ج', price: x[2] - min })) };
-  items.push({ id: 'i' + (items.length + 1), cat: r[0], name: fam[2], name_ar: fam[1], price: min, cost: Math.round(min * 0.3), emoji: fam[3], desc: 'Pick the type: starts from ' + min + ' EGP', desc_ar: 'اختار النوع · يبدأ من ' + min + ' ج', prep: 4, featured: rows.some((x) => PICKS.includes(x[1])), options: withExtra ? [type, extra] : [type] });
-});
-// Real photos (openly licensed, credits in /demo/photos/CREDITS.md). First matching rule wins; some are the closest available look, not the exact dish.
 const { pick } = require('./photos');
+const IMG = '/demo/saraya/';
 const PHOTO = [
-  [/^شاي أخضر/, 'greentea'], [/^شاي/, 'tea'], [/قهوة تركي/, 'turkish'], [/فرنساوي/, 'frenchcoffee'], [/كوفي ميكس|نسكافيه/, 'nescafe'], [/بندق/, 'hazelnut'], [/كابتشينو/, 'cappuccino'],
-  [/حلبة/, 'herbal'], [/جنزبيل/, 'ginger'], [/قرفة/, 'cinnamon'], [/ينسون/, 'anise'], [/كركديه/, 'hibiscus'], [/ليمون سخن/, 'lemonmint'], [/كوكتيل أعشاب/, 'herbal'],
-  [/هوت سيدر/, 'cider'], [/حمص الشام/, 'cinnmilk'], [/سحلب/, 'sahlab'], [/كاكاو/, 'hotchoc'], [/عناب/, 'jujube'],
-  [/ليمون بحليب|ليمون/, 'lemonade'], [/مانجو خوخ/, 'peach'], [/كيوي/, 'kiwi'], [/مانجو/, 'mango'], [/فراولة/, 'strawberry'], [/جوافة/, 'guava'], [/برتقال بالجزر/, 'carrotjuice'], [/برتقال/, 'orange'],
-  [/موز/, 'strawmilk'], [/بلح/, 'datelatte'], [/كنتالوب/, 'peach'], [/أفوكادو/, 'avocado'], [/رمان/, 'pomegranate'],
-  [/أوريو/, 'shakeoreo'], [/لوتس|تويكس/, 'shakechoc'], [/ميلك شيك/, 'shakevanilla'], [/كوكتيل/, 'mocktail'], [/سوبر السرايا/, 'cocomango'], [/طاقة/, 'redbull'],
-  [/زبادي/, 'yogurt'], [/بولة/, 'icecream'], [/فروت سلات/, 'fruitsalad'], [/بليلة|أرز/, 'muhallabia'], [/أم علي/, 'ummali'],
-  [/ريد بول/, 'redbull'], [/مياه/, 'water'], [/كانز/, 'softdrink'],
+  [/^Mint Tea|^Tea/, 'tea'], [/^Green Tea/, 'greentea'], [/^Turkish|^Double Turkish/, 'turkish'], [/^French Coffee/, 'frenchcoffee'], [/^Nescafe/, 'nescafe'],
+  [/^Cappuccino/, 'cappuccino'], [/^Espresso/, 'espresso'], [/^Sahlab/, 'sahlab'], [/^Hot Cocoa/, 'hotchoc'], [/^Cinnamon with Milk/, 'cinnmilk'],
+  [/^Anise|^Hot Hibiscus|^Fenugreek|^Cinnamon|^Ginger|^Mixed Herbs/, 'herbal'], [/^Lemon Mint/, 'lemonmint'], [/^Lemon/, 'lemonade'], [/^Orange/, 'orange'],
+  [/^Mango/, 'mango'], [/^Guava/, 'guava'], [/^Strawberry/, 'strawberry'], [/^Iced Hibiscus|^Tamarind/, 'pinksoda'], [/^Soft Drink/, 'cola'], [/^Red Bull/, 'redbull'], [/^Water/, 'water'],
 ];
-items.forEach((i) => { i.img = pick(PHOTO, i.name_ar || i.name, ''); });
+
+const categories = [
+  { id: 'c1', name: 'Tea', name_ar: 'الشاي', emoji: '🫖', station: 'bar' },
+  { id: 'c2', name: 'Coffee', name_ar: 'القهوة', emoji: '☕', station: 'bar' },
+  { id: 'c3', name: 'Herbs & Hot Drinks', name_ar: 'أعشاب ومشروبات سخنة', emoji: '🌿', station: 'bar' },
+  { id: 'c4', name: 'Cold Drinks & Juices', name_ar: 'عصاير وساقع', emoji: '🍋', station: 'bar' },
+  { id: 'c5', name: 'Shisha', name_ar: 'الشيشة', emoji: '💨', station: 'bar' },
+  { id: 'c6', name: 'Snacks', name_ar: 'تسالي', emoji: '🥜', station: 'bar' },
+];
+
+// ---- option groups ----
+const ch = (list) => list.map((c, i) => { const [name, price = 0, name_ar] = c; return { id: 'c' + i, name, ...(name_ar ? { name_ar } : {}), price }; });
+const one = (id, name, name_ar, list, required, defIdx) => ({ id, name, name_ar, type: 'one', required: !!required, choices: ch(list).map((c, i) => (i === defIdx ? { ...c, def: true } : c)) });
+const many = (id, name, name_ar, list, max) => ({ id, name, name_ar, type: 'many', max: max || 3, choices: ch(list) });
+const sugar = one('sugar', 'Sugar', 'السكر', [['No sugar', 0, 'سادة'], ['A little', 0, 'ع الريحة'], ['Medium', 0, 'مظبوط'], ['Sweet', 0, 'زيادة']], true, 2);
+const teaKind = one('kind', 'Tea', 'نوع الشاي', [['Loose leaf (koshary)', 0, 'كشري'], ['Tea bag', 0, 'فتلة'], ['Kettle tea (kanaka)', 5, 'شاي كنكة']], true, 0);
+const coffeeExtra = many('add', 'Additions', 'إضافات', [['Extra shot', 10, 'وش زيادة'], ['Mastic', 5, 'مستكة'], ['Cardamom', 5, 'حبهان']], 2);
+const shishaAdd = many('add', 'Extras', 'إضافات', [['Extra head', 30, 'حجر زيادة'], ['Ice hose', 15, 'لي تلج'], ['Milk in the base', 10, 'لبن في القزازة']], 3);
+
+// [cat, name, name_ar, price, emoji, prep minutes, featured, options[]]
+const R = [
+  ['c1', 'Tea', 'شاي', 15, '🫖', 3, 1, [teaKind, sugar]],
+  ['c1', 'Mint Tea', 'شاي بالنعناع', 18, '🌿', 3, 1, [teaKind, sugar]],
+  ['c1', 'Tea with Milk', 'شاي بلبن', 25, '🥛', 4, 0, [sugar]],
+  ['c1', 'Green Tea', 'شاي أخضر', 20, '🍵', 3, 0, [sugar]],
+  ['c2', 'Turkish Coffee', 'قهوة تركي', 25, '☕', 5, 1, [sugar, coffeeExtra]],
+  ['c2', 'Double Turkish Coffee', 'قهوة تركي دبل', 35, '☕', 5, 0, [sugar, coffeeExtra]],
+  ['c2', 'French Coffee', 'قهوة فرنساوي', 35, '☕', 5, 0, [sugar]],
+  ['c2', 'Nescafe', 'نسكافيه', 30, '☕', 3, 0, [one('mk', 'Black or milk', 'سادة ولا بلبن', [['Black', 0, 'سادة'], ['With milk', 5, 'بلبن']], true, 0), sugar]],
+  ['c2', 'Espresso', 'إسبريسو', 30, '☕', 3, 0, []],
+  ['c2', 'Cappuccino', 'كابتشينو', 40, '☕', 4, 0, [sugar]],
+  ['c3', 'Anise', 'ينسون', 15, '🌿', 4, 0, [sugar]],
+  ['c3', 'Hot Hibiscus', 'كركديه سخن', 15, '🌺', 4, 0, [sugar]],
+  ['c3', 'Fenugreek', 'حلبة', 15, '🌾', 4, 0, [sugar]],
+  ['c3', 'Cinnamon', 'قرفة', 15, '🌰', 4, 0, [sugar]],
+  ['c3', 'Cinnamon with Milk', 'قرفة بلبن', 25, '🥛', 4, 0, [sugar]],
+  ['c3', 'Ginger', 'جنزبيل', 20, '🫚', 4, 0, [sugar]],
+  ['c3', 'Mixed Herbs', 'أعشاب مشكلة', 20, '🌿', 4, 0, [sugar]],
+  ['c3', 'Sahlab', 'سحلب', 35, '🥣', 6, 1, [many('top', 'Toppings', 'على الوش', [['Nuts', 10, 'مكسرات'], ['Coconut', 5, 'جوز هند'], ['Raisins', 5, 'زبيب']], 3)]],
+  ['c3', 'Hot Cocoa', 'كاكاو بلبن', 30, '🍫', 4, 0, []],
+  ['c3', 'Hummus el Sham', 'حمص الشام', 25, '🌶️', 5, 0, [one('hot', 'Spicy', 'الشطة', [['Normal', 0, 'عادي'], ['Spicy', 0, 'بالشطة']], true, 0)]],
+  ['c4', 'Lemon', 'ليمون', 25, '🍋', 3, 0, []],
+  ['c4', 'Lemon Mint', 'ليمون نعناع', 30, '🍋', 3, 1, []],
+  ['c4', 'Orange Juice', 'برتقال', 35, '🍊', 3, 0, []],
+  ['c4', 'Mango Juice', 'مانجو', 45, '🥭', 3, 0, []],
+  ['c4', 'Guava Juice', 'جوافة', 35, '🍐', 3, 0, []],
+  ['c4', 'Strawberry Juice', 'فراولة', 40, '🍓', 3, 0, []],
+  ['c4', 'Iced Hibiscus', 'كركديه ساقع', 20, '🌺', 2, 0, []],
+  ['c4', 'Tamarind', 'تمر هندي', 20, '🥤', 2, 0, []],
+  ['c4', 'Licorice', 'عرقسوس', 20, '🥤', 2, 0, []],
+  ['c4', 'Sobia', 'سوبيا', 25, '🥛', 2, 0, []],
+  ['c4', 'Soft Drink', 'حاجة ساقعة', 20, '🥤', 1, 0, [one('k', 'Which one', 'نوعها', [['Pepsi', 0, 'بيبسي'], ['7up', 0, 'سفن أب'], ['Mirinda', 0, 'ميرندا'], ['Schweppes', 0, 'شويبس']], true, 0)]],
+  ['c4', 'Red Bull', 'ريدبول', 70, '⚡', 1, 0, []],
+  ['c4', 'Water', 'مياه', 10, '💧', 1, 0, [one('sz', 'Size', 'الحجم', [['Small', 0, 'صغيرة'], ['Large', 5, 'كبيرة']], true, 0)]],
+  ['c5', 'Shisha Moassel', 'شيشة معسل', 40, '💨', 5, 1, [shishaAdd]],
+  ['c5', 'Shisha Moassel Qass', 'شيشة معسل قص', 45, '💨', 5, 0, [shishaAdd]],
+  ['c5', 'Double Apple Shisha', 'شيشة تفاحتين', 60, '🍏', 5, 1, [shishaAdd]],
+  ['c5', 'Mint Shisha', 'شيشة نعناع', 60, '🌿', 5, 0, [shishaAdd]],
+  ['c5', 'Grape Mint Shisha', 'شيشة عنب نعناع', 60, '🍇', 5, 0, [shishaAdd]],
+  ['c5', 'Watermelon Mint Shisha', 'شيشة بطيخ نعناع', 60, '🍉', 5, 0, [shishaAdd]],
+  ['c5', 'Lemon Mint Shisha', 'شيشة ليمون نعناع', 60, '🍋', 5, 0, [shishaAdd]],
+  ['c5', 'Cantaloupe Shisha', 'شيشة كانتلوب', 60, '🍈', 5, 0, [shishaAdd]],
+  ['c5', 'Mastic Shisha', 'شيشة مستكة', 60, '💨', 5, 0, [shishaAdd]],
+  ['c5', 'Mixed Fruit Shisha', 'شيشة فواكه مشكلة', 70, '🍓', 5, 0, [shishaAdd]],
+  ['c6', 'Lupini', 'ترمس', 15, '🫘', 1, 0, []],
+  ['c6', 'Peanuts', 'سوداني', 20, '🥜', 1, 0, []],
+  ['c6', 'Seeds', 'لب', 20, '🌻', 1, 0, [one('k', 'Kind', 'النوع', [['Sunflower', 0, 'لب سوري'], ['Watermelon', 0, 'لب أبيض'], ['Mixed', 5, 'مشكل']], true, 0)]],
+  ['c6', 'Popcorn', 'فشار', 20, '🍿', 2, 0, []],
+  ['c6', 'Biscuits', 'بسكويت', 15, '🍪', 1, 0, []],
+];
+
+const items = R.map((r, i) => ({
+  id: 'i' + (i + 1), cat: r[0], name: r[1], name_ar: r[2], price: r[3], cost: Math.round(r[3] * 0.3), emoji: r[4], desc: '', prep: r[5], featured: !!r[6],
+  img: pick(PHOTO, r[1], ''),
+  ...(r[7].length ? { options: r[7] } : {}),
+}));
+
+// Floor: small round ahwa tables inside, a row out on the sidewalk, the counter (النصبة) in the corner. The owner or a trusted captain can rearrange it any time.
+const IN = [0.5, 4.5, 8.5, 12.5, 16.5], OUT = [0.5, 4.5, 8.5, 12.5, 16.5, 20.5];
+const tables = [
+  ...[0.5, 4.5].flatMap((fy) => IN.map((fx) => ({ fx, fy, zone: 'جوه' }))),
+  ...OUT.map((fx) => ({ fx, fy: 11.5, zone: 'الرصيف' })),
+].map((p, i) => ({ id: 't' + (i + 1), number: i + 1, ...p, fw: 3, fh: 3, shape: 'round', seats: 4 }));
+const floor = { cols: 24, rows: 16, decor: [
+  { id: 'd1', type: 'bar', fx: 20, fy: 0, fw: 4, fh: 8, label: 'النصبة' },
+  { id: 'd2', type: 'wall', fx: 0, fy: 9, fw: 9, fh: 1, label: '' }, { id: 'd3', type: 'door', fx: 9, fy: 8.5, fw: 3, fh: 2, label: 'الباب' },
+  { id: 'd4', type: 'wall', fx: 12, fy: 9, fw: 8, fh: 1, label: '' }, { id: 'd5', type: 'plant', fx: 21, fy: 8.5, fw: 2, fh: 2, label: '' },
+] };
+
 const settings = {
-  name: 'Saraya Cafe', name_ar: 'السرايا كافيه', tagline: 'Tea, coffee and fresh juices in Nasr City', tagline_ar: 'شاي وقهوة وعصائر طازة في مدينة نصر',
-  tagline_sub: 'Order from your phone and call the captain with one tap.', tagline_sub_ar: 'اطلب من موبايلك ونادي الكابتن بضغطة واحدة.',
-  logo: IMG + 'logo.jpeg', theme: 'custom', palette: { accent: '#ff7a2f', accent2: '#ffbe5c', bg: '#1a0f0a', card: '#2a170e', text: '#fff4e6' },
-  demoBrand: { g: '#ff7a2f', bg: '#1a0f0a', text: '#fff4e6', muted: '#c9ab92', line: '#4a2d1c' },
-  currency: 'EGP', tax: 0, service: 0, lang: 'ar', langs: ['ar', 'en'], dialect: 'egypt',
-  menuLayout: 'cards', heroImg: '', kitchenStations: 1, games: true, shisha: true, wifi: 'Saraya_Guest', wifiPass: 'saraya2026', requireKey: false, drops: true,
-  online: F.onlineCfg({ online: { enabled: true, pickup: true, delivery: false } }),
+  name: 'El Saraya', name_ar: 'السرايا', lang: 'ar', tagline: 'Tea, coffee and shisha, the way it should be', tagline_ar: 'شاي وقهوة وشيشة، زي ما لازم تكون',
+  tagline_sub: 'Order from your table, and ask for a fresh fire for your shisha with one tap.', tagline_sub_ar: 'اطلب من على ترابيزتك، ولو عايز ولعة دوس على الزرار وهتوصلك.',
+  logo: IMG + 'logo.svg', theme: 'custom',
+  palette: { accent: '#f26b0f', accent2: '#c9a227', bg: '#ffffff', card: '#f6f4f1', text: '#111111' },
+  paletteDark: { accent: '#ff7a1a', accent2: '#d4af37', bg: '#0b0b0b', card: '#181818', text: '#f5f5f5' },
+  nameFont: { family: 'Aref Ruqaa', weight: 700 },
+  demoBrand: { g: '#111111', bg: '#ffffff', text: '#111111', muted: '#6b6b6b', line: '#ece6dc' },
+  staffAccess: true, fireBtn: true,
+  menuLayout: 'list', heroImg: '', kitchenStations: 2, tax: 0, service: 0, wifi: 'ElSaraya', wifiPass: 'saraya2026',
+  online: F.onlineCfg({ online: { enabled: false } }),
+  floor,
   promos: [
-    { title: 'Saraya Super', title_ar: 'سوبر السرايا', text: 'Mango with vanilla ice cream, our house favourite.', text_ar: 'مانجو بأيس كريم فانيليا، المشروب المميز عندنا.' },
-    { title: 'Umm Ali with cream', title_ar: 'أم علي بالقشطة', text: 'Hot, creamy and baked to order.', text_ar: 'سخنة وبالقشطة وطالعة من الفرن.' },
-    { title: 'Add honey, nuts or banana', title_ar: 'زوّد مشروبك', text: 'Any extra on your drink is just 10 EGP.', text_ar: 'أي إضافة على مشروبك بـ 10 جنيه بس.' },
-    { title: 'Join our loyalty card', title_ar: 'سجّل في كارت الولاء', text: 'Every 10 EGP = 1 point.', text_ar: 'كل 10 جنيه = نقطة، وتستبدلها في حسابك.' },
+    { title: 'Fresh fire, any time', title_ar: 'الولعة عندنا ببلاش', text: 'Tap the 🔥 button and we bring fresh coals to your shisha.', text_ar: 'دوس على زرار 🔥 ولعة وهنغيرلك الفحم على طول.' },
+    { title: 'Join our loyalty card', title_ar: 'اعمل كارت الولاء', text: 'Every 10 EGP you spend = 1 point.', text_ar: 'كل 10 جنيه = نقطة، واستخدم نقطك في الحساب.' },
   ],
-  loyalty: { enabled: true, egpPerPoint: 10, pointsPerRedeem: 100, redeemValue: 25 },
 };
-module.exports = { categories, items, settings };
+module.exports = { categories, items, settings, tables };
